@@ -2,19 +2,20 @@
 
 - **Date:** 2026-10-03
 - **Companion to:** [`docs/superpowers/specs/2026-10-03-motel-management-design.md`](superpowers/specs/2026-10-03-motel-management-design.md)
-- **Purpose:** handoff document for UI design in Stitch. Field names, statuses, and amounts
+- **Purpose:** frontend design and implementation handoff. Field names, statuses, and amounts
   here match the design spec exactly — if the two disagree, the design spec wins.
 
 ## Targets
 
 | Surface | Viewport | Layout |
 |---------|----------|--------|
-| Manager app | Desktop-first, `1280px+`, usable down to `768px` | Fixed sidebar + content |
+| Manager app | Phone-first for on-site work; responsive through desktop | Compact mobile navigation; persistent sidebar only when viewport supports it |
 | Renter portal | Mobile-first, `375px–430px`, centred, max `480px` on desktop | Single column, sticky header |
 | Meter capture PWA | Mobile-only, `360px–430px`, installed to home screen | Full-screen, one-handed, no chrome |
 
 Locale `vi-VN`. Currency VND, formatted `3.500.000 ₫` (dot thousands separator, no
-decimals). Dates `DD/MM/YYYY`.
+decimals). Dates `DD/MM/YYYY`. Support narrow viewports from `360px`; never require horizontal
+page scrolling. Tables must reflow into readable rows or focused detail editors on phones.
 
 ---
 
@@ -22,16 +23,19 @@ decimals). Dates `DD/MM/YYYY`.
 
 ### Colour
 
+Use semantic tokens throughout; no per-screen hex values. Status must never rely on colour
+alone. Normal text needs `4.5:1` contrast; focus indicators and control boundaries need `3:1`.
+
 | Token | Light value | Use |
 |-------|-------------|-----|
-| `primary` | `#0284C7` | Primary actions, active nav, links |
-| `primary-strong` | `#0369A1` | Primary hover/pressed |
-| `success` / `success-bg` | `#16A34A` / `#DCFCE7` | Paid status, resolved tickets |
-| `warning` / `warning-bg` | `#D97706` / `#FEF3C7` | Draft period, unpaid invoice, expiring contract |
-| `danger` / `danger-bg` | `#DC2626` / `#FEE2E2` | Overdue, destructive actions, validation errors |
+| `primary` | `#0369A1` | Primary actions, active nav, links; use white text |
+| `primary-strong` | `#075985` | Primary hover/pressed; use white text |
+| `success` / `success-bg` | `#15803D` / `#DCFCE7` | Paid status, resolved tickets; dark text on pale background |
+| `warning` / `warning-bg` | `#A16207` / `#FEF3C7` | Draft period, unpaid invoice, expiring contract; dark text on pale background |
+| `danger` / `danger-bg` | `#B91C1C` / `#FEE2E2` | Overdue, destructive actions, validation errors; dark text on pale background |
 | `text` | `#0F172A` | Headings |
 | `text-body` | `#334155` | Body copy |
-| `text-muted` | `#64748B` | Labels, helper text |
+| `text-muted` | `#475569` | Labels, helper text |
 | `border` | `#E2E8F0` | Dividers, card borders, inputs |
 | `surface` | `#FFFFFF` | Cards |
 | `canvas` | `#F8FAFC` | Page background |
@@ -41,15 +45,18 @@ its due window uses `warning`, not `danger`.
 
 ### Typography
 
-Inter. Base `14px`. Page heading `24px/700`. Section heading `18px/600`. Card title
-`16px/600`. Body `14px/400`. Label & table header `12px/600`, uppercase, letter-spacing
-`0.02em`. Numeric columns and all VND amounts use `font-variant-numeric: tabular-nums` so
-digits align down a column.
+Use Be Vietnam Pro for headings and Noto Sans for body and controls, with sans-serif fallbacks.
+These families support Vietnamese diacritics and operational reading. Body text is at least
+`16px` on mobile and `14px` on wider screens; line-height at least `1.5`. Page heading
+`24px/700`, section heading `18px/600`, item title `16px/600`. Labels and table headers are
+`12px/600`, sentence case, never required to be uppercase. Numeric columns and VND amounts use
+`font-variant-numeric: tabular-nums`.
 
 ### Spacing, radius, elevation
 
-4px base scale. Radius: `8px` inputs/buttons, `12px` cards, `999px` badges. Elevation:
-`shadow-sm` for cards, `shadow-lg` for modals and drawers.
+4px base scale with 8px+ gaps between adjacent touch controls. Minimum control hit area
+`44×44px`. Radius: `8px` inputs/buttons, `12px` cards, `999px` badges. Reserve elevation for
+overlays; use surface contrast and dividers for ordinary content hierarchy.
 
 ### Components
 
@@ -60,8 +67,10 @@ status badge, filter bar, empty state, and a form field with label + inline erro
 
 ## 2. Manager App
 
-Shell: left sidebar `240px`, sticky. Top bar carries the motel selector, notification
-bell, and the manager's account menu.
+Shell: responsive. On wide screens, left sidebar `240px`, sticky. On phones, use compact
+navigation with no more than five primary destinations; expose remaining sections in a clearly
+labelled secondary menu. Top bar carries motel selector, notification inbox, and manager menu.
+Controls must work without hover.
 
 Sidebar items: **Tổng quan**, **Nhà trọ**, **Phòng trọ**, **Khách thuê**, **Tính tiền &
 Hóa đơn**, **Hợp đồng**, **Sự cố & Yêu cầu**, **Cài đặt**.
@@ -71,7 +80,8 @@ selected motel; switching motels reloads the current route against the new id.
 
 ### M1 — Overview `/`
 
-Four stat cards:
+Four summary measures, shown as a compact list or restrained grid rather than interchangeable
+cards:
 
 | Card | Value | Sub-label |
 |------|-------|-----------|
@@ -80,7 +90,8 @@ Four stat cards:
 | Tiền chưa thu | count of unsettled invoices | total VND |
 | Sự cố chưa xử lý | count of `open` + `in_progress` tickets | oldest age in days |
 
-Quick actions: **Chốt số điện/nước**, **Tạo hóa đơn**, **Thêm khách thuê**.
+Quick actions: **Chốt số điện/nước**, **Tạo hóa đơn**, **Thêm khách thuê**. Keep the next
+operational action prominent on mobile without hiding alerts or unpaid balance.
 
 Two widgets below: *Hóa đơn chưa thanh toán* (top overdue invoices, each with a **Gửi
 lại Zalo** action) and *Sự cố mới* (latest tickets with room, category, snippet,
@@ -116,7 +127,7 @@ payment status, and **Tạo magic link / Gửi Zalo**.
 Header: `Tháng MM/YYYY`, `Giá điện 3.500 ₫/kWh`, `Giá nước 25.000 ₫/m³`, period status
 badge.
 
-Batch-entry table, one row per room:
+Batch-entry table on wider screens, one row per room. On phones, edit one room at a time:
 
 `Phòng | Khách | Điện cũ | Điện mới (input) | kWh | Nước cũ | Nước mới (input) | m³ | Phí khác | Tổng tiền`
 
@@ -135,7 +146,8 @@ Table: Mã HĐ, Phòng, Khách, Tổng tiền, Trạng thái (`Chưa thanh toán
 **Gửi lại Zalo**, copy magic link.
 
 Confirming payment asks for confirmation, stamps `paidAt`, and fires the Zalo payment
-notification. A failed notification surfaces an amber inline notice with **Gửi lại**.
+notification. A failed notification surfaces an inline warning with **Gửi lại**. This records
+the manager's manual confirmation; it does not verify a bank transfer automatically.
 
 ### M7 — Hợp đồng `/contracts`
 
@@ -156,9 +168,10 @@ Board columns `Chờ tiếp nhận` (`open`), `Đang xử lý` (`in_progress`), 
 (`resolved`). Card: room, category chip (Điện / Nước / Cơ sở vật chất / Khác), description
 snippet, thumbnail, relative time.
 
-Detail drawer: enlarged photos, full description, **Mở chat Zalo với khách** (copies the
-phone number / opens Zalo), the renter's phone as a copy button, an internal-note
-textarea, and a status dropdown. Resolving stamps `resolvedAt` and notifies the renter.
+Detail drawer: enlarged photos, full description, **Liên hệ qua Zalo** (copies the phone
+number / opens Zalo), the renter's phone as a copy button, an internal-note textarea, and a
+status dropdown. The note is manager-only and must never appear in renter responses. Resolving
+stamps `resolvedAt` and notifies the renter.
 
 There is no chat UI in this product. The drawer must not imply one exists.
 
@@ -168,8 +181,9 @@ There is no chat UI in this product. The drawer must not imply one exists.
   invoice can generate a QR payload.
 - **Đơn giá & phí:** electricity per kWh, water per m³, and the editable `otherFees` list
   (name + amount).
-- **Tích hợp Zalo:** OA id, secret key, access token, and the ZNS template id fields,
-  each with a "chưa cấu hình" state while the env value is still a placeholder.
+- **Tích hợp Zalo:** read-only connection/configuration status and ZNS template readiness.
+  Secrets and template IDs are environment-managed, not editable or returned by the API; show
+  only configured / missing status. Provide no secret fields or secret values in the UI.
 
 ### M5a — Meter Capture (PWA)
 
@@ -199,16 +213,24 @@ Sync-state chip, always visible, never a bare spinner:
 | Queued, flushing | `Đang gửi 2/3` |
 | Conflict present | `1 phòng cần kiểm tra` (danger) |
 
+Sync state and progress must include text, not colour alone. Offline saves immediately confirm
+that the entry is stored on this device and waiting to sync.
+
 **`/capture/[periodId]/room/[readingId]`** — single room entry, full screen:
 
 - Room name as the title, large
 - `Điện cũ` — large, read-only, greyed
-- `Điện mới` — large numeric input, autofocus, `inputmode="numeric"`
+- `Điện mới` — large numeric input, `inputmode="decimal"` (meter readings allow two decimal
+  places); autofocus only when advancing to the next room, not when returning to an error
 - Computed cost live beneath, tabular numerals: `150 kWh × 3.500 ₫ = 525.000 ₫`
 - The same two fields for water
 - Camera button per meter type, thumbnail once captured, retake available
 - Primary button **Lưu & tiếp tục** — saves locally and advances to the next unentered room
 - One secondary link, **Quay lại danh sách**. No other navigation
+
+Inputs have persistent visible labels and validation beside the affected reading, associated
+with that field for assistive technology. Camera controls have accessible names; provide a
+non-camera path to enter readings. Saving gives immediate feedback.
 
 Validation: `currentReading < previousReading` blocks the save and states both numbers.
 Consumption above 500 kWh or 30 m³ shows an amber `Số liệu bất thường — kiểm tra lại`
@@ -239,9 +261,10 @@ Current-invoice card:
 
 - `Hóa đơn Tháng MM/YYYY`
 - Total, large, tabular numerals
-- Due date `Hạn chót: DD/MM/YYYY`
 - Status badge: `Chưa thanh toán` (warning), `Đã thanh toán` (success), `Quá hạn` (danger)
-- Primary CTA **Thanh toán bằng VietQR** → invoice detail
+- Primary CTA **Xem mã VietQR** → invoice detail
+
+Invoices have no due-date field; do not display or imply one.
 
 When there is no invoice for the current period, the card is replaced by a neutral
 "Hóa đơn tháng này chưa được phát hành" state.
@@ -258,11 +281,11 @@ Itemised breakdown, each line showing its derivation so the renter can check the
 
 ```
 Tiền phòng            3.000.000 ₫
-Tiền điện   (1450 − 1300) × 150 kWh × 3.500 ₫   525.000 ₫
+Tiền điện   (1450 − 1300) = 150 kWh × 3.500 ₫   525.000 ₫
 Tiền nước   (82 − 76) = 6 m³ × 25.000 ₫          150.000 ₫
 Phí dịch vụ  Rác 50.000 ₫ · Internet 100.000 ₫ · Xe 25.000 ₫   175.000 ₫
 ─────────────────────────────────────────────
-TỔNG CỘNG                                    3.850.000 ₫
+Tổng cộng                                    3.850.000 ₫
 ```
 
 Below the breakdown, an **Ảnh chụp đồng hồ** block shows the meter photo the manager
@@ -294,9 +317,10 @@ opens the same detail view as R2.
 Summary (rent, deposit, term, room) then clauses as an accordion.
 
 - **Signed:** a confirmation block with `otpSignedAt` and the signing phone number.
-- **Draft, unsigned:** CTA **Xác nhận & Ký hợp đồng** → modal stating the renter is
-  agreeing to the clauses, then a 6-box OTP input. Resend is disabled for 5 minutes.
-  Wrong or expired OTP shows an inline error and keeps the modal open.
+- **Draft, unsigned:** CTA **Xác nhận & ký hợp đồng** → clear confirmation of the clauses
+  and renter consent, then OTP entry. OTP may be visually grouped but must accept paste and
+  assistive-technology input; do not require manually focused one-digit boxes. Resend is
+  disabled for 5 minutes. Wrong or expired OTP shows an inline error and keeps the form open.
 - **Terminated/expired:** read-only with an explanatory banner.
 
 ### R5 — Yêu cầu hỗ trợ `/portal/tickets`
@@ -320,10 +344,14 @@ line "Chủ nhà trọ sẽ phản hồi qua Zalo" — the app promises Zalo, no
 Empty, loading skeleton, and error states are designed for each list and detail screen —
 not left to implementation. Empty copy names the next action ("Chưa có hóa đơn — bấm
 **Tạo hóa đơn** để bắt đầu"). Long Vietnamese room and renter names truncate to one line
-with the full value in a tooltip; money never truncates or wraps.
+with the full value available to keyboard and touch users, not tooltip-only; money never
+truncates or wraps. Mutations show pending feedback and a clear success or actionable error.
 
 ## 5. Accessibility
 
-Keyboard reachable throughout, visible focus rings, `aria-label` on icon-only actions,
-form fields wired to their labels and error text via `aria-describedby`, and status
-badges carrying text rather than relying on colour alone.
+Keyboard reachable throughout, visible focus rings that sticky UI does not obscure, accessible
+names and state for icon-only actions, form fields wired to visible labels and error text via
+`aria-describedby`, and status badges carrying text rather than relying on colour alone. Keep
+normal text contrast at least `4.5:1`, support reduced motion, and allow browser zoom and text
+enlargement without clipping or horizontal page scroll. Provide clear pressed, disabled,
+loading, success, and error states; no action may rely on hover alone.
