@@ -3,6 +3,7 @@ import { parseEnv } from "@/env";
 
 const valid = {
   DATABASE_URL: "postgres://u:p@localhost:5432/motel",
+  TEST_DATABASE_URL: "postgres://u:p@localhost:5432/motel_test",
   MANAGER_JWT_SECRET: "a".repeat(48),
   RENTER_SESSION_SECRET: "b".repeat(48),
   R2_ACCOUNT_ID: "acct",
@@ -22,6 +23,16 @@ describe("parseEnv", () => {
   test("throws when DATABASE_URL is missing", () => {
     const { DATABASE_URL, ...rest } = valid;
     expect(() => parseEnv(rest)).toThrow(/DATABASE_URL/);
+  });
+
+  test("throws when TEST_DATABASE_URL is missing", () => {
+    const { TEST_DATABASE_URL, ...rest } = valid;
+    expect(() => parseEnv(rest)).toThrow(/TEST_DATABASE_URL/);
+  });
+
+  test("keeps the test database separate from the application database", () => {
+    const env = parseEnv(valid);
+    expect(env.testDatabaseUrl).not.toBe(env.databaseUrl);
   });
 
   test("throws when a JWT secret is shorter than 32 characters", () => {

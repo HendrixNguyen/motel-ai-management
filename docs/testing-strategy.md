@@ -58,9 +58,15 @@ Integration tests run against a real PostgreSQL database, not a mock — a mock 
 a `CHECK` constraint, so it cannot test the thing most likely to break.
 
 - URL comes from `TEST_DATABASE_URL` in `backend/.env.example`
-- the schema is dropped and recreated before each test, so tests never depend on each other's
-  leftovers
-- `resetDb()` truncates all tables in one statement, using `TEST_DATABASE_URL` only
+- `db/index.ts` points the pool at `TEST_DATABASE_URL` whenever `NODE_ENV=test`, which is
+  what `bun test` sets. There is no second client export, so an integration test cannot
+  reach the application database even by mistake
+- `resetDb()` drops both the `public` and `drizzle` schemas, re-applies every migration,
+  then truncates all tables in one statement. Re-applying matters: a test always runs
+  against the current migration set, so a constraint added since the last run is enforced
+  rather than silently absent
+- `resetDb()` throws unless the pool is pointed at `TEST_DATABASE_URL`. It destroys a
+  schema, and a real database must not be reachable from it
 
 Never point `TEST_DATABASE_URL` at a database holding data you care about. The test suite
 destroys the schema it is given.

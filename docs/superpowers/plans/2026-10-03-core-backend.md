@@ -71,7 +71,7 @@ backend/
       index.ts                 postgres-js pool + drizzle client
       migrate.ts               runs migrations programmatically
       schemas.ts               re-exports every module's tables (re-export only)
-      test-db.ts               per-test-file schema reset
+      test-db.ts               resetDb(): rebuild the test schema from migrations
     middleware/
       error-handler.ts         AppError → error envelope
       manager-auth.ts          requires manager JWT
@@ -90,12 +90,12 @@ backend/
       ticket/     ticket.schema.ts
       zalo/       (schema lands with sub-project 8 — do not create the directory)
     test/
-      helpers.ts
       manager-auth.test.ts
       renter-auth.test.ts
       tenancy.test.ts
       money.test.ts
       phone.test.ts
+      env.test.ts
       schema-constraints.test.ts
 ```
 
@@ -611,7 +611,8 @@ and sub-projects 2–8.
 **Interfaces:**
 - Consumes: `env.databaseUrl` from Task 2
 - Produces:
-  - `db/index.ts`: `db` — the Drizzle client; `dbType` — the `PostgresJsDatabase` type for tests
+  - `db/index.ts`: `db` — the Drizzle client; `Db` — its inferred type; `isTestRun` and
+    `connectionString` — what `db/test-db.ts` asserts on before destroying anything
   - `db/schemas.ts`: re-exports every table
   - `db/test-db.ts`: `resetDb(): Promise<void>` — truncates all tables, used before each integration test
   - `modules/*/ *.schema.ts`: exported table objects — `managers`, `motels`, `rooms`, `renters`,
@@ -762,32 +763,19 @@ Expected: FAIL — `Cannot find module '@/db'`
 
 - [ ] **Step 3: Add the local test database**
 
-Add a `beforeEach` hook that creates a throwaway database, so a developer's real data is
-never at risk. Append to `backend/src/test/helpers.ts` (create it):
-```ts
-import { beforeEach } from "bun:test";
-import postgres from "postgres";
-import { env } from "@/config";
-
-const adminUrl = env.databaseUrl.replace(/\/[^/?]+(\?|$)/, "/postgres$1");
-
-beforeEach(async () => {
-  const sql = postgres(adminUrl, { max: 1 });
-  await sql.unsafe("DROP SCHEMA public CASCADE; CREATE SCHEMA public;");
-  await sql.end();
-});
-```
-Add to `.env.example`, under Database:
+`TEST_DATABASE_URL` is the URL the pool uses under `bun test`. It is already declared in
+`backend/.env.example`; keep this comment there:
 ```
 # Throwaway database the test suite drops and recreates before each test.
 TEST_DATABASE_URL=postgres://postgres:postgres@localhost:5432/motel_test
 ```
 
-`resetDb()` in `db/test-db.ts` truncates every table in one statement rather than issuing a
-`DELETE` per table:
+`resetDb()` in `db/test-db.ts` rebuilds the schema from the migrations and then truncates:
 ```ts
 import { sql } from "drizzle-orm";
-import { db } from "@/db";
+import { migrate } from "drizzle-orm/postgres-js/migrator";
+import { env } from "@/config";
+import { connectionString, db, isTestRun } from "./index";
 
 const TABLES = [
   "zalo_notifications", "magic_links", "help_tickets", "invoices",
@@ -796,17 +784,24 @@ const TABLES = [
 ];
 
 export async function resetDb() {
-  await db.execute(
-    sql.raw(`TRUNCATE ${TABLES.join(", ")} RESTART IDENTITY CASCADE`),
-  );
+  if (!isTestRun) throw new Error("resetDb() is only available under `bun test`");
+  if (connectionString !== env.testDatabaseUrl)
+    throw new Error("resetDb() refused: the pool is not pointed at TEST_DATABASE_URL");
+
+  await db.execute(sql.raw("DROP SCHEMA IF EXISTS public CASCADE; DROP SCHEMA IF EXISTS drizzle CASCADE; CREATE SCHEMA public;"));
+  await migrate(db, { migrationsFolder });
+  await db.execute(sql.raw(`TRUNCATE ${TABLES.join(", ")} RESTART IDENTITY CASCADE`));
 }
 ```
+`DROP SCHEMA public` alone is not enough: the migrator's bookkeeping table lives in a
+`drizzle` schema, survives the drop, and makes the next `migrate()` apply nothing.
 
 - [ ] **Step 4: Create the module schema files**
 
 One file per module, each owning only its own tables. `backend/src/modules/auth/auth.schema.ts`:
 ```ts
-import { pgTable, text, timestamp, index } from "drizzle-orm/pg-core";
+import { check, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 
 export const managers = pgTable(
   "managers",
@@ -818,11 +813,11 @@ export const managers = pgTable(
     phone: text("phone"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [index("managers_email_idx").on(t.email)],
+  // No separate email index: the UNIQUE constraint already provides that b-tree.
+  (t) => [check("managers_email_lowercase", sql`${t.email} = lower(${t.email})`)],
 );
 ```
-Import `uuid` alongside `pgTable` — the snippet above omits that import line; add
-`uuid` to the existing `drizzle-orm/pg-core` import.
+The original snippet omitted the `uuid` import; import it alongside `pgTable`.
 
 Follow the same shape for the remaining tables, using the exact columns and constraints in
 the spec's Data Model section. Conventions that apply everywhere:
@@ -852,19 +847,6 @@ No logic here. If something needs computing, it belongs in a module.
 
 - [ ] **Step 6: Create `db/index.ts` and `drizzle.config.ts`**
 
-`backend/src/db/index.ts`:
-```ts
-import { drizzle } from "drizzle-orm/postgres-js";
-import postgres from "postgres";
-import { env } from "@/config";
-import * as schemas from "./schemas";
-
-const client = postgres(env.databaseUrl, { max: 10 });
-
-export const db = drizzle(client, { schema: schemas });
-export type Db = typeof db;
-```
-
 `backend/drizzle.config.ts`:
 ```ts
 import { defineConfig } from "drizzle-kit";
@@ -879,6 +861,18 @@ export default defineConfig({
   dbCredentials: { url: process.env.DATABASE_URL },
 });
 ```
+
+`db/index.ts` reads `process.env.NODE_ENV` rather than importing `@/config`'s `Env` twice:
+```ts
+export const isTestRun = process.env.NODE_ENV === "test";
+export const connectionString = isTestRun ? env.testDatabaseUrl : env.databaseUrl;
+const client = postgres(connectionString, { max: 10, onnotice: () => {} });
+export const db = drizzle(client, { schema: schemas });
+export type Db = typeof db;
+```
+`bun test` sets `NODE_ENV=test`. `drizzle.config.ts` reads `process.env.DATABASE_URL` directly
+because drizzle-kit bundles it without the `@/*` alias, so an import of `src/config.ts`
+(which imports `@/shared/errors`) would not resolve.
 
 - [ ] **Step 7: Generate and run migrations**
 
@@ -911,6 +905,45 @@ git add backend/drizzle backend/drizzle.config.ts backend/src/db \
         backend/src/modules backend/src/test backend/.env.example
 git commit -m "feat(backend): full Drizzle schema with database-enforced constraints"
 ```
+
+**Execution notes (ruling after running this task):**
+
+The plan's shape held, with six deliberate deviations. All six are recorded here because a
+plan that cannot be corrected in place stops being the truth.
+
+1. **`src/test/helpers.ts` was not created.** Its planned body — a `beforeEach` that drops the
+   schema — is now what `resetDb()` does, and `schema-constraints.test.ts` already calls
+   `resetDb()` in its own `beforeEach`. Two functions doing one job is the defect, so the
+   redundant one was dropped rather than shipped. Shared factories appear in the first task
+   that needs them, not before.
+2. **`resetDb()` drops, migrates, then truncates.** The plan's version truncated without
+   re-applying migrations, which means a test runs against whatever schema happened to be
+   there. It must also drop the `drizzle` schema: `__drizzle_migrations` survives a
+   `public`-only drop, and leaving it behind makes the migrator skip every migration. The
+   final `TRUNCATE` is retained from the plan.
+3. **`db` resolves its own URL.** The plan's `db/index.ts` hard-coded `env.databaseUrl`, which
+   would have pointed every integration test at the application database. `db/index.ts` uses
+   `env.testDatabaseUrl` when `NODE_ENV=test` and throws from `resetDb()` otherwise, so the
+   destructive path is unreachable outside a test run.
+4. **`expect(db.insert(...)).rejects` does not work under Bun.** Drizzle returns a lazy
+   thenable, not a `Promise`, so Bun's `rejects` matcher rejects the *matcher* rather than
+   the query. Every rejection assertion ends in `.execute()`, which does return a `Promise`.
+   A test that fails for the wrong reason is not a passing test.
+5. **Two CHECK constraints beyond the plan's list**, both encoding a normalisation the spec
+   states in prose: `managers_email_lowercase` and `renters_phone_normalised`. The plan's
+   seven tests were not exhaustive of the constraints the task created, and the testing
+   strategy requires a test per `UNIQUE`/`CHECK`/partial unique index — so the suite is
+   15 tests, covering all 12 of them.
+6. **Table ownership for two tables the plan left unassigned.** `magic_links` belongs to
+   `auth.schema.ts` (it is a credential, created and consumed by the auth service);
+   `zalo_notifications` belongs to `renter.schema.ts` (it is the renter's outbound log). Both
+   are there because the `zalo/` module directory is deliberately deferred to sub-project 8.
+
+Two things were dropped as redundant rather than added as useful: the separate
+`managers_email_idx` index (the `UNIQUE` constraint already provides that b-tree), and any
+`CHECK` on money being non-negative (the spec lists none; `parseVnd` rejects negatives at
+the boundary). Cross-module `REFERENCES` clauses are unavoidable in a relational schema and
+are not the ADR-0004 violation that rule targets — ADR-0004 governs runtime queries, not DDL.
 
 ---
 
