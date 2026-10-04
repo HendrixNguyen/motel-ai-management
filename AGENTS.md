@@ -1,59 +1,129 @@
-# Motel Management Architecture & Conventions
+# Motel Management — Agent Notes
 
-## Architecture
-- Monorepo structure with separated frontend and backend.
-- **Frontend**: `frontend/` (Next.js, React, Tailwind CSS, TypeScript).
-- **Backend**: `backend/` (ElysiaJS, TypeScript).
-- **Runtime & Package Manager**: Bun across the workspace.
+Vietnamese motel (nhà trọ) rental and utility billing. A manager reads two meters per room;
+the system produces itemised invoices; renters get a Zalo message with a link to a mobile
+portal to see the arithmetic, pay by VietQR, sign their contract, and report problems.
+Product context: `README.md`.
+
+## Repo shape
+
+- Two independent Bun packages. **There is no root `package.json` and no workspace file** —
+  run `bun install` inside `backend/` and `frontend/` separately; each has its own
+  `bun.lock`. No root-level `bun install`, `bun test`, or `bun run build` exists.
+- `backend/` — ElysiaJS + Drizzle + PostgreSQL, wired through `src/app.ts` → `src/index.ts`.
+- `frontend/` — Next.js 16.3.8 App Router, still the default scaffold
+  (`src/app/{layout,page}.tsx` only). The manager / renter / capture route groups are
+  specified in `docs/frontend-ui-specs.md` but not implemented yet.
+- Bun only. Never `npm`, `yarn`, or `npx`.
+- Git remote is **SSH**: `git@github.com:HendrixNguyen/motel-ai-management.git`. HTTPS push
+  fails on this machine — there is no working credential prompt path.
+- `.kilo/worktrees/fish-steed` is a stale Agent Manager checkout pinned to an old commit. It
+  is not the working tree; never edit files there.
 
 ## Commands
 
-### Frontend
-- Dev: `cd frontend && bun run dev`
-- Build: `cd frontend && bun run build`
-- Lint: `cd frontend && bun run lint`
+```bash
+# backend
+cd backend
+bun run dev                 # --watch src/index.ts, PORT (default 3000)
+bun run typecheck           # tsc --noEmit
+bun test                    # everything; needs a live PostgreSQL, see below
+bun test src/test/money.test.ts   # one file — the only clean way to isolate from the DB
+bun test -t "test name"           # name filter — still loads every test file
+bun run db:generate && bun run db:migrate
+bun run db:studio
 
-### Backend
-- Dev: `cd backend && bun run dev` (runs `--watch src/index.ts`)
-- Test: `cd backend && bun test`
-- Typecheck: `cd backend && bun run typecheck`
-- Migrations: `cd backend && bun run db:generate` then `bun run db:migrate`
+# frontend
+cd frontend
+bun run dev                 # next dev
+bun run lint                # eslint, silent when clean
+bun run build
+```
+
+`frontend/` has **no test runner**. `docs/testing-strategy.md` defers that choice until the
+first frontend test lands — do not add one silently.
+
+Verify in this order: backend `typecheck` → `test`; frontend `lint` → `build`.
+
+## The local database (this is where the time goes)
+
+- Backend tests hit a **real PostgreSQL**, not a mock: `TEST_DATABASE_URL` from
+  `backend/.env`. `src/db/index.ts` points its only pool at that URL when `NODE_ENV=test`,
+  and there is no second client export, so a test cannot reach the dev database.
+- **`bun test` loads every test file even when all of them are filtered out.** The database
+  is therefore required for *any* `bun test` run, not just integration tests — without it you
+  get `connect ECONNREFUSED 127.0.0.1:5432` plus one bogus failure. Pass an explicit file path
+  (`bun test src/test/money.test.ts`) to run a pure test cleanly.
+- `docker-compose.yml` provides postgres 16 and `scripts/init-db.sql` creates `motel_test`.
+  **Its credentials disagree with `.env.example`**: compose sets `POSTGRES_PASSWORD=password`
+  while `.env.example` uses `postgres:postgres`. Align them or authentication fails.
+  As of 2026-10-04 this machine has neither Docker nor a local PostgreSQL installed.
+- `resetDb()` (`src/db/test-db.ts`) drops the `public` and `drizzle` schemas, re-applies every
+  migration, then truncates a **hardcoded `TABLES` list**. Adding a table means adding it
+  there too, or rows leak between tests. It refuses to run unless the pool is provably on
+  `TEST_DATABASE_URL`.
+- `src/config.ts` parses and freezes the environment **at import time**, and `src/env.ts`
+  throws if a var is missing or a secret is shorter than 32 chars. One missing
+  `backend/.env` entry breaks every test, not just the server.
+- `.env.example` is the only committed env file. Generate secrets with
+  `openssl rand -base64 48`.
+
+## Backend architecture
+
+Modular monolith (ADR-0004). Each domain under `backend/src/modules/<domain>/` owns
+`<domain>.route.ts`, `<domain>.service.ts`, `<domain>.schema.ts`, `<domain>.types.ts`.
+
+- Cross-module calls go through the other module's **exported service functions**, never by
+  importing its tables. No compiler or lint rule enforces this yet.
+- `src/db/schemas.ts` may only **re-export** module tables — drizzle-kit reads it for the
+  full schema. It is not an import target for application code.
+- `src/shared/` is for genuinely cross-cutting code (money, phone, error taxonomy). Domain
+  logic there means the module was never created.
+- `@/*` maps to `src/*` in `tsconfig.json` but **not** in `drizzle.config.ts`: drizzle-kit
+  bundles that file without the alias, so it reads `process.env.DATABASE_URL` and throws when
+  it is missing.
+- `createApp()` returns a fresh Elysia instance; `app` is the one the server listens on.
+  Tests build their own so a throwing route can be registered without a test-only route
+  existing in production code.
+- CORS is deliberately absent, and `frontend/next.config.ts` has no proxy. It arrives with
+  the sub-project that needs it — do not add an untested origin allowlist to make a browser
+  call succeed.
+
+## Conventions that differ from the defaults
+
+- **Money is never a float.** VND crosses HTTP as a JSON string of digits (`"3850000"`) and is
+  computed with `parseVnd` / `sumVnd` / `formatVnd` in `src/shared/money.ts` (BigInt).
+  Storage is `numeric(14,0)` for amounts, `numeric(12,2)` for meter usage.
+- **User-facing text is Vietnamese, codes are English.** `AppError` messages are written for
+  the renter to read. `ErrorCode` is the stable machine identifier, enumerated once in
+  `src/shared/errors.ts`.
+- Error envelope is `{ error, code, details? }`, `details` omitted unless it helps the caller.
+  Unexpected errors are logged and reported as `INTERNAL_ERROR`; a driver message or database
+  URL must never reach a client.
+- Tenant scope always comes from the session; no endpoint accepts a `managerId` from the
+  client. Cross-tenant denial is **404, never 403** — a 403 confirms the resource exists.
+- UUID primary keys, `timestamptz` with `now()` defaults, `snake_case` columns mapped by
+  Drizzle. Backend also sets `noUncheckedIndexedAccess`; both packages are strict TypeScript.
+- Frontend imports use `@/*` → `frontend/src/*`.
+- `docs/superpowers/plans/` holds the current sub-project plan; work proceeds in the eight
+  sub-projects listed in `README.md`, one plan written just before its sub-project is built.
 
 ## Testing
-`docs/testing-strategy.md` is the contract. The short version:
 
-- Tests run against a real PostgreSQL database (`TEST_DATABASE_URL`), not a mock. A mock
-  cannot enforce a `CHECK` constraint, so it cannot test the rule most likely to break.
-- Every `UNIQUE`, `CHECK`, and partial unique index gets a test that tries to violate it.
-- Tenant scoping is tested **over HTTP** with a real session cookie and a real foreign id,
-  in both directions: manager→manager and renter→renter. Cross-tenant denial is `404`,
-  never `403`.
+`docs/testing-strategy.md` is the contract. The parts that bite:
+
+- Every `UNIQUE`, `CHECK`, and partial unique index gets a test that tries to violate it and
+  asserts PostgreSQL refuses. A constraint enforced only in route validation is unenforced.
+- Tenant scoping is tested **over HTTP** through `app.handle(new Request(...))` with a real
+  session cookie and a real foreign id, in both directions.
 - A behaviour change without a test is an unfinished change.
-- A test that cannot fail is worse than no test — delete it.
+- A test that cannot fail is worse than no test — delete it and write a real one.
+- Tests live in `backend/src/test/*.test.ts`.
 
-## Review Agents
-Two read-only reviewers live in `.kilo/agent/`. Run them before merging:
+## Docs are part of the change
 
-| Command | Reviewer | Use for |
-|---------|----------|---------|
-| `/review-security` | `security-reviewer` | anything touching auth, tenancy, uploads, money, webhooks |
-| `/review-code` | `code-reviewer` | module boundaries (ADR-0004), spec conformance, types, tests, doc drift |
-
-Both report findings with `file_path:line_number` and severity. Both treat a missing test as
-a finding. They do not edit files.
-
-## Conventions
-- Use `bun` for all package management and script execution. Do not use npm/yarn.
-- Strict TypeScript in both projects.
-- Frontend uses `@/*` for imports mapped to `src/*`.
-- Backend is a modular monolith: domain modules under `backend/src/modules/` own their
-  routes, service, Drizzle tables, and types. Cross-module calls go through exported
-  service functions, never by importing another module's tables. See
-  `docs/adr/0004-modular-monolith.md`.
-
-## Documentation Rules
-These documents are the project's memory and must stay correct. Code follows them; when a
-change forces a document to change, they change in the same commit.
+These are the project's memory. Code follows them; when a change forces a document to change,
+they change in the same commit.
 
 | Document | Owns |
 |----------|------|
@@ -65,11 +135,36 @@ change forces a document to change, they change in the same commit.
 | `backend/.env.example` | Env var names, with honest placeholders |
 
 - State a fact once, in the document that owns it. Link from the others; do not restate.
-- Changing a table → update the design spec, plus the API contract if the field is exposed
-  over HTTP, plus `.env.example` if it adds a variable.
-- Changing a status, enum, or error code → the design spec, the UI badge table, and the
-  API contract must all agree before the change is complete.
-- No `TBD`, no unfinished sections, no requirement that can be read two ways. Placeholders
-  are allowed only in `.env.example`, where the placeholder is the honest state of a value
-  Zalo or Cloudflare has not issued yet.
+- Changing a table → design spec, plus the API contract if the field is exposed over HTTP,
+  plus `.env.example` if it adds a variable, plus the `TABLES` list in `src/db/test-db.ts`.
+- Changing a status, enum, or error code → the design spec, the UI badge table, the API
+  contract, and `src/shared/errors.ts` must all agree before the change is complete.
+- No `TBD`, no unfinished sections, no requirement that can be read two ways. Placeholders are
+  allowed only in `.env.example`, where the placeholder is the honest state of a value Zalo or
+  Cloudflare has not issued yet.
 - New third-party dependency → new ADR.
+
+## Review before merging
+
+| Command | Agent | Use for |
+|---------|----------|---------|
+| `/review-security` | `security-reviewer` | auth, tenancy, uploads, money, Zalo webhook |
+| `/review-code` | `code-reviewer` | ADR-0004 boundaries, spec conformance, types, tests, doc drift |
+
+Both are read-only, report `file_path:line_number` with severity, and treat a missing test as
+a finding. **Both review uncommitted changes only** (`git diff` plus untracked files), so run
+them before committing or the reviewer sees an empty diff.
+
+## Known state as of 2026-10-04
+
+- `cd backend && bun run typecheck` **fails** on pre-existing uncommitted work: `elysia` is
+  pinned as `"latest"` and resolves to 1.4.30, which has no `.onNotFound()`
+  (`backend/src/app.ts:16`) and types `set.status` as possibly `undefined`, so the narrower
+  `ErrorContext` in `backend/src/middleware/error-handler.ts:5` is not assignable to
+  `.onError()` (`backend/src/app.ts:15`). Do not assume you caused it, and do not downgrade
+  the dependency to hide it.
+- Because dependencies are `"latest"`, a `bun install` can change behaviour under you. Check
+  the installed version before trusting framework behaviour.
+- `frontend/AGENTS.md` is generated by `next dev` (Next 16.3.8 differs from training data).
+  Read the relevant guide in `frontend/node_modules/next/dist/docs/` before writing Next code,
+  and leave that block in the file.
