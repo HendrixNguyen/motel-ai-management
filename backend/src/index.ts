@@ -1,7 +1,6 @@
-import { Elysia } from "elysia";
+import { app } from "@/app";
+import { env } from "@/config";
 
-const app = new Elysia().get("/", () => "Hello Elysia").listen(3000);
+app.listen(env.port);
 
-console.log(
-  `🦊 Elysia is running at ${app.server?.hostname}:${app.server?.port}`
-);
+console.log(`Motel backend listening on http://localhost:${env.port}`);
