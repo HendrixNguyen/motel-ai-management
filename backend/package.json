@@ -1,15 +1,26 @@
 {
   "name": "backend",
   "version": "1.0.50",
+  "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "bun run --watch src/index.ts"
+    "dev": "bun run --watch src/index.ts",
+    "test": "bun test",
+    "start": "bun run src/index.ts",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "elysia": "latest"
+    "@elysiajs/cors": "latest",
+    "@elysiajs/jwt": "latest",
+    "argon2": "latest",
+    "drizzle-orm": "latest",
+    "elysia": "latest",
+    "postgres": "latest"
   },
   "devDependencies": {
-    "bun-types": "latest"
+    "@types/bun": "latest",
+    "bun-types": "latest",
+    "drizzle-kit": "latest",
+    "typescript": "^5"
   },
   "module": "src/index.js"
 }
