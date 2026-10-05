@@ -11,9 +11,10 @@ Product context: `README.md`.
   run `bun install` inside `backend/` and `frontend/` separately; each has its own
   `bun.lock`. No root-level `bun install`, `bun test`, or `bun run build` exists.
 - `backend/` — ElysiaJS + Drizzle + PostgreSQL, wired through `src/app.ts` → `src/index.ts`.
-- `frontend/` — Next.js 16.3.8 App Router, still the default scaffold
-  (`src/app/{layout,page}.tsx` only). The manager / renter / capture route groups are
-  specified in `docs/frontend-ui-specs.md` but not implemented yet.
+- `frontend/` — Next.js 16.3.8 App Router. The root layout and the design tokens in
+  `src/app/globals.css` are in place; there is no `src/app/page.tsx` yet, so `/` is a 404 until
+  a route group claims it. The manager / renter / capture route groups are specified in
+  `docs/frontend-ui-specs.md` but not implemented yet.
 - Bun only. Never `npm`, `yarn`, or `npx`.
 - Git remote is **SSH**: `git@github.com:HendrixNguyen/motel-ai-management.git`. HTTPS push
   fails on this machine — there is no working credential prompt path.
@@ -35,7 +36,7 @@ bun run db:studio
 
 # frontend
 cd frontend
-bun run dev                 # next dev
+bun run dev                 # next dev -p 3001; 3000 is the backend's PORT
 bun run lint                # eslint, silent when clean
 bun run build
 bun run typecheck           # tsc --noEmit      — lands with the frontend test harness
