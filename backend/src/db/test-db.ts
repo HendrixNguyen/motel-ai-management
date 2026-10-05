@@ -1,8 +1,10 @@
 import path from "node:path";
 import { sql } from "drizzle-orm";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
+import { drizzle } from "drizzle-orm/postgres-js";
+import postgres from "postgres";
 import { env } from "@/config";
-import { connectionString, db, isTestRun } from "./index";
+import { connectionString, isTestRun } from "./index";
 
 const migrationsFolder = path.join(import.meta.dir, "../../drizzle");
 
@@ -43,9 +45,20 @@ export async function resetDb(): Promise<void> {
   if (connectionString !== env.testDatabaseUrl)
     throw new Error("resetDb() refused: the pool is not pointed at TEST_DATABASE_URL.");
 
-  await db.execute(
-    sql.raw("DROP SCHEMA IF EXISTS public CASCADE; DROP SCHEMA IF EXISTS drizzle CASCADE; CREATE SCHEMA public; CREATE SCHEMA drizzle;"),
-  );
-  await migrate(db, { migrationsFolder });
-  await db.execute(sql.raw(`TRUNCATE ${TABLES.join(", ")} RESTART IDENTITY CASCADE`));
+  // Use a dedicated single connection for the reset to avoid connection pool issues
+  const client = postgres(env.testDatabaseUrl, { max: 1, onnotice: () => {} });
+  const resetDb = drizzle(client);
+
+  try {
+    await client.unsafe("SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = 'motel_test' AND pid <> pg_backend_pid()");
+    await resetDb.execute(sql.raw("DROP SCHEMA IF EXISTS public CASCADE"));
+    await resetDb.execute(sql.raw("DROP SCHEMA IF EXISTS drizzle CASCADE"));
+    await resetDb.execute(sql.raw("CREATE SCHEMA public"));
+    await resetDb.execute(sql.raw("CREATE SCHEMA drizzle"));
+    await resetDb.execute(sql.raw("SET search_path TO public, drizzle"));
+    await migrate(resetDb, { migrationsFolder });
+    await resetDb.execute(sql.raw(`TRUNCATE ${TABLES.join(", ")} RESTART IDENTITY CASCADE`));
+  } finally {
+    await client.end();
+  }
 }

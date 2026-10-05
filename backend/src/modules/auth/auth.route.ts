@@ -96,8 +96,8 @@ export const authRoutes = new Elysia({ name: "auth-routes" })
       },
       {
         params: t.Object({
-          motelId: t.String(),
-          renterId: t.String(),
+          motelId: t.String({ format: "uuid" }),
+          renterId: t.String({ format: "uuid" }),
         }),
         detail: { security: [{ managerAuth: [] }] },
       },

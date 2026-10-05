@@ -82,20 +82,20 @@ form-level message; it cannot attribute the failure to a field.
 | Method | Path | Notes |
 |--------|------|-------|
 | GET | `/` | All motels owned by the manager |
-| POST | `/` | Create; `409` if `electricityPrice`/`waterPrice` missing |
+| POST | `/` | Create; `400 VALIDATION_ERROR` if `electricityPrice`/`waterPrice` missing |
 | GET | `/:motelId` | `404` if not owned by caller |
 | PATCH | `/:motelId` | Partial update of prices, fees, bank account, address |
-| DELETE | `/:motelId` | Soft-blocked while any room is `occupied`; returns `409` |
+| DELETE | `/:motelId` | `204` if motel has no dependent rows (rooms, renters, etc.); `409 CONFLICT` if any dependent rows exist |
 
 ### Rooms — `/api/manager/motels/:motelId/rooms`
 
 | Method | Path | Notes |
 |--------|------|-------|
-| GET | `/` | Supports `?floor=&status=&search=` |
-| POST | `/` | `409` on duplicate `(motelId, name)` |
-| GET | `/:roomId` | |
-| PATCH | `/:roomId` | Name, floor, `basePrice`, status |
-| DELETE | `/:roomId` | `409` if an active contract exists |
+| GET | `/` | Supports `?floor=&status=&search=`; `basePrice` returned as VND digit string |
+| POST | `/` | `409 CONFLICT` on duplicate `(motelId, name)`; `basePrice` as VND digit string |
+| GET | `/:roomId` | `basePrice` returned as VND digit string |
+| PATCH | `/:roomId` | Partial update of name, floor, `basePrice`, status; `basePrice` as VND digit string |
+| DELETE | `/:roomId` | `409 CONFLICT` if an active contract exists OR any renter is assigned to the room |
 
 ### Renters — `/api/manager/motels/:motelId/renters`
 

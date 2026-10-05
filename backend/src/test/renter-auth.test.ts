@@ -41,7 +41,7 @@ describe("magic links", () => {
     // `/r/<token>` is the only token-bearing route the portal defines. Any other path
     // (it was `/renter/<token>`) 404s on arrival, so every link the manager copies out
     // is dead.
-    expect(url).toBe(`${env.renterPortalUrl}/r/${token}`);
+    expect(url).toBe(`${env.frontendUrl}/r/${token}`);
   });
 
   test("a consumed link cannot be replayed", async () => {
