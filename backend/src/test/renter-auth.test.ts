@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, setDefaultTimeout, test } from "bun:test";
 import { sql } from "drizzle-orm";
+import { env } from "@/config";
 import { db } from "@/db";
 import { resetDb } from "@/db/test-db";
 import { motels } from "@/modules/motel/motel.schema";
@@ -32,6 +33,15 @@ describe("magic links", () => {
     const renter = await seedRenter();
     const { token } = await issueMagicLink(renter.id);
     expect((await consumeMagicLink(token)).id).toBe(renter.id);
+  });
+
+  test("the issued url is the renter portal's /r/[token] landing route", async () => {
+    const renter = await seedRenter();
+    const { token, url } = await issueMagicLink(renter.id);
+    // `/r/<token>` is the only token-bearing route the portal defines. Any other path
+    // (it was `/renter/<token>`) 404s on arrival, so every link the manager copies out
+    // is dead.
+    expect(url).toBe(`${env.renterPortalUrl}/r/${token}`);
   });
 
   test("a consumed link cannot be replayed", async () => {

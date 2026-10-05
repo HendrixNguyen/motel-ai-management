@@ -14,9 +14,14 @@ import { AppError } from "@/shared/errors";
  * so a throwing route can be registered on it without a test-only route existing in
  * production code.
  *
- * CORS is deliberately absent. It only means something once a browser holds a cookie, no
- * frontend exists yet, and an origin allowlist with no test is a security control nobody
- * has verified. It arrives with the sub-project that needs it.
+ * CORS is permissive outside production and `origin: false` in production. The production
+ * setting is the one that governs, and it is the one the frontend relies on: the browser only
+ * ever calls a relative `/api/...`, which `frontend/next.config.ts` rewrites onto this server,
+ * so every real request is same-origin and never preflighted (ADR-0008). The permissive
+ * development branch only stops `next dev` on localhost from being blocked.
+ *
+ * Do not add an origin allowlist to make a browser call succeed. CORS is not an authorisation
+ * control, and the tenant boundary is the session cookie plus `motel-scope`, not a header.
  */
 export function createApp() {
   return new Elysia()

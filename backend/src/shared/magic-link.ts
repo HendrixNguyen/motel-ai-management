@@ -1,5 +1,6 @@
 import { and, eq, sql } from "drizzle-orm";
 import { randomBytes } from "crypto";
+import { env } from "@/config";
 import { db } from "@/db";
 import { magicLinks } from "@/modules/auth/auth.schema";
 import { renters } from "@/modules/renter/renter.schema";
@@ -27,8 +28,9 @@ export async function issueMagicLink(renterId: string): Promise<{ token: string;
     expiresAt,
   });
 
-  const baseUrl = process.env.RENTER_PORTAL_URL ?? "http://localhost:3000";
-  const url = `${baseUrl}/renter/${token}`;
+  // The landing route is `/r/[token]` (frontend-ui-specs.md R0) — the renter portal's only
+  // token-bearing route. A link built for any other path 404s on arrival.
+  const url = `${env.renterPortalUrl}/r/${token}`;
 
   return { token, expiresAt, url };
 }

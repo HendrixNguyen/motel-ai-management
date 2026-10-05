@@ -523,12 +523,12 @@ are user-facing and may be localized later.
 
 | Code | HTTP | Meaning |
 |------|------|---------|
-| `VALIDATION_ERROR` | 400 | Request failed schema validation; `details` lists offending fields |
+| `VALIDATION_ERROR` | 400 | Request failed schema validation. Carries no `details` — see [`docs/api-contract.md`](../../api-contract.md), which owns the envelope |
 | `UNAUTHORIZED` | 401 | Missing or expired credential |
 | `MAGIC_LINK_EXPIRED` | 401 | Magic link past `expiresAt`, or already consumed |
 | `OTP_INVALID` | 401 | Wrong OTP, or the 3-attempt allowance is exhausted |
 | `OTP_EXPIRED` | 401 | OTP past its 5-minute window |
-| `FORBIDDEN` | 403 | Valid credential, wrong tenant or wrong role |
+| `FORBIDDEN` | 403 | Valid credential, wrong role |
 | `NOT_FOUND` | 404 | Row absent, or hidden from this tenant |
 | `CONFLICT` | 409 | Uniqueness or state violation (duplicate period, room already has an active contract) |
 | `READING_CONFLICT` | 409 | A reading write was based on a stale `updatedAt`; `details.server` carries the current row |

@@ -1,7 +1,11 @@
 # API Contract
 
 - **Date:** 2026-10-03
-- **Base URL:** `/api` (configurable via `NEXT_PUBLIC_API_BASE_URL`)
+- **Base URL:** `/api`, always **same-origin**. The browser calls relative `/api/...` and the
+  frontend rewrites it onto the backend (`/api/:path*` → `${BACKEND_URL}/api/:path*`), so a
+  request carries the session cookie without any CORS involvement. `BACKEND_URL` is
+  **server-only** — never `NEXT_PUBLIC_`. See
+  [ADR-0008](adr/0008-frontend-transport-same-origin-proxy.md).
 - **Format:** JSON in, JSON out. Dates `YYYY-MM-DD`. Timestamps ISO-8601 UTC. Money is a
   JSON **string** of VND digits (`"3850000"`) — never a float, never `đ`.
 - **Spec:** [`docs/superpowers/specs/2026-10-03-motel-management-design.md`](superpowers/specs/2026-10-03-motel-management-design.md)
@@ -11,7 +15,7 @@
 | Prefix | Credential | Session |
 |--------|-----------|---------|
 | `/api/manager/*` | Manager JWT | `manager_session` httpOnly cookie |
-| `/api/renter/*` | Renter session | `renter_session` httpOnly cookie, or `?token=` on `/api/auth/magic-link/exchange` only |
+| `/api/renter/*` | Renter session | `renter_session` httpOnly cookie |
 
 Tenant scope is always derived from the session. No endpoint accepts a `managerId` from the
 client. A motel belonging to another manager returns `404`, never `403`.
@@ -25,9 +29,15 @@ client. A motel belonging to another manager returns `404`, never `403`.
 `details` is omitted unless it aids the caller. `error` is user-facing Vietnamese;
 `code` is a stable machine identifier.
 
+**A `VALIDATION_ERROR` carries no `details`.** The router rejects a body that fails its schema
+before any service runs, and the envelope it returns is `{ error, code }` alone — there are no
+field names to map. Only an `AppError` raised by a service may attach `details`, and no
+validation path raises one today. A client therefore renders a `VALIDATION_ERROR` as one
+form-level message; it cannot attribute the failure to a field.
+
 | Code | HTTP | When |
 |------|------|------|
-| `VALIDATION_ERROR` | 400 | Schema validation failed; `details.fields` maps field → message |
+| `VALIDATION_ERROR` | 400 | Schema validation failed. No `details` — see above |
 | `UNAUTHORIZED` | 401 | Missing, malformed, or expired credential |
 | `MAGIC_LINK_EXPIRED` | 401 | Magic link past `expiresAt` or already `consumedAt` |
 | `OTP_INVALID` | 401 | Wrong OTP |
@@ -225,7 +235,8 @@ unknown event types with `200` (Zalo retries on non-2xx).
 
 ## Conventions
 
-- List endpoints return `{items, total, page, pageSize}`; default `pageSize` 50.
+- List endpoints return a **bare JSON array** of rows — no envelope, no `total`, no `page`, and
+  no server-side pagination. A list is bounded by the motel's rooms or renters.
 - `PATCH` endpoints are partial and idempotent.
 - All mutations that trigger a Zalo message do so **after** the transaction commits, and
   write a `zalo_notifications` row regardless of outcome.

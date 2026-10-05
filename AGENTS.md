@@ -38,10 +38,14 @@ cd frontend
 bun run dev                 # next dev
 bun run lint                # eslint, silent when clean
 bun run build
+bun run typecheck           # tsc --noEmit      — lands with the frontend test harness
+bun run test                # vitest            — lands with the frontend test harness
+bun run test:e2e            # playwright        — lands with the frontend test harness
 ```
 
-`frontend/` has **no test runner**. `docs/testing-strategy.md` defers that choice until the
-first frontend test lands — do not add one silently.
+`frontend/` has **no test runner**. `docs/testing-strategy.md` leaves the frontend runner
+undecided; the three commands above are reserved for it and do not exist in
+`frontend/package.json` yet — do not add a runner silently before then.
 
 Verify in this order: backend `typecheck` → `test`; frontend `lint` → `build`.
 
@@ -57,7 +61,16 @@ Verify in this order: backend `typecheck` → `test`; frontend `lint` → `build
 - `docker-compose.yml` provides postgres 16 and `scripts/init-db.sql` creates `motel_test`.
   **Its credentials disagree with `.env.example`**: compose sets `POSTGRES_PASSWORD=password`
   while `.env.example` uses `postgres:postgres`. Align them or authentication fails.
-  As of 2026-10-04 this machine has neither Docker nor a local PostgreSQL installed.
+  A postgres 16 container is running on this machine (`motel-postgres`, reachable on
+  `127.0.0.1:5432`), so backend tests can run — but do not assume it: probe
+  `TEST_DATABASE_URL` first, and report `ECONNREFUSED` as blocked rather than as passing.
+- **One `bun test` at a time.** `resetDb()` drops and recreates the `public` and `drizzle`
+  schemas, so a second run against the same database interleaves `DROP`/`CREATE` with the
+  first. The resulting errors look like real defects but are cross-talk:
+  `duplicate key value violates unique constraint "pg_namespace_nspname_index"` on
+  `CREATE SCHEMA public`, and `schema "drizzle" does not exist` from the migrator. `bun test`
+  with no file argument is also affected, because it runs files in parallel against one
+  database. Pass an explicit file path, and check no other session is testing first.
 - `resetDb()` (`src/db/test-db.ts`) drops the `public` and `drizzle` schemas, re-applies every
   migration, then truncates a **hardcoded `TABLES` list**. Adding a table means adding it
   there too, or rows leak between tests. It refuses to run unless the pool is provably on
@@ -85,8 +98,11 @@ Modular monolith (ADR-0004). Each domain under `backend/src/modules/<domain>/` o
 - `createApp()` returns a fresh Elysia instance; `app` is the one the server listens on.
   Tests build their own so a throwing route can be registered without a test-only route
   existing in production code.
-- CORS is deliberately absent, and `frontend/next.config.ts` has no proxy. It arrives with
-  the sub-project that needs it — do not add an untested origin allowlist to make a browser
+- The browser reaches the backend through a **same-origin rewrite proxy**: `next.config.ts`
+  rewrites `/api/:path*` onto `${BACKEND_URL}/api/:path*` (ADR-0008), so every request carries
+  the host-only `httpOnly` session cookie and production CORS stays `origin: false`. Browser
+  code calls relative `/api/...` and is never given a base URL. `BACKEND_URL` is server-only —
+  do not give it a `NEXT_PUBLIC_` prefix, and do not add an origin allowlist to make a browser
   call succeed.
 
 ## Conventions that differ from the defaults
@@ -132,7 +148,8 @@ they change in the same commit.
 | `docs/frontend-ui-specs.md` | Screens, states, badges, copy |
 | `docs/testing-strategy.md` | What must be tested and at which layer |
 | `docs/adr/` | Decisions that were argued or that add a dependency |
-| `backend/.env.example` | Env var names, with honest placeholders |
+| `backend/.env.example` | Backend env var names, with honest placeholders |
+| `frontend/.env.example` | Frontend env var names, with honest placeholders |
 
 - State a fact once, in the document that owns it. Link from the others; do not restate.
 - Changing a table → design spec, plus the API contract if the field is exposed over HTTP,
@@ -155,14 +172,11 @@ Both are read-only, report `file_path:line_number` with severity, and treat a mi
 a finding. **Both review uncommitted changes only** (`git diff` plus untracked files), so run
 them before committing or the reviewer sees an empty diff.
 
-## Known state as of 2026-10-04
+## Known state as of 2026-10-05
 
-- `cd backend && bun run typecheck` **fails** on pre-existing uncommitted work: `elysia` is
-  pinned as `"latest"` and resolves to 1.4.30, which has no `.onNotFound()`
-  (`backend/src/app.ts:16`) and types `set.status` as possibly `undefined`, so the narrower
-  `ErrorContext` in `backend/src/middleware/error-handler.ts:5` is not assignable to
-  `.onError()` (`backend/src/app.ts:15`). Do not assume you caused it, and do not downgrade
-  the dependency to hide it.
+- `cd backend && bun run typecheck` **passes**. The `.onNotFound()` failure it used to report
+  is gone as of `40355da`; ElysiaJS 1.4 has no `.onNotFound()` at all, so do not reintroduce
+  one, and do not downgrade the dependency to hide a type error.
 - Because dependencies are `"latest"`, a `bun install` can change behaviour under you. Check
   the installed version before trusting framework behaviour.
 - `frontend/AGENTS.md` is generated by `next dev` (Next 16.3.8 differs from training data).

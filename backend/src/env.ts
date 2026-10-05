@@ -14,6 +14,7 @@ export interface Env {
   port: number;
   databaseUrl: string;
   testDatabaseUrl: string;
+  renterPortalUrl: string;
   managerJwtSecret: string;
   renterSessionSecret: string;
   r2: {
@@ -65,6 +66,7 @@ export function parseEnv(input: Record<string, string | undefined>): Env {
     port,
     databaseUrl: required(input, "DATABASE_URL"),
     testDatabaseUrl: required(input, "TEST_DATABASE_URL"),
+    renterPortalUrl: input.RENTER_PORTAL_URL ?? "http://localhost:3000",
     managerJwtSecret: secret(input, "MANAGER_JWT_SECRET"),
     renterSessionSecret: secret(input, "RENTER_SESSION_SECRET"),
     r2: {

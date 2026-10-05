@@ -54,4 +54,11 @@ describe("parseEnv", () => {
     const env = parseEnv({ ...valid, ZNS_TEMPLATE_BILL: "PLACEHOLDER" });
     expect(env.zalo.templates.bill).toBe("PLACEHOLDER");
   });
+
+  test("reads RENTER_PORTAL_URL and defaults it to the frontend dev origin", () => {
+    expect(parseEnv(valid).renterPortalUrl).toBe("http://localhost:3000");
+    expect(parseEnv({ ...valid, RENTER_PORTAL_URL: "https://app.example.com" }).renterPortalUrl).toBe(
+      "https://app.example.com",
+    );
+  });
 });
