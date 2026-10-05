@@ -19,8 +19,8 @@ const ROOM_STATUSES: ReadonlyArray<readonly [RoomStatus, string]> = [
 ];
 
 const RENTER_STATUSES: ReadonlyArray<readonly [RenterStatus, string]> = [
-  ["active", "Đang ở"],
-  ["inactive", "Đã chuyển đi"],
+  ["active", "Đang thuê"],
+  ["inactive", "Đã kết thức hợp đồng"],
 ];
 
 describe("roomStatusLabel", () => {
@@ -43,6 +43,14 @@ describe("renterStatusLabel", () => {
   it("gives the two statuses two different words", () => {
     const labels = RENTER_STATUSES.map(([status]) => renterStatusLabel(status));
     expect(new Set(labels).size).toBe(labels.length);
+  });
+
+  it("does not borrow a room's word for a renter's tenancy", () => {
+    // `renters.roomId` is nullable and `status` defaults to `active`, so an active renter can sit
+    // beside an empty Phòng cell — "Đang ở" there states something false, and it collapses an
+    // occupied room and an active tenancy into one word when the two facts are independent.
+    expect(renterStatusLabel("active")).not.toBe(roomStatusLabel("occupied"));
+    expect(renterStatusLabel("active")).not.toBe(roomStatusLabel("available"));
   });
 });
 

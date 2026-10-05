@@ -22,13 +22,17 @@ const ROOM_STATUS_LABELS: Record<RoomStatus, string> = {
 };
 
 /**
- * A renter row is `active` while the person is still staying, `inactive` once they have left.
- * `Đang ở` is deliberately the same word as an occupied room (M3), so one screen never shows two
- * vocabularies for "still here".
+ * `active` / `inactive` is a fact about the renter's tenancy, not about a room.
+ *
+ * `renters.roomId` is nullable while a renter has not been assigned a room and `status` defaults to
+ * `active`, so the labels must not borrow the room vocabulary: "Đang ở" beside an empty Phòng cell
+ * is false, and it collapses an occupied *room* and an active *tenancy* into one word when the two
+ * are independent. `Đang thuê` / `Đã kết thức hợp đồng` name the tenancy itself — an active renter
+ * whose contract has not started yet is still `Đang thuê`.
  */
 const RENTER_STATUS_LABELS: Record<RenterStatus, string> = {
-  active: "Đang ở",
-  inactive: "Đã chuyển đi",
+  active: "Đang thuê",
+  inactive: "Đã kết thức hợp đồng",
 };
 
 export function roomStatusLabel(status: RoomStatus): string {

@@ -141,8 +141,9 @@ of scope (see spec non-goals).
 
 ### M4 — Khách thuê `/renters`
 
-Table: Họ tên, SĐT, Số CCCD, Phòng, Trạng thái (`Đang ở` / `Đã chuyển đi`), Trạng thái Zalo OA
-(`Đã follow` / `Chưa follow`), Ngày bắt đầu, actions.
+Table: Họ tên, SĐT, Số CCCD, Phòng, Trạng thái (`Đang thuê` / `Đã kết thức hợp đồng`), Trạng thái
+Zalo OA (`Đã follow` / `Chưa follow`), Ngày bắt đầu, actions. Renter status is the tenancy, not
+the room: a renter can be `Đang thuê` with no room assigned.
 
 Renter detail page: personal info with front/back CCCD images (or an "chưa cập nhật"
 placeholder), active contract summary with end date and deposit, invoice history with
@@ -371,9 +372,10 @@ Empty, loading skeleton, and error states are designed for each list and detail 
 not left to implementation. Empty copy names the next action ("Chưa có hóa đơn — bấm
 **Tạo hóa đơn** để bắt đầu"). Long Vietnamese room and renter names truncate to one line
 with the full value available to keyboard and touch users, not tooltip-only; money never
-truncates or wraps — every element holding a formatted amount is `white-space: nowrap` and
-`font-variant-numeric: tabular-nums`. Mutations show pending feedback and a clear success or
-actionable error.
+wraps — any element holding a formatted amount is `white-space: nowrap`, which is what keeps an
+amount from breaking across lines (amounts also carry `tabular-nums`, see Typography); a column
+too narrow for its amounts is a layout bug to fix there, since an amount may never be truncated or
+ellipsised. Mutations show pending feedback and a clear success or actionable error.
 
 ## 5. Accessibility
 

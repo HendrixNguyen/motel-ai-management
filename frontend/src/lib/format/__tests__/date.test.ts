@@ -10,7 +10,22 @@ describe("formatDate", () => {
     expect(formatDate("2026-03-15T02:00:00.000Z")).toBe("15/03/2026");
   });
 
-  it("zero-pads both day and month", () => {
+  it("zero-pads a day and a month that are each one digit", () => {
+    // One fixture with single digits in both positions, so relaxing `2-digit` to `numeric` cannot
+    // pass on a day or a month that happened to land on two digits.
+    expect(formatDate("2026-06-09T02:00:00.000Z")).toBe("09/06/2026");
+  });
+
+  it("reads the same day as its own parts rather than reordering them", () => {
+    // 9 June, not 6 September: if the assembly order drifted to the locale's, or to the order
+    // `formatToParts` happens to emit, both halves of this would still be two digits.
+    expect(formatDate("2026-06-09T02:00:00.000Z").slice(0, 2)).toBe("09");
+    expect(formatDate("2026-06-09T02:00:00.000Z").slice(3, 5)).toBe("06");
+  });
+
+  it("moves an instant late in the UTC day to the next day and pads that one-digit day", () => {
+    // 20:00Z on 5 January is 03:00 on 6 January in Vietnam, so this crosses the date boundary and
+    // lands on a day that needs padding — the two properties in one fixture.
     expect(formatDate("2026-01-05T20:00:00.000Z")).toBe("06/01/2026");
   });
 

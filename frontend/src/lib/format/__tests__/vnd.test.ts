@@ -67,27 +67,47 @@ describe("formatVndPlain", () => {
 });
 
 describe("parseVndDigits", () => {
-  it("strips the dot separators of a grouped amount", () => {
-    expect(parseVndDigits("3.500.000")).toBe("3500000");
-  });
-
-  it("strips spaces, so a pasted grouped amount is accepted", () => {
-    expect(parseVndDigits("3 500 000")).toBe("3500000");
-    expect(parseVndDigits(" 3500000 ")).toBe("3500000");
-  });
-
-  it("passes an already-plain digit string through", () => {
+  it("accepts bare digits", () => {
     expect(parseVndDigits("3500000")).toBe("3500000");
-  });
-
-  it("normalises leading zeros, the way the backend's BigInt gate does", () => {
-    expect(parseVndDigits("007")).toBe("7");
     expect(parseVndDigits("0")).toBe("0");
-    expect(parseVndDigits("000")).toBe("0");
   });
 
-  it("accepts the largest amount numeric(14,0) holds", () => {
+  it("accepts a grouped amount and returns bare digits, the wire format", () => {
+    expect(parseVndDigits("3.500.000")).toBe("3500000");
+    expect(parseVndDigits("3.850.000")).toBe("3850000");
+    expect(parseVndDigits("12.345")).toBe("12345");
     expect(parseVndDigits("99.999.999.999.999")).toBe("99999999999999");
+  });
+
+  it("round-trips every formatVndPlain output, which is what the grammar exists for", () => {
+    for (const digits of ["0", "999", "1000", "3500000", "12345", "99999999999999"]) {
+      expect(parseVndDigits(formatVndPlain(digits))).toBe(digits);
+    }
+  });
+
+  it("trims outer whitespace", () => {
+    expect(parseVndDigits(" 3500000 ")).toBe("3500000");
+    expect(parseVndDigits("\t3.500.000\n")).toBe("3500000");
+  });
+
+  it("rejects internal whitespace: a space is a legal separator elsewhere, so it is ambiguous here", () => {
+    expect(parseVndDigits("3 500 000")).toBeNull();
+    expect(parseVndDigits("3 . 500 . 000")).toBeNull();
+  });
+
+  it("rejects a mistyped group separator instead of reading it as a smaller amount", () => {
+    // The backend throws `Số tiền không hợp lệ` for all of these; a frontend that accepted them
+    // would turn a typo into a wrong invoice rather than a validation message.
+    expect(parseVndDigits("1.5")).toBeNull();
+    expect(parseVndDigits("3.50.000")).toBeNull();
+    expect(parseVndDigits("1.500.00")).toBeNull();
+    expect(parseVndDigits("3.5000")).toBeNull();
+    expect(parseVndDigits("3.500.")).toBeNull();
+    expect(parseVndDigits(".500.000")).toBeNull();
+  });
+
+  it("rejects a leading group of more than three digits", () => {
+    expect(parseVndDigits("1234.567")).toBeNull();
   });
 
   it("rejects letters", () => {
@@ -98,19 +118,25 @@ describe("parseVndDigits", () => {
     expect(parseVndDigits("12a")).toBeNull();
     expect(parseVndDigits("1e6")).toBeNull();
     expect(parseVndDigits("-1000")).toBeNull();
+    expect(parseVndDigits("+1000")).toBeNull();
     expect(parseVndDigits("3,500,000")).toBeNull();
     expect(parseVndDigits("1000₫")).toBeNull();
   });
 
-  it("rejects an input with no digits left once separators are stripped", () => {
+  it("rejects an input with no digits", () => {
     expect(parseVndDigits("")).toBeNull();
     expect(parseVndDigits("   ")).toBeNull();
     expect(parseVndDigits(".")).toBeNull();
   });
 
-  it("treats any dot as a separator, per the strip rule in the brief", () => {
-    // Pinned, not endorsed: "1.5" is 15 under the strip rule, so an input field must never hand
-    // parseVndDigits half-typed text ("1." or "3.5000") and reformat on every keystroke.
-    expect(parseVndDigits("1.5")).toBe("15");
+  it("answers null rather than throwing, so a field can name its own error", () => {
+    expect(() => parseVndDigits("1.5")).not.toThrow();
+    expect(parseVndDigits("1.5")).toBeNull();
+  });
+
+  it("normalises leading zeros, the way the backend's BigInt gate does", () => {
+    expect(parseVndDigits("007")).toBe("7");
+    expect(parseVndDigits("000")).toBe("0");
+    expect(parseVndDigits("0.007")).toBe("7");
   });
 });

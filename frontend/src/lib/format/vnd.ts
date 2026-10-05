@@ -9,11 +9,23 @@
  */
 export type VndString = string;
 
-/** An amount is digits and nothing else. Anchored, so `""` fails with it. */
-const DIGITS_ONLY = /^\d+$/;
+/**
+ * An amount is either bare digits or a properly grouped vi-VN amount: `3500000` or `3.500.000`.
+ *
+ * The grouped alternative is not a convenience, it is the whole point. Stripping every dot — the
+ * rule the first draft of this file used — turns `1.500.00` into `150000` and `1.5` into `15`, ten
+ * and a hundred thousand times too small, with nothing left to report. A mistyped group separator is
+ * the most likely typo in a money field, and a validator that cannot see it converts the typo into a
+ * wrong invoice. `backend/src/shared/money.ts` is the mirror image: it gates on `/^\d+$/` and
+ * *throws* `Số tiền không hợp lệ`, so a frontend that accepted these would launder the server's
+ * rejection into a silently corrupt amount.
+ *
+ * Anchored, so `""` fails with the rest.
+ */
+const AMOUNT = /^(?:\d+|\d{1,3}(?:\.\d{3})+)$/;
 
-/** The separators a human or `formatVndPlain` may have typed: `.` and any whitespace. */
-const SEPARATORS = /[.\s]/g;
+/** The dots of a grouped amount, removed only after `AMOUNT` has approved them. */
+const DOTS = /\./g;
 
 /**
  * `"007"` is 7. Normalised to match the backend's `BigInt` gate, so what a field shows is exactly
@@ -38,22 +50,25 @@ function groupDigits(digits: VndString): string {
  * The only gate an amount passes through on its way into the app — `lib/api/client.ts` calls it
  * on every money field of every response, and an editable field calls it on submit.
  *
- * Strips `.` and whitespace, rejects anything else non-digit (letters, a sign, a thousands comma,
- * `₫`) and rejects input with no digits left. Returns `null` rather than throwing, so a caller can
- * report the field it came from.
+ * Accepts bare digits (`3500000`) and grouped vi-VN digits (`3.500.000`), returns the bare digits
+ * in both cases because that is what the wire format is. Rejects letters, a sign, a thousands
+ * comma, `₫`, and any dot that is not a thousands separator. Returns `null` rather than throwing,
+ * so a caller can render a Vietnamese message against the field the bad value came from.
+ *
+ * Outer whitespace is trimmed, and only outer whitespace: `"3 500 000"` is rejected. A space is a
+ * legal group separator in several locales and in typed input, which is exactly why it is ambiguous
+ * here — the app formats with dots, `formatVndPlain` emits dots, and accepting a second separator
+ * would mean guessing which one the manager meant. Trimming is free (`paste` and the DOM both add
+ * it); interpreting it is not.
  *
  * Magnitude is deliberately not checked here: the column is `numeric(14,0)` and the backend owns
  * that bound (`parseAmount` answers `VALIDATION_ERROR`), and returning `null` for "too large" would
  * be indistinguishable from "not an amount".
- *
- * Note the strip rule treats any dot as a separator, so `"1.5"` is `15`. A form field must not feed
- * half-typed text through this on every keystroke; the grouped value `formatVndPlain` produces is
- * the input this expects.
  */
 export function parseVndDigits(input: string): VndString | null {
-  const stripped = input.replace(SEPARATORS, "");
-  if (!DIGITS_ONLY.test(stripped)) return null;
-  return stripped.replace(LEADING_ZEROS, "");
+  const trimmed = input.trim();
+  if (!AMOUNT.test(trimmed)) return null;
+  return trimmed.replace(DOTS, "").replace(LEADING_ZEROS, "");
 }
 
 /**
