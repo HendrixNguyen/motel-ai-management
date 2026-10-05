@@ -44,7 +44,7 @@ export async function resetDb(): Promise<void> {
     throw new Error("resetDb() refused: the pool is not pointed at TEST_DATABASE_URL.");
 
   await db.execute(
-    sql.raw("DROP SCHEMA IF EXISTS public CASCADE; DROP SCHEMA IF EXISTS drizzle CASCADE; CREATE SCHEMA public;"),
+    sql.raw("DROP SCHEMA IF EXISTS public CASCADE; DROP SCHEMA IF EXISTS drizzle CASCADE; CREATE SCHEMA public; CREATE SCHEMA drizzle;"),
   );
   await migrate(db, { migrationsFolder });
   await db.execute(sql.raw(`TRUNCATE ${TABLES.join(", ")} RESTART IDENTITY CASCADE`));

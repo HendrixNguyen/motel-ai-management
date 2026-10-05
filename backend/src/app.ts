@@ -5,6 +5,7 @@ import { errorHandler } from "@/middleware/error-handler";
 import { authRoutes } from "@/modules/auth/auth.route";
 import { magicLinkRoutes } from "@/modules/auth/magic-link.route";
 import { motelRoutes } from "@/modules/motel/motel.route";
+import { renterRoutes } from "@/modules/renter/renter.route";
 import { roomRoutes } from "@/modules/room/room.route";
 import { AppError } from "@/shared/errors";
 
@@ -23,7 +24,12 @@ export function createApp() {
     .use(cors({ origin: env.nodeEnv === "production" ? false : true, credentials: true }))
     .get("/health", () => ({ status: "ok" as const }))
     .group("/api", (api) =>
-      api.use(authRoutes).use(magicLinkRoutes).use(motelRoutes).use(roomRoutes),
+      api
+        .use(authRoutes)
+        .use(magicLinkRoutes)
+        .use(motelRoutes)
+        .use(roomRoutes)
+        .use(renterRoutes),
     )
     .all("*", () => {
       throw AppError.notFound("Không tìm thấy");

@@ -1,6 +1,6 @@
 import { and, asc, eq, ilike } from "drizzle-orm";
 import { db } from "@/db";
-import { resolveOwnedMotel } from "@/middleware/tenancy";
+import { resolveOwnedMotel, resolveRoomInMotel } from "@/middleware/tenancy";
 import { hasActiveContractForRoom } from "@/modules/contract/contract.service";
 import { countRentersInRoom } from "@/modules/renter/renter.service";
 import { AppError } from "@/shared/errors";
@@ -100,14 +100,7 @@ async function resolveOwnedRoom(
   managerId: string,
 ): Promise<RoomRow> {
   await resolveOwnedMotel(motelId, managerId);
-
-  const row = await db.query.rooms.findFirst({
-    where: and(eq(rooms.id, roomId), eq(rooms.motelId, motelId)),
-  });
-  if (!row) {
-    throw AppError.notFound("Không tìm thấy phòng");
-  }
-  return row;
+  return resolveRoomInMotel(roomId, motelId);
 }
 
 export async function listRooms(

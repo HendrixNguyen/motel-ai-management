@@ -12,6 +12,16 @@ const VND = /^\d+$/;
  */
 export const MONEY_PRECISION = 14;
 
+/**
+ * A VND amount on the wire. Always a JSON string of digits (`"3850000"`), never a number.
+ *
+ * Declared here, beside `parseAmount`, so every module that carries money across HTTP names the
+ * same alias — the motel, room, contract and invoice shapes all re-export it rather than copying
+ * it. `numeric` hands back a JS string, so a response field declared `VndString` stops compiling
+ * the moment it becomes anything else: the guarantee is the type, not a habit at the call site.
+ */
+export type VndString = string;
+
 /** Largest amount `numeric(14,0)` holds. `MONEY_PRECISION` digits of `9`. */
 const MAX_AMOUNT = 10n ** BigInt(MONEY_PRECISION) - 1n;
 

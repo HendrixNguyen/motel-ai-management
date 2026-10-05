@@ -1,13 +1,16 @@
+import { type VndString } from "@/shared/money";
 import { roomStatus } from "./room.schema";
 
 /**
  * A VND amount on the wire. Always a JSON string of digits (`"3850000"`), never a number.
  *
+ * Re-exported from `shared/money` rather than redeclared: every module that carries VND over HTTP
+ * names the same alias, and one home for it is one place it cannot drift from.
+ *
  * `RoomResponse` declares `basePrice` as `VndString`, so returning a row whose `basePrice` is
- * anything but a string stops compiling — the guarantee is the type, not a habit at the call
- * site.
+ * anything but a string stops compiling.
  */
-export type VndString = string;
+export type { VndString };
 
 export type RoomStatus = (typeof roomStatus.enumValues)[number];
 
