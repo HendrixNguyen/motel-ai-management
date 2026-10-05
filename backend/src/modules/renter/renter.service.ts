@@ -31,3 +31,7 @@ export async function getRenterByPhone(motelId: string, phone: string): Promise<
     where: and(eq(renters.motelId, motelId), eq(renters.phone, normalizedPhone)),
   });
 }
+
+export async function countRentersForMotel(motelId: string): Promise<number> {
+  return db.$count(renters, eq(renters.motelId, motelId));
+}
