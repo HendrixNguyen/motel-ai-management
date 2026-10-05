@@ -6,17 +6,22 @@
  * elevation", the two families from "Typography". That document is the authority: a screen that
  * needs a colour or a size not in it needs a spec change, never a local hex value here.
  *
- * `inline` substitutes each token value into the utilities Tailwind generates instead of
- * emitting a theme variable of its own, so `.font-sans` compiles to
- * `font-family: var(--font-noto-sans)` and follows the variable `next/font` puts on <html>.
- * It is the variant the Next.js Tailwind guide prescribes for `next/font`.
+ * `inline` substitutes each token value into the utilities Tailwind generates — `.font-sans`
+ * compiles to `font-family: var(--font-noto-sans)` and follows the variable `next/font` puts
+ * on <html>. A token is still emitted as a CSS variable when your own CSS references it:
+ * `var(--color-border)` in a hand-written rule puts `--color-border` into
+ * `@layer theme { :root, :host }`, while a token nothing references is not emitted at all. It
+ * is the variant the Next.js Tailwind guide prescribes for `next/font`.
+ *
+ * `border` is for dividers and card borders; `border-strong` is the control boundary an input
+ * is drawn with. The token table in `docs/frontend-ui-specs.md` says which is which.
  */
 @theme inline {
   --color-primary: #0369A1;
   --color-primary-strong: #075985;
   --color-success: #15803D;
   --color-success-bg: #DCFCE7;
-  --color-warning: #A16207;
+  --color-warning: #92400E;
   --color-warning-bg: #FEF3C7;
   --color-danger: #B91C1C;
   --color-danger-bg: #FEE2E2;
@@ -24,6 +29,7 @@
   --color-text-body: #334155;
   --color-text-muted: #475569;
   --color-border: #E2E8F0;
+  --color-border-strong: #64748B;
   --color-surface: #FFFFFF;
   --color-canvas: #F8FAFC;
 
