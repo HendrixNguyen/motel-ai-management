@@ -1,6 +1,6 @@
 import { asc, eq } from "drizzle-orm";
 import { db } from "@/db";
-import { resolveOwnedMotel } from "@/middleware/tenancy";
+import { resolveOwnedMotel, type MotelRow } from "@/middleware/tenancy";
 import { AppError } from "@/shared/errors";
 import { parseAmount } from "@/shared/money";
 import { countBillingPeriodsForMotel } from "@/modules/billing/billing.service";
@@ -28,11 +28,21 @@ function toFees(fees: MotelFeeInput[]): MotelFee[] {
   return fees.map((fee) => ({ name: fee.name, amount: parseAmount(fee.amount) }));
 }
 
+/**
+ * The contract asks for ISO-8601 UTC timestamps on the wire, and the row holds a `Date`. Rendering
+ * it here is what makes `MotelResponse.createdAt: string` a compile-time fact rather than a claim
+ * that happens to be true because `JSON.stringify` formats a `Date` the same way.
+ */
+function toResponse(row: MotelRow): MotelResponse {
+  return { ...row, createdAt: row.createdAt.toISOString() };
+}
+
 export async function listMotels(managerId: string): Promise<MotelResponse[]> {
-  return db.query.motels.findMany({
+  const rows = await db.query.motels.findMany({
     where: eq(motels.managerId, managerId),
     orderBy: [asc(motels.createdAt), asc(motels.id)],
   });
+  return rows.map(toResponse);
 }
 
 /**
@@ -52,11 +62,11 @@ export async function createMotel(managerId: string, input: CreateMotelInput): P
       bankAccount: input.bankAccount ?? null,
     })
     .returning();
-  return row!;
+  return toResponse(row!);
 }
 
 export async function getMotel(motelId: string, managerId: string): Promise<MotelResponse> {
-  return resolveOwnedMotel(motelId, managerId);
+  return toResponse(await resolveOwnedMotel(motelId, managerId));
 }
 
 /**
@@ -80,10 +90,10 @@ export async function updateMotel(
   if (input.bankAccount !== undefined) patch.bankAccount = input.bankAccount;
 
   // `update ... set` with no columns is a syntax error, and `{}` is a legal request.
-  if (Object.keys(patch).length === 0) return owned;
+  if (Object.keys(patch).length === 0) return toResponse(owned);
 
   const [row] = await db.update(motels).set(patch).where(eq(motels.id, motelId)).returning();
-  return row!;
+  return toResponse(row!);
 }
 
 /**

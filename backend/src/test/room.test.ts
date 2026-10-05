@@ -292,6 +292,22 @@ describe("GET /api/manager/motels/:motelId/rooms", () => {
     }
   });
 
+  test("a floor outside the int4 range is 400, not a 500 from the column", async () => {
+    const a = await login("a@example.com");
+    const motel = await createMotel(a.cookie);
+    await createRoom(a.cookie, motel.id, { name: "P.101", floor: 1 });
+
+    // `rooms.floor` is int4: anything past ±2147483647 is `22003 integer out of range`.
+    const res = await api(
+      "GET",
+      `/manager/motels/${motel.id}/rooms?floor=${encodeURIComponent("3000000000")}`,
+      { cookie: a.cookie },
+    );
+    expect(res.status).toBe(400);
+    expect(((await res.json()) as ErrorPayload).code).toBe("VALIDATION_ERROR");
+    expect(await db.$count(rooms)).toBe(1);
+  });
+
   test("a malformed motelId is 400, not a 500 from the uuid column", async () => {
     const a = await login("a@example.com");
     const res = await api("GET", "/manager/motels/khong-phai-uuid/rooms", { cookie: a.cookie });
@@ -454,6 +470,39 @@ describe("POST /api/manager/motels/:motelId/rooms", () => {
     });
     expect(res.status).toBe(400);
     expect(await db.$count(rooms)).toBe(0);
+  });
+
+  test("rejects a floor outside the int4 range with 400 and stores nothing", async () => {
+    const a = await login("a@example.com");
+    const motel = await createMotel(a.cookie);
+
+    // `rooms.floor` is int4: anything past ±2147483647 is `22003 integer out of range`.
+    for (const floor of [3000000000, -3000000000]) {
+      const res = await api("POST", `/manager/motels/${motel.id}/rooms`, {
+        cookie: a.cookie,
+        body: { name: "P.101", basePrice: "3500000", floor },
+      });
+      expect(res.status).toBe(400);
+      expect(((await res.json()) as ErrorPayload).code).toBe("VALIDATION_ERROR");
+    }
+    expect(await db.$count(rooms)).toBe(0);
+  });
+
+  test("accepts both int4 extremes of floor", async () => {
+    const a = await login("a@example.com");
+    const motel = await createMotel(a.cookie);
+
+    const highest = await createRoom(a.cookie, motel.id, {
+      name: "P.101",
+      floor: 2147483647,
+    });
+    expect(highest.floor).toBe(2147483647);
+
+    const lowest = await createRoom(a.cookie, motel.id, {
+      name: "P.102",
+      floor: -2147483648,
+    });
+    expect(lowest.floor).toBe(-2147483648);
   });
 
   test("a motelId in the body cannot move the room to another motel", async () => {
@@ -735,6 +784,22 @@ describe("PATCH /api/manager/motels/:motelId/rooms/:roomId", () => {
     expect(stored!.floor).toBe(1);
   });
 
+  test("rejects a floor outside the int4 range with 400 and leaves the stored floor intact", async () => {
+    const a = await login("a@example.com");
+    const motel = await createMotel(a.cookie);
+    const created = await createRoom(a.cookie, motel.id, { name: "P.101", floor: 1 });
+
+    const res = await api("PATCH", `/manager/motels/${motel.id}/rooms/${created.id}`, {
+      cookie: a.cookie,
+      // `rooms.floor` is int4: anything past ±2147483647 is `22003 integer out of range`.
+      body: { floor: 3000000000 },
+    });
+    expect(res.status).toBe(400);
+    expect(((await res.json()) as ErrorPayload).code).toBe("VALIDATION_ERROR");
+    const [stored] = await db.select().from(rooms);
+    expect(stored!.floor).toBe(1);
+  });
+
   test("another manager's room is 404 and is not modified", async () => {
     const a = await login("a@example.com");
     const b = await login("b@example.com");
@@ -872,6 +937,39 @@ describe("DELETE /api/manager/motels/:motelId/rooms/:roomId", () => {
     });
     expect(res.status).toBe(204);
     expect(await db.$count(rooms)).toBe(0);
+  });
+
+  test("409 CONFLICT when a draft contract still references the room, not a 500", async () => {
+    const a = await login("a@example.com");
+    const motel = await createMotel(a.cookie);
+    const created = await createRoom(a.cookie, motel.id, { name: "P.101" });
+    // A renter who is *not* assigned to the room, so the two counted guards both come back
+    // empty and the raw delete is what meets the foreign key.
+    const [renter] = await db
+      .insert(renters)
+      .values({ motelId: motel.id, name: "Nguyễn Văn A", phone: "84901234567" })
+      .returning();
+    await db.insert(contracts).values({
+      renterId: renter!.id,
+      roomId: created.id,
+      motelId: motel.id,
+      startDate: "2026-01-01",
+      endDate: "2026-12-31",
+      monthlyRent: "3500000",
+      status: "draft",
+    });
+
+    const res = await api("DELETE", `/manager/motels/${motel.id}/rooms/${created.id}`, {
+      cookie: a.cookie,
+    });
+    expect(res.status).toBe(409);
+    const body = (await res.json()) as ErrorPayload;
+    expect(body.code).toBe("CONFLICT");
+    // The generic guard, so the message must not claim it was a contract or a renter.
+    expect(body.error).toContain("tham chiếu");
+    expect(body.error).not.toContain("hợp đồng");
+    expect(body.error).not.toContain("người thuê");
+    expect(await db.$count(rooms)).toBe(1);
   });
 
   test("404 for another manager's room, and the room survives", async () => {

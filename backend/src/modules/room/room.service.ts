@@ -29,6 +29,9 @@ const ROOM_NAME_UNIQUE = "rooms_motel_id_name_uq";
 /** SQLSTATE for `unique_violation`. */
 const UNIQUE_VIOLATION = "23505";
 
+/** SQLSTATE for `foreign_key_violation`. */
+const FOREIGN_KEY_VIOLATION = "23503";
+
 export async function countRoomsForMotel(motelId: string): Promise<number> {
   return db.$count(rooms, eq(rooms.motelId, motelId));
 }
@@ -47,21 +50,34 @@ function escapeLike(input: string): string {
 }
 
 /**
+ * Drizzle rethrows a driver failure as `DrizzleQueryError`, whose `cause` is the `PostgresError`
+ * carrying the SQLSTATE and the constraint name. Both layers are read so no check below depends on
+ * the wrapper being there.
+ */
+function driverError(error: unknown): { code?: unknown; constraint_name?: unknown } {
+  const driver = (error as { cause?: unknown } | null)?.cause ?? error;
+  return (driver ?? {}) as { code?: unknown; constraint_name?: unknown };
+}
+
+/**
  * The unique index is the judge, not a `SELECT` first: two managers creating `P.101` at the same
  * moment would both pass a pre-check and one insert would still lose. Reading PostgreSQL's own
  * refusal is also the only way to catch the violation at all — the route schema cannot know
  * which names already exist.
  */
 function isDuplicateRoomName(error: unknown): boolean {
-  // Drizzle wraps a driver failure: `DrizzleQueryError.cause` is the `PostgresError` carrying
-  // the SQLSTATE and the index name. Both layers are read so the check does not depend on the
-  // wrapper being there.
-  const driver = (error as { cause?: unknown } | null)?.cause ?? error;
-  const { code, constraint_name } = (driver ?? {}) as {
-    code?: unknown;
-    constraint_name?: unknown;
-  };
+  const { code, constraint_name } = driverError(error);
   return code === UNIQUE_VIOLATION && constraint_name === ROOM_NAME_UNIQUE;
+}
+
+/**
+ * Whether the database refused a row because something still points at it.
+ *
+ * On a delete this holds exactly one meaning — a dependent row exists — so the check stays
+ * correct as more tables come to reference `rooms.id`, without this module having to know which.
+ */
+function isForeignKeyViolation(error: unknown): boolean {
+  return driverError(error).code === FOREIGN_KEY_VIOLATION;
 }
 
 /**
@@ -189,13 +205,18 @@ export async function updateRoom(
 }
 
 /**
- * Deleting a room is refused while anything still points at it, and the two refusals are worded
- * differently because the manager's next move differs: end the contract, or move the renter.
+ * Deleting a room is refused while anything still points at it, and the refusals are worded
+ * differently because the manager's next move differs: end the contract, move the renter, or clear
+ * whatever else is attached.
  *
- * Every foreign key in this schema is `ON DELETE no action`, so a delete that had dependents
- * would raise a constraint violation the error handler reports as a 500 — an internal detail
- * dressed up as a server fault. Nothing is ever cascaded away silently: a signed contract and
- * the person living under it are both history that has to stay.
+ * Two dependencies are named in a message of their own, because they are the two the manager can
+ * act on directly: an active contract, and any renter still assigned to the room. **Those two are
+ * the whole of what is counted here.** Five more tables reference `rooms.id` — contracts that are
+ * not active, meter readings, invoices, help tickets — and none of them is counted. What they get
+ * instead is the `23503` translation below, which reports "something still references this row" as
+ * a 409 rather than a 500, so this module stays correct as more tables are added without having to
+ * name each one. Nothing is ever cascaded: a signed contract and the person living under it are
+ * both history that has to stay.
  *
  * The counts come from the owning modules' services, never from their tables (ADR-0004).
  */
@@ -219,5 +240,16 @@ export async function deleteRoom(
     );
   }
 
-  await db.delete(rooms).where(eq(rooms.id, roomId));
+  try {
+    await db.delete(rooms).where(eq(rooms.id, roomId));
+  } catch (error) {
+    // A dependency this module does not count. The message stays generic on purpose: naming one
+    // would be a guess, and it would be wrong the moment the next table references a room.
+    if (isForeignKeyViolation(error)) {
+      throw AppError.conflict(
+        "Phòng còn dữ liệu tham chiếu. Hãy xóa dữ liệu đó trước khi xóa phòng này.",
+      );
+    }
+    throw error;
+  }
 }

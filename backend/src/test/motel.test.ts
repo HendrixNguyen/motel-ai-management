@@ -16,6 +16,7 @@ setDefaultTimeout(20_000);
 beforeEach(resetDb);
 
 const PASSWORD = "aaaaaaaaaa";
+const ISO_8601 = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/;
 
 interface MotelPayload {
   id: string;
@@ -26,6 +27,7 @@ interface MotelPayload {
   waterPrice: string;
   otherFees: { name: string; amount: string }[];
   bankAccount: { bankCode: string; accountNumber: string; accountName: string } | null;
+  createdAt: string;
 }
 
 interface ErrorPayload {
@@ -280,6 +282,8 @@ describe("GET /api/manager/motels/:motelId", () => {
     expect(body.electricityPrice).toBe("3500");
     expect(body.otherFees).toEqual([]);
     expect(body.bankAccount).toBeNull();
+    // The contract asks for ISO-8601 UTC, which is what `MotelResponse.createdAt: string` says.
+    expect(body.createdAt).toMatch(ISO_8601);
   });
 
   test("another manager's motel is 404, never 403", async () => {

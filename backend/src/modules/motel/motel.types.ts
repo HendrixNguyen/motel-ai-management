@@ -51,6 +51,6 @@ export interface MotelResponse {
   waterPrice: VndString;
   otherFees: MotelFeeInput[];
   bankAccount: BankAccountInput | null;
-  /** Serialised to an ISO-8601 UTC string on the wire. */
-  createdAt: Date;
+  /** ISO-8601 UTC string on the wire, as the contract asks. */
+  createdAt: string;
 }

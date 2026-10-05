@@ -14,6 +14,22 @@ import { MONEY_PRECISION } from "@/shared/money";
 
 export const roomStatus = pgEnum("room_status", ["available", "occupied", "maintenance"]);
 
+/**
+ * The range of `rooms.floor`, which is `integer` — verified against PostgreSQL as
+ * `data_type = 'integer', numeric_precision = 32`, i.e. int4.
+ *
+ * The bounds are declared here, beside the column, so the route schema that admits a `floor`
+ * cannot accept a value the column cannot store. A value outside them is `22003 numeric_value_out
+ * of range` at the driver, which the shared handler can only report as a 500.
+ *
+ * Deliberately the full int4 range rather than `0 .. 2^31-1`: the column stores a negative floor,
+ * and nothing in the contract says floors are positive. Tightening that is a business decision,
+ * not a column bound, so it is left to whoever owns the rule — `floor` already has `null` for
+ * "not recorded".
+ */
+export const INT4_MIN = -2147483648;
+export const INT4_MAX = 2147483647;
+
 export const rooms = pgTable(
   "rooms",
   {

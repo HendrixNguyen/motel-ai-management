@@ -8,7 +8,7 @@ import {
   listRooms,
   updateRoom,
 } from "./room.service";
-import { roomStatus } from "./room.schema";
+import { INT4_MAX, INT4_MIN, roomStatus } from "./room.schema";
 import type {
   CreateRoomInput,
   ListRoomsFilters,
@@ -37,12 +37,21 @@ const roomParams = t.Object({
 const statusSchema = t.Union(roomStatus.enumValues.map((value) => t.Literal(value)));
 
 /**
+ * `floor` is an `integer` column, and a bare `t.Integer()` imposes no bound at all — so
+ * `?floor=3000000000` reaches PostgreSQL and comes back as `22003 numeric_value_out of range`,
+ * which the shared handler reports as a 500. That is the same mistake the uuid params above guard
+ * against, one column over. The bounds are read from the schema module so they cannot drift from
+ * the column they protect.
+ */
+const floor = t.Integer({ minimum: INT4_MIN, maximum: INT4_MAX });
+
+/**
  * A filter that is present but not understood is an error, never a filter that matches nothing:
  * `?floor=abc` and `?status=vacant` are both 400. An unknown parameter is dropped instead, which
  * is why `?roomId=` narrows nothing.
  */
 const listQuery = t.Object({
-  floor: t.Optional(t.Integer()),
+  floor: t.Optional(floor),
   status: t.Optional(statusSchema),
   search: t.Optional(t.String()),
 });
@@ -56,14 +65,14 @@ const listQuery = t.Object({
 const createBody = t.Object({
   name: t.String({ minLength: 1 }),
   basePrice: t.String(),
-  floor: t.Optional(t.Nullable(t.Integer())),
+  floor: t.Optional(t.Nullable(floor)),
   status: t.Optional(statusSchema),
 });
 
 const updateBody = t.Object({
   name: t.Optional(t.String({ minLength: 1 })),
   basePrice: t.Optional(t.String()),
-  floor: t.Optional(t.Nullable(t.Integer())),
+  floor: t.Optional(t.Nullable(floor)),
   status: t.Optional(statusSchema),
 });
 
