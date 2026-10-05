@@ -1,10 +1,5 @@
 import { AppError } from "@/shared/errors";
 
-interface ErrorContext {
-  error: unknown;
-  set: { status: number };
-}
-
 /**
  * Normalises anything thrown inside a route into the API contract's envelope.
  *
@@ -12,7 +7,7 @@ interface ErrorContext {
  * written in Vietnamese for the user. Anything else is logged in full and reported as a
  * generic failure, because a database URL or a driver message must never reach a client.
  */
-export function errorHandler({ error, set }: ErrorContext) {
+export function errorHandler({ error, set }: { error: unknown; set: any }) {
   if (error instanceof AppError) {
     set.status = error.status;
     return error.details

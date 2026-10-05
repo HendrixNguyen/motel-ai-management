@@ -1,5 +1,10 @@
 import { Elysia } from "elysia";
+import { cors } from "@elysiajs/cors";
+import { env } from "@/config";
 import { errorHandler } from "@/middleware/error-handler";
+import { authRoutes } from "@/modules/auth/auth.route";
+import { magicLinkRoutes } from "@/modules/auth/magic-link.route";
+import { AppError } from "@/shared/errors";
 
 /**
  * A fresh instance per call. `app` is the one the server listens on; tests build their own
@@ -13,11 +18,12 @@ import { errorHandler } from "@/middleware/error-handler";
 export function createApp() {
   return new Elysia()
     .onError(errorHandler)
-    .onNotFound(({ set }) => {
-      set.status = 404;
-      return { error: "Không tìm thấy", code: "NOT_FOUND" };
-    })
-    .get("/health", () => ({ status: "ok" as const }));
+    .use(cors({ origin: env.nodeEnv === "production" ? false : true, credentials: true }))
+    .get("/health", () => ({ status: "ok" as const }))
+    .group("/api", (api) => api.use(authRoutes).use(magicLinkRoutes))
+    .all("*", () => {
+      throw AppError.notFound("Không tìm thấy");
+    });
 }
 
 export const app = createApp();

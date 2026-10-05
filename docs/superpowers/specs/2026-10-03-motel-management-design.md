@@ -267,7 +267,7 @@ motel's prices or fees never retroactively change a sent invoice.
 |-------|------|-------|
 | id | UUID | PK |
 | renterId | UUID | FK → renters, NOT NULL, indexed |
-| token | TEXT | UNIQUE, NOT NULL, 32 bytes crypto-random base62 |
+| token | TEXT | UNIQUE, NOT NULL, 32 bytes crypto-random base64url |
 | expiresAt | TIMESTAMPTZ | NOT NULL, createdAt + 24h |
 | consumedAt | TIMESTAMPTZ | nullable — set on first exchange |
 | createdAt | TIMESTAMPTZ | DEFAULT now() |

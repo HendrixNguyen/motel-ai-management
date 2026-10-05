@@ -58,9 +58,14 @@ client. A motel belonging to another manager returns `404`, never `403`.
 
 | Method | Path | Body | Returns |
 |--------|------|------|---------|
-| POST | `/:renterId` | — | `201 {token, expiresAt, url}` — manager-issued link, copyable |
 | POST | `/exchange` | `{token}` | `200 {renter}` + sets `renter_session`, marks token consumed |
-| POST | `/resend` | — | `202` — renter asks the manager for a fresh link |
+| POST | `/resend` | — | `200 {message, url}` — renter asks the manager for a fresh link |
+
+### Manager-issued magic links — `/api/manager/motels/:motelId/renters/:renterId`
+
+| Method | Path | Body | Returns |
+|--------|------|------|---------|
+| POST | `/magic-link` | — | `200 {token, url}` — manager-issued link for the renter |
 
 ### Motels — `/api/manager/motels`
 
