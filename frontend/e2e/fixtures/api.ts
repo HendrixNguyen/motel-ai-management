@@ -12,8 +12,13 @@ export type ApiFixtures = Record<string, unknown>;
 // lookup — M3 and M4 filter on the query, not the path.
 //
 // Nothing here reaches PostgreSQL or the Elysia backend, which is the reason the fixture-backed
-// Playwright project can pass on a machine that has neither. A request with no fixture is answered
-// with the backend's real 404 envelope, so a spec that forgot one fails loudly instead of hanging.
+// Playwright project can pass on a machine that has neither.
+//
+// A request with **no fixture throws**, inside the route handler, so the test fails naming the key
+// it wanted. An earlier version answered 404 `NOT_FOUND` instead, which is indistinguishable from a
+// legitimately empty resource: a spec with a forgotten fixture passed while asserting against a
+// lie. A fixture that must return a non-2xx status is not expressible yet; a spec that needs one
+// should extend this map to accept `{ status, body }` rather than turning the throw off.
 //
 // Returns the `"<METHOD> <pathname>"` keys requested so far — appended to as the page navigates —
 // so a spec can assert that a call was made.
@@ -26,15 +31,11 @@ export async function mockApi(page: Page, fixtures: ApiFixtures = {}): Promise<s
     requested.push(key);
 
     if (!(key in fixtures)) {
-      await route.fulfill({
-        status: 404,
-        contentType: "application/json",
-        body: JSON.stringify({
-          error: `No fixture for ${key}`,
-          code: "NOT_FOUND",
-        }),
-      });
-      return;
+      throw new Error(
+        `mockApi: no fixture for "${key}". ` +
+          `Fixtures provided: ${Object.keys(fixtures).join(", ") || "(none)"}. ` +
+          `Add it, or drop the request.`,
+      );
     }
 
     await route.fulfill({
