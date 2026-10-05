@@ -104,6 +104,10 @@ Task 4 was reviewed against the working tree, not a spec re-read: each task was 
 own brief plus the design spec and `docs/frontend-ui-specs.md`, which wins over
 `docs/api-contract.md` where they disagree.
 
+The fix round has been re-reviewed (`.superpowers/sdd/2026-10-05-manager-frontend-foundation/
+review-5ac49ed..c2545ab.md`): all 15 findings confirmed addressed, the I2 guard verified by
+mutation, no regressions from `noUncheckedIndexedAccess`, scope discipline held.
+
 ## Decisions a later task must not undo
 
 Recorded in full in the plan's §2 and in the local ledger's rulings R1–R6. The load-bearing ones:
