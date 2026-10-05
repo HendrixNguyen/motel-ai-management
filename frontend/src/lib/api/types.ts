@@ -336,8 +336,20 @@ export interface RegisterManagerInput {
   phone?: string;
 }
 
-/** The `POST /api/auth/login` body (`auth.route.ts:53-56`). */
+/** The `POST /api/auth/login` body (`auth.route.ts:59-63`). */
 export interface LoginInput {
   email: string;
   password: string;
+}
+
+/**
+ * What `POST /api/manager/motels/:motelId/renters/:renterId/magic-link` answers with:
+ * `{ token, url }` (`auth.route.ts:84-104`).
+ *
+ * `token` is the opaque magic-link token; `url` is the full renter-portal URL the manager can copy
+ * and send to the renter through any channel.
+ */
+export interface MagicLinkResponse {
+  token: string;
+  url: string;
 }

@@ -33,7 +33,7 @@ export const metadata: Metadata = {
   description: "Ghi chỉ số điện nước, xuất hóa đơn và quản lý hợp đồng thuê.",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html
       lang="vi"

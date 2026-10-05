@@ -5,8 +5,10 @@ import type { MotelResponse } from "./types";
  * Motel reads. Server Components only — see `motels.client.ts` for the mutations and `server.ts`
  * for why the split exists.
  *
- * The base path lives here, once. No screen assembles `/api/manager/motels`, because a screen that
- * does is one rename away from asking for a resource that no longer exists, with no type to stop it.
+ * The base path is declared in both `motels.ts` and `motels.client.ts`. The duplication is
+ * deliberate: the read side imports `server.ts`, which carries `import "server-only"`, so a shared
+ * constant module would have to be imported by both sides. Moving it into a module either side can
+ * reach without pulling `server-only` in is more indirection than one literal earns.
  */
 
 /** `GET /api/manager/motels` — `motel.route.ts:36`. */

@@ -100,6 +100,32 @@ describe("apiSend", () => {
 
     await expect(apiSend("/api/auth/logout", "POST")).resolves.toBeUndefined();
   });
+
+  it("throws ApiError on a 2xx with an unparseable body", async () => {
+    fetchMock.mockResolvedValue(htmlResponse(200, "<html>proxy</html>"));
+
+    const error = (await apiGet("/api/manager/motels").catch((cause: unknown) => cause)) as ApiError;
+
+    expect(error).toBeInstanceOf(ApiError);
+    expect(error.status).toBe(200);
+    expect(error.code).toBe("INTERNAL_ERROR");
+  });
+
+  it("throws ApiError on a 201 with an empty body", async () => {
+    fetchMock.mockResolvedValue(new Response(null, { status: 201 }));
+
+    const error = (await apiGet("/api/manager/motels").catch((cause: unknown) => cause)) as ApiError;
+
+    expect(error).toBeInstanceOf(ApiError);
+    expect(error.status).toBe(201);
+    expect(error.code).toBe("INTERNAL_ERROR");
+  });
+
+  it("still resolves undefined on a 204 with an empty body", async () => {
+    fetchMock.mockResolvedValue(new Response(null, { status: 204 }));
+
+    await expect(apiSend("/api/manager/motels/x/rooms/y", "DELETE")).resolves.toBeUndefined();
+  });
 });
 
 describe("paths", () => {
@@ -212,6 +238,17 @@ describe("ApiError", () => {
     expect(error.code).toBe("INTERNAL_ERROR");
   });
 
+  it("falls back to the status-derived code when the body carries an unknown code", async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse({ error: "drift", code: "UNKNOWN_CODE" }, 404),
+    );
+
+    const error = (await apiGet("/api/manager/motels").catch((cause: unknown) => cause)) as ApiError;
+
+    expect(error.code).toBe("NOT_FOUND");
+    expect(error.status).toBe(404);
+  });
+
   it("derives a code from the status when the body is not the envelope", async () => {
     // A 404 from the proxy in front of the app is not our `NOT_FOUND` envelope, but the status is
     // still true and a screen can still route on it.
@@ -223,6 +260,22 @@ describe("ApiError", () => {
 
     expect(error.code).toBe("NOT_FOUND");
     expect(error.status).toBe(404);
+    expect(error.message).toBe(GENERIC);
+  });
+
+  it.each([
+    [400, "VALIDATION_ERROR"],
+    [401, "UNAUTHORIZED"],
+    [403, "FORBIDDEN"],
+    [409, "CONFLICT"],
+    [429, "RATE_LIMITED"],
+  ])("derives %s from the status when the body is HTML", async (status, code) => {
+    fetchMock.mockResolvedValue(htmlResponse(status, "<html>error</html>"));
+
+    const error = (await apiGet("/api/manager/motels").catch((cause: unknown) => cause)) as ApiError;
+
+    expect(error.code).toBe(code);
+    expect(error.status).toBe(status);
     expect(error.message).toBe(GENERIC);
   });
 
@@ -303,6 +356,18 @@ describe("the money guard", () => {
     expect(error.message).toContain("activeContract.monthlyRent");
   });
 
+  it("names the indexed path for an array member", async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse(withField(MOTEL, ["otherFees", 1, "amount"], "n/a")),
+    );
+
+    const error = (await apiGet("/api/manager/motels").catch((cause: unknown) => cause)) as Error;
+
+    expect(error).toBeInstanceOf(Error);
+    expect(error).not.toBeInstanceOf(ApiError);
+    expect(error.message).toContain("otherFees[1].amount");
+  });
+
   it("leaves a field that is not money alone, including a name that reads like one", async () => {
     // `accountNumber` and `idNumber` are strings the guard must not touch, and `name` is not an
     // amount no matter what it contains. A guard that reached for every string would have refused
@@ -314,13 +379,12 @@ describe("the money guard", () => {
 
   it("does not mutate the response it was handed", async () => {
     const body = withField(MOTEL, ["electricityPrice"], "3.500");
-    fetchMock.mockResolvedValue(jsonResponse(body));
+    fetchMock.mockResolvedValueOnce(jsonResponse(body));
+    fetchMock.mockResolvedValueOnce(jsonResponse(body));
 
-    await apiGet<MotelResponse>("/api/manager/motels");
+    const result = await apiGet<MotelResponse>("/api/manager/motels");
 
-    // The decoded body is rebuilt rather than edited in place, so a guard cannot surprise a caller
-    // holding the same object.
-    expect(body).not.toBe(MOTEL);
+    expect(result).not.toBe(body);
     expect((body as MotelResponse).electricityPrice).toBe("3.500");
   });
 });

@@ -3,6 +3,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/lib/api/client";
 import { serverGet } from "@/lib/api/server";
 import { MOTEL, MOTEL_ID, ROOM } from "./fixtures";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 
 /**
  * The Server-Component transport. Three things separate it from `client.ts` and each has a test
@@ -131,7 +133,7 @@ describe("serverGet", () => {
   it("redirects to /login on a 401 instead of throwing", async () => {
     fetchMock.mockResolvedValue(jsonResponse({ error: "Chưa đăng nhập", code: "UNAUTHORIZED" }, 401));
 
-    await expect(serverGet("/api/auth/me")).rejects.toThrow("NEXT_REDIRECT:/login");
+    await expect(serverGet("/api/manager/motels")).rejects.toThrow("NEXT_REDIRECT:/login");
     expect(env.redirects).toEqual(["/login"]);
   });
 
@@ -201,5 +203,28 @@ describe("serverGet", () => {
   it("rejects a path that is not site-relative before it reaches fetch", async () => {
     await expect(serverGet(`${BACKEND_URL}/api/manager/motels`)).rejects.toThrow(/site-relative/);
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("module boundary", () => {
+  it("does not allow a client module to import server.ts", () => {
+    const apiDir = join(process.cwd(), "src", "lib", "api");
+    const clients = readFileSync(join(apiDir, "motels.client.ts"), "utf-8")
+      .split("\n")
+      .filter((l) => l.trim() !== "");
+    const roomsClient = readFileSync(join(apiDir, "rooms.client.ts"), "utf-8")
+      .split("\n")
+      .filter((l) => l.trim() !== "");
+    const rentersClient = readFileSync(join(apiDir, "renters.client.ts"), "utf-8")
+      .split("\n")
+      .filter((l) => l.trim() !== "");
+    const authClient = readFileSync(join(apiDir, "auth.client.ts"), "utf-8")
+      .split("\n")
+      .filter((l) => l.trim() !== "");
+
+    for (const source of [clients, roomsClient, rentersClient, authClient]) {
+      const importsServer = source.some((line) => line.includes('"./server"'));
+      expect(importsServer).toBe(false);
+    }
   });
 });

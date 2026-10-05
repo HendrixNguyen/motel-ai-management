@@ -2,8 +2,7 @@ import type { Page } from "@playwright/test";
 
 // Fixture payloads keyed by `"<METHOD> <pathname>"`, e.g. `"GET /api/manager/motels"`.
 //
-// `unknown` on purpose: `lib/api/types.ts` does not exist yet, so there is nothing honest to
-// type a fixture against yet. Tighten this to those types once they land.
+// `unknown` on purpose: typed with `lib/api/types.ts` from Task 11, keeping the same conclusion.
 export type ApiFixtures = Record<string, unknown>;
 
 // Answers every `/api/` request the page makes from `fixtures`, without touching the network.

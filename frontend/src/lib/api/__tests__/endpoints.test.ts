@@ -8,8 +8,8 @@ import {
 } from "@/lib/api/motels.client";
 import { getMotel, listMotels } from "@/lib/api/motels";
 import { createRoom, deleteRoom, updateRoom } from "@/lib/api/rooms.client";
-import { listRooms } from "@/lib/api/rooms";
-import { createRenter, deleteRenter, updateRenter } from "@/lib/api/renters.client";
+import { getRoom, listRooms } from "@/lib/api/rooms";
+import { createRenter, createRenterMagicLink, deleteRenter, updateRenter } from "@/lib/api/renters.client";
 import { getRenter, listRenters } from "@/lib/api/renters";
 import { login, logout, register } from "@/lib/api/auth.client";
 import {
@@ -156,6 +156,14 @@ describe("reads (Server Components, absolute URL)", () => {
     expect(new URL(lastUrl()).search).toBe("");
   });
 
+  it("reads one room", async () => {
+    fetchMock.mockResolvedValue(jsonResponse(ROOM));
+
+    await expect(getRoom(MOTEL_ID, ROOM_ID)).resolves.toEqual(ROOM);
+
+    expect(lastUrl()).toBe(`${BACKEND_URL}/api/manager/motels/${MOTEL_ID}/rooms/${ROOM_ID}`);
+  });
+
   it("percent-encodes a Vietnamese search term", async () => {
     fetchMock.mockResolvedValue(jsonResponse([]));
 
@@ -281,6 +289,16 @@ describe("writes (client components, relative URL through the proxy)", () => {
     fetchMock.mockResolvedValueOnce(new Response(null, { status: 204 }));
     await expect(deleteRenter(MOTEL_ID, RENTER_ID)).resolves.toBeUndefined();
     expect(lastInit().method).toBe("DELETE");
+  });
+
+  it("creates a magic link for a renter", async () => {
+    const fixture = { token: "abc123", url: "http://localhost:3000/r/abc123" };
+    fetchMock.mockResolvedValue(jsonResponse(fixture));
+
+    await expect(createRenterMagicLink(MOTEL_ID, RENTER_ID)).resolves.toEqual(fixture);
+
+    expect(lastUrl()).toBe(`/api/manager/motels/${MOTEL_ID}/renters/${RENTER_ID}/magic-link`);
+    expect(lastInit().method).toBe("POST");
   });
 
   it("logs in through the proxied path so the browser stores the httpOnly cookie itself", async () => {

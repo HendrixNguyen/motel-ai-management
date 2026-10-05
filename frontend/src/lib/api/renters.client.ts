@@ -1,16 +1,16 @@
 import { apiSend } from "./client";
-import type { CreateRenterInput, RenterResponse, UpdateRenterInput } from "./types";
+import type { CreateRenterInput, MagicLinkResponse, RenterResponse, UpdateRenterInput } from "./types";
 
 /**
  * Renter mutations, in the browser. See `motels.client.ts` for why these are split out.
  */
 
-/** `POST /api/manager/motels/:motelId/renters` — `renter.route.ts:95`. */
+/** `POST /api/manager/motels/:motelId/renters` — `renter.route.ts:101`. */
 const RENTERS = (motelId: string): string =>
   `/api/manager/motels/${encodeURIComponent(motelId)}/renters`;
 
 /**
- * Files a renter and answers 201 with the created row (`renter.route.ts:95-113`).
+  * Files a renter and answers 201 with the created row (`renter.route.ts:101-114`).
  *
  * There is no `status` in the input, and not by accident: a renter starts `active`
  * (`renter.types.ts:19-24`), and accepting `inactive` at creation would let a tenancy exist that
@@ -54,4 +54,19 @@ export function updateRenter(
  */
 export function deleteRenter(motelId: string, renterId: string): Promise<void> {
   return apiSend<void>(`${RENTERS(motelId)}/${encodeURIComponent(renterId)}`, "DELETE");
+}
+
+/**
+ * Creates a magic link for a renter — `auth.route.ts:84-104`. Answers 200 with `{ token, url }`.
+ *
+ * The response sets no cookie, so this belongs in the browser module rather than `auth.ts`.
+ */
+export function createRenterMagicLink(
+  motelId: string,
+  renterId: string,
+): Promise<MagicLinkResponse> {
+  return apiSend<MagicLinkResponse>(
+    `${RENTERS(motelId)}/${encodeURIComponent(renterId)}/magic-link`,
+    "POST",
+  );
 }

@@ -51,27 +51,27 @@ export class ApiError extends Error {
 }
 
 /**
- * The status each code travels with, transcribed from `shared/errors.ts:16-30`.
+ * Exhaustiveness check against `ErrorCode` and the only place an unrecognised code is rejected.
  *
- * `Record<ErrorCode, number>` rather than a `Set<string>` so that adding a code to the union fails
- * this file's typecheck until it is listed here — the exhaustiveness trick `status.ts` uses for its
- * label maps. Its second job is validating a code that arrived on the wire: `errors.ts` is the only
- * enumeration of the contract, so an unrecognised code is drift, not a new case to pass through.
+ * `Record<ErrorCode, true>` rather than a `Set<string>` so that adding a code to the union fails
+ * this file's typecheck until it is listed here. The membership test at `asErrorBody` is the only
+ * runtime use: a code the contract does not have is drift, not a new case to pass through, so the
+ * status-derived code answers instead.
  */
-const STATUS_FOR_CODE: Record<ErrorCode, number> = {
-  VALIDATION_ERROR: 400,
-  UNAUTHORIZED: 401,
-  MAGIC_LINK_EXPIRED: 401,
-  OTP_INVALID: 401,
-  OTP_EXPIRED: 401,
-  RATE_LIMITED: 429,
-  READING_CONFLICT: 409,
-  PERIOD_ALREADY_SENT: 409,
-  FORBIDDEN: 403,
-  NOT_FOUND: 404,
-  CONFLICT: 409,
-  EXTERNAL_SERVICE_ERROR: 502,
-  INTERNAL_ERROR: 500,
+const STATUS_FOR_CODE: Record<ErrorCode, true> = {
+  VALIDATION_ERROR: true,
+  UNAUTHORIZED: true,
+  MAGIC_LINK_EXPIRED: true,
+  OTP_INVALID: true,
+  OTP_EXPIRED: true,
+  RATE_LIMITED: true,
+  READING_CONFLICT: true,
+  PERIOD_ALREADY_SENT: true,
+  FORBIDDEN: true,
+  NOT_FOUND: true,
+  CONFLICT: true,
+  EXTERNAL_SERVICE_ERROR: true,
+  INTERNAL_ERROR: true,
 };
 
 /**
@@ -193,6 +193,9 @@ async function send(path: string, method: string, body?: unknown): Promise<Respo
 export async function decodeResponse<T>(res: Response): Promise<T> {
   const body = await readJson(res);
   if (!res.ok) throw errorFrom(res.status, body);
+  if (body === undefined && res.status !== 204) {
+    throw new ApiError(res.status, "INTERNAL_ERROR", GENERIC_ERROR_MESSAGE);
+  }
   return guardMoney(body) as T;
 }
 
@@ -202,8 +205,10 @@ async function readJson(res: Response): Promise<unknown> {
   try {
     return JSON.parse(text) as unknown;
   } catch {
-    // An HTML error page, or a proxy's plain text. Not the envelope, and `errorFrom` decides what to
-    // do with it rather than this layer deciding what it meant.
+    // An HTML error page, or a proxy's plain text. A 2xx response with an unparseable body is
+    // handled by `decodeResponse` (which throws for non-204 success); this function's job is only
+    // to return `undefined` for an empty or unparseable body, and `errorFrom` decides what to do
+    // with it on a non-2xx.
     return undefined;
   }
 }
