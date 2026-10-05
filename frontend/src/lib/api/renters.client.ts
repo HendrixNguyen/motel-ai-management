@@ -31,7 +31,7 @@ export function createRenter(
  * Patches a renter — `renter.route.ts:123`.
  *
  * `roomId: null` unassigns and `idNumber: null` clears; leaving a key out leaves the stored value
- * alone. The phone is normalised before it is written (`renter.service.ts:255`), so a malformed number
+ * alone. The phone is normalised before it is written (`renter.service.ts:273`), so a malformed number
  * is a 400 the manager can read rather than a 500 from the `renters_phone_normalised` CHECK.
  */
 export function updateRenter(

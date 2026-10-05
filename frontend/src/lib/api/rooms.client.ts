@@ -13,7 +13,7 @@ const ROOMS = (motelId: string): string =>
 /**
  * Creates a room and answers 201 with it.
  *
- * `409` on a duplicate `(motelId, name)` — `room.service.ts:150` answers
+ * `409` on a duplicate `(motelId, name)` — `room.service.ts:154` answers
  * `Phòng "P.101" đã tồn tại trong nhà trọ này`, which D8 renders as a form-level banner because the
  * envelope carries no field names to attach the message to.
  */
@@ -33,8 +33,10 @@ export function updateRoom(
 /**
  * Deletes a room — `room.route.ts:130`. Answers 204, so this resolves `undefined`.
  *
- * `409` when a live contract holds the room (`room.service.ts`), which is why a screen offering this
- * button has to handle a failure and not only a success.
+ * `409` in two cases, both from `room.service.ts:222-233`: a live contract holds the room
+ * (`Phòng đang có hợp đồng hiệu lực…`) or a renter is still assigned to it (`Còn N người thuê trong
+ * phòng…`). Nothing cascades, so a screen offering this button has to handle a failure and not only a
+ * success.
  */
 export function deleteRoom(motelId: string, roomId: string): Promise<void> {
   return apiSend<void>(`${ROOMS(motelId)}/${encodeURIComponent(roomId)}`, "DELETE");

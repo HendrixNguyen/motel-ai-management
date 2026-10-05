@@ -38,7 +38,7 @@ import {
  *   rather than at runtime with a `cookies()` error or a same-origin 404.
  * - **A list endpoint answers with a bare array.** `docs/api-contract.md` is silent on envelopes;
  *   `listMotels`/`listRooms`/`listRenters` return the array itself
- *   (`motel.service.ts:40`, `room.service.ts:106`, `renter.service.ts:150`), and a screen written
+ *   (`motel.service.ts:45`, `room.service.ts:126`, `renter.service.ts:172`), and a screen written
  *   against `{ motels: [...] }` would find nothing at runtime with no type error to catch it.
  */
 
@@ -237,7 +237,7 @@ describe("writes (client components, relative URL through the proxy)", () => {
 
     expect(lastUrl()).toBe(`/api/manager/motels/${MOTEL_ID}`);
     expect(lastInit().method).toBe("PATCH");
-    // `motel.route.ts:78-85` treats every key optional and writes only what arrived, so sending a
+    // `motel.route.ts:79-86` treats every key optional and writes only what arrived, so sending a
     // `null` for an untouched field would clear a value the manager never edited.
     expect(JSON.parse(String(lastInit().body))).toEqual({ waterPrice: "16000" });
   });

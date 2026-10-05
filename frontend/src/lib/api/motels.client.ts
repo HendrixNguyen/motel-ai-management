@@ -19,13 +19,13 @@ import type { CreateMotelInput, MotelResponse, UpdateMotelInput } from "./types"
 /** `POST /api/manager/motels` — `motel.route.ts:39`. */
 const MOTELS = "/api/manager/motels";
 
-/** Creates a motel and answers 201 with it (`motel.route.ts:41-57`). */
+/** Creates a motel and answers 201 with it (`motel.route.ts:39-58`). */
 export function createMotel(input: CreateMotelInput): Promise<MotelResponse> {
   return apiSend<MotelResponse>(MOTELS, "POST", input);
 }
 
 /**
- * Patches a motel — `motel.route.ts:61-85`.
+ * Patches a motel — `motel.route.ts:69-86`.
  *
  * Only the keys present in `input` are sent, so a field the manager did not touch cannot be cleared:
  * `motel.service.ts` writes field by field and an explicit `null` is the only way to clear a value.

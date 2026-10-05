@@ -84,7 +84,7 @@ describe("apiSend", () => {
   });
 
   it("sends no body and no content-type for a DELETE that takes none", async () => {
-    // `room.route.ts:130-140` deletes on the path alone; a `content-type` with no body, or a
+    // `room.route.ts:130-141` deletes on the path alone; a `content-type` with no body, or a
     // literal `"undefined"`, is the kind of thing that turns into a 400 on someone else's server.
     fetchMock.mockResolvedValue(new Response(null, { status: 204 }));
 

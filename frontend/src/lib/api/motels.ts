@@ -13,7 +13,7 @@ import type { MotelResponse } from "./types";
 const MOTELS = "/api/manager/motels";
 
 /**
- * Every motel the signed-in manager owns — `motel.service.ts:40` returns the array itself, with no
+ * Every motel the signed-in manager owns — `motel.service.ts:45` returns the array itself, with no
  * envelope and no pagination, so a screen written against `{ motels: [...] }` would find nothing at
  * runtime with nothing at compile time to catch it.
  */

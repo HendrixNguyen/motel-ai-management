@@ -14,7 +14,7 @@ const ROOMS = (motelId: string): string =>
   `/api/manager/motels/${encodeURIComponent(motelId)}/rooms`;
 
 /**
- * The rooms of one motel — `room.service.ts:106` returns a bare array, no envelope, no pagination.
+ * The rooms of one motel — `room.service.ts:126` returns a bare array, no envelope, no pagination.
  *
  * A filter absent from `filters` is not sent, and a filter set to `""` is not sent either:
  * `room.service.ts:117-119` treats an empty `?search=` as no filter on purpose, so sending one is

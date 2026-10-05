@@ -10,7 +10,7 @@ const RENTERS = (motelId: string): string =>
   `/api/manager/motels/${encodeURIComponent(motelId)}/renters`;
 
 /**
- * The renters of one motel — `renter.service.ts:150` returns a bare array.
+ * The renters of one motel — `renter.service.ts:172` returns a bare array.
  *
  * `roomId` is a filter here as well as an assignment: an unassigned renter has `roomId: null`
  * (`renter.schema.ts:38`), so "everyone in P.101" and "everyone not yet assigned" are both questions

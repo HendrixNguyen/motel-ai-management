@@ -146,7 +146,7 @@ export async function apiGet<T>(path: string): Promise<T> {
  * `POST` / `PATCH` / `DELETE` a path, optionally with a body.
  *
  * A body-less call sends no `content-type` and no body at all. `DELETE` on a room
- * (`room.route.ts:130-140`) and on a motel takes nothing but the path, and a request with an empty
+ * (`room.route.ts:130-141`) and on a motel takes nothing but the path, and a request with an empty
  * body is a 400 waiting to happen on someone else's server.
  *
  * `body === undefined` is the "no body" signal, never `JSON.stringify(undefined)` — which is the
@@ -188,7 +188,7 @@ async function send(path: string, method: string, body?: unknown): Promise<Respo
  * Turn a response into data or into an `ApiError`. Shared by both transports.
  *
  * The body is read as text exactly once, which is what makes an empty 204 (`room.route.ts:135-138`,
- * `auth.route.ts:69-71` return `""`) a `undefined` rather than a `SyntaxError` on `JSON.parse`.
+ * `auth.route.ts:68-71` return `""`) a `undefined` rather than a `SyntaxError` on `JSON.parse`.
  */
 export async function decodeResponse<T>(res: Response): Promise<T> {
   const body = await readJson(res);
