@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, test } from "bun:test";
+import { beforeEach, describe, expect, setDefaultTimeout, test } from "bun:test";
 import { sql } from "drizzle-orm";
 import { db } from "@/db";
 import { resetDb } from "@/db/test-db";
@@ -7,6 +7,10 @@ import { renters } from "@/modules/renter/renter.schema";
 import { registerManager } from "@/modules/auth/auth.service";
 import { consumeMagicLink, issueMagicLink } from "@/shared/magic-link";
 import { app } from "@/app";
+
+// `resetDb` drops the schema and re-applies every migration, which takes seconds — past
+// Bun's 5 s default, and worse once a long run has churned the system catalogs.
+setDefaultTimeout(20_000);
 
 beforeEach(resetDb);
 

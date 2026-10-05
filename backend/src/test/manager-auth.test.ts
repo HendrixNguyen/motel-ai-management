@@ -1,7 +1,11 @@
-import { beforeEach, describe, expect, test } from "bun:test";
+import { beforeEach, describe, expect, setDefaultTimeout, test } from "bun:test";
 import { app } from "@/app";
 import { registerManager, verifyManager } from "@/modules/auth/auth.service";
 import { resetDb } from "@/db/test-db";
+
+// `resetDb` drops the schema and re-applies every migration, which takes seconds — past
+// Bun's 5 s default, and worse once a long run has churned the system catalogs.
+setDefaultTimeout(20_000);
 
 beforeEach(resetDb);
 

@@ -10,6 +10,7 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 import { motels } from "@/modules/motel/motel.schema";
+import { MONEY_PRECISION } from "@/shared/money";
 
 export const roomStatus = pgEnum("room_status", ["available", "occupied", "maintenance"]);
 
@@ -23,7 +24,7 @@ export const rooms = pgTable(
     /** Room number as displayed, e.g. `P.101`. Unique inside one motel only. */
     name: text("name").notNull(),
     /** Default monthly rent. A signed Contract.monthlyRent always overrides it. */
-    basePrice: numeric("base_price", { precision: 14, scale: 0 }).notNull().default("0"),
+    basePrice: numeric("base_price", { precision: MONEY_PRECISION, scale: 0 }).notNull().default("0"),
     floor: integer("floor"),
     status: roomStatus("status").notNull().default("available"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

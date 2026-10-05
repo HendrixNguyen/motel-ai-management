@@ -35,3 +35,15 @@ export async function getRenterByPhone(motelId: string, phone: string): Promise<
 export async function countRentersForMotel(motelId: string): Promise<number> {
   return db.$count(renters, eq(renters.motelId, motelId));
 }
+
+/**
+ * Renters still assigned to a room, whatever their status.
+ *
+ * The status is deliberately absent from the filter. `renters.room_id` is a foreign key with
+ * `ON DELETE no action`, so an `inactive` renter left pointing at a room blocks its deletion
+ * exactly as much as an active one — counting only the active rows would let the delete through
+ * and turn a refusal the manager can read into a 500.
+ */
+export async function countRentersInRoom(roomId: string): Promise<number> {
+  return db.$count(renters, eq(renters.roomId, roomId));
+}

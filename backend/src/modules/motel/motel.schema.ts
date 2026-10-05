@@ -8,6 +8,7 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 import { managers } from "@/modules/auth/auth.schema";
+import { MONEY_PRECISION } from "@/shared/money";
 
 export interface MotelFee {
   name: string;
@@ -20,15 +21,6 @@ export interface BankAccount {
   accountNumber: string;
   accountName: string;
 }
-
-/**
- * Digits `numeric(14,0)` holds: the largest storable amount is `10^14 - 1`.
- *
- * Declared once and used by the column *and* by the service's magnitude check, so the bound
- * cannot drift from the column it protects. Verified against PostgreSQL:
- * `numeric_precision = 14, numeric_scale = 0` for `electricity_price` and `water_price`.
- */
-export const MONEY_PRECISION = 14;
 
 export const motels = pgTable(
   "motels",

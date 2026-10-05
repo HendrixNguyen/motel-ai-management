@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, test } from "bun:test";
+import { beforeEach, describe, expect, setDefaultTimeout, test } from "bun:test";
 import { db } from "@/db";
 import { resetDb } from "@/db/test-db";
 import { magicLinks, managers } from "@/modules/auth/auth.schema";
@@ -12,6 +12,10 @@ import {
 } from "@/modules/billing/billing.schema";
 import { contractTemplates, contracts } from "@/modules/contract/contract.schema";
 import { helpTickets } from "@/modules/ticket/ticket.schema";
+
+// `resetDb` drops the schema and re-applies every migration, which takes seconds — past
+// Bun's 5 s default, and worse once a long run has churned the system catalogs.
+setDefaultTimeout(20_000);
 
 const managerId = "00000000-0000-4000-8000-000000000001";
 const motelId = "00000000-0000-4000-8000-000000000002";
