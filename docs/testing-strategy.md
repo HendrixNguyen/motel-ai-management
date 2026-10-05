@@ -100,6 +100,27 @@ merging anything that touches auth, tenancy, or money.
 /review-code
 ```
 
+## Frontend tests
+
+Two runners, two layers, no overlap.
+
+| Layer | Runner | Files | Needs a database? |
+|-------|--------|-------|-------------------|
+| Unit | Vitest (`node` environment) | `src/**/*.test.ts` | no |
+| Browser | Playwright `chromium-mobile` | `e2e/**/*.spec.ts` | no |
+| Browser, live stack | Playwright `real-stack` | `e2e/real/**`, only with `E2E_REAL=1` | yes |
+
+The browser layer is fixture-backed on purpose: `mockApi(page, fixtures)` in `e2e/fixtures/api.ts`
+intercepts `**/api/**` and answers from a literal, so the suite asserts UI behaviour without
+PostgreSQL, without the Elysia backend running, and without seeded data. A request with no fixture
+gets a `404 NOT_FOUND` envelope, so a forgotten fixture fails loudly instead of hanging. The
+`real-stack` project is the same flow against a live backend; it is gated on `E2E_REAL=1` rather
+than silently skipped, and `bun run test:e2e` passes on a machine that has neither.
+
+Unit tests cover the pure parts — the VND digit guard, the formatters, status labels. Component
+rendering is not unit-tested: Vitest has no DOM environment here, so a test that needs one belongs
+in the browser layer instead of adding `jsdom` for a single assertion.
+
 ## Commands
 
 ```bash
@@ -107,4 +128,7 @@ cd backend && bun test                                  # everything
 cd backend && bun test src/test/tenancy.test.ts         # one file
 cd backend && bun run typecheck
 cd frontend && bun run lint
+cd frontend && bun run test                             # vitest
+cd frontend && bun run test:e2e                         # playwright, fixture-backed
+cd frontend && E2E_REAL=1 bun run test:e2e              # also runs e2e/real/**
 ```
