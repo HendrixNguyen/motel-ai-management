@@ -18,9 +18,9 @@ import type { CreateMotelInput, UpdateMotelInput } from "./motel.types";
 const motelIdParams = t.Object({ motelId: t.String({ format: "uuid" }) });
 
 /**
- * `amount` is typed `string` here so the shape matches `MotelFeeInput`; the digits themselves
- * are checked by `parseVnd` in the service, because a `t.String()` cannot tell `"20k"` from
- * `"20000"` and a bad amount must be a 400, never a 500 from the column.
+ * `amount` is typed `string` here so the shape matches `MotelFeeInput`; the digits *and* the
+ * magnitude are checked by `parseAmount` in the service, because a `t.String()` cannot tell
+ * `"20k"` from `"20000"`, and a bad amount must be a 400, never a 500 from the column.
  */
 const motelFee = t.Object({ name: t.String({ minLength: 1 }), amount: t.String() });
 

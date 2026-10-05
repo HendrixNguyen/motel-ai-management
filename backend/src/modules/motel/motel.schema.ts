@@ -21,6 +21,15 @@ export interface BankAccount {
   accountName: string;
 }
 
+/**
+ * Digits `numeric(14,0)` holds: the largest storable amount is `10^14 - 1`.
+ *
+ * Declared once and used by the column *and* by the service's magnitude check, so the bound
+ * cannot drift from the column it protects. Verified against PostgreSQL:
+ * `numeric_precision = 14, numeric_scale = 0` for `electricity_price` and `water_price`.
+ */
+export const MONEY_PRECISION = 14;
+
 export const motels = pgTable(
   "motels",
   {
@@ -31,9 +40,12 @@ export const motels = pgTable(
     name: text("name").notNull(),
     address: text("address"),
     /** VND per kWh. */
-    electricityPrice: numeric("electricity_price", { precision: 14, scale: 0 }).notNull(),
+    electricityPrice: numeric("electricity_price", {
+      precision: MONEY_PRECISION,
+      scale: 0,
+    }).notNull(),
     /** VND per m3. */
-    waterPrice: numeric("water_price", { precision: 14, scale: 0 }).notNull(),
+    waterPrice: numeric("water_price", { precision: MONEY_PRECISION, scale: 0 }).notNull(),
     otherFees: jsonb("other_fees")
       .$type<MotelFee[]>()
       .notNull()

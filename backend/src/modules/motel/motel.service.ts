@@ -7,7 +7,7 @@ import { countBillingPeriodsForMotel } from "@/modules/billing/billing.service";
 import { countContractTemplatesForMotel } from "@/modules/contract/contract.service";
 import { countRentersForMotel } from "@/modules/renter/renter.service";
 import { countOccupiedRoomsForMotel, countRoomsForMotel } from "@/modules/room/room.service";
-import { motels, type BankAccount, type MotelFee } from "./motel.schema";
+import { motels, type BankAccount, type MotelFee, MONEY_PRECISION } from "./motel.schema";
 import type {
   CreateMotelInput,
   MotelFeeInput,
@@ -24,14 +24,34 @@ type MotelPatch = Partial<{
   bankAccount: BankAccount | null;
 }>;
 
+/** Largest amount `numeric(14,0)` holds. `MONEY_PRECISION` digits of `9`. */
+const MAX_AMOUNT = 10n ** BigInt(MONEY_PRECISION) - 1n;
+
 /**
- * `parseVnd` is the only way an amount reaches a `numeric` column from this module.
- * `t.String()` in the route schema accepts `"3500.5"` and `"20k"` alike; the column would
- * reject the first as a 500 and store nothing useful for the second. `parseVnd` turns both
- * into a 400 with a Vietnamese message the caller can act on.
+ * The only way an amount reaches this module's money columns.
+ *
+ * `parseVnd` is the digits-only gate; the magnitude check is on top of it, because digits are
+ * not enough. `t.String()` in the route schema and `parseVnd` both accept `"999999999999999"`,
+ * and PostgreSQL answers that with `numeric field overflow` (SQLSTATE 22003) — a driver error
+ * the shared handler can only report as a 500, for what is plainly a client mistake.
+ *
+ * The value compared is `parseVnd`'s normalised output, so leading zeros can neither smuggle an
+ * oversized amount past the bound nor trip it: `"09999999999999"` is 14 digits and fits.
+ *
+ * Every money input in this module goes through here — both prices and each `otherFees`
+ * amount, on create and on update — because a bound that one path enforces and another ignores
+ * is worse than no bound at all.
  */
+function parseAmount(input: string): string {
+  const amount = parseVnd(input);
+  if (BigInt(amount) > MAX_AMOUNT) {
+    throw AppError.badRequest(`Số tiền vượt quá ${MONEY_PRECISION} chữ số`);
+  }
+  return amount;
+}
+
 function toFees(fees: MotelFeeInput[]): MotelFee[] {
-  return fees.map((fee) => ({ name: fee.name, amount: parseVnd(fee.amount) }));
+  return fees.map((fee) => ({ name: fee.name, amount: parseAmount(fee.amount) }));
 }
 
 export async function listMotels(managerId: string): Promise<MotelResponse[]> {
@@ -52,8 +72,8 @@ export async function createMotel(managerId: string, input: CreateMotelInput): P
       managerId,
       name: input.name,
       address: input.address ?? null,
-      electricityPrice: parseVnd(input.electricityPrice),
-      waterPrice: parseVnd(input.waterPrice),
+      electricityPrice: parseAmount(input.electricityPrice),
+      waterPrice: parseAmount(input.waterPrice),
       otherFees: input.otherFees === undefined ? [] : toFees(input.otherFees),
       bankAccount: input.bankAccount ?? null,
     })
@@ -80,8 +100,8 @@ export async function updateMotel(
   const patch: MotelPatch = {};
   if (input.name !== undefined) patch.name = input.name;
   if (input.address !== undefined) patch.address = input.address;
-  if (input.electricityPrice !== undefined) patch.electricityPrice = parseVnd(input.electricityPrice);
-  if (input.waterPrice !== undefined) patch.waterPrice = parseVnd(input.waterPrice);
+  if (input.electricityPrice !== undefined) patch.electricityPrice = parseAmount(input.electricityPrice);
+  if (input.waterPrice !== undefined) patch.waterPrice = parseAmount(input.waterPrice);
   if (input.otherFees !== undefined) patch.otherFees = toFees(input.otherFees);
   if (input.bankAccount !== undefined) patch.bankAccount = input.bankAccount;
 

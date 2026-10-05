@@ -175,6 +175,51 @@ describe("POST /api/manager/motels", () => {
     expect(await db.$count(motels)).toBe(0);
   });
 
+  test("rejects an oversized price with 400 — numeric(14,0) overflow is a client error", async () => {
+    const a = await login("a@example.com");
+    const res = await api("POST", "/manager/motels", {
+      cookie: a.cookie,
+      // 15 digits: `numeric_field overflow`, which the error handler can only call a 500.
+      body: { name: "Nhà trọ", electricityPrice: "999999999999999", waterPrice: "25000" },
+    });
+    expect(res.status).toBe(400);
+    expect(((await res.json()) as ErrorPayload).code).toBe("VALIDATION_ERROR");
+    expect(await db.$count(motels)).toBe(0);
+  });
+
+  test("rejects an oversized amount inside otherFees with 400", async () => {
+    const a = await login("a@example.com");
+    const res = await api("POST", "/manager/motels", {
+      cookie: a.cookie,
+      body: {
+        name: "Nhà trọ",
+        electricityPrice: "3500",
+        waterPrice: "25000",
+        otherFees: [{ name: "Rác", amount: "999999999999999" }],
+      },
+    });
+    expect(res.status).toBe(400);
+    expect(((await res.json()) as ErrorPayload).code).toBe("VALIDATION_ERROR");
+    expect(await db.$count(motels)).toBe(0);
+  });
+
+  test("accepts the largest amount numeric(14,0) can hold", async () => {
+    const a = await login("a@example.com");
+    const res = await api("POST", "/manager/motels", {
+      cookie: a.cookie,
+      body: {
+        name: "Nhà trọ",
+        electricityPrice: "99999999999999",
+        waterPrice: "99999999999999",
+        otherFees: [{ name: "Rác", amount: "99999999999999" }],
+      },
+    });
+    expect(res.status).toBe(201);
+    const body = (await res.json()) as MotelPayload;
+    expect(body.electricityPrice).toBe("99999999999999");
+    expect(body.otherFees[0]!.amount).toBe("99999999999999");
+  });
+
   test("rejects a decimal price with 400 — a float never becomes a number", async () => {
     const a = await login("a@example.com");
     const res = await api("POST", "/manager/motels", {
@@ -380,6 +425,38 @@ describe("PATCH /api/manager/motels/:motelId", () => {
 
     const after = await api("GET", `/manager/motels/${created.id}`, { cookie: a.cookie });
     expect(((await after.json()) as MotelPayload).electricityPrice).toBe("3500");
+  });
+
+  test("rejects an oversized price with 400 and leaves the stored price intact", async () => {
+    const a = await login("a@example.com");
+    const created = await createMotel(a.cookie);
+
+    const res = await api("PATCH", `/manager/motels/${created.id}`, {
+      cookie: a.cookie,
+      body: { electricityPrice: "999999999999999" },
+    });
+    expect(res.status).toBe(400);
+    expect(((await res.json()) as ErrorPayload).code).toBe("VALIDATION_ERROR");
+
+    const after = await api("GET", `/manager/motels/${created.id}`, { cookie: a.cookie });
+    expect(((await after.json()) as MotelPayload).electricityPrice).toBe("3500");
+  });
+
+  test("rejects an oversized amount inside otherFees with 400 and keeps the stored fees", async () => {
+    const a = await login("a@example.com");
+    const created = await createMotel(a.cookie, { otherFees: [{ name: "Rác", amount: "20000" }] });
+
+    const res = await api("PATCH", `/manager/motels/${created.id}`, {
+      cookie: a.cookie,
+      body: { otherFees: [{ name: "Rác", amount: "999999999999999" }] },
+    });
+    expect(res.status).toBe(400);
+    expect(((await res.json()) as ErrorPayload).code).toBe("VALIDATION_ERROR");
+
+    const after = await api("GET", `/manager/motels/${created.id}`, { cookie: a.cookie });
+    expect(((await after.json()) as MotelPayload).otherFees).toEqual([
+      { name: "Rác", amount: "20000" },
+    ]);
   });
 
   test("another manager's motel is 404 and is not modified", async () => {
