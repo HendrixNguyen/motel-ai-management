@@ -193,13 +193,29 @@ Empty state: **Chưa có nhà trọ** — `bấm Tạo nhà trọ để bắt đ
 ### M3 — Phòng trọ `/rooms`
 
 Filters: floor, status (`Trống` / `Đang ở` / `Bảo trì`), search by name.
+Filters are applied together using `Áp dụng bộ lọc`; `floor`, `status` and `search` live in
+the URL alongside `motel`. Clearing them preserves the selected motel. Floor zero and
+signed integer floors are supported. Empty, malformed, repeated or out-of-range filter
+values in shared URLs are ignored; the controls show the understood filters only.
 
 Room card shows name (`P.101`), floor, **base price** (`3.500.000 ₫`), status badge, the
-current renter's name and phone, and an overdue indicator when an unsettled invoice
-exists. Actions: edit, change status, view renter, meter history.
+names and phones of all active renters assigned to that room (joined from one renters
+read), and `Chưa có khách thuê` when none are assigned. A missing floor shows
+`Chưa ghi tầng`. Actions: edit, change status, view renter. `Xem khách thuê` links to
+`/renters?motel=<id>&roomId=<id>`. The overdue indicator and meter history remain deferred
+under the phase 1 scope above.
 
 Add/edit modal: Tên phòng, Tầng, Giá thuê cơ bản. No amenities field — deliberately out
-of scope (see spec non-goals).
+of scope (see spec non-goals). Floor is optional; clearing it sends `null`. Rent accepts
+digits or correctly grouped Vietnamese amounts and previews the amount with `₫`.
+Editing patches only changed fields; the separate status dialog patches status alone.
+Each opened form owns a fixed draft and submission baseline, including across refreshes
+from dismissed pending saves. Validation errors appear beside fields and in a focused,
+linked summary. Server errors (including duplicate room names) remain form-level banners;
+404 offers `Tải lại danh sách`, and 401 returns to login.
+
+An unfiltered empty motel offers `Thêm phòng`; an empty filtered result offers
+`Xóa bộ lọc`. A manager without motels is offered `Tạo nhà trọ` first.
 
 ### M4 — Khách thuê `/renters`
 

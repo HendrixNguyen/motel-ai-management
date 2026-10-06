@@ -31,7 +31,8 @@ Product context: `README.md`.
 - `frontend/` — Next.js 16.3.8 App Router. The root layout and the design tokens in
   `src/app/globals.css` are in place. Task 5 adds login and the manager shell with heading-only
   frames at `/`, `/rooms`, and `/renters`; Task 7 supplies the `/motels` grid and create/edit
-  settings dialogs. The later screen tasks supply the remaining content.
+  settings dialogs. Task 8 supplies `/rooms` with URL filters, joined renter cards and
+  create/edit/status dialogs. The later screen tasks supply the remaining content.
   Renter and capture route groups remain specified in `docs/frontend-ui-specs.md`.
 - Bun only. Never `npm`, `yarn`, or `npx`.
 - Git remote is **SSH**: `git@github.com:HendrixNguyen/motel-ai-management.git`. HTTPS push
