@@ -13,6 +13,7 @@ WORKDIR /app
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/tsconfig.json ./tsconfig.json
 COPY --from=build /app/src ./src
+COPY backend/drizzle ./drizzle
 COPY backend/package.json ./
 EXPOSE 3000
-CMD ["bun", "run", "src/index.ts"]
+CMD ["sh", "-c", "bun run db:migrate && bun run start"]
