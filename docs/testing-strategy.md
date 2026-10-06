@@ -144,6 +144,11 @@ without a DOM environment. The dialog session's cleanup and focus restoration ar
 an event target that doubles only the browser boundary. DOM interaction, responsive layout, and
 browser navigation belong in Playwright; no `jsdom` dependency is needed.
 
+M1 server-rendered page tests cover unfiltered room counts for all statuses, occupancy
+rounding and an empty denominator, implicit and explicit owned motel selection, scoped
+quick-action links, rejection of invalid scope before room reads, no-motel creation,
+empty-room guidance, read failures, and the absence of deferred measures and actions.
+
 M2 unit tests cover initial drafts, exact VND normalization and storage bounds, partial patches,
 explicit settings clearing, local field errors, safe form-level API errors, and the real server
 page's motel/room-count reads. `e2e/motels.spec.ts` covers create/edit, retained error drafts,

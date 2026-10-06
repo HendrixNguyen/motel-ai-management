@@ -155,6 +155,16 @@ cards:
 | Tiền chưa thu | count of unsettled invoices | total VND |
 | Sự cố chưa xử lý | count of `open` + `in_progress` tickets | oldest age in days |
 
+The **Phòng** measure reads the selected motel's complete, unfiltered room list. It counts
+`occupied` as đang thuê, `available` as trống, and `maintenance` as bảo trì. Occupancy is
+`occupied / total rooms × 100`, including maintenance rooms in the denominator, rounded to
+the nearest whole percent. A successful empty room list shows zero counts and **Tỷ lệ lấp
+đầy: 0%**, with **Chưa có phòng trọ** and **Xem phòng trọ** linking to the selected motel's
+`/rooms` screen. A failed room read reaches the shared retry boundary rather than showing
+zeros. Without a motel, show the existing **Chưa có nhà trọ** creation state and omit room
+statistics and scoped quick actions. The phase 1 **Thêm khách thuê** link opens `/renters`
+and carries the resolved `motel` query, including when the initial selection was implicit.
+
 Quick actions: **Chốt số điện/nước**, **Tạo hóa đơn**, **Thêm khách thuê**. Keep the next
 operational action prominent on mobile without hiding alerts or unpaid balance.
 
