@@ -1,8 +1,15 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { readFileSync } from "node:fs";
 import { createMagicLinkSession } from "@/lib/renter-magic-link";
 
 afterEach(() => vi.unstubAllGlobals());
 describe("renter magic link action", () => {
+  it("gives the returned URL input the documented high-contrast control boundary", () => {
+    const source = readFileSync(new URL("../../components/manager/renter-magic-link.tsx", import.meta.url), "utf8");
+    const inputClasses = source.match(/<input\b[^>]*className="([^"]+)"/)?.[1]?.split(/\s+/);
+    expect(inputClasses).toContain("border-border-strong");
+    expect(inputClasses).not.toContain("border-border");
+  });
   it("creates a bodyless same-origin POST and returns the exact portal URL", async () => {
     const fetchMock = vi.fn().mockResolvedValue(Response.json({ token: "opaque", url: "https://motel.example/r/opaque" }));
     vi.stubGlobal("fetch", fetchMock);

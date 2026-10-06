@@ -33,7 +33,7 @@ export default function RenterMagicLink({ motelId, renterId }: { motelId: string
     {error && <div ref={summary} role="alert" tabIndex={-1} className="rounded-input border border-danger bg-danger-bg p-3 text-danger focus:outline-2 focus:outline-offset-2 focus:outline-danger">{error}</div>}
     {url && <div className="min-w-0 space-y-3">
       <label htmlFor={id} className="block text-sm font-semibold text-text">Magic link</label>
-      <input id={id} readOnly value={url} className="min-h-11 w-full min-w-0 rounded-input border border-border bg-canvas px-3 text-base text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary" />
+      <input id={id} readOnly value={url} className="min-h-11 w-full min-w-0 rounded-input border border-border-strong bg-canvas px-3 text-base text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary" />
       <CopyButton key={url} value={url} label="Sao chép magic link" />
       <p role="status" className="text-sm text-text-muted">Đã tạo liên kết. Sao chép và gửi riêng cho khách thuê.</p>
     </div>}
