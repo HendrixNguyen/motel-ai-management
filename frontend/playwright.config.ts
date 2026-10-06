@@ -2,12 +2,14 @@ import { defineConfig, devices } from "@playwright/test";
 
 const PORT = 3001;
 const BASE_URL = `http://localhost:${PORT}`;
+const REAL_STACK = process.env.E2E_REAL === "1";
+const FIXTURE_BACKEND_URL = "http://127.0.0.1:3002";
 
 // Two projects, two jobs.
 //
-// `chromium-mobile` is the suite that must always pass: it drives the UI at 375x667 with every
-// `**/api/**` request answered by a fixture from `e2e/fixtures/api.ts`. No PostgreSQL, no Elysia
-// backend, no seeded data — that is the whole point, since CI here has no database.
+// `chromium-mobile` drives the UI at 375x667. Browser API fixtures use `e2e/fixtures/api.ts`;
+// Server Component reads use the test-only loopback backend below. No PostgreSQL, no Elysia
+// backend, no seeded data — CI here has no database.
 //
 // `real-stack` runs the same flow against a live backend and PostgreSQL, so it is gated on
 // `E2E_REAL=1` rather than silently skipped. Its specs live in `e2e/real/`, which
@@ -34,6 +36,9 @@ export default defineConfig({
       },
       testMatch: "e2e/**/*.spec.ts",
       testIgnore: "e2e/real/**",
+      // The live-stack invocation uses the real backend; its Server Component reads cannot be
+      // browser-intercepted, so fixture flows are run in the normal invocation instead.
+      grepInvert: REAL_STACK ? /.*/ : undefined,
     },
     {
       name: "real-stack",
@@ -41,16 +46,25 @@ export default defineConfig({
       // Playwright 1.63 no longer reads a per-project `skip`, so the gate is an inverted grep that
       // matches no title. The project stays declared — never silently absent — and its tests run
       // only on a machine that has a backend and PostgreSQL.
-      grepInvert: process.env.E2E_REAL === "1" ? undefined : /.*/,
+      grepInvert: REAL_STACK ? undefined : /.*/,
     },
   ],
-  webServer: {
-    // The port lives in the `dev` script; `BASE_URL` above has to agree with it. Readiness is
-    // checked on the port, not on a URL, because Playwright treats a 404 as "not up yet" and no
-    // screen is guaranteed to exist — the harness must not depend on a route.
-    command: "bun run dev",
-    port: PORT,
-    reuseExistingServer: !process.env.CI,
-    timeout: 120_000,
-  },
+  webServer: [
+    ...(!REAL_STACK ? [{
+      command: "bun e2e/fixtures/backend-server.ts",
+      url: `${FIXTURE_BACKEND_URL}/health`,
+      reuseExistingServer: false,
+      timeout: 30_000,
+    }] : []),
+    {
+      // The port lives in the `dev` script; `BASE_URL` above has to agree with it. Readiness is
+      // checked on the port, so the harness does not depend on a particular application route.
+      command: "bun run dev",
+      port: PORT,
+      // A reused dev server may have a different BACKEND_URL and bypass our hermetic RSC fixture.
+      reuseExistingServer: REAL_STACK && !process.env.CI,
+      env: REAL_STACK ? undefined : { BACKEND_URL: FIXTURE_BACKEND_URL },
+      timeout: 120_000,
+    },
+  ],
 });

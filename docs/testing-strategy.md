@@ -115,19 +115,29 @@ intercepts `**/api/**` and answers from a literal, so the suite asserts UI behav
 PostgreSQL, without the Elysia backend running, and without seeded data. A request with **no
 fixture throws inside the route handler**, so a spec that forgot one fails naming the key it wanted;
 an earlier 404 fallback would have been indistinguishable from a legitimately empty resource, which
-is worse than no fixture at all. The `real-stack` project is the same flow against a live backend; it
-is gated on `E2E_REAL=1` rather than silently skipped.
+is worse than no fixture at all.
 
-**Hermetic is not the same as runnable.** The fixture-backed suite needs no database and no backend,
+Server Component reads cannot be intercepted by `page.route()`. The fixture-backed command also
+starts `e2e/fixtures/backend-server.ts` on loopback port `3002` and starts Next with server-only
+`BACKEND_URL=http://127.0.0.1:3002`. Its typed responses cover the manager identity and motel list;
+login/logout responses set and clear an `httpOnly` cookie through the actual Next rewrite. The fake
+server is test infrastructure only and is never started by the application's dev/start commands.
+Do not reuse an unrelated Next dev server for these tests: its backend setting may differ.
+
+The `real-stack` project uses a live backend and is gated on `E2E_REAL=1`. That invocation runs the
+live project instead of the fixture project and does not start the fake backend.
+
+**Hermetic is not the same as runnable.** The fixture-backed suite needs no database or real backend,
 but it still needs a browser that can start. On a minimal Linux image Chromium dies at launch with
 `error while loading shared libraries: libnspr4.so` until
 `sudo bunx playwright install-deps chromium` has been run once. That is a missing OS package, not a
 data dependency — see the Known-state bullet in `AGENTS.md`. `bun run test` has no such requirement
 and passes anywhere the dependencies install.
 
-Unit tests cover the pure parts — the VND digit guard, the formatters, status labels. Component
-rendering is not unit-tested: Vitest has no DOM environment here, so a test that needs one belongs
-in the browser layer instead of adding `jsdom` for a single assertion.
+Unit tests cover the VND digit guard, formatters, status labels, motel selection/navigation, login
+validation/submission, and server session guards. React server-rendered markup checks label/error
+wiring and shell semantics without a DOM environment. DOM interaction, responsive layout, and
+browser navigation belong in Playwright; no `jsdom` dependency is needed.
 
 ## Commands
 
@@ -139,5 +149,5 @@ cd frontend && bun run typecheck
 cd frontend && bun run lint
 cd frontend && bun run test                             # vitest
 cd frontend && bun run test:e2e                         # playwright, fixture-backed
-cd frontend && E2E_REAL=1 bun run test:e2e              # also runs e2e/real/**
+cd frontend && E2E_REAL=1 bun run test:e2e              # live e2e/real/** only
 ```

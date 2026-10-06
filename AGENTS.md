@@ -29,9 +29,9 @@ Product context: `README.md`.
   `bun.lock`. No root-level `bun install`, `bun test`, or `bun run build` exists.
 - `backend/` — ElysiaJS + Drizzle + PostgreSQL, wired through `src/app.ts` → `src/index.ts`.
 - `frontend/` — Next.js 16.3.8 App Router. The root layout and the design tokens in
-  `src/app/globals.css` are in place; there is no `src/app/page.tsx` yet, so `/` is a 404 until
-  a route group claims it. The manager / renter / capture route groups are specified in
-  `docs/frontend-ui-specs.md` but not implemented yet.
+  `src/app/globals.css` are in place. Task 5 adds login and the manager shell with heading-only
+  frames at `/`, `/motels`, `/rooms`, and `/renters`; the later screen tasks supply their content.
+  Renter and capture route groups remain specified in `docs/frontend-ui-specs.md`.
 - Bun only. Never `npm`, `yarn`, or `npx`.
 - Git remote is **SSH**: `git@github.com:HendrixNguyen/motel-ai-management.git`. HTTPS push
   fails on this machine — there is no working credential prompt path.
@@ -62,8 +62,8 @@ bun run test:e2e            # playwright  — e2e/**/*.spec.ts, fixture-backed
 ```
 
 The frontend harness: `vitest.config.mts` collects `src/**/*.test.ts` only, and `playwright.config.ts`
-declares two projects — `chromium-mobile` (375x667, every `**/api/**` answered by a fixture in
-`e2e/fixtures/api.ts`, so **no database and no backend process are needed**) and `real-stack`
+declares two projects — `chromium-mobile` (375x667, browser fixtures in `e2e/fixtures/api.ts`
+plus a test-only fixture server for Server Component reads, so **no database or real backend is needed**) and `real-stack`
 (`e2e/real/**`, filtered out unless `E2E_REAL=1`). The two runners never overlap: Vitest's include
 is rooted at `src/`, Playwright's `testMatch` at `e2e/`. `docs/testing-strategy.md` owns what each
 layer must test.
