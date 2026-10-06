@@ -5,6 +5,7 @@ import { getMe } from "@/lib/api/auth";
 import { listMotels } from "@/lib/api/motels";
 import Sidebar from "@/components/manager/sidebar";
 import TopBar from "@/components/manager/top-bar";
+import { ToastProvider } from "@/components/ui/toast";
 
 export default async function ManagerLayout({ children }: { children: React.ReactNode }) {
   if (!(await cookies()).get("manager_session")?.value) redirect("/login");
@@ -17,7 +18,7 @@ export default async function ManagerLayout({ children }: { children: React.Reac
         <Suspense fallback={<div className="h-24 border-b border-border bg-surface" role="status">Đang tải điều hướng…</div>}>
           <TopBar manager={manager} motels={motels} />
         </Suspense>
-        <main id="main-content" tabIndex={-1} className="mx-auto max-w-6xl px-4 pt-6 pb-[calc(6rem+env(safe-area-inset-bottom))] lg:px-8 lg:pb-8">{children}</main>
+        <main id="main-content" tabIndex={-1} className="mx-auto max-w-6xl px-4 pt-6 pb-[calc(6rem+env(safe-area-inset-bottom))] lg:px-8 lg:pb-8"><ToastProvider>{children}</ToastProvider></main>
       </div>
     </div>
   );

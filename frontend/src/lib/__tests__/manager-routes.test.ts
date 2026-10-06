@@ -8,6 +8,7 @@ import Renters from "@/app/(manager)/renters/page";
 import ErrorPage from "@/app/(manager)/error";
 import Loading from "@/app/(manager)/loading";
 import NotFound from "@/app/(manager)/not-found";
+import Button from "@/components/ui/button";
 import { MOTEL } from "@/lib/api/__tests__/fixtures";
 
 vi.mock("server-only", () => ({}));
@@ -39,7 +40,8 @@ describe("manager fallback states", () => {
     expect(html).toContain("Thử lại");
     expect(html).not.toContain("secret database address");
     // Exercise our button callback directly; the browser runner covers its DOM interaction.
-    const button = ui.props.children.find((child: { type?: string }) => child.type === "button");
+    const action = ui.props.children.find((child: { type?: unknown }) => child.type === Button);
+    const button = Button(action.props);
     button.props.onClick();
     expect(retry).toHaveBeenCalledOnce();
   });

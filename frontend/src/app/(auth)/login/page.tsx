@@ -3,6 +3,7 @@
 import { useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import Field from "@/components/ui/field";
+import Button from "@/components/ui/button";
 import { authenticateManager, type LoginFieldErrors } from "@/lib/login-form";
 
 export default function LoginPage() {
@@ -43,7 +44,7 @@ export default function LoginPage() {
           <Field id="email" label="Email" error={fields.email}>{(props) => <input {...props} ref={emailRef} name="email" type="email" autoComplete="username" required className={controlClass} />}</Field>
           <Field id="password" label="Mật khẩu" error={fields.password}>{(props) => <input {...props} ref={passwordRef} name="password" type="password" autoComplete="current-password" required className={controlClass} />}</Field>
           {error && <p role="alert" className="rounded-input bg-danger-bg p-3 text-danger">{error}</p>}
-          <button type="submit" disabled={pending} className="min-h-11 w-full cursor-pointer rounded-input bg-primary px-4 py-2 font-semibold text-surface hover:bg-primary-strong focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-wait disabled:opacity-60">{pending ? "Đang đăng nhập…" : "Đăng nhập"}</button>
+          <Button type="submit" pending={pending} pendingLabel="Đang đăng nhập…" className="w-full">Đăng nhập</Button>
         </form>
       </div>
     </main>

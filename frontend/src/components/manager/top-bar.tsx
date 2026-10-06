@@ -6,6 +6,7 @@ import { logout } from "@/lib/api/auth.client";
 import { ApiError, GENERIC_ERROR_MESSAGE } from "@/lib/api/client";
 import type { ManagerMeResponse, MotelResponse } from "@/lib/api/types";
 import { motelHref } from "@/lib/motel-navigation";
+import Button from "@/components/ui/button";
 
 export default function TopBar({ manager, motels }: { manager: ManagerMeResponse; motels: MotelResponse[] }) {
   const router = useRouter();
@@ -55,7 +56,7 @@ export default function TopBar({ manager, motels }: { manager: ManagerMeResponse
           <div className="absolute right-0 z-30 mt-2 w-64 max-w-[calc(100vw-2rem)] space-y-4 rounded-card border border-border bg-surface p-4 shadow-lg">
             <p className="text-sm wrap-anywhere">{manager.email}</p>
             {error && <p role="alert" className="text-sm text-danger">{error}</p>}
-            <button type="button" onClick={handleLogout} disabled={pending} className="min-h-11 w-full cursor-pointer rounded-input border border-border-strong px-3 font-semibold text-text hover:bg-canvas focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-wait disabled:opacity-60">{pending ? "Đang đăng xuất…" : "Đăng xuất"}</button>
+            <Button variant="secondary" onClick={handleLogout} pending={pending} pendingLabel="Đang đăng xuất…" className="w-full">Đăng xuất</Button>
           </div>
         </details>
       </div>

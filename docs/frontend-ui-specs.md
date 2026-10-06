@@ -71,6 +71,45 @@ overlays; use surface contrast and dividers for ordinary content hierarchy.
 Stat card, data table (sortable, paginated, searchable), modal, slide-over drawer, toast,
 status badge, filter bar, empty state, and a form field with label + inline error.
 
+The shared kit lives in `frontend/src/components/ui/`, with one default export per primitive.
+Interactive callers are Client Components; render callbacks such as table columns and field
+controls stay within that client boundary. The public contracts are:
+
+- `Button`: `variant` (`primary`, `secondary`, `ghost`, `danger`), `size` (`sm`, `md`, `lg`),
+  `pending`, `pendingLabel`, and native button props. Every size has a `44×44px` minimum target;
+  pending disables the button, announces busy state, and shows Vietnamese progress text.
+- `Field`: `id`, `label`, optional `hint`, `error`, and `describedBy`; its `children` callback
+  applies the returned accessibility props and default `className` to the control. Hints and
+  errors join existing descriptions rather than replacing them; the default control style
+  supplies a touch target, semantic border, and visible focus ring. Callers may extend or
+  override that class while maintaining those requirements.
+- `Modal` / `Drawer`: controlled `open`, `onClose`, `title`, optional `description`, `children`,
+  and optional `footer`. Native `showModal()` provides inertness, focus trapping, and Escape.
+  Closing, including a controlled close or unmount, restores the opening control's focus.
+- `Badge`: required text `label` and `tone` (`success`, `warning`, `danger`, `neutral`), mapped
+  to the semantic palette above. `StatCard` takes `label`, `value`, optional `description`;
+  values use tabular numerals.
+- `EmptyState`: `title`, `description`, `actionLabel`, and `onAction`; the copy and button name
+  the next action. `Skeleton` takes an optional loading `label` and sizing `className`; its
+  pulse only runs when reduced motion is not requested.
+- `CopyButton`: `value` and optional `label`; success appears only after the clipboard write
+  resolves. Failure offers manual copying. `TruncatedText` takes `value` and optional
+  `className`, preserving the full value in `title`, `aria-label`, and screen-reader text.
+- `FilterBar`: controlled `search`, `onSearchChange`, optional `searchLabel`, and optional
+  filter `children`. `DataTable<T>` takes `rows`, `columns`, `getRowId`, optional `searchText`,
+  optional `pageSize` (default 10), and an accessible `caption`. Each column supplies `key`,
+  `label`, `render`, optional `sortValue`, and optional `money`. Search filters row text with
+  Vietnamese case folding; sorting happens before pagination. Monetary sort callbacks return
+  `BigInt` or digit strings, never converted amounts. Below `640px`, labelled cells reflow
+  into readable rows; sort buttons remain reachable. Search and sort reset to page one,
+  stale pages clamp to the result count, and no results names the next filtering action.
+- Named `ToastProvider` / `useToast`: the manager content is wrapped in the provider;
+  `useToast()` returns a notifier accepting `{ message, tone? }`. Messages are announced in
+  a polite live region and remain until dismissed, allowing time to read and use the controls.
+
+Only the skeleton animates; all other primitives use immediate state changes and have no
+motion requiring a reduced-motion override. No third-party UI library is added.
+
 ---
 
 ## 2. Manager App

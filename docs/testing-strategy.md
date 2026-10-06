@@ -135,9 +135,19 @@ data dependency — see the Known-state bullet in `AGENTS.md`. `bun run test` ha
 and passes anywhere the dependencies install.
 
 Unit tests cover the VND digit guard, formatters, status labels, motel selection/navigation, login
-validation/submission, and server session guards. React server-rendered markup checks label/error
-wiring and shell semantics without a DOM environment. DOM interaction, responsive layout, and
+validation/submission, server session guards, and the table's search/sort/page model. React
+server-rendered markup checks label/error wiring, kit accessibility contracts, and shell semantics
+without a DOM environment. The dialog session's cleanup and focus restoration are tested against
+an event target that doubles only the browser boundary. DOM interaction, responsive layout, and
 browser navigation belong in Playwright; no `jsdom` dependency is needed.
+
+`e2e/component-kit.spec.ts` bundles `e2e/fixtures/component-kit.tsx` with Bun and serves its HTML
+through a Playwright route interception. There is no component gallery route in the product. Run
+`bun run build` before this suite: the harness loads the real compiled Tailwind CSS from
+`.next/static/chunks/`. The suite exercises native dialog focus/Escape/controlled close, clipboard
+success/failure, internal table search/sort/pagination, toast dismissal, mobile reflow, hit targets,
+visible focus, reduced motion, and monetary alignment. `BUN_EXECUTABLE` can select the Bun binary
+when `bun` is not on the runner's PATH.
 
 ## Commands
 
