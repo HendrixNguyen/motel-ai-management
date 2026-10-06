@@ -37,3 +37,5 @@ yarn-debug.log*
 **/*.tar.gz
 **/*.tgz
 package-lock.json
+__pycache__/
+*.pyc

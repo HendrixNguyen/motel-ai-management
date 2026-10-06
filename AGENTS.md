@@ -5,6 +5,23 @@ the system produces itemised invoices; renters get a Zalo message with a link to
 portal to see the arithmetic, pay by VietQR, sign their contract, and report problems.
 Product context: `README.md`.
 
+## Agent capabilities and knowledge
+
+- Global workflow skills live under `~/.agents/skills/`. Use a matching skill when the task
+  calls for it; in particular, follow the Superpowers design, planning, TDD, debugging, review,
+  and verification workflows instead of duplicating those procedures here.
+- The repository pins `ui-ux-pro-max` in `skills-lock.json` so UI work is reproducible for
+  contributors who do not share this machine's global installation. Use it together with the
+  frontend design skill for interface design, accessibility, and responsive implementation.
+- Use the `dokploy` MCP server for Dokploy deployment state, logs, and operations. Inspect first,
+  never expose values from its environment file, and do not mutate or deploy production unless
+  the user explicitly requests that action.
+- Always use the `openaiDeveloperDocs` MCP server for OpenAI API, ChatGPT, Codex, plugin, or MCP
+  questions; fall back only to official OpenAI documentation domains.
+- Project knowledge belongs in the owning documents listed under **Docs are part of the change**.
+  Prefer those files over remembered context, update the owner when behavior changes, and keep
+  `AGENTS.md` limited to cross-cutting instructions rather than duplicating product facts.
+
 ## Repo shape
 
 - Two independent Bun packages. **There is no root `package.json` and no workspace file** —
