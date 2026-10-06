@@ -227,6 +227,25 @@ Renter detail page: personal info with front/back CCCD images (or an "chưa cậ
 placeholder), active contract summary with end date and deposit, invoice history with
 payment status, and **Tạo magic link / Gửi Zalo**.
 
+Delivered M4 behavior: list and detail reads use the selected `?motel=` and validate motel
+ownership first. A `roomId` filter from M3 is sent to the list endpoint and retained in the
+detail and return links. Room names are joined from one room-list read. The table stacks rows
+below 640px; phone numbers are displayed as `+84 901 234 567` and copied as `+84901234567`.
+The list DTO has no tenancy start date, so **Ngày bắt đầu** shows **Chưa cập nhật**, never
+`createdAt`. Missing room assignments show **Chưa xếp phòng**.
+
+The detail uses `activeContract` directly: null shows **Chưa có hợp đồng đang hiệu lực**;
+calendar dates are displayed as `DD/MM/YYYY` without timezone conversion. Deposit is omitted
+because it is absent from the summary DTO. `invoices: []` shows **Chưa có hóa đơn**; supplied
+invoices show their actual creation date, exact VND amount and labelled payment status without
+a deadline or a link to an unimplemented destination. No contract or invoice is manufactured.
+CCCD sides render only for provided HTTP(S) or root-relative image URLs, with descriptive alt
+text, no referrer and no server image optimization; absent/unsafe URLs or storage keys without
+a resolvable URL show **Chưa cập nhật**. The magic-link action posts from the browser through
+relative `/api/...`, disables itself while pending and exposes the returned `/r/[token]` URL
+with a read-only field and copy action. A 401 returns to login; other failures show a focused
+error and allow retry. **Gửi Zalo** remains deferred as listed above.
+
 ### M5 — Nhập số & tính tiền `/billing/[periodId]`
 
 Header: `Tháng MM/YYYY`, `Giá điện 3.500 ₫/kWh`, `Giá nước 25.000 ₫/m³`, period status

@@ -10,7 +10,7 @@ import Loading from "@/app/(manager)/loading";
 import NotFound from "@/app/(manager)/not-found";
 import Button from "@/components/ui/button";
 import { ToastProvider } from "@/components/ui/toast";
-import { MOTEL, ROOMS } from "@/lib/api/__tests__/fixtures";
+import { MOTEL, ROOMS, RENTERS } from "@/lib/api/__tests__/fixtures";
 
 vi.mock("server-only", () => ({}));
 vi.mock("next/headers", () => ({ cookies: async () => ({ toString: () => "manager_session=valid" }) }));
@@ -19,7 +19,10 @@ const fetchMock = vi.fn();
 vi.stubGlobal("fetch", fetchMock);
 beforeEach(() => {
   fetchMock.mockReset();
-  fetchMock.mockImplementation(async (url: string) => Response.json(new URL(url).pathname.endsWith("/rooms") ? ROOMS : [MOTEL]));
+  fetchMock.mockImplementation(async (url: string) => {
+    const path = new URL(url).pathname;
+    return Response.json(path.endsWith("/rooms") ? ROOMS : path.endsWith("/renters") ? RENTERS : [MOTEL]);
+  });
 });
 
 describe("manager route frames", () => {

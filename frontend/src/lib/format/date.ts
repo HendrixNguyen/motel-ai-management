@@ -8,6 +8,12 @@
  */
 const TIME_ZONE = "Asia/Ho_Chi_Minh";
 
+/** PostgreSQL `date` is a calendar day, independent of viewer timezone. */
+export function formatCalendarDate(day: string): string {
+  const [year, month, date] = day.split("-");
+  return `${date}/${month}/${year}`;
+}
+
 /**
  * `vi-VN` with the parts requested explicitly, then assembled as `DD/MM/YYYY` by hand.
  *

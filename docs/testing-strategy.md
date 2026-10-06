@@ -159,6 +159,16 @@ filters and reload, create/edit/status actions, pending saves, retained conflict
 session expiry, cancellation/focus, the pending-save refresh race, and 360px reflow.
 Browser execution is required to verify those interactions and rendered responsive behavior.
 
+M4 unit tests cover scoped renter list/detail reads, room-filter links, named rooms,
+formatted/copyable contacts, separate tenancy/OA labels, truthful missing start dates,
+nullable contract summaries, calendar dates, exact invoice amounts and payment statuses,
+CCCD URL conditions and safe image attributes. Magic-link tests exercise the real API boundary:
+bodyless relative POST, returned URL, coalesced requests, retry and safe 401/404/429/5xx/network
+errors. `e2e/renters.spec.ts` covers room-filter navigation/reload, 360px stacked rows,
+keyboard generation/copy, disabled pending actions, focused retryable errors and expired
+sessions. Its RSC fixtures match current null-contract/empty-invoice responses. Browser
+execution is required to verify these interactions and responsive behavior.
+
 `e2e/component-kit.spec.ts` bundles `e2e/fixtures/component-kit.tsx` with Bun and serves its HTML
 through a Playwright route interception. There is no component gallery route in the product. Run
 `bun run build` before this suite: the harness loads the real compiled Tailwind CSS from

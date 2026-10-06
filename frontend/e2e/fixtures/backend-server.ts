@@ -79,11 +79,18 @@ const server = createServer(async (request, response) => {
   }
   if (request.method === "GET" && path === `/api/manager/motels/${MOTEL.id}/renters`) {
     if (!session) return unauthorized();
-    return json(RENTERS);
+    return json(RENTERS.filter((renter) => !url.searchParams.has("roomId") || renter.roomId === url.searchParams.get("roomId")));
   }
   if (request.method === "GET" && path === `/api/manager/motels/${MOTEL_WITHOUT_EXTRAS.id}/renters`) {
     if (!session) return unauthorized();
     return json([]);
+  }
+  if (request.method === "GET" && path.startsWith(`/api/manager/motels/${MOTEL.id}/renters/`)) {
+    if (!session) return unauthorized();
+    const renter = RENTERS.find((row) => row.id === path.split("/").at(-1));
+    if (!renter) return json({ error: "Không tìm thấy khách thuê", code: "NOT_FOUND" }, 404);
+    // Current backend owner modules return null/[]; do not invent a contract or invoice.
+    return json({ ...renter, idCardFrontUrl: null, idCardBackUrl: null, activeContract: null, invoices: [] });
   }
   if (request.method === "PATCH" && path.startsWith(`/api/manager/motels/${MOTEL.id}/rooms/`)) {
     if (!session) return unauthorized();
