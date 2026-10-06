@@ -8,6 +8,7 @@ ARG BACKEND_URL
 ENV BACKEND_URL=$BACKEND_URL
 COPY frontend/tsconfig.json ./
 COPY frontend/next.config.ts ./
+COPY frontend/postcss.config.mjs ./
 COPY frontend/src ./src
 COPY frontend/public ./public
 RUN bun run build

@@ -10,6 +10,7 @@ import type { NextConfig } from "next";
 const BACKEND_URL = process.env.BACKEND_URL ?? "http://localhost:3000";
 
 const nextConfig: NextConfig = {
+  output: "standalone",
   /**
    * The browser only ever calls relative `/api/...`. This rewrites those onto the backend so
    * the request is same-origin — the `manager_session` / `renter_session` cookies are
