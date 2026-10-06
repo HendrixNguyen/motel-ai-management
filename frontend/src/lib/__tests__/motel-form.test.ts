@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createMotelDraft, prepareMotelInput, submitMotel } from "@/lib/motel-form";
+import { createMotelDraft, createMotelFormSession, prepareMotelInput, submitMotel } from "@/lib/motel-form";
 import { MOTEL } from "@/lib/api/__tests__/fixtures";
 
 afterEach(() => vi.unstubAllGlobals());
@@ -56,6 +56,31 @@ describe("local motel validation", () => {
 });
 
 describe("motel submission", () => {
+  it("keeps a reopened form's baseline when a dismissed pending save refreshes the motel", async () => {
+    const currentMotel = structuredClone(MOTEL);
+    const patches: unknown[] = [];
+    let release!: () => void;
+    const firstSaveReady = new Promise<void>((resolve) => { release = resolve; });
+    vi.stubGlobal("fetch", vi.fn(async (_path: string, options: RequestInit) => {
+      patches.push(JSON.parse(String(options.body)));
+      if (patches.length === 1) {
+        await firstSaveReady;
+        currentMotel.name = "Nhà trọ A";
+      } else currentMotel.waterPrice = "25000";
+      return Response.json(currentMotel);
+    }));
+
+    const first = createMotelFormSession(currentMotel);
+    const pending = first.submit({ ...first.initialDraft, name: "Nhà trọ A" });
+    // Dismiss and reopen while the first response is pending: the reopened form still shows X.
+    const reopened = createMotelFormSession(currentMotel);
+    expect(reopened.initialDraft.name).toBe(MOTEL.name);
+    release();
+    expect(await pending).toEqual({ ok: true });
+    expect(currentMotel.name).toBe("Nhà trọ A");
+    expect(await reopened.submit({ ...reopened.initialDraft, waterPrice: "25.000" })).toEqual({ ok: true });
+    expect(patches).toEqual([{ name: "Nhà trọ A" }, { waterPrice: "25000" }]);
+  });
   it("blocks invalid drafts before making a request", async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);

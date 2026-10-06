@@ -28,6 +28,15 @@ export function createMotelDraft(motel?: MotelResponse): MotelDraft {
   };
 }
 
+/** One opened form owns its draft and submission baseline together. */
+export function createMotelFormSession(motel?: MotelResponse) {
+  const original = motel ? structuredClone(motel) : undefined;
+  return {
+    initialDraft: createMotelDraft(original),
+    submit: (draft: MotelDraft) => submitMotel(draft, original),
+  };
+}
+
 /** Local validation owns field errors; the API carries no field-level details (D8). */
 export function prepareMotelInput(draft: MotelDraft): PreparedMotel<CreateMotelInput>;
 export function prepareMotelInput(draft: MotelDraft, original: MotelResponse): PreparedMotel<UpdateMotelInput>;

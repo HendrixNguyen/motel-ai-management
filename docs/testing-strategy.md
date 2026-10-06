@@ -120,7 +120,8 @@ is worse than no fixture at all.
 Server Component reads cannot be intercepted by `page.route()`. The fixture-backed command also
 starts `e2e/fixtures/backend-server.ts` on loopback port `3002` and starts Next with server-only
 `BACKEND_URL=http://127.0.0.1:3002`. Its typed responses cover the manager identity, motel list,
-and per-motel room lists used by the M2 cards;
+and per-motel room lists used by the M2 cards. Motel PATCH fixtures keep state per session so
+the M2 refresh regression can assert saved card/selector data without affecting parallel tests;
 login/logout responses set and clear an `httpOnly` cookie through the actual Next rewrite. The fake
 server is test infrastructure only and is never started by the application's dev/start commands.
 Do not reuse an unrelated Next dev server for these tests: its backend setting may differ.

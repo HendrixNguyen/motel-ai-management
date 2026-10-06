@@ -139,30 +139,41 @@ test("removing fees and disabling the bank sends explicit clearing values", asyn
   expect(input).toEqual({ otherFees: [], bankAccount: null });
 });
 
-test("a dismissed save cannot close a newly opened draft when its response arrives", async ({ page, context }) => {
-  await signIn(context);
-  let requests = 0;
+test("a refreshed motel cannot turn an untouched old name into a second PATCH", async ({ page, context }) => {
+  await signIn(context, `motel-refresh-${crypto.randomUUID()}`);
+  const patches: unknown[] = [];
   let release!: () => void;
   const responseReady = new Promise<void>((resolve) => { release = resolve; });
   await page.route(`**/api/manager/motels/${MOTEL.id}`, async (route) => {
-    requests += 1;
-    await responseReady;
-    await route.fulfill({ contentType: "application/json", body: JSON.stringify(MOTEL) });
+    patches.push(route.request().postDataJSON());
+    if (patches.length === 1) await responseReady;
+    // Forward to the session-isolated fixture; subsequent RSC refreshes read the saved motel.
+    const response = await route.fetch();
+    await route.fulfill({ response });
   });
   await page.goto("/motels");
   const trigger = page.getByRole("button", { name: `Chỉnh sửa ${MOTEL.name}`, exact: true });
   await trigger.click();
   const dialog = page.getByRole("dialog", { name: "Chỉnh sửa nhà trọ" });
+  await dialog.getByLabel("Tên nhà trọ", { exact: true }).fill("Nhà trọ A");
   await dialog.getByRole("button", { name: "Lưu thay đổi" }).click();
-  await expect.poll(() => requests).toBe(1);
+  await expect.poll(() => patches.length).toBe(1);
   await dialog.getByRole("button", { name: "Đóng", exact: true }).click();
   await expect(dialog).not.toBeVisible();
   await trigger.click();
-  await dialog.getByLabel("Tên nhà trọ", { exact: true }).fill("Bản nháp mới");
+  await expect(dialog.getByLabel("Tên nhà trọ", { exact: true })).toHaveValue(MOTEL.name);
   release();
   await expect(page.getByText("Đã lưu thay đổi nhà trọ", { exact: true })).toBeVisible();
+  await expect(page.locator(`#motel-${MOTEL.id}`)).toHaveText("Nhà trọ A");
+  await expect(page.locator(`#motel-selector option[value="${MOTEL.id}"]`)).toHaveText("Nhà trọ A");
   await expect(dialog).toBeVisible();
-  await expect(dialog.getByLabel("Tên nhà trọ", { exact: true })).toHaveValue("Bản nháp mới");
+  await expect(dialog.getByLabel("Tên nhà trọ", { exact: true })).toHaveValue(MOTEL.name);
+  await dialog.getByLabel("Giá nước (₫/m³)", { exact: true }).fill("25.000");
+  await dialog.getByRole("button", { name: "Lưu thay đổi" }).click();
+  await expect(dialog).not.toBeVisible();
+  expect(patches).toEqual([{ name: "Nhà trọ A" }, { waterPrice: "25000" }]);
+  await expect(page.locator(`#motel-${MOTEL.id}`)).toHaveText("Nhà trọ A");
+  await expect(page.locator(`#motel-selector option[value="${MOTEL.id}"]`)).toHaveText("Nhà trọ A");
 });
 
 test("an expired session during save returns to login", async ({ page, context }) => {

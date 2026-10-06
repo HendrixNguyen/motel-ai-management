@@ -5,6 +5,14 @@
  */
 import { createServer } from "node:http";
 import { MANAGER_AUTH, MANAGER_ME, MOTEL, MOTEL_WITHOUT_EXTRAS, ROOMS } from "../../src/lib/api/__tests__/fixtures";
+import type { MotelResponse, UpdateMotelInput } from "../../src/lib/api/types";
+
+// Each test session owns its motel state, so refresh assertions cannot affect parallel specs.
+const motelsBySession = new Map<string, MotelResponse[]>();
+function sessionMotels(session: string) {
+  if (!motelsBySession.has(session)) motelsBySession.set(session, session === "no-motels" ? [] : structuredClone([MOTEL, MOTEL_WITHOUT_EXTRAS]));
+  return motelsBySession.get(session)!;
+}
 
 const server = createServer(async (request, response) => {
   const path = new URL(request.url ?? "/", "http://127.0.0.1:3002").pathname;
@@ -38,7 +46,19 @@ const server = createServer(async (request, response) => {
   }
   if (request.method === "GET" && path === "/api/manager/motels") {
     if (!session || session === "motels-expired") return unauthorized();
-    return json(session === "no-motels" ? [] : [MOTEL, MOTEL_WITHOUT_EXTRAS]);
+    return json(sessionMotels(session));
+  }
+  if (request.method === "PATCH" && path === `/api/manager/motels/${MOTEL.id}`) {
+    if (!session) return unauthorized();
+    const motel = sessionMotels(session).find((row) => row.id === MOTEL.id);
+    if (!motel) return json({ error: "Không tìm thấy nhà trọ", code: "NOT_FOUND" }, 404);
+    let raw = "";
+    for await (const chunk of request) raw += String(chunk);
+    let input: UpdateMotelInput;
+    try { input = JSON.parse(raw) as UpdateMotelInput; }
+    catch { return json({ error: "Dữ liệu không hợp lệ", code: "VALIDATION_ERROR" }, 400); }
+    Object.assign(motel, input);
+    return json(motel);
   }
   if (request.method === "GET" && path === `/api/manager/motels/${MOTEL.id}/rooms`) {
     if (!session) return unauthorized();

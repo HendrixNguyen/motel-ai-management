@@ -8,7 +8,7 @@ import Field from "@/components/ui/field";
 import Modal from "@/components/ui/modal";
 import { useToast } from "@/components/ui/toast";
 import type { MotelResponse } from "@/lib/api/types";
-import { createMotelDraft, submitMotel, type MotelFieldErrors } from "@/lib/motel-form";
+import { createMotelFormSession, type MotelFieldErrors } from "@/lib/motel-form";
 
 /** Only the mutation surface hydrates; motel cards and room counts are rendered by the server. */
 export default function MotelEditor({ motel, empty = false }: { motel?: MotelResponse; empty?: boolean }) {
@@ -42,7 +42,8 @@ export default function MotelEditor({ motel, empty = false }: { motel?: MotelRes
 function MotelForm({ motel, onCancel, onSaved, onReload, onUnauthorized }: {
   motel?: MotelResponse; onCancel: () => void; onSaved: () => void; onReload: () => void; onUnauthorized: () => void;
 }) {
-  const [draft, setDraft] = useState(() => createMotelDraft(motel));
+  const [formSession] = useState(() => createMotelFormSession(motel));
+  const [draft, setDraft] = useState(formSession.initialDraft);
   const [fields, setFields] = useState<MotelFieldErrors>({});
   const [error, setError] = useState<string>();
   const [status, setStatus] = useState<number>();
@@ -68,7 +69,7 @@ function MotelForm({ motel, onCancel, onSaved, onReload, onUnauthorized }: {
     setFields({});
     setError(undefined);
     setStatus(undefined);
-    const result = await submitMotel(draft, motel);
+    const result = await formSession.submit(draft);
     pendingRef.current = false;
     if (result.ok) { onSaved(); return; }
     if (!active.current) return;

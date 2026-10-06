@@ -176,7 +176,9 @@ zero rooms. Missing addresses and bank accounts show `Chưa có địa chỉ` an
 editable `otherFees` rows (name and VND amount) and bank code, account number, account owner.
 Unchecking **Thiết lập tài khoản nhận tiền** clears the bank account on save; removing all
 fees sends an empty list. Edits send only changed fields, with an explicit `null` to clear an
-address or bank account. Account numbers remain strings to preserve leading zeros.
+address or bank account. Each opened form keeps its original snapshot for change detection,
+so a background refresh cannot turn untouched draft values into updates. Account numbers
+remain strings to preserve leading zeros.
 
 Money fields accept whole VND digits or correctly grouped amounts such as `3.500`; they reject
 ambiguous grouping, signs, and amounts above `numeric(14,0)`. Local validation is inline,
