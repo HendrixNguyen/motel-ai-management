@@ -190,8 +190,16 @@ for (const [title, path] of [["Tổng quan", "/"], ["Nhà trọ", "/motels"], ["
         const rect = element.getBoundingClientRect();
         const style = getComputedStyle(element);
         const outlineExtent = style.outlineStyle === "none" ? 0 : Math.max(0, parseFloat(style.outlineWidth) + parseFloat(style.outlineOffset));
-        const painted = { left: rect.left - outlineExtent, right: rect.right + outlineExtent,
-          top: rect.top - outlineExtent, bottom: rect.bottom + outlineExtent };
+        const shadowExtent = style.boxShadow === "none" ? 0 : Math.max(0, ...style.boxShadow
+          .split(/,(?![^()]*\))/)
+          .map((shadow) => {
+            const values = [...shadow.matchAll(/(-?\d+(?:\.\d+)?)px/g)].map((match) => Number(match[1]));
+            const [offsetX = 0, offsetY = 0, blur = 0, spread = 0] = values;
+            return Math.max(Math.abs(offsetX), Math.abs(offsetY)) + Math.max(0, blur) + Math.max(0, spread);
+          }));
+        const paintExtent = Math.max(outlineExtent, shadowExtent);
+        const painted = { left: rect.left - paintExtent, right: rect.right + paintExtent,
+          top: rect.top - paintExtent, bottom: rect.bottom + paintExtent };
         const covers = [...document.querySelectorAll<HTMLElement>("header, aside, nav")].filter((chrome) => !chrome.contains(element) && ["sticky", "fixed"].includes(getComputedStyle(chrome).position)).map((chrome) => chrome.getBoundingClientRect());
         let clipped = false;
         for (let ancestor = element.parentElement; ancestor; ancestor = ancestor.parentElement) {
@@ -202,7 +210,7 @@ for (const [title, path] of [["Tổng quan", "/"], ["Nhà trọ", "/motels"], ["
         }
         return { visible: painted.left >= 0 && painted.right <= innerWidth && painted.top >= 0 && painted.bottom <= innerHeight,
           obscured: covers.some((cover) => cover.width > 0 && painted.left < cover.right && painted.right > cover.left && painted.top < cover.bottom && painted.bottom > cover.top),
-          clipped, ring: outlineExtent > 0 };
+          clipped, ring: paintExtent > 0 };
       });
       expect(geometry.visible).toBe(true);
       expect(geometry.obscured).toBe(false);
