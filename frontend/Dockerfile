@@ -4,6 +4,8 @@ COPY frontend/package.json frontend/bun.lock* ./
 RUN bun install --frozen-lockfile
 
 FROM deps AS build
+ARG BACKEND_URL
+ENV BACKEND_URL=$BACKEND_URL
 COPY frontend/tsconfig.json ./
 COPY frontend/next.config.ts ./
 COPY frontend/src ./src

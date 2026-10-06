@@ -11,6 +11,7 @@ RUN bun run typecheck
 FROM deps AS runner
 WORKDIR /app
 COPY --from=build /app/node_modules ./node_modules
+COPY --from=build /app/tsconfig.json ./tsconfig.json
 COPY --from=build /app/src ./src
 COPY backend/package.json ./
 EXPOSE 3000
