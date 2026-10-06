@@ -4,7 +4,9 @@ import { fileURLToPath } from "node:url";
 import { MANAGER_AUTH, MANAGER_ME, MOTEL, MOTEL_WITHOUT_EXTRAS, ROOMS, RENTERS } from "../../src/lib/api/__tests__/fixtures";
 import type { ApiErrorBody, CreateMotelInput, CreateRenterInput, CreateRoomInput, MotelResponse, RenterDetailResponse, RenterResponse, RoomResponse, UpdateMotelInput, UpdateRenterInput, UpdateRoomInput } from "../../src/lib/api/types";
 
-export function createFixtureBackend() {
+export function createFixtureBackend(onMissingFixture: (failure: Error) => void = (failure) => {
+  queueMicrotask(() => { throw failure; });
+}) {
   const states = new Map<string, { motels: MotelResponse[]; rooms: RoomResponse[]; renters: RenterResponse[] }>();
   const stateFor = (session: string) => {
     if (!states.has(session)) states.set(session, {
@@ -109,9 +111,13 @@ export function createFixtureBackend() {
           }
         }
       }
-      // Omitted fixtures fail explicitly, never masquerade as a resource 404.
-      console.error(`fixtureBackend: no fixture for ${method} ${path}`);
-      return error(501, "INTERNAL_ERROR", `Missing fixture: ${method} ${path}`);
+      // A missing fixture is a broken test harness, not an application response. Destroy the
+      // request and crash the test-only server so ordinary 5xx UI cannot accidentally satisfy
+      // an error-state assertion.
+      const missingFixture = new Error(`fixtureBackend: no fixture for ${method} ${path}`);
+      response.destroy(missingFixture);
+      onMissingFixture(missingFixture);
+      return;
     } catch (failure) {
       if (failure instanceof SyntaxError) return error(400, "VALIDATION_ERROR", "Dữ liệu không hợp lệ");
       console.error(failure); return error(500, "INTERNAL_ERROR", "Fixture backend failed");

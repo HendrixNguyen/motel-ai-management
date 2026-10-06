@@ -162,8 +162,9 @@ the nearest whole percent. A successful empty room list shows zero counts and **
 đầy: 0%**, with **Chưa có phòng trọ** and **Xem phòng trọ** linking to the selected motel's
 `/rooms` screen. A failed room read reaches the shared retry boundary rather than showing
 zeros. Without a motel, show the existing **Chưa có nhà trọ** creation state and omit room
-statistics and scoped quick actions. The phase 1 **Thêm khách thuê** link opens `/renters`
-and carries the resolved `motel` query, including when the initial selection was implicit.
+statistics and scoped quick actions. The phase 1 **Thêm khách thuê** link opens
+`/renters?motel=<id>&create=1`, including when the initial selection was implicit, and opens the
+create-renter form immediately.
 
 Quick actions: **Chốt số điện/nước**, **Tạo hóa đơn**, **Thêm khách thuê**. Keep the next
 operational action prominent on mobile without hiding alerts or unpaid balance.
@@ -243,6 +244,15 @@ detail and return links. Room names are joined from one room-list read. The tabl
 below 640px; phone numbers are displayed as `+84 901 234 567` and copied as `+84901234567`.
 The list DTO has no tenancy start date, so **Ngày bắt đầu** shows **Chưa cập nhật**, never
 `createdAt`. Missing room assignments show **Chưa xếp phòng**.
+
+Create and edit use a modal with Họ tên, Số điện thoại, optional Số CCCD, and optional Phòng.
+Vietnamese phone input accepts the same prefixes and separators as the backend and is normalized
+before sending. Create sends `POST /api/manager/motels/:motelId/renters`; edit sends a partial
+`PATCH` containing only changed fields, with explicit `null` when CCCD or room assignment is
+cleared. Each opening freezes its baseline so a refresh from an older pending save cannot resend
+stale untouched values. Local field errors are linked from a focused summary; API validation and
+conflict responses remain form-level because the error envelope has no field map. A successful
+save refreshes the server-rendered list and returns focus to the trigger.
 
 The detail uses `activeContract` directly: null shows **Chưa có hợp đồng đang hiệu lực**;
 calendar dates are displayed as `DD/MM/YYYY` without timezone conversion. Deposit is omitted

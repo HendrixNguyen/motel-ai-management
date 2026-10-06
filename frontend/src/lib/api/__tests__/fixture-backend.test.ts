@@ -63,4 +63,18 @@ describe("the fixture backend used by manager E2E", () => {
     expect(failed.status).toBe(500);
     expect(await failed.json()).toEqual({ error: "private database host", code: "INTERNAL_ERROR" });
   });
+  it("turns an omitted fixture into a harness failure instead of an application 5xx", async () => {
+    await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+    const failures: Error[] = [];
+    server = createFixtureBackend((failure) => failures.push(failure));
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+    baseUrl = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+
+    await expect(fetch(`${baseUrl}/api/manager/unsupported`, {
+      headers: { cookie: "manager_session=session-a" },
+    })).rejects.toThrow();
+    expect(failures.map((failure) => failure.message)).toEqual([
+      "fixtureBackend: no fixture for GET /api/manager/unsupported",
+    ]);
+  });
 });

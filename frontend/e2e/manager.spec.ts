@@ -189,13 +189,24 @@ for (const [title, path] of [["Tổng quan", "/"], ["Nhà trọ", "/motels"], ["
       const geometry = await focused.evaluate((element: HTMLElement) => {
         const rect = element.getBoundingClientRect();
         const style = getComputedStyle(element);
+        const outlineExtent = style.outlineStyle === "none" ? 0 : Math.max(0, parseFloat(style.outlineWidth) + parseFloat(style.outlineOffset));
+        const painted = { left: rect.left - outlineExtent, right: rect.right + outlineExtent,
+          top: rect.top - outlineExtent, bottom: rect.bottom + outlineExtent };
         const covers = [...document.querySelectorAll<HTMLElement>("header, aside, nav")].filter((chrome) => !chrome.contains(element) && ["sticky", "fixed"].includes(getComputedStyle(chrome).position)).map((chrome) => chrome.getBoundingClientRect());
-        return { visible: rect.top >= 0 && rect.bottom <= innerHeight,
-          obscured: covers.some((cover) => cover.width > 0 && rect.left < cover.right && rect.right > cover.left && rect.top < cover.bottom && rect.bottom > cover.top),
-          ring: style.outlineStyle !== "none" || style.boxShadow !== "none" };
+        let clipped = false;
+        for (let ancestor = element.parentElement; ancestor; ancestor = ancestor.parentElement) {
+          const overflow = getComputedStyle(ancestor);
+          if (![overflow.overflow, overflow.overflowX, overflow.overflowY].some((value) => ["auto", "hidden", "clip", "scroll"].includes(value))) continue;
+          const boundary = ancestor.getBoundingClientRect();
+          if (painted.left < boundary.left || painted.right > boundary.right || painted.top < boundary.top || painted.bottom > boundary.bottom) { clipped = true; break; }
+        }
+        return { visible: painted.left >= 0 && painted.right <= innerWidth && painted.top >= 0 && painted.bottom <= innerHeight,
+          obscured: covers.some((cover) => cover.width > 0 && painted.left < cover.right && painted.right > cover.left && painted.top < cover.bottom && painted.bottom > cover.top),
+          clipped, ring: outlineExtent > 0 };
       });
       expect(geometry.visible).toBe(true);
       expect(geometry.obscured).toBe(false);
+      expect(geometry.clipped).toBe(false);
       expect(geometry.ring).toBe(true);
     }
     expect([...remaining], "actions unreachable by Tab").toEqual([]);

@@ -2,20 +2,38 @@ import type { Page } from "@playwright/test";
 import type { ApiErrorBody, MagicLinkResponse, ManagerAuthResponse, ManagerMeResponse, MotelResponse, RenterDetailResponse, RenterResponse, RoomResponse } from "../../src/lib/api/types";
 
 type Fixture<T> = T | { status: number; body: T | ApiErrorBody };
+type ApiFixturePath =
+  | "GET /api/auth/me"
+  | "POST /api/auth/login"
+  | "POST /api/auth/logout"
+  | "GET /api/manager/motels"
+  | "POST /api/manager/motels"
+  | `PATCH /api/manager/motels/${string}`
+  | `GET /api/manager/motels/${string}/rooms`
+  | `POST /api/manager/motels/${string}/rooms`
+  | `PATCH /api/manager/motels/${string}/rooms/${string}`
+  | `GET /api/manager/motels/${string}/renters`
+  | `POST /api/manager/motels/${string}/renters`
+  | `PATCH /api/manager/motels/${string}/renters/${string}`
+  | `GET /api/manager/motels/${string}/renters/${string}`
+  | `POST /api/manager/motels/${string}/renters/${string}/magic-link`;
+type FixtureForPath<Path extends ApiFixturePath> =
+  Path extends "GET /api/auth/me" ? Fixture<ManagerMeResponse> :
+  Path extends "POST /api/auth/login" ? Fixture<ManagerAuthResponse> :
+  Path extends "POST /api/auth/logout" ? Fixture<void> :
+  Path extends "GET /api/manager/motels" ? Fixture<MotelResponse[]> :
+  Path extends "POST /api/manager/motels" ? Fixture<MotelResponse> :
+  Path extends `PATCH /api/manager/motels/${string}/rooms/${string}` ? Fixture<RoomResponse> :
+  Path extends `PATCH /api/manager/motels/${string}/renters/${string}` ? Fixture<RenterResponse> :
+  Path extends `GET /api/manager/motels/${string}/rooms` ? Fixture<RoomResponse[]> :
+  Path extends `POST /api/manager/motels/${string}/rooms` ? Fixture<RoomResponse> :
+  Path extends `GET /api/manager/motels/${string}/renters/${string}` ? Fixture<RenterDetailResponse> :
+  Path extends `GET /api/manager/motels/${string}/renters` ? Fixture<RenterResponse[]> :
+  Path extends `POST /api/manager/motels/${string}/renters/${string}/magic-link` ? Fixture<MagicLinkResponse> :
+  Path extends `POST /api/manager/motels/${string}/renters` ? Fixture<RenterResponse> :
+  Path extends `PATCH /api/manager/motels/${string}` ? Fixture<MotelResponse> : never;
 /** Route-keyed DTOs: assigning a motel to a rooms fixture is a compile error. */
-export type ApiFixtures = Partial<{
-  "GET /api/auth/me": Fixture<ManagerMeResponse>;
-  "POST /api/auth/login": Fixture<ManagerAuthResponse>;
-  "POST /api/auth/logout": Fixture<void>;
-  "GET /api/manager/motels": Fixture<MotelResponse[]>;
-  "POST /api/manager/motels": Fixture<MotelResponse>;
-} & { [path: `PATCH /api/manager/motels/${string}`]: Fixture<MotelResponse | RoomResponse | RenterResponse> }
-  & { [path: `GET /api/manager/motels/${string}/rooms`]: Fixture<RoomResponse[]> }
-  & { [path: `POST /api/manager/motels/${string}/rooms`]: Fixture<RoomResponse> }
-  & { [path: `GET /api/manager/motels/${string}/renters`]: Fixture<RenterResponse[]> }
-  & { [path: `POST /api/manager/motels/${string}/renters`]: Fixture<RenterResponse> }
-  & { [path: `GET /api/manager/motels/${string}/renters/${string}`]: Fixture<RenterDetailResponse> }
-  & { [path: `POST /api/manager/motels/${string}/renters/${string}/magic-link`]: Fixture<MagicLinkResponse> }>;
+export type ApiFixtures = Partial<{ [Path in ApiFixturePath]: FixtureForPath<Path> }>;
 
 /** Browser reads/mutations only; RSC reads use backend-server.ts. */
 export async function mockApi(page: Page, fixtures: ApiFixtures = {}): Promise<string[]> {
