@@ -31,14 +31,21 @@ alone. Normal text needs `4.5:1` contrast; focus indicators and control boundari
 | `primary` | `#0369A1` | Primary actions, active nav, links; use white text |
 | `primary-strong` | `#075985` | Primary hover/pressed; use white text |
 | `success` / `success-bg` | `#15803D` / `#DCFCE7` | Paid status, resolved tickets; dark text on pale background |
-| `warning` / `warning-bg` | `#A16207` / `#FEF3C7` | Draft period, unpaid invoice, expiring contract; dark text on pale background |
+| `warning` / `warning-bg` | `#92400E` / `#FEF3C7` | Draft period, unpaid invoice, expiring contract; dark text on pale background |
 | `danger` / `danger-bg` | `#B91C1C` / `#FEE2E2` | Overdue, destructive actions, validation errors; dark text on pale background |
 | `text` | `#0F172A` | Headings |
 | `text-body` | `#334155` | Body copy |
 | `text-muted` | `#475569` | Labels, helper text |
-| `border` | `#E2E8F0` | Dividers, card borders, inputs |
+| `border` | `#E2E8F0` | Dividers, card borders |
+| `border-strong` | `#64748B` | Control boundaries — input borders; the `3:1` rule above |
 | `surface` | `#FFFFFF` | Cards |
 | `canvas` | `#F8FAFC` | Page background |
+
+`border` measures `1.23:1` on `surface`, so it separates content and never marks a control a
+user has to see the edge of. Anything a user must perceive as a boundary — an input, select or
+textarea outline — uses `border-strong` (`4.76:1` on `surface`, `4.55:1` on `canvas`), which
+clears the `3:1` above. Status foregrounds are picked against their own `-bg` for the `4.5:1`
+that `12px/600` labels need: `success` `4.57:1`, `warning` `6.37:1`, `danger` `5.30:1`.
 
 Renters never see a red total unless the invoice is `overdue`; an `unpaid` invoice uses
 `warning`, not `danger`. Invoices carry no due-date field (R1), so this palette is never
@@ -134,8 +141,9 @@ of scope (see spec non-goals).
 
 ### M4 — Khách thuê `/renters`
 
-Table: Họ tên, SĐT, Số CCCD, Phòng, Trạng thái Zalo OA (`Đã follow` / `Chưa follow`),
-Ngày bắt đầu, actions.
+Table: Họ tên, SĐT, Số CCCD, Phòng, Trạng thái (`Đang thuê` / `Đã kết thức hợp đồng`), Trạng thái
+Zalo OA (`Đã follow` / `Chưa follow`), Ngày bắt đầu, actions. Renter status is the tenancy, not
+the room: a renter can be `Đang thuê` with no room assigned.
 
 Renter detail page: personal info with front/back CCCD images (or an "chưa cập nhật"
 placeholder), active contract summary with end date and deposit, invoice history with
@@ -364,7 +372,10 @@ Empty, loading skeleton, and error states are designed for each list and detail 
 not left to implementation. Empty copy names the next action ("Chưa có hóa đơn — bấm
 **Tạo hóa đơn** để bắt đầu"). Long Vietnamese room and renter names truncate to one line
 with the full value available to keyboard and touch users, not tooltip-only; money never
-truncates or wraps. Mutations show pending feedback and a clear success or actionable error.
+wraps — any element holding a formatted amount is `white-space: nowrap`, which is what keeps an
+amount from breaking across lines (amounts also carry `tabular-nums`, see Typography); a column
+too narrow for its amounts is a layout bug to fix there, since an amount may never be truncated or
+ellipsised. Mutations show pending feedback and a clear success or actionable error.
 
 ## 5. Accessibility
 

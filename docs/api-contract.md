@@ -57,12 +57,18 @@ form-level message; it cannot attribute the failure to a field.
 
 | Method | Path | Body | Returns |
 |--------|------|------|---------|
-| POST | `/register` | `{email, password, name, phone?}` | `201 {manager}` + sets cookie |
-| POST | `/login` | `{email, password}` | `200 {manager}` + sets cookie |
+| POST | `/register` | `{email, password, name, phone?}` | `201 {id, email, name}` + sets cookie |
+| POST | `/login` | `{email, password}` | `200 {id, email, name}` + sets cookie |
 | POST | `/logout` | — | `204` + clears cookie |
-| GET | `/me` | — | `200 {manager}` |
+| GET | `/me` | — | `200 {id, email}` |
 
 `password` ≥ 8 characters. Login is rate-limited per IP and per email.
+
+**`/me` has no `name`, and that is not an omission to be tidied up.** It reads the claims off the
+manager JWT, which never carried one, so a client that renders a name from `/me` renders
+`undefined`. The three calls that set or clear the cookie are made by the **browser** through the
+proxied path, so the backend's own `Set-Cookie` reaches the browser unchanged; `/me` is a read and
+is made from a Server Component with the cookie forwarded.
 
 ### Magic links — `/api/renter/magic-links`
 
@@ -82,10 +88,10 @@ form-level message; it cannot attribute the failure to a field.
 | Method | Path | Notes |
 |--------|------|-------|
 | GET | `/` | All motels owned by the manager |
-| POST | `/` | Create; `400 VALIDATION_ERROR` if `electricityPrice`/`waterPrice` missing |
+| POST | `/` | Create; `400 VALIDATION_ERROR` if `electricityPrice`/`waterPrice` are missing or not strings |
 | GET | `/:motelId` | `404` if not owned by caller |
-| PATCH | `/:motelId` | Partial update of prices, fees, bank account, address |
-| DELETE | `/:motelId` | `204` if motel has no dependent rows (rooms, renters, etc.); `409 CONFLICT` if any dependent rows exist |
+| PATCH | `/:motelId` | Partial update of prices, fees, bank account, address. A key absent from the body is never written; an explicit `null` clears. |
+| DELETE | `/:motelId` | `409` while anything still points at it — occupied rooms, rooms, renters, billing periods or contract templates |
 
 ### Rooms — `/api/manager/motels/:motelId/rooms`
 
