@@ -8,6 +8,7 @@ import MotelEditor from "@/components/manager/motel-editor";
 import RoomEditor from "@/components/manager/room-editor";
 import RoomFilters from "@/components/manager/room-filters";
 import { formatVnd } from "@/lib/format/vnd";
+import { formatPhone } from "@/lib/format/phone";
 import { roomStatusLabel } from "@/lib/format/status";
 import { parseRoomFilters, roomFiltersHref } from "@/lib/room-query";
 import { resolveMotelId, type MotelSearchParams } from "@/lib/motel-selection";
@@ -57,7 +58,7 @@ export default async function Rooms({ searchParams }: { searchParams: Promise<Mo
             <div><dt className="text-sm text-text-muted">Giá thuê cơ bản / tháng</dt><dd className="mt-1 overflow-x-auto font-semibold text-text tabular-nums whitespace-nowrap">{formatVnd(room.basePrice)}</dd></div>
             <div><dt className="text-sm text-text-muted">Khách đang thuê</dt><dd className="mt-1 space-y-2 text-text">
               {(rentersByRoom.get(room.id) ?? []).length ? rentersByRoom.get(room.id)!.map((renter) => <div key={renter.id} className="[overflow-wrap:anywhere]">
-                <p>{renter.name}</p><a href={`tel:+${renter.phone}`} className="inline-flex min-h-11 items-center rounded-input text-primary underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">{renter.phone}</a>
+                <p>{renter.name}</p><a href={`tel:+${renter.phone}`} className="inline-flex min-h-11 items-center rounded-input text-primary underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">{formatPhone(renter.phone)}</a>
               </div>) : <p className="text-text-muted">Chưa có khách thuê</p>}
             </dd></div>
           </dl>

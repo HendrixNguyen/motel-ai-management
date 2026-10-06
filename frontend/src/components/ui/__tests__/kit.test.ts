@@ -103,7 +103,7 @@ describe("component kit accessibility", () => {
   });
   it("renders real table headers, pagination, searchable data, and money-cell alignment", () => {
     const html = render(h(DataTable<{ id: string; name: string; rent: string }>, {
-      rows: [{ id: "1", name: "Ánh", rent: "3500000" }, { id: "2", name: "Bình", rent: "2500000" }],
+      rows: [{ id: "1", name: "Ánh", rent: "99.999.999.999.999 ₫" }, { id: "2", name: "Bình", rent: "2.500.000 ₫" }],
       columns: [{ key: "name", label: "Họ tên", render: (row) => row.name, sortValue: (row) => row.name }, { key: "rent", label: "Tiền thuê", render: (row) => row.rent, sortValue: (row) => BigInt(row.rent), money: true }],
       getRowId: (row) => row.id, searchText: (row) => row.name, pageSize: 1, caption: "Khách thuê",
     }));
@@ -114,7 +114,9 @@ describe("component kit accessibility", () => {
     expect(html).toContain("tabular-nums");
     expect(html).toContain("Trang 1 / 2");
     expect(html).toContain('data-label="Tiền thuê"');
-    expect(html).toContain("3500000");
-    expect(html).not.toContain(">2500000<");
+    expect(html).toContain("99.999.999.999.999 ₫");
+    expect(html).toContain("whitespace-nowrap");
+    expect(html).toContain("overflow-x-auto");
+    expect(html).not.toContain(">2.500.000 ₫<");
   });
 });

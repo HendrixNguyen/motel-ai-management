@@ -35,7 +35,7 @@ describe("M3 room management", () => {
     expect(html).toContain("Đang ở");
     expect(html).toContain("Trống");
     expect(html).toContain(RENTER.name);
-    expect(html).toContain(RENTER.phone);
+    expect(html).toContain("+84 901 234 567");
     expect(html).not.toContain(RENTER_WITHOUT_ROOM.name);
     expect(html).toContain(`/renters?motel=${MOTEL.id}&amp;roomId=${ROOM.id}`);
     expect(html).toContain(`Chỉnh sửa ${ROOM.name}`);
@@ -51,7 +51,7 @@ describe("M3 room management", () => {
     ]);
     expect(html).toContain(RENTER.name);
     expect(html).toContain("Nguyễn An");
-    expect(html).toContain("84900000000");
+    expect(html).toContain("+84 900 000 000");
     expect(html).not.toContain("Khách cũ");
     expect(html).not.toContain("Khách nhà khác");
   });

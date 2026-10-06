@@ -127,7 +127,7 @@ selected motel; switching motels reloads the current route against the new id.
 
 ### What is built
 
-Only the endpoints in [`docs/api-contract.md`](../api-contract.md) can be served. A destination
+Only the endpoints in [`docs/api-contract.md`](api-contract.md) can be served. A destination
 with no endpoint gets **no route and no nav item** — a sidebar entry that 404s is a broken
 affordance — and a measure with no endpoint is omitted rather than rendered zero-filled, since
 a "Doanh thu dự kiến 0 ₫" tile is a false claim about data that does not exist.
