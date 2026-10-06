@@ -33,7 +33,7 @@ export default async function Overview({ searchParams }: { searchParams: Promise
     </div>}
     <section aria-labelledby="overview-actions" className="space-y-3">
       <h2 id="overview-actions" className="font-heading text-lg font-semibold text-text">Thao tác nhanh</h2>
-      <Link href={motelHref("/renters", "", motelId)} className="inline-flex min-h-11 max-w-full items-center justify-center rounded-input bg-primary px-4 py-2 text-base font-semibold text-surface hover:bg-primary-strong focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">Thêm khách thuê</Link>
+      <Link href={motelHref("/renters", "create=1", motelId)} className="inline-flex min-h-11 max-w-full items-center justify-center rounded-input bg-primary px-4 py-2 text-base font-semibold text-surface hover:bg-primary-strong focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">Thêm khách thuê</Link>
     </section>
   </section>;
 }

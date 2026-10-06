@@ -1,113 +1,127 @@
-/**
- * Test-only backend for Server Component reads and real same-origin Set-Cookie forwarding.
- * page.route() continues to cover browser API fixtures; it cannot intercept Next's server fetch.
- * Started only by the fixture-backed Playwright webServer, never by the application.
- */
+/** Test-only backend: RSC reads and mutations share typed, per-session state. */
 import { createServer } from "node:http";
+import { fileURLToPath } from "node:url";
 import { MANAGER_AUTH, MANAGER_ME, MOTEL, MOTEL_WITHOUT_EXTRAS, ROOMS, RENTERS } from "../../src/lib/api/__tests__/fixtures";
-import type { MotelResponse, RoomResponse, UpdateMotelInput, UpdateRoomInput } from "../../src/lib/api/types";
+import type { ApiErrorBody, CreateMotelInput, CreateRenterInput, CreateRoomInput, MotelResponse, RenterDetailResponse, RenterResponse, RoomResponse, UpdateMotelInput, UpdateRenterInput, UpdateRoomInput } from "../../src/lib/api/types";
 
-// Each test session owns its motel state, so refresh assertions cannot affect parallel specs.
-const motelsBySession = new Map<string, MotelResponse[]>();
-function sessionMotels(session: string) {
-  if (!motelsBySession.has(session)) motelsBySession.set(session, session === "no-motels" ? [] : structuredClone([MOTEL, MOTEL_WITHOUT_EXTRAS]));
-  return motelsBySession.get(session)!;
-}
-const roomsBySession = new Map<string, RoomResponse[]>();
-function sessionRooms(session: string) {
-  if (!roomsBySession.has(session)) roomsBySession.set(session, structuredClone(ROOMS));
-  return roomsBySession.get(session)!;
-}
-
-const server = createServer(async (request, response) => {
-  const url = new URL(request.url ?? "/", "http://127.0.0.1:3002");
-  const path = url.pathname;
-  const session = /(?:^|;\s*)manager_session=([^;]+)/.exec(request.headers.cookie ?? "")?.[1];
-  const json = (body: unknown, status = 200) => {
-    response.writeHead(status, { "content-type": "application/json" });
-    response.end(JSON.stringify(body));
+export function createFixtureBackend() {
+  const states = new Map<string, { motels: MotelResponse[]; rooms: RoomResponse[]; renters: RenterResponse[] }>();
+  const stateFor = (session: string) => {
+    if (!states.has(session)) states.set(session, {
+      motels: session.startsWith("no-motels") ? [] : structuredClone([MOTEL, MOTEL_WITHOUT_EXTRAS]),
+      rooms: structuredClone(ROOMS), renters: structuredClone(RENTERS),
+    });
+    return states.get(session)!;
   };
-  const unauthorized = () => json({ error: "Chưa đăng nhập", code: "UNAUTHORIZED" }, 401);
-
-  if (path === "/health") return json({ ok: true });
-  if (request.method === "POST" && path === "/api/auth/login") {
-    let raw = "";
-    for await (const chunk of request) raw += String(chunk);
-    let input: { email?: string; password?: string };
-    try { input = JSON.parse(raw) as typeof input; }
-    catch { return json({ error: "Dữ liệu không hợp lệ", code: "VALIDATION_ERROR" }, 400); }
-    if (input.email !== MANAGER_ME.email || input.password !== "password123") {
-      return json({ error: "Email hoặc mật khẩu không đúng", code: "VALIDATION_ERROR" }, 400);
+  return createServer(async (request, response) => {
+    const url = new URL(request.url ?? "/", "http://127.0.0.1:3002");
+    const path = url.pathname;
+    const method = request.method;
+    const session = /(?:^|;\s*)manager_session=([^;]+)/.exec(request.headers.cookie ?? "")?.[1];
+    const json = (body: unknown, status = 200) => {
+      response.writeHead(status, { "content-type": "application/json" }); response.end(JSON.stringify(body));
+    };
+    const error = (status: number, code: ApiErrorBody["code"], message: string) => json({ error: message, code } satisfies ApiErrorBody, status);
+    const unauthorized = () => error(401, "UNAUTHORIZED", "Chưa đăng nhập");
+    async function input<T>(): Promise<T> {
+      let raw = "";
+      for await (const chunk of request) raw += String(chunk);
+      return JSON.parse(raw) as T;
     }
-    response.setHeader("set-cookie", "manager_session=valid; Path=/; HttpOnly; SameSite=Lax");
-    return json(MANAGER_AUTH);
-  }
-  if (request.method === "POST" && path === "/api/auth/logout") {
-    response.writeHead(204, { "set-cookie": "manager_session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0" });
-    return response.end();
-  }
-  if (request.method === "GET" && path === "/api/auth/me") {
-    if (!session || session === "me-expired") return unauthorized();
-    return json(MANAGER_ME);
-  }
-  if (request.method === "GET" && path === "/api/manager/motels") {
-    if (!session || session === "motels-expired") return unauthorized();
-    return json(sessionMotels(session));
-  }
-  if (request.method === "PATCH" && path === `/api/manager/motels/${MOTEL.id}`) {
-    if (!session) return unauthorized();
-    const motel = sessionMotels(session).find((row) => row.id === MOTEL.id);
-    if (!motel) return json({ error: "Không tìm thấy nhà trọ", code: "NOT_FOUND" }, 404);
-    let raw = "";
-    for await (const chunk of request) raw += String(chunk);
-    let input: UpdateMotelInput;
-    try { input = JSON.parse(raw) as UpdateMotelInput; }
-    catch { return json({ error: "Dữ liệu không hợp lệ", code: "VALIDATION_ERROR" }, 400); }
-    Object.assign(motel, input);
-    return json(motel);
-  }
-  if (request.method === "GET" && path === `/api/manager/motels/${MOTEL.id}/rooms`) {
-    if (!session) return unauthorized();
-    return json(sessionRooms(session).filter((room) =>
-      (!url.searchParams.has("floor") || room.floor === Number(url.searchParams.get("floor"))) &&
-      (!url.searchParams.has("status") || room.status === url.searchParams.get("status")) &&
-      (!url.searchParams.get("search") || room.name.toLowerCase().includes(url.searchParams.get("search")!.toLowerCase()))));
-  }
-  if (request.method === "GET" && path === `/api/manager/motels/${MOTEL_WITHOUT_EXTRAS.id}/rooms`) {
-    if (!session) return unauthorized();
-    return json([]);
-  }
-  if (request.method === "GET" && path === `/api/manager/motels/${MOTEL.id}/renters`) {
-    if (!session) return unauthorized();
-    return json(RENTERS.filter((renter) => !url.searchParams.has("roomId") || renter.roomId === url.searchParams.get("roomId")));
-  }
-  if (request.method === "GET" && path === `/api/manager/motels/${MOTEL_WITHOUT_EXTRAS.id}/renters`) {
-    if (!session) return unauthorized();
-    return json([]);
-  }
-  if (request.method === "GET" && path.startsWith(`/api/manager/motels/${MOTEL.id}/renters/`)) {
-    if (!session) return unauthorized();
-    const renter = RENTERS.find((row) => row.id === path.split("/").at(-1));
-    if (!renter) return json({ error: "Không tìm thấy khách thuê", code: "NOT_FOUND" }, 404);
-    // Current backend owner modules return null/[]; do not invent a contract or invoice.
-    return json({ ...renter, idCardFrontUrl: null, idCardBackUrl: null, activeContract: null, invoices: [] });
-  }
-  if (request.method === "PATCH" && path.startsWith(`/api/manager/motels/${MOTEL.id}/rooms/`)) {
-    if (!session) return unauthorized();
-    const room = sessionRooms(session).find((row) => row.id === path.split("/").at(-1));
-    if (!room) return json({ error: "Không tìm thấy phòng", code: "NOT_FOUND" }, 404);
-    let raw = "";
-    for await (const chunk of request) raw += String(chunk);
-    let input: UpdateRoomInput;
-    try { input = JSON.parse(raw) as UpdateRoomInput; }
-    catch { return json({ error: "Dữ liệu không hợp lệ", code: "VALIDATION_ERROR" }, 400); }
-    Object.assign(room, input);
-    return json(room);
-  }
-  // An omitted fixture must fail the run, never masquerade as a legitimate resource 404.
-  throw new Error(`fixtureBackend: no fixture for ${request.method} ${path}`);
-});
+    try {
+      if (path === "/health") return json({ ok: true });
+      if (method === "POST" && path === "/api/auth/login") {
+        const body = await input<{ email: string; password: string }>();
+        if (body.email !== MANAGER_ME.email || body.password !== "password123") return error(400, "VALIDATION_ERROR", "Email hoặc mật khẩu không đúng");
+        response.setHeader("set-cookie", `manager_session=login-${crypto.randomUUID()}; Path=/; HttpOnly; SameSite=Lax`);
+        return json(MANAGER_AUTH);
+      }
+      if (method === "POST" && path === "/api/auth/logout") {
+        response.writeHead(204, { "set-cookie": "manager_session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0" }); return response.end();
+      }
+      if (!session) return unauthorized();
+      if (method === "GET" && path === "/api/auth/me") return session === "me-expired" ? unauthorized() : json(MANAGER_ME);
+      const state = stateFor(session);
+      if (path === "/api/manager/motels") {
+        if (method === "GET") return session === "motels-expired" ? unauthorized() : json(state.motels);
+        if (method === "POST") {
+          const body = await input<CreateMotelInput>();
+          const motel: MotelResponse = { id: crypto.randomUUID(), managerId: MANAGER_ME.id, name: body.name, address: body.address ?? null,
+            electricityPrice: body.electricityPrice, waterPrice: body.waterPrice, otherFees: body.otherFees ?? [], bankAccount: body.bankAccount ?? null, createdAt: new Date().toISOString() };
+          state.motels.push(motel); return json(motel, 201);
+        }
+      }
+      const scope = /^\/api\/manager\/motels\/([^/]+)(?:\/(rooms|renters)(?:\/([^/]+))?)?$/.exec(path);
+      if (scope) {
+        const [, motelId, collection, id] = scope;
+        const motel = state.motels.find((row) => row.id === motelId);
+        if (!motel) return error(404, "NOT_FOUND", "Không tìm thấy nhà trọ");
+        if (!collection && method === "PATCH") { Object.assign(motel, await input<UpdateMotelInput>()); return json(motel); }
+        if (collection === "rooms") {
+          const rooms = state.rooms.filter((room) => room.motelId === motelId);
+          if (method === "GET" && !id) {
+            if (session.startsWith("rooms-error")) return error(500, "INTERNAL_ERROR", "private database host");
+            return json(rooms.filter((room) =>
+              (!url.searchParams.has("floor") || room.floor === Number(url.searchParams.get("floor"))) &&
+              (!url.searchParams.has("status") || room.status === url.searchParams.get("status")) &&
+              (!url.searchParams.get("search") || room.name.toLowerCase().includes(url.searchParams.get("search")!.toLowerCase()))));
+          }
+          if (method === "POST" && !id) {
+            const body = await input<CreateRoomInput>();
+            if (rooms.some((room) => room.name === body.name)) return error(409, "CONFLICT", "Tên phòng đã tồn tại trong nhà trọ này");
+            const room: RoomResponse = { id: crypto.randomUUID(), motelId: motel.id, name: body.name, basePrice: body.basePrice, floor: body.floor ?? null, status: body.status ?? "available", createdAt: new Date().toISOString() };
+            state.rooms.push(room); return json(room, 201);
+          }
+          if (method === "PATCH" && id) {
+            const room = rooms.find((row) => row.id === id);
+            if (!room) return error(404, "NOT_FOUND", "Không tìm thấy phòng");
+            const body = await input<UpdateRoomInput>();
+            if (body.name && rooms.some((row) => row.id !== id && row.name === body.name)) return error(409, "CONFLICT", "Tên phòng đã tồn tại trong nhà trọ này");
+            Object.assign(room, body); return json(room);
+          }
+        }
+        if (collection === "renters") {
+          const renters = state.renters.filter((renter) => renter.motelId === motelId);
+          if (method === "GET" && !id) return json(renters.filter((renter) =>
+            (!url.searchParams.has("roomId") || renter.roomId === url.searchParams.get("roomId")) &&
+            (!url.searchParams.has("status") || renter.status === url.searchParams.get("status")) &&
+            (!url.searchParams.get("search") || `${renter.name} ${renter.phone}`.toLowerCase().includes(url.searchParams.get("search")!.toLowerCase()))));
+          if (method === "GET" && id) {
+            const renter = renters.find((row) => row.id === id);
+            if (!renter) return error(404, "NOT_FOUND", "Không tìm thấy khách thuê");
+            const detail: RenterDetailResponse = { ...renter, activeContract: null, invoices: [] };
+            return json(detail);
+          }
+          if ((method === "POST" && !id) || (method === "PATCH" && id)) {
+            const body = await input<CreateRenterInput | UpdateRenterInput>();
+            if (body.roomId && !state.rooms.some((room) => room.id === body.roomId && room.motelId === motelId)) return error(404, "NOT_FOUND", "Không tìm thấy phòng");
+            if (body.phone && renters.some((row) => row.id !== id && row.phone === body.phone)) return error(409, "CONFLICT", "Số điện thoại đã tồn tại trong nhà trọ này");
+            if (id) {
+              const renter = renters.find((row) => row.id === id);
+              if (!renter) return error(404, "NOT_FOUND", "Không tìm thấy khách thuê");
+              Object.assign(renter, body); return json(renter);
+            }
+            const create = body as CreateRenterInput;
+            const renter: RenterResponse = { id: crypto.randomUUID(), motelId: motel.id, name: create.name, phone: create.phone,
+              idNumber: create.idNumber ?? null, roomId: create.roomId ?? null, idCardFrontUrl: create.idCardFrontUrl ?? null, idCardBackUrl: create.idCardBackUrl ?? null,
+              zaloOaId: null, isOaFollower: false, status: "active", createdAt: new Date().toISOString() };
+            state.renters.push(renter); return json(renter, 201);
+          }
+        }
+      }
+      // Omitted fixtures fail explicitly, never masquerade as a resource 404.
+      console.error(`fixtureBackend: no fixture for ${method} ${path}`);
+      return error(501, "INTERNAL_ERROR", `Missing fixture: ${method} ${path}`);
+    } catch (failure) {
+      if (failure instanceof SyntaxError) return error(400, "VALIDATION_ERROR", "Dữ liệu không hợp lệ");
+      console.error(failure); return error(500, "INTERNAL_ERROR", "Fixture backend failed");
+    }
+  });
+}
 
-server.listen(3002, "127.0.0.1");
-process.on("SIGTERM", () => server.close(() => process.exit(0)));
-process.on("SIGINT", () => server.close(() => process.exit(0)));
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  const server = createFixtureBackend();
+  server.listen(3002, "127.0.0.1");
+  process.on("SIGTERM", () => server.close(() => process.exit(0)));
+  process.on("SIGINT", () => server.close(() => process.exit(0)));
+}

@@ -74,7 +74,7 @@ export default async function RenterDetail({ params, searchParams }: { params: P
       <h2 id="contract" className="font-heading text-lg font-semibold text-text">Hợp đồng đang hiệu lực</h2>
       {contract ? <dl className="mt-4 grid min-w-0 gap-4 text-base sm:grid-cols-2">
         <div><dt className="text-sm text-text-muted">Phòng theo hợp đồng</dt><dd className="mt-1 text-text [overflow-wrap:anywhere]">{contract.roomName}</dd></div>
-        <div><dt className="text-sm text-text-muted">Tiền thuê / tháng</dt><dd className="mt-1 text-text tabular-nums [overflow-wrap:anywhere]">{formatVnd(contract.monthlyRent)}</dd></div>
+        <div className="min-w-0"><dt className="text-sm text-text-muted">Tiền thuê / tháng</dt><dd className="mt-1 max-w-full overflow-x-auto text-text tabular-nums whitespace-nowrap">{formatVnd(contract.monthlyRent)}</dd></div>
         <div><dt className="text-sm text-text-muted">Ngày bắt đầu</dt><dd className="mt-1 text-text">{formatCalendarDate(contract.startDate)}</dd></div>
         <div><dt className="text-sm text-text-muted">Ngày kết thúc</dt><dd className="mt-1 text-text">{formatCalendarDate(contract.endDate)}</dd></div>
       </dl> : <div className="mt-4"><h3 className="font-semibold text-text">Chưa có hợp đồng đang hiệu lực</h3><p className="mt-2 text-base text-text-muted">Khách thuê chưa có thông tin hợp đồng đang hiệu lực.</p></div>}
@@ -82,7 +82,7 @@ export default async function RenterDetail({ params, searchParams }: { params: P
     <section aria-labelledby="invoices" className="min-w-0 rounded-card border border-border bg-surface p-4 sm:p-6">
       <h2 id="invoices" className="font-heading text-lg font-semibold text-text">Lịch sử hóa đơn</h2>
       {renter.invoices.length ? <ul className="mt-4 space-y-4">{renter.invoices.map((invoice) => <li key={invoice.id} className="flex min-w-0 flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
-        <div className="min-w-0"><p className="text-base text-text-muted">Ngày tạo: {formatDate(invoice.createdAt)}</p><p className="mt-1 text-base font-semibold text-text tabular-nums [overflow-wrap:anywhere]">{formatVnd(invoice.totalAmount)}</p></div>
+        <div className="min-w-0 max-w-full"><p className="text-base text-text-muted">Ngày tạo: {formatDate(invoice.createdAt)}</p><p className="mt-1 max-w-full overflow-x-auto text-base font-semibold text-text tabular-nums whitespace-nowrap">{formatVnd(invoice.totalAmount)}</p></div>
         <Badge {...payment[invoice.paymentStatus]} />
       </li>)}</ul> : <div className="mt-4"><h3 className="font-semibold text-text">Chưa có hóa đơn</h3><p className="mt-2 text-base text-text-muted">Lịch sử hóa đơn sẽ xuất hiện khi có hóa đơn cho khách thuê này.</p></div>}
     </section>

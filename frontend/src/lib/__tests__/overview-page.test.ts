@@ -41,7 +41,7 @@ describe("M1 overview", () => {
     expect(html).toMatch(/<dd[^>]*>4<\/dd>/);
     expect(html).toContain("2 đang thuê · 1 trống · 1 bảo trì");
     expect(html).toContain("Tỷ lệ lấp đầy: 50%");
-    expect(html).toContain(`href="/renters?motel=${MOTEL.id}"`);
+    expect(html).toContain(`href="/renters?create=1&amp;motel=${MOTEL.id}"`);
     expect(html).toContain("Thêm khách thuê");
     expect(html.match(/<dl>/g)).toHaveLength(1);
     expect(html).not.toMatch(/Doanh thu dự kiến|Tiền chưa thu|Sự cố chưa xử lý|Hóa đơn chưa thanh toán|Sự cố mới|Chốt số điện\/nước|Tạo hóa đơn/);
@@ -61,7 +61,7 @@ describe("M1 overview", () => {
   it("reads the explicitly selected owned motel and carries its scope into the renter destination", async () => {
     const { html, fetchMock } = await markup({ motel: MOTEL_WITHOUT_EXTRAS.id }, roomsWithStatuses(["maintenance"], MOTEL_WITHOUT_EXTRAS.id));
     expect(html).toContain("0 đang thuê · 0 trống · 1 bảo trì");
-    expect(html).toContain(`href="/renters?motel=${MOTEL_WITHOUT_EXTRAS.id}"`);
+    expect(html).toContain(`href="/renters?create=1&amp;motel=${MOTEL_WITHOUT_EXTRAS.id}"`);
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 

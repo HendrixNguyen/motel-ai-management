@@ -36,6 +36,8 @@ describe("M4 renter list", () => {
     for (const value of ["Họ tên", "SĐT", "Số CCCD", "Phòng", "Trạng thái Zalo OA", "Ngày bắt đầu", RENTER.name, "+84 901 234 567", ROOM.name, "Đã follow", "Chưa follow", "Đang thuê", "Đã kết thức hợp đồng", "Chưa cập nhật", "Chưa xếp phòng", "Sao chép SĐT"]) expect(markup).toContain(value);
     expect(markup).toContain(`/renters/${RENTER.id}?motel=${MOTEL.id}`);
     expect(markup).not.toContain("05/09/2026");
+    expect(markup).toContain("Thêm khách thuê");
+    expect(markup).toContain(`aria-label="Chỉnh sửa ${RENTER.name}"`);
     expect(fetchMock).toHaveBeenCalledTimes(3);
   });
   it("passes roomId to the scoped read and preserves it in detail navigation", async () => {
@@ -51,6 +53,15 @@ describe("M4 renter list", () => {
     const markup = html(await Renters({ searchParams: Promise.resolve({ motel: MOTEL.id, roomId: ROOM.id }) }));
     expect(markup).toContain("Chưa có khách thuê trong phòng này");
     expect(markup).toContain(`/renters?motel=${MOTEL.id}`);
+  });
+  it("opens an accessible create form from the overview's create query", async () => {
+    reads([]);
+    const markup = html(await Renters({ searchParams: Promise.resolve({ motel: MOTEL.id, create: "1" }) }));
+    expect(markup).toContain("Thông tin khách thuê");
+    expect(markup).toContain("Họ tên");
+    expect(markup).toContain("Số điện thoại");
+    expect(markup).toContain("Chưa xếp phòng");
+    expect(markup).not.toContain("type=\"file\"");
   });
   it("offers motel creation with no motel-scoped reads when no motel exists", async () => {
     const fetchMock = vi.fn().mockResolvedValue(Response.json([])); vi.stubGlobal("fetch", fetchMock);
@@ -82,6 +93,12 @@ describe("M4 renter detail", () => {
     expect(markup).toContain('src="https://images.example/front.jpg"');
     expect(markup).not.toContain('alt="CCCD mặt sau');
     expect(markup).toContain(`/renters?motel=${MOTEL.id}&amp;roomId=${ROOM.id}`);
+  });
+  it("keeps contract and invoice amounts in nonwrapping monetary elements", async () => {
+    const { markup } = await detailPage(RENTER_DETAIL);
+    const amounts = [...markup.matchAll(/<(dd|p) class="([^"]*)">(?:3\.500\.000|3\.740\.000) ₫<\/(?:dd|p)>/g)];
+    expect(amounts.length).toBeGreaterThanOrEqual(2);
+    for (const amount of amounts) expect(amount[2]).toContain("whitespace-nowrap");
   });
   it("displays both provided image sides with no referrer or optimization proxy", async () => {
     const { markup } = await detailPage({ ...RENTER_DETAIL_WITHOUT_HISTORY, idCardFrontUrl: "https://images.example/front.jpg", idCardBackUrl: "https://images.example/back.jpg" });
