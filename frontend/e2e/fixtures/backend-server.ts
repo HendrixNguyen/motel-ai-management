@@ -4,7 +4,7 @@
  * Started only by the fixture-backed Playwright webServer, never by the application.
  */
 import { createServer } from "node:http";
-import { MANAGER_AUTH, MANAGER_ME, MOTEL, MOTEL_WITHOUT_EXTRAS } from "../../src/lib/api/__tests__/fixtures";
+import { MANAGER_AUTH, MANAGER_ME, MOTEL, MOTEL_WITHOUT_EXTRAS, ROOMS } from "../../src/lib/api/__tests__/fixtures";
 
 const server = createServer(async (request, response) => {
   const path = new URL(request.url ?? "/", "http://127.0.0.1:3002").pathname;
@@ -39,6 +39,14 @@ const server = createServer(async (request, response) => {
   if (request.method === "GET" && path === "/api/manager/motels") {
     if (!session || session === "motels-expired") return unauthorized();
     return json(session === "no-motels" ? [] : [MOTEL, MOTEL_WITHOUT_EXTRAS]);
+  }
+  if (request.method === "GET" && path === `/api/manager/motels/${MOTEL.id}/rooms`) {
+    if (!session) return unauthorized();
+    return json(ROOMS);
+  }
+  if (request.method === "GET" && path === `/api/manager/motels/${MOTEL_WITHOUT_EXTRAS.id}/rooms`) {
+    if (!session) return unauthorized();
+    return json([]);
   }
   // An omitted fixture must fail the run, never masquerade as a legitimate resource 404.
   throw new Error(`fixtureBackend: no fixture for ${request.method} ${path}`);

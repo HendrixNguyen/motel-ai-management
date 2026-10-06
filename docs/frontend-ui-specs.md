@@ -165,7 +165,28 @@ timestamp).
 ### M2 — Nhà trọ `/motels`
 
 Card grid of motels: name, address, room count, electricity/water unit price, and bank
-account name. Actions: edit, settings (prices, fees, bank account), create.
+account name. The grid shows all owned motels; each room count comes from an unfiltered
+`GET /api/manager/motels/:motelId/rooms` read on the server. These reads run in parallel;
+one call per motel is acceptable for the MVP's 10–40 rooms. A larger portfolio should use a
+backend count aggregation. A failed read reaches the route error state rather than showing
+zero rooms. Missing addresses and bank accounts show `Chưa có địa chỉ` and `Chưa thiết lập`.
+
+**Tạo nhà trọ** opens a modal with name, optional address, and electricity/water prices.
+**Chỉnh sửa** on each card opens the same fields plus the settings supported today:
+editable `otherFees` rows (name and VND amount) and bank code, account number, account owner.
+Unchecking **Thiết lập tài khoản nhận tiền** clears the bank account on save; removing all
+fees sends an empty list. Edits send only changed fields, with an explicit `null` to clear an
+address or bank account. Account numbers remain strings to preserve leading zeros.
+
+Money fields accept whole VND digits or correctly grouped amounts such as `3.500`; they reject
+ambiguous grouping, signs, and amounts above `numeric(14,0)`. Local validation is inline,
+associated with each control, and summarized in a focused list with links to invalid fields.
+Server `409`, `404`, and `VALIDATION_ERROR` responses remain form-level banners because the
+API supplies no field details. Errors retain the draft; `404` also offers **Tải lại danh sách**.
+A `401` returns to login. Saving disables form controls and duplicate submission; success closes
+the modal, announces confirmation, and refreshes server data and the motel selector.
+
+Empty state: **Chưa có nhà trọ** — `bấm Tạo nhà trọ để bắt đầu`, with a **Tạo nhà trọ** button.
 
 ### M3 — Phòng trọ `/rooms`
 

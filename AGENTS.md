@@ -30,7 +30,8 @@ Product context: `README.md`.
 - `backend/` — ElysiaJS + Drizzle + PostgreSQL, wired through `src/app.ts` → `src/index.ts`.
 - `frontend/` — Next.js 16.3.8 App Router. The root layout and the design tokens in
   `src/app/globals.css` are in place. Task 5 adds login and the manager shell with heading-only
-  frames at `/`, `/motels`, `/rooms`, and `/renters`; the later screen tasks supply their content.
+  frames at `/`, `/rooms`, and `/renters`; Task 7 supplies the `/motels` grid and create/edit
+  settings dialogs. The later screen tasks supply the remaining content.
   Renter and capture route groups remain specified in `docs/frontend-ui-specs.md`.
 - Bun only. Never `npm`, `yarn`, or `npx`.
 - Git remote is **SSH**: `git@github.com:HendrixNguyen/motel-ai-management.git`. HTTPS push

@@ -119,7 +119,8 @@ is worse than no fixture at all.
 
 Server Component reads cannot be intercepted by `page.route()`. The fixture-backed command also
 starts `e2e/fixtures/backend-server.ts` on loopback port `3002` and starts Next with server-only
-`BACKEND_URL=http://127.0.0.1:3002`. Its typed responses cover the manager identity and motel list;
+`BACKEND_URL=http://127.0.0.1:3002`. Its typed responses cover the manager identity, motel list,
+and per-motel room lists used by the M2 cards;
 login/logout responses set and clear an `httpOnly` cookie through the actual Next rewrite. The fake
 server is test infrastructure only and is never started by the application's dev/start commands.
 Do not reuse an unrelated Next dev server for these tests: its backend setting may differ.
@@ -140,6 +141,13 @@ server-rendered markup checks label/error wiring, kit accessibility contracts, a
 without a DOM environment. The dialog session's cleanup and focus restoration are tested against
 an event target that doubles only the browser boundary. DOM interaction, responsive layout, and
 browser navigation belong in Playwright; no `jsdom` dependency is needed.
+
+M2 unit tests cover initial drafts, exact VND normalization and storage bounds, partial patches,
+explicit settings clearing, local field errors, safe form-level API errors, and the real server
+page's motel/room-count reads. `e2e/motels.spec.ts` covers create/edit, retained error drafts,
+pending saves, cancellation, settings removal, session expiry, dialog focus, and 360px reflow.
+Browser execution is required to verify those interactions and rendered responsive behavior;
+collecting the specs alone does not establish that they pass.
 
 `e2e/component-kit.spec.ts` bundles `e2e/fixtures/component-kit.tsx` with Bun and serves its HTML
 through a Playwright route interception. There is no component gallery route in the product. Run

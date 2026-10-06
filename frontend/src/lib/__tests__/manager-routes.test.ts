@@ -9,19 +9,24 @@ import ErrorPage from "@/app/(manager)/error";
 import Loading from "@/app/(manager)/loading";
 import NotFound from "@/app/(manager)/not-found";
 import Button from "@/components/ui/button";
-import { MOTEL } from "@/lib/api/__tests__/fixtures";
+import { ToastProvider } from "@/components/ui/toast";
+import { MOTEL, ROOMS } from "@/lib/api/__tests__/fixtures";
 
 vi.mock("server-only", () => ({}));
 vi.mock("next/headers", () => ({ cookies: async () => ({ toString: () => "manager_session=valid" }) }));
-vi.mock("next/navigation", () => ({ notFound: () => { throw new Error("NEXT_NOT_FOUND"); } }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn(), replace: vi.fn() }), notFound: () => { throw new Error("NEXT_NOT_FOUND"); } }));
 const fetchMock = vi.fn();
 vi.stubGlobal("fetch", fetchMock);
-beforeEach(() => { fetchMock.mockReset(); fetchMock.mockResolvedValue(Response.json([MOTEL])); });
+beforeEach(() => {
+  fetchMock.mockReset();
+  fetchMock.mockImplementation(async (url: string) => Response.json(new URL(url).pathname.endsWith("/rooms") ? ROOMS : [MOTEL]));
+});
 
 describe("manager route frames", () => {
   for (const [Page, heading] of [[Overview, "Tổng quan"], [Motels, "Nhà trọ"], [Rooms, "Phòng trọ"], [Renters, "Khách thuê"]] as const) {
     it(`makes ${heading} reachable within the manager shell`, async () => {
-      const html = renderToStaticMarkup(await Page({ searchParams: Promise.resolve({ motel: MOTEL.id }) }));
+      const page = await Page({ searchParams: Promise.resolve({ motel: MOTEL.id }) });
+      const html = renderToStaticMarkup(createElement(ToastProvider, null, page));
       expect(html).toContain(heading);
       expect(html).toContain("<h1");
     });
