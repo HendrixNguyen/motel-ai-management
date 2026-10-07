@@ -38,20 +38,26 @@ describe("error envelope", () => {
   });
 
   test("an unexpected error is logged but never leaks internals to the client", async () => {
-    const res = await createApp()
-      .get("/boom", () => {
-        throw new Error("connect ECONNREFUSED 10.0.0.5:5432 password=hunter2");
-      })
-      .handle(new Request("http://localhost/boom"));
+    const originalError = console.error;
+    console.error = () => {};
+    try {
+      const res = await createApp()
+        .get("/boom", () => {
+          throw new Error("connect ECONNREFUSED 10.0.0.5:5432 password=hunter2");
+        })
+        .handle(new Request("http://localhost/boom"));
 
-    expect(res.status).toBe(500);
-    const body = await res.text();
-    expect(JSON.parse(body)).toEqual({
-      error: "Đã xảy ra lỗi hệ thống",
-      code: "INTERNAL_ERROR",
-    });
-    expect(body).not.toContain("hunter2");
-    expect(body).not.toContain("ECONNREFUSED");
+      expect(res.status).toBe(500);
+      const body = await res.text();
+      expect(JSON.parse(body)).toEqual({
+        error: "Đã xảy ra lỗi hệ thống",
+        code: "INTERNAL_ERROR",
+      });
+      expect(body).not.toContain("hunter2");
+      expect(body).not.toContain("ECONNREFUSED");
+    } finally {
+      console.error = originalError;
+    }
   });
 
   test("unknown routes return the standard envelope, not Elysia's default text", async () => {
