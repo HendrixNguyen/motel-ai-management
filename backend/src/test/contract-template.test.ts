@@ -4,6 +4,8 @@ import { db } from "@/db";
 import { resetDb } from "@/db/test-db";
 import { registerManager } from "@/modules/auth/auth.service";
 import { motels } from "@/modules/motel/motel.schema";
+import { rooms } from "@/modules/room/room.schema";
+import { renters } from "@/modules/renter/renter.schema";
 import { contracts, contractTemplates } from "@/modules/contract/contract.schema";
 
 setDefaultTimeout(20_000);
@@ -58,7 +60,9 @@ describe("contract templates", () => {
     expect(denied.status).toBe(404);
     const created = await api("POST", `/manager/motels/${motel.id}/contract-templates`, owner, { name: "Mẫu", clauses: [] });
     const template = (await created.json()) as { id: string };
-    await db.insert(contracts).values({ motelId: motel.id, renterId: crypto.randomUUID(), roomId: crypto.randomUUID(), templateId: template.id, startDate: "2026-01-01", endDate: "2026-02-01", monthlyRent: "1" });
+    const [room] = await db.insert(rooms).values({ motelId: motel.id, name: "101", basePrice: "1" }).returning();
+    const [renter] = await db.insert(renters).values({ motelId: motel.id, name: "Người thuê", phone: "84901234567" }).returning();
+    await db.insert(contracts).values({ motelId: motel.id, renterId: renter!.id, roomId: room!.id, templateId: template.id, startDate: "2026-01-01", endDate: "2026-02-01", monthlyRent: "1" });
     const deleted = await api("DELETE", `/manager/motels/${motel.id}/contract-templates/${template.id}`, owner);
     expect(deleted.status).toBe(409);
   });
