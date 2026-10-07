@@ -166,7 +166,7 @@ The current billing API accepts optional `photoUrl` input for compatibility, but
 
 All billing errors use `{error, code, details?}`. `409 READING_CONFLICT` includes `details.server`; invoice generation may include `details.skippedRooms`. `POST /send` changes period status to `sent` only and sends no notification.
 
-`photoUrl` is an R2 **object key**, not a public URL. Responses expose short-lived signed
+
 URLs instead; a stored key is never a capability. Photos upload independently of the
 reading — a failed upload leaves the reading saved and re-queues only the image.
 
