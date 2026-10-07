@@ -13,7 +13,7 @@ const variants = {
   ghost: "border-transparent text-primary hover:bg-canvas",
   danger: "border-danger bg-danger text-surface hover:bg-danger/90",
 };
-const sizes = { sm: "px-3 py-2", md: "px-4 py-2", lg: "px-6 py-3" };
+const sizes = { sm: "px-3 py-2 text-sm", md: "px-4 py-2.5", lg: "px-6 py-3" };
 
 export default function Button({ variant = "primary", size = "md", pending = false, pendingLabel = "Đang xử lý…", disabled, type = "button", className = "", children, ...props }: ButtonProps) {
   return (
