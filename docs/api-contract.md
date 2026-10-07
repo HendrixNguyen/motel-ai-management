@@ -55,11 +55,13 @@ form-level message; it cannot attribute the failure to a field.
 
 ### Renter signing — `/api/renter/contracts/:contractId`
 
+Renter session JWT and cookie expire after 24 hours. Renter routes are singular only where the resource itself is singular: `/renter/contract` for latest contract and `/renter/contracts/:contractId` for one contract.
+
 | Method | Path | Body | Returns |
 | --- | --- | --- | --- |
 | GET | `/contracts/:contractId` | — | `200 Contract`; renter session scopes access |
 | POST | `/contracts/:contractId/sign-request` | — | `200 {sentAt}`; six-digit OTP is never returned |
-| POST | `/contracts/:contractId/verify` | `{otp}` | `200 Contract` with `status=active`; invalid, expired, or exhausted OTP uses `OTP_INVALID`/`OTP_EXPIRED` |
+| POST | `/contracts/:contractId/verify` | `{otp}` | `200 Contract` with `status=active`; invalid OTP uses `OTP_INVALID`; expired or exhausted OTP uses `OTP_EXPIRED` |
 
 OTP values are Argon2id-hashed with `Bun.password`, expire after five minutes, allow one request per five-minute cooldown, and permit at most three failed attempts. Verification activates contract and records `otpSignedAt` in one transaction. Zalo delivery is not wired in this task; default sender rejects delivery, so deployment must configure `setRenterOtpSender` before enabling sign requests.
 

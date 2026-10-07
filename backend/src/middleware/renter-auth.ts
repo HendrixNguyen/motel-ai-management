@@ -14,7 +14,7 @@ interface JwtPayload {
 }
 
 export const renterAuth = new Elysia({ name: "renter-auth" })
-  .use(jwt({ name: "renter", secret: env.renterSessionSecret, exp: "30d" }))
+  .use(jwt({ name: "renter", secret: env.renterSessionSecret, exp: "24h" }))
   .derive({ as: "scoped" }, async ({ renter, cookie }) => {
     const renterCookie = cookie?.renter_session as { value: string } | undefined;
     const token = renterCookie?.value;

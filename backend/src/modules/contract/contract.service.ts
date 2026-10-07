@@ -7,7 +7,7 @@ import {
   resolveRenterInMotel,
 } from "@/middleware/tenancy";
 import { getRoomName } from "@/modules/room/room.service";
-import { type VndString } from "@/shared/money";
+import { parseAmount, type VndString } from "@/shared/money";
 import { AppError } from "@/shared/errors";
 import { contracts, contractTemplates } from "./contract.schema";
 import type {
@@ -44,6 +44,13 @@ function contractResponse(
     createdAt: row.createdAt.toISOString(),
   };
 }
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+function validateContractDates(startDate: string, endDate: string) {
+  if (!ISO_DATE.test(startDate) || !ISO_DATE.test(endDate) || endDate <= startDate)
+    throw AppError.badRequest("Ngày kết thúc phải sau ngày bắt đầu");
+}
+
 function validateTemplate(
   input: ContractTemplateInput | UpdateContractTemplateInput,
 ) {
@@ -171,7 +178,8 @@ export async function createContract(
   managerId: string,
   input: CreateContractInput,
 ) {
-  const motel = await resolveOwnedMotel(motelId, managerId);
+  await resolveOwnedMotel(motelId, managerId);
+  validateContractDates(input.startDate, input.endDate);
   const room = await resolveRoomInMotel(input.roomId, motelId);
   if (await hasActiveContractForRoom(room.id))
     throw AppError.conflict("Phòng đã có hợp đồng đang hoạt động");
@@ -200,9 +208,9 @@ export async function createContract(
       templateId: template?.id,
       startDate: input.startDate,
       endDate: input.endDate,
-      monthlyRent: input.monthlyRent ?? room.basePrice,
-      deposit: input.deposit ?? "0",
-      clauses: input.clauses ?? template?.clauses ?? null,
+      monthlyRent: input.monthlyRent ? parseAmount(input.monthlyRent) : room.basePrice,
+      deposit: input.deposit ? parseAmount(input.deposit) : "0",
+      clauses: input.clauses ?? template?.clauses ?? [],
     })
     .returning();
   return contractResponse(row!);
@@ -240,6 +248,9 @@ export async function updateContract(
   const current = await ownedContract(motelId, contractId, managerId);
   if (current.status !== "draft")
     throw AppError.conflict("Chỉ có thể chỉnh sửa hợp đồng nháp");
+  if (input.startDate || input.endDate) validateContractDates(input.startDate ?? current.startDate, input.endDate ?? current.endDate);
+  if (input.monthlyRent !== undefined) input = { ...input, monthlyRent: parseAmount(input.monthlyRent) };
+  if (input.deposit !== undefined) input = { ...input, deposit: parseAmount(input.deposit) };
   if (input.templateId) {
     const template = await db.query.contractTemplates.findFirst({
       where: and(
@@ -337,7 +348,7 @@ export async function verifyContractOtp(contractId: string, renterId: string, mo
     const current = await tx.query.contracts.findFirst({ where: and(eq(contracts.id, contractId), eq(contracts.renterId, renterId), eq(contracts.motelId, motelId)) });
     if (!current) throw AppError.notFound("Không tìm thấy hợp đồng");
     if (current.status !== "draft") throw AppError.conflict("Hợp đồng không ở trạng thái chờ ký");
-    if (!current.otpExpiresAt || current.otpExpiresAt <= new Date()) throw new AppError("OTP_EXPIRED", "Mã xác thực đã hết hạn");
+    if (!current.otpExpiresAt || current.otpExpiresAt <= new Date() || Number(current.otpAttempts) >= MAX_OTP_ATTEMPTS) throw new AppError("OTP_EXPIRED", "Mã xác thực đã hết hạn");
     const [claimed] = await tx.update(contracts).set({ otpAttempts: sql`${contracts.otpAttempts} + 1` }).where(and(eq(contracts.id, contractId), eq(contracts.status, "draft"), sql`${contracts.otpAttempts} < ${MAX_OTP_ATTEMPTS}`, sql`${contracts.otpExpiresAt} > now()`)).returning();
     if (!claimed || !current.otpHash || !(await Bun.password.verify(otp, current.otpHash))) {
       throw new AppError("OTP_INVALID", "Mã xác thực không hợp lệ");

@@ -25,7 +25,7 @@ export interface ContractResponse {
   endDate: string;
   monthlyRent: VndString;
   deposit: VndString;
-  clauses: ContractTemplateClause[] | null;
+  clauses: ContractTemplateClause[];
   otpSentAt: string | null;
   otpSignedAt: string | null;
   status: "draft" | "active" | "expired" | "terminated";

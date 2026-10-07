@@ -69,7 +69,7 @@ export const contracts = pgTable(
     monthlyRent: numeric("monthly_rent", { precision: 14, scale: 0 }).notNull(),
     deposit: numeric("deposit", { precision: 14, scale: 0 }).notNull().default("0"),
     /** Snapshot of the template's clauses at contract creation. */
-    clauses: jsonb("clauses").$type<ContractTemplateClause[] | null>(),
+    clauses: jsonb("clauses").$type<ContractTemplateClause[]>().notNull().default([]),
     managerSentAt: timestamp("manager_sent_at", { withTimezone: true }),
     otpSentAt: timestamp("otp_sent_at", { withTimezone: true }),
     otpHash: text("otp_hash"),

@@ -1,3 +1,9 @@
+ALTER TABLE "contracts" ALTER COLUMN "clauses" SET DEFAULT '[]'::jsonb;
+--> statement-breakpoint
+UPDATE "contracts" SET "clauses" = '[]'::jsonb WHERE "clauses" IS NULL;
+--> statement-breakpoint
+ALTER TABLE "contracts" ALTER COLUMN "clauses" SET NOT NULL;
+--> statement-breakpoint
 ALTER TABLE "contracts" ADD COLUMN "manager_sent_at" timestamp with time zone;
 --> statement-breakpoint
 ALTER TABLE "contracts" ADD COLUMN "otp_hash" text;
