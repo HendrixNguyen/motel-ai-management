@@ -1,6 +1,7 @@
 import Link from "next/link";
 import MotelEditor from "@/components/manager/motel-editor";
 import StatCard from "@/components/ui/stat-card";
+import PageHeader from "@/components/ui/page-header";
 import { listMotels } from "@/lib/api/motels";
 import { listRooms } from "@/lib/api/rooms";
 import type { RoomStatus } from "@/lib/api/types";
@@ -9,7 +10,7 @@ import { resolveMotelId, type MotelSearchParams } from "@/lib/motel-selection";
 
 export default async function Overview({ searchParams }: { searchParams: Promise<MotelSearchParams> }) {
   const motelId = resolveMotelId(await listMotels(), await searchParams);
-  if (!motelId) return <section className="space-y-6"><h1 className="font-heading text-2xl font-bold text-text">Tổng quan</h1><MotelEditor empty /></section>;
+  if (!motelId) return <section className="space-y-6"><PageHeader title="Tổng quan" description="Bắt đầu bằng cách tạo nhà trọ đầu tiên." /><MotelEditor empty /></section>;
 
   // Overview always counts the full room list, even when the URL contains list-screen filters.
   const rooms = await listRooms(motelId);
@@ -18,8 +19,7 @@ export default async function Overview({ searchParams }: { searchParams: Promise
   const occupancy = rooms.length === 0 ? 0 : Math.round(counts.occupied / rooms.length * 100);
 
   return <section className="min-w-0 space-y-6">
-    <div><h1 className="font-heading text-2xl font-bold text-text">Tổng quan</h1>
-      <p className="mt-2 max-w-prose text-base text-text-muted">Tình hình sử dụng phòng của nhà trọ đang chọn.</p></div>
+<PageHeader title="Tổng quan" description="Tình hình sử dụng phòng của nhà trọ đang chọn." />
     <div className="max-w-xl">
       <StatCard label="Phòng" value={rooms.length} description={<>
         <p>{`${counts.occupied} đang thuê · ${counts.available} trống · ${counts.maintenance} bảo trì`}</p>
