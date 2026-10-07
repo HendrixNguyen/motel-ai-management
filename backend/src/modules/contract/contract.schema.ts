@@ -70,8 +70,12 @@ export const contracts = pgTable(
     deposit: numeric("deposit", { precision: 14, scale: 0 }).notNull().default("0"),
     /** Snapshot of the template's clauses at contract creation. */
     clauses: jsonb("clauses").$type<ContractTemplateClause[] | null>(),
-    otpSentAt: timestamp("otp_sent_at", { withTimezone: true }),
-    otpSignedAt: timestamp("otp_signed_at", { withTimezone: true }),
+     otpSentAt: timestamp("otp_sent_at", { withTimezone: true }),
+     otpHash: text("otp_hash"),
+     otpExpiresAt: timestamp("otp_expires_at", { withTimezone: true }),
+     otpAttempts: numeric("otp_attempts", { precision: 1, scale: 0 }).notNull().default("0"),
+     otpSignedAt: timestamp("otp_signed_at", { withTimezone: true }),
+
     status: contractStatus("status").notNull().default("draft"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -83,6 +87,8 @@ export const contracts = pgTable(
     uniqueIndex("contracts_room_active_uq")
       .on(t.roomId)
       .where(sql`${t.status} = 'active'`),
-    check("contracts_end_after_start", sql`${t.endDate} > ${t.startDate}`),
+     check("contracts_end_after_start", sql`${t.endDate} > ${t.startDate}`),
+     check("contracts_otp_attempts_range", sql`${t.otpAttempts} between 0 and 3`),
+
   ],
 );
