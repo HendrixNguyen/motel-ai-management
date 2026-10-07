@@ -1,4 +1,5 @@
 import { and, asc, desc, eq } from "drizzle-orm";
+import { randomInt } from "node:crypto";
 import { db } from "@/db";
 import {
   resolveOwnedMotel,
@@ -263,15 +264,66 @@ export async function terminateContract(
     .returning();
   return contractResponse(row!);
 }
-export type ContractNotification = (
-  contract: typeof contracts.$inferSelect,
-) => Promise<boolean>;
+export type ContractNotification = (input: {
+  contract: typeof contracts.$inferSelect;
+  otp: string;
+}) => Promise<boolean>;
 let sendContractNotification: ContractNotification = async () => false;
 export function setContractNotificationSender(
   sender: ContractNotification | null,
 ) {
   sendContractNotification = sender ?? (async () => false);
 }
+const OTP_TTL_MS = 5 * 60 * 1000;
+const OTP_COOLDOWN_MS = 5 * 60 * 1000;
+const MAX_OTP_ATTEMPTS = 3;
+
+type OtpGenerator = () => string | Promise<string>;
+
+function generateOtp() {
+  return randomInt(0, 1_000_000).toString().padStart(6, "0");
+}
+
+async function renterContract(contractId: string, renterId: string, motelId: string) {
+  const row = await db.query.contracts.findFirst({ where: and(eq(contracts.id, contractId), eq(contracts.renterId, renterId), eq(contracts.motelId, motelId)) });
+  if (!row) throw AppError.notFound("Không tìm thấy hợp đồng");
+  return row;
+}
+
+export async function getRenterContract(contractId: string, renterId: string, motelId: string) {
+  return contractResponse(await renterContract(contractId, renterId, motelId));
+}
+
+export async function requestContractOtp(contractId: string, renterId: string, motelId: string, generator: OtpGenerator = generateOtp) {
+  const current = await renterContract(contractId, renterId, motelId);
+  if (current.status !== "draft") throw AppError.conflict("Hợp đồng không ở trạng thái chờ ký");
+  if (current.otpSentAt && Date.now() - current.otpSentAt.getTime() < OTP_COOLDOWN_MS) throw AppError.rateLimited("Vui lòng thử lại sau", Math.ceil((OTP_COOLDOWN_MS - (Date.now() - current.otpSentAt.getTime())) / 1000));
+  const otp = await generator();
+  const now = new Date();
+  const [row] = await db.update(contracts).set({ otpHash: await Bun.password.hash(otp, { algorithm: "argon2id" }), otpSentAt: now, otpExpiresAt: new Date(now.getTime() + OTP_TTL_MS), otpAttempts: "0" }).where(and(eq(contracts.id, contractId), eq(contracts.status, "draft"))).returning();
+  if (!row) throw AppError.conflict("Hợp đồng không ở trạng thái chờ ký");
+  if (!(await sendContractNotification({ contract: row, otp }))) throw new AppError("EXTERNAL_SERVICE_ERROR", "Không thể gửi mã xác thực");
+  return { sentAt: now.toISOString() };
+}
+
+export async function verifyContractOtp(contractId: string, renterId: string, motelId: string, otp: string) {
+  return db.transaction(async (tx) => {
+    const current = await tx.query.contracts.findFirst({ where: and(eq(contracts.id, contractId), eq(contracts.renterId, renterId), eq(contracts.motelId, motelId)) });
+    if (!current) throw AppError.notFound("Không tìm thấy hợp đồng");
+    if (current.status !== "draft") throw AppError.conflict("Hợp đồng không ở trạng thái chờ ký");
+    if (!current.otpExpiresAt || current.otpExpiresAt <= new Date()) throw new AppError("OTP_EXPIRED", "Mã xác thực đã hết hạn");
+    const attempts = Number(current.otpAttempts);
+    if (attempts >= MAX_OTP_ATTEMPTS) throw new AppError("OTP_INVALID", "Mã xác thực không hợp lệ");
+    if (!current.otpHash || !(await Bun.password.verify(otp, current.otpHash))) {
+      await tx.update(contracts).set({ otpAttempts: String(attempts + 1) }).where(eq(contracts.id, contractId));
+      throw new AppError("OTP_INVALID", "Mã xác thực không hợp lệ");
+    }
+    const [row] = await tx.update(contracts).set({ status: "active", otpSignedAt: new Date(), otpHash: null, otpExpiresAt: null }).where(and(eq(contracts.id, contractId), eq(contracts.status, "draft"))).returning();
+    if (!row) throw AppError.conflict("Hợp đồng đã được ký");
+    return contractResponse(row);
+  });
+}
+
 export async function sendContract(
   motelId: string,
   contractId: string,
@@ -280,7 +332,7 @@ export async function sendContract(
   const current = await ownedContract(motelId, contractId, managerId);
   if (current.status !== "draft")
     throw AppError.conflict("Chỉ có thể gửi hợp đồng nháp");
-  if (!(await sendContractNotification(current)))
+  if (!(await sendContractNotification({ contract: current, otp: "" })))
     throw new AppError("EXTERNAL_SERVICE_ERROR", "Không thể gửi hợp đồng");
   const [row] = await db
     .update(contracts)

@@ -1,6 +1,7 @@
 import { Elysia, t } from "elysia";
 import { cookie } from "@elysiajs/cookie";
 import { managerAuth } from "@/middleware/manager-auth";
+import { renterAuth } from "@/middleware/renter-auth";
 import {
   createContract,
   createContractTemplate,
@@ -10,6 +11,9 @@ import {
   listContractTemplates,
   listContracts,
   sendContract,
+  getRenterContract,
+  requestContractOtp,
+  verifyContractOtp,
   terminateContract,
   updateContract,
   updateContractTemplate,
@@ -42,6 +46,8 @@ const contractBody = t.Object({
   deposit: t.Optional(t.String()),
   clauses: t.Optional(t.Array(clause)),
 });
+const renterContractParams = t.Object({ contractId: t.String({ format: "uuid" }) });
+const otpBody = t.Object({ otp: t.String({ pattern: "^[0-9]{6}$" }) });
 const contractPatch = t.Object({
   templateId: t.Optional(t.String({ format: "uuid" })),
   startDate: t.Optional(t.String()),
@@ -140,9 +146,15 @@ export const contractRoutes = new Elysia({ name: "contract-routes" })
       sendContract(params.motelId, params.contractId, auth!.userId),
     { params: contractParams },
   )
-  .post(
-    "/manager/motels/:motelId/contracts/:contractId/terminate",
-    ({ params, auth }) =>
-      terminateContract(params.motelId, params.contractId, auth!.userId),
-    { params: contractParams },
-  );
+   .post(
+     "/manager/motels/:motelId/contracts/:contractId/terminate",
+     ({ params, auth }) =>
+       terminateContract(params.motelId, params.contractId, auth!.userId),
+     { params: contractParams },
+   )
+   .group("/renter/contracts/:contractId", (app) =>
+     app.use(renterAuth)
+       .get("", ({ params, auth }) => getRenterContract(params.contractId, auth!.renterId, auth!.motelId), { params: renterContractParams })
+       .post("/sign-request", ({ params, auth }) => requestContractOtp(params.contractId, auth!.renterId, auth!.motelId), { params: renterContractParams })
+       .post("/verify", ({ params, auth, body }) => verifyContractOtp(params.contractId, auth!.renterId, auth!.motelId, body.otp), { params: renterContractParams, body: otpBody }),
+   );
