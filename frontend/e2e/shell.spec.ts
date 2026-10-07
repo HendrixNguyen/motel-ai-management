@@ -98,7 +98,7 @@ test("mobile navigation contains five reachable destinations and a labelled seco
   await signIn(context);
   await page.goto(`/?motel=${MOTEL.id}`);
   const nav = page.getByRole("navigation", { name: "Điều hướng chính trên điện thoại" });
-  await expect(nav.getByRole("link")).toHaveCount(4);
+  await expect(nav.getByRole("link")).toHaveCount(5);
   await expect(page.getByText("Menu phụ", { exact: true })).toBeVisible();
   for (const [name, path] of [["Nhà trọ", "/motels"], ["Phòng trọ", "/rooms"], ["Khách thuê", "/renters"], ["Tổng quan", "/"]]) {
     const link = nav.getByRole("link", { name, exact: true });
@@ -117,5 +117,5 @@ test("desktop sidebar is sticky and 240px wide", async ({ page, context }) => {
   const sidebar = page.getByRole("complementary", { name: "Thanh điều hướng" });
   await expect(sidebar).toBeVisible();
   expect(await sidebar.evaluate((element) => ({ width: element.getBoundingClientRect().width, position: getComputedStyle(element).position }))).toEqual({ width: 240, position: "sticky" });
-  await expect(sidebar.getByRole("link")).toHaveCount(4);
+  await expect(sidebar.getByRole("link")).toHaveCount(5);
 });
