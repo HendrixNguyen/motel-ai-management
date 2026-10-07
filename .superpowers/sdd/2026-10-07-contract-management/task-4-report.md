@@ -1,13 +1,11 @@
-# Task 4 report
 
-Status: complete with verification blocker
 
-Implemented renter contract read, sign-request, and verify routes. OTP is generated server-side, Argon2id-hashed with `Bun.password`, delivered only through `ContractNotification` payload `{ contract, otp }`, and never returned by HTTP or logged. Added five-minute expiry, five-minute resend cooldown, three failed-attempt maximum, renter-session tenant scoping, and transactional activation with signing timestamp.
+## Security follow-up
 
-TDD: signing test existed first and failed on missing exports. Test now asserts no OTP response field.
+Status: complete with DB verification blocker.
 
-Verification:
-- `bun run typecheck`: passed.
-- `bun test src/test/contract-signing.test.ts`: blocked by database auth: `password authentication failed for user "postgres"`.
+Fixed response allowlist: contract responses omit `otpHash`, `otpExpiresAt`, and `otpAttempts`. Split manager notification and renter OTP sender seams. Renter OTP sender receives plaintext only inside delivery seam; API never returns it. Sender failure clears staged hash and restores prior cooldown state. OTP attempt increment uses atomic SQL predicate capped at three attempts; activation remains transactional. Docs headings and signing coverage updated.
 
-Docs updated: `docs/api-contract.md`, `docs/testing-strategy.md`.
+Verification: `bun run typecheck` passed. `bun test src/test/contract-signing.test.ts` blocked by `password authentication failed for user "postgres"`. Commit: `8b8c241`.
+
+Brief artifact issue remains: task brief requested files relative to its own working root; report kept under requested `.superpowers/sdd/...` path.
