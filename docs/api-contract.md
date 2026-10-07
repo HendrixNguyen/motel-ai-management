@@ -12,10 +12,10 @@
 
 ## Auth
 
-| Prefix | Credential | Session |
-|--------|-----------|---------|
-| `/api/manager/*` | Manager JWT | `manager_session` httpOnly cookie |
-| `/api/renter/*` | Renter session | `renter_session` httpOnly cookie |
+| Prefix           | Credential     | Session                           |
+| ---------------- | -------------- | --------------------------------- |
+| `/api/manager/*` | Manager JWT    | `manager_session` httpOnly cookie |
+| `/api/renter/*`  | Renter session | `renter_session` httpOnly cookie  |
 
 Tenant scope is always derived from the session. No endpoint accepts a `managerId` from the
 client. A motel belonging to another manager returns `404`, never `403`.
@@ -35,34 +35,34 @@ field names to map. Only an `AppError` raised by a service may attach `details`,
 validation path raises one today. A client therefore renders a `VALIDATION_ERROR` as one
 form-level message; it cannot attribute the failure to a field.
 
-| Code | HTTP | When |
-|------|------|------|
-| `VALIDATION_ERROR` | 400 | Schema validation failed. No `details` — see above |
-| `UNAUTHORIZED` | 401 | Missing, malformed, or expired credential |
-| `MAGIC_LINK_EXPIRED` | 401 | Magic link past `expiresAt` or already `consumedAt` |
-| `OTP_INVALID` | 401 | Wrong OTP |
-| `OTP_EXPIRED` | 401 | OTP past 5 minutes |
-| `RATE_LIMITED` | 429 | Too many OTP or magic-link requests; `details.retryAfterSeconds` |
-| `READING_CONFLICT` | 409 | Reading write based on a stale `updatedAt`; `details.server` is the current row |
-| `PERIOD_ALREADY_SENT` | 409 | Capture or generation on a period that is no longer `draft` |
-| `FORBIDDEN` | 403 | Valid credential, wrong role |
-| `NOT_FOUND` | 404 | Row absent or outside the caller's tenant |
-| `CONFLICT` | 409 | Uniqueness or state violation |
-| `EXTERNAL_SERVICE_ERROR` | 502 | Zalo or R2 rejected the call; `details.failureReason` |
-| `INTERNAL_ERROR` | 500 | Unexpected server fault; details stay server-side |
+| Code                     | HTTP | When                                                                            |
+| ------------------------ | ---- | ------------------------------------------------------------------------------- |
+| `VALIDATION_ERROR`       | 400  | Schema validation failed. No `details` — see above                              |
+| `UNAUTHORIZED`           | 401  | Missing, malformed, or expired credential                                       |
+| `MAGIC_LINK_EXPIRED`     | 401  | Magic link past `expiresAt` or already `consumedAt`                             |
+| `OTP_INVALID`            | 401  | Wrong OTP                                                                       |
+| `OTP_EXPIRED`            | 401  | OTP past 5 minutes                                                              |
+| `RATE_LIMITED`           | 429  | Too many OTP or magic-link requests; `details.retryAfterSeconds`                |
+| `READING_CONFLICT`       | 409  | Reading write based on a stale `updatedAt`; `details.server` is the current row |
+| `PERIOD_ALREADY_SENT`    | 409  | Capture or generation on a period that is no longer `draft`                     |
+| `FORBIDDEN`              | 403  | Valid credential, wrong role                                                    |
+| `NOT_FOUND`              | 404  | Row absent or outside the caller's tenant                                       |
+| `CONFLICT`               | 409  | Uniqueness or state violation                                                   |
+| `EXTERNAL_SERVICE_ERROR` | 502  | Zalo or R2 rejected the call; `details.failureReason`                           |
+| `INTERNAL_ERROR`         | 500  | Unexpected server fault; details stay server-side                               |
 
 ## Manager endpoints
 
 ### Contracts — `/api/manager/motels/:motelId/contracts`
 
-| Method | Path | Body | Returns |
-|--------|------|------|---------|
-| POST | `/contracts` | `{renterId, roomId, templateId?, startDate, endDate, monthlyRent?, deposit?, clauses?}` | `201 Contract` (draft; clauses and rent snapshotted) |
-| GET | `/contracts` | — | `200 Contract[]` |
-| GET | `/contracts/:contractId` | — | `200 Contract` |
-| PATCH | `/contracts/:contractId` | draft fields only | `200 Contract`; non-draft returns `409 CONFLICT` |
-| POST | `/contracts/:contractId/send` | — | `200 Contract`; notification failure returns `502 EXTERNAL_SERVICE_ERROR` |
-| POST | `/contracts/:contractId/terminate` | — | `200 Contract` with `status=terminated` |
+| Method | Path                               | Body                                                                                    | Returns                                                                   |
+| ------ | ---------------------------------- | --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| POST   | `/contracts`                       | `{renterId, roomId, templateId?, startDate, endDate, monthlyRent?, deposit?, clauses?}` | `201 Contract` (draft; clauses and rent snapshotted)                      |
+| GET    | `/contracts`                       | —                                                                                       | `200 Contract[]`                                                          |
+| GET    | `/contracts/:contractId`           | —                                                                                       | `200 Contract`                                                            |
+| PATCH  | `/contracts/:contractId`           | draft fields only                                                                       | `200 Contract`; non-draft returns `409 CONFLICT`                          |
+| POST   | `/contracts/:contractId/send`      | —                                                                                       | `200 Contract`; notification failure returns `502 EXTERNAL_SERVICE_ERROR` |
+| POST   | `/contracts/:contractId/terminate` | —                                                                                       | `200 Contract` with `status=terminated`                                   |
 
 Contract creation validates motel ownership for renter, room, and template. Missing `monthlyRent` uses room `basePrice`; template clauses are copied into contract snapshot. Send stamps `otpSentAt` only after notification seam succeeds.
 
@@ -70,12 +70,12 @@ Contract creation validates motel ownership for renter, room, and template. Miss
 
 ### Auth — `/api/auth`
 
-| Method | Path | Body | Returns |
-|--------|------|------|---------|
-| POST | `/register` | `{email, password, name, phone?}` | `201 {id, email, name}` + sets cookie |
-| POST | `/login` | `{email, password}` | `200 {id, email, name}` + sets cookie |
-| POST | `/logout` | — | `204` + clears cookie |
-| GET | `/me` | — | `200 {id, email}` |
+| Method | Path        | Body                              | Returns                               |
+| ------ | ----------- | --------------------------------- | ------------------------------------- |
+| POST   | `/register` | `{email, password, name, phone?}` | `201 {id, email, name}` + sets cookie |
+| POST   | `/login`    | `{email, password}`               | `200 {id, email, name}` + sets cookie |
+| POST   | `/logout`   | —                                 | `204` + clears cookie                 |
+| GET    | `/me`       | —                                 | `200 {id, email}`                     |
 
 `password` ≥ 8 characters. Login is rate-limited per IP and per email.
 
@@ -87,62 +87,62 @@ is made from a Server Component with the cookie forwarded.
 
 ### Magic links — `/api/renter/magic-links`
 
-| Method | Path | Body | Returns |
-|--------|------|------|---------|
-| POST | `/exchange` | `{token}` | `200 {renter}` + sets `renter_session`, marks token consumed |
-| POST | `/resend` | — | `200 {message, url}` — renter asks the manager for a fresh link |
+| Method | Path        | Body      | Returns                                                         |
+| ------ | ----------- | --------- | --------------------------------------------------------------- |
+| POST   | `/exchange` | `{token}` | `200 {renter}` + sets `renter_session`, marks token consumed    |
+| POST   | `/resend`   | —         | `200 {message, url}` — renter asks the manager for a fresh link |
 
 ### Manager-issued magic links — `/api/manager/motels/:motelId/renters/:renterId`
 
-| Method | Path | Body | Returns |
-|--------|------|------|---------|
-| POST | `/magic-link` | — | `200 {token, url}` — manager-issued link for the renter |
+| Method | Path          | Body | Returns                                                 |
+| ------ | ------------- | ---- | ------------------------------------------------------- |
+| POST   | `/magic-link` | —    | `200 {token, url}` — manager-issued link for the renter |
 
 ### Motels — `/api/manager/motels`
 
-| Method | Path | Notes |
-|--------|------|-------|
-| GET | `/` | All motels owned by the manager |
-| POST | `/` | Create; `400 VALIDATION_ERROR` if `electricityPrice`/`waterPrice` are missing or not strings |
-| GET | `/:motelId` | `404` if not owned by caller |
-| PATCH | `/:motelId` | Partial update of prices, fees, bank account, address. A key absent from the body is never written; an explicit `null` clears. |
-| DELETE | `/:motelId` | `409` while anything still points at it — occupied rooms, rooms, renters, billing periods or contract templates |
+| Method | Path        | Notes                                                                                                                          |
+| ------ | ----------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| GET    | `/`         | All motels owned by the manager                                                                                                |
+| POST   | `/`         | Create; `400 VALIDATION_ERROR` if `electricityPrice`/`waterPrice` are missing or not strings                                   |
+| GET    | `/:motelId` | `404` if not owned by caller                                                                                                   |
+| PATCH  | `/:motelId` | Partial update of prices, fees, bank account, address. A key absent from the body is never written; an explicit `null` clears. |
+| DELETE | `/:motelId` | `409` while anything still points at it — occupied rooms, rooms, renters, billing periods or contract templates                |
 
 ### Rooms — `/api/manager/motels/:motelId/rooms`
 
-| Method | Path | Notes |
-|--------|------|-------|
-| GET | `/` | Supports `?floor=&status=&search=`; `basePrice` returned as VND digit string |
-| POST | `/` | `409 CONFLICT` on duplicate `(motelId, name)`; `basePrice` as VND digit string |
-| GET | `/:roomId` | `basePrice` returned as VND digit string |
-| PATCH | `/:roomId` | Partial update of name, floor, `basePrice`, status; `basePrice` as VND digit string |
-| DELETE | `/:roomId` | `409 CONFLICT` if an active contract exists OR any renter is assigned to the room |
+| Method | Path       | Notes                                                                               |
+| ------ | ---------- | ----------------------------------------------------------------------------------- |
+| GET    | `/`        | Supports `?floor=&status=&search=`; `basePrice` returned as VND digit string        |
+| POST   | `/`        | `409 CONFLICT` on duplicate `(motelId, name)`; `basePrice` as VND digit string      |
+| GET    | `/:roomId` | `basePrice` returned as VND digit string                                            |
+| PATCH  | `/:roomId` | Partial update of name, floor, `basePrice`, status; `basePrice` as VND digit string |
+| DELETE | `/:roomId` | `409 CONFLICT` if an active contract exists OR any renter is assigned to the room   |
 
 ### Renters — `/api/manager/motels/:motelId/renters`
 
-| Method | Path | Notes |
-|--------|------|-------|
-| GET | `/` | Supports `?status=&roomId=&search=` |
-| POST | `/` | `409` on duplicate `(motelId, phone)`; triggers the ZNS welcome |
-| GET | `/:renterId` | Includes contract summary and invoice history |
-| PATCH | `/:renterId` | Name, phone, CCCD, `idCardFrontUrl`, `idCardBackUrl`, `roomId`, status |
-| DELETE | `/:renterId` | Soft-delete: sets `status = inactive`, keeps financial history |
+| Method | Path         | Notes                                                                  |
+| ------ | ------------ | ---------------------------------------------------------------------- |
+| GET    | `/`          | Supports `?status=&roomId=&search=`                                    |
+| POST   | `/`          | `409` on duplicate `(motelId, phone)`; triggers the ZNS welcome        |
+| GET    | `/:renterId` | Includes contract summary and invoice history                          |
+| PATCH  | `/:renterId` | Name, phone, CCCD, `idCardFrontUrl`, `idCardBackUrl`, `roomId`, status |
+| DELETE | `/:renterId` | Soft-delete: sets `status = inactive`, keeps financial history         |
 
 Phone is normalized to `84XXXXXXXXX` on write.
 
 ### Billing — `/api/manager/motels/:motelId/billing`
 
-| Method | Path | Notes |
-|--------|------|-------|
-| GET | `/periods` | All periods, newest first |
-| POST | `/periods` | `{month, year}`; `409` if that month already exists; seeds `meter_readings` |
-| GET | `/periods/:periodId` | Period + per-room reading rows with previous/current |
-| PUT | `/periods/:periodId/readings` | Atomic batch upsert; stale row writes return `409 READING_CONFLICT`; `400` if `currentReading < previousReading`; `409 PERIOD_ALREADY_SENT` once sent. See [Capture sync](#meter-capture-sync) |
-| POST | `/periods/:periodId/invoices` | Generates invoices; `details.skippedRooms` lists rooms with no active contract |
-| GET | `/periods/:periodId/invoices` | Invoice list with statuses |
-| POST | `/periods/:periodId/send` | Period → `sent`; notification delivery is deferred to sub-project 8 |
-| PATCH | `/invoices/:invoiceId/paid` | Stamps `paidAt`; notification delivery is deferred to sub-project 8 |
-| PATCH | `/invoices/:invoiceId/overdue` | Manual overdue marking |
+| Method | Path                           | Notes                                                                                                                                                                                          |
+| ------ | ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/periods`                     | All periods, newest first                                                                                                                                                                      |
+| POST   | `/periods`                     | `{month, year}`; `409` if that month already exists; seeds `meter_readings`                                                                                                                    |
+| GET    | `/periods/:periodId`           | Period + per-room reading rows with previous/current                                                                                                                                           |
+| PUT    | `/periods/:periodId/readings`  | Atomic batch upsert; stale row writes return `409 READING_CONFLICT`; `400` if `currentReading < previousReading`; `409 PERIOD_ALREADY_SENT` once sent. See [Capture sync](#meter-capture-sync) |
+| POST   | `/periods/:periodId/invoices`  | Generates invoices; `details.skippedRooms` lists rooms with no active contract                                                                                                                 |
+| GET    | `/periods/:periodId/invoices`  | Invoice list with statuses                                                                                                                                                                     |
+| POST   | `/periods/:periodId/send`      | Period → `sent`; notification delivery is deferred to sub-project 8                                                                                                                            |
+| PATCH  | `/invoices/:invoiceId/paid`    | Stamps `paidAt`; notification delivery is deferred to sub-project 8                                                                                                                            |
+| PATCH  | `/invoices/:invoiceId/overdue` | Manual overdue marking                                                                                                                                                                         |
 
 Invoice generation is idempotent per `(billingPeriodId, roomId)`: re-running updates invoices while preserving invoice identity and payment state. Amounts, fees, rent, utility usage, and QR payload are snapshots. Once the period is `sent`, generation returns `409`; sent-period readings and invoices are immutable.
 
@@ -171,11 +171,11 @@ the same API the desktop uses, which is why both paths can coexist on one unique
 
 `expectedUpdatedAt` is the `updatedAt` the client read. Per-row outcomes:
 
-| Server state | Response | Notes |
-|--------------|----------|-------|
-| `expectedUpdatedAt` matches, or `currentReading` already equals the submitted value | row accepted, `updatedAt` bumped | Equal-value case makes a retried queued write idempotent without a key column |
-| `expectedUpdatedAt` stale and value differs | `409 READING_CONFLICT`, `details.server` = current row | Client flags **Cần kiểm tra**; manager re-enters. Last write never silently wins |
-| Period is no longer `draft` | `409 PERIOD_ALREADY_SENT` | Client switches the whole capture session read-only |
+| Server state                                                                        | Response                                               | Notes                                                                            |
+| ----------------------------------------------------------------------------------- | ------------------------------------------------------ | -------------------------------------------------------------------------------- |
+| `expectedUpdatedAt` matches, or `currentReading` already equals the submitted value | row accepted, `updatedAt` bumped                       | Equal-value case makes a retried queued write idempotent without a key column    |
+| `expectedUpdatedAt` stale and value differs                                         | `409 READING_CONFLICT`, `details.server` = current row | Client flags **Cần kiểm tra**; manager re-enters. Last write never silently wins |
+| Period is no longer `draft`                                                         | `409 PERIOD_ALREADY_SENT`                              | Client switches the whole capture session read-only                              |
 
 `photoUrl` is an R2 **object key**, not a public URL. Responses expose short-lived signed
 URLs instead; a stored key is never a capability. Photos upload independently of the
@@ -183,72 +183,74 @@ reading — a failed upload leaves the reading saved and re-queues only the imag
 
 ### Contracts — `/api/manager/motels/:motelId/contracts`
 
-| Method | Path | Notes |
-|--------|------|-------|
-| GET | `/` | Supports `?status=` |
-| POST | `/` | `{renterId, roomId, templateId?, startDate, endDate, monthlyRent?, deposit?, clauses?}`; `monthlyRent` defaults to `room.basePrice`; `409` if the room already has an active contract |
-| GET | `/:contractId` | Full clause list + signing metadata |
-| PATCH | `/:contractId` | Only while `draft`; `409` once `active` |
-| POST | `/:contractId/send` | Sends the magic link to the renter |
-| POST | `/:contractId/terminate` | Status → `terminated`; frees the room |
+| Method | Path                     | Notes                                                                                                                                                                                 |
+| ------ | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/`                      | Supports `?status=`                                                                                                                                                                   |
+| POST   | `/`                      | `{renterId, roomId, templateId?, startDate, endDate, monthlyRent?, deposit?, clauses?}`; `monthlyRent` defaults to `room.basePrice`; `409` if the room already has an active contract |
+| GET    | `/:contractId`           | Full clause list + signing metadata                                                                                                                                                   |
+| PATCH  | `/:contractId`           | Only while `draft`; `409` once `active`                                                                                                                                               |
+| POST   | `/:contractId/send`      | Notification seam sends signing link; `otpSentAt` stamps only after success; failure is `502 EXTERNAL_SERVICE_ERROR` |
+| POST   | `/:contractId/terminate` | Only `active` contracts; status → `terminated`; draft/expired/terminated returns `409 CONFLICT` |
+
+Creation validates renter, room, template, and motel tenant ownership. Missing `templateId` uses motel default template when present. Clauses and rent are snapshots. Draft patch accepts templateId, dates, rent, deposit, and clauses; renter and room cannot change.
 
 ### Contract templates — `/api/manager/motels/:motelId/contract-templates`
 
-| Method | Path | Notes |
-|--------|------|-------|
-| GET | `/` | |
-| POST | `/` | `{name, clauses[], isDefault?}`; setting a default clears the previous one |
-| GET | `/:templateId` | |
-| PATCH | `/:templateId` | Name, clauses, isDefault |
-| DELETE | `/:templateId` | `409` if a contract references it |
+| Method | Path           | Notes                                                                      |
+| ------ | -------------- | -------------------------------------------------------------------------- |
+| GET    | `/`            |                                                                            |
+| POST   | `/`            | `{name, clauses[], isDefault?}`; setting a default clears the previous one |
+| GET    | `/:templateId` |                                                                            |
+| PATCH  | `/:templateId` | Name, clauses, isDefault                                                   |
+| DELETE | `/:templateId` | `409` if a contract references it                                          |
 
 ### Tickets — `/api/manager/motels/:motelId/tickets`
 
-| Method | Path | Notes |
-|--------|------|-------|
-| GET | `/` | Supports `?status=&category=` |
-| GET | `/:ticketId` | Includes `managerNote`, renter phone, photos |
-| PATCH | `/:ticketId` | `{status?, managerNote?}`; `resolved` stamps `resolvedAt` and notifies |
+| Method | Path         | Notes                                                                  |
+| ------ | ------------ | ---------------------------------------------------------------------- |
+| GET    | `/`          | Supports `?status=&category=`                                          |
+| GET    | `/:ticketId` | Includes `managerNote`, renter phone, photos                           |
+| PATCH  | `/:ticketId` | `{status?, managerNote?}`; `resolved` stamps `resolvedAt` and notifies |
 
 `managerNote` is never serialised by any `/api/renter/*` endpoint.
 
 ### Settings — `/api/manager/motels/:motelId/settings`
 
-| Method | Path | Notes |
-|--------|------|-------|
-| GET | `/` | Prices, `otherFees`, `bankAccount` |
-| PATCH | `/` | Same fields; validates bank account shape when present |
+| Method | Path | Notes                                                  |
+| ------ | ---- | ------------------------------------------------------ |
+| GET    | `/`  | Prices, `otherFees`, `bankAccount`                     |
+| PATCH  | `/`  | Same fields; validates bank account shape when present |
 
 ### Zalo — `/api/manager/motels/:motelId/notifications`
 
-| Method | Path | Notes |
-|--------|------|-------|
-| GET | `/` | Sent/failed log with `channel`, `status`, `failureReason` |
-| POST | `/:notificationId/resend` | Re-sends; new row, original left as history |
+| Method | Path                      | Notes                                                     |
+| ------ | ------------------------- | --------------------------------------------------------- |
+| GET    | `/`                       | Sent/failed log with `channel`, `status`, `failureReason` |
+| POST   | `/:notificationId/resend` | Re-sends; new row, original left as history               |
 
 ## Renter endpoints
 
 All under `/api/renter`, all scoped to the session's `renterId`. No endpoint accepts a
 renter id from the client.
 
-| Method | Path | Notes |
-|--------|------|-------|
-| GET | `/me` | Renter + room + motel name, for the portal header |
-| GET | `/invoices` | Reverse-chronological; `?year=&month=` optional |
-| GET | `/invoices/current` | Current period invoice, or `404` if not yet issued |
-| GET | `/invoices/:invoiceId` | Full breakdown, `qrCodeData`, bank details, and `meterPhotos[]` — `{type, signedUrl, capturedAt}` per meter, signed URLs short-lived |
-| GET | `/contract` | Active or latest contract with clauses |
-| POST | `/contract/:contractId/sign-request` | Generates the OTP, sends it over Zalo, stamps `otpSentAt`; `429` within 5 minutes of a resend |
-| POST | `/contract/:contractId/verify` | `{otp}` → `200 {otpSignedAt}`; `OTP_INVALID` / `OTP_EXPIRED`; max 3 attempts |
-| GET | `/tickets` | Own tickets, never `managerNote` |
-| POST | `/tickets` | `{category, description, photoUrls[]}`; description ≥ 10 chars, max 5 photos |
-| GET | `/tickets/:ticketId` | Own ticket only |
+| Method | Path                                 | Notes                                                                                                                                |
+| ------ | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------ |
+| GET    | `/me`                                | Renter + room + motel name, for the portal header                                                                                    |
+| GET    | `/invoices`                          | Reverse-chronological; `?year=&month=` optional                                                                                      |
+| GET    | `/invoices/current`                  | Current period invoice, or `404` if not yet issued                                                                                   |
+| GET    | `/invoices/:invoiceId`               | Full breakdown, `qrCodeData`, bank details, and `meterPhotos[]` — `{type, signedUrl, capturedAt}` per meter, signed URLs short-lived |
+| GET    | `/contract`                          | Active or latest contract with clauses                                                                                               |
+| POST   | `/contract/:contractId/sign-request` | Generates the OTP, sends it over Zalo, stamps `otpSentAt`; `429` within 5 minutes of a resend                                        |
+| POST   | `/contract/:contractId/verify`       | `{otp}` → `200 {otpSignedAt}`; `OTP_INVALID` / `OTP_EXPIRED`; max 3 attempts                                                         |
+| GET    | `/tickets`                           | Own tickets, never `managerNote`                                                                                                     |
+| POST   | `/tickets`                           | `{category, description, photoUrls[]}`; description ≥ 10 chars, max 5 photos                                                         |
+| GET    | `/tickets/:ticketId`                 | Own ticket only                                                                                                                      |
 
 ## Webhooks
 
-| Method | Path | Notes |
-|--------|------|-------|
-| POST | `/api/webhooks/zalo` | OA follow/unfollow events. Verified with `ZALO_WEBHOOK_SECRET`; sets `isOaFollower`, `zaloOaId` |
+| Method | Path                 | Notes                                                                                           |
+| ------ | -------------------- | ----------------------------------------------------------------------------------------------- |
+| POST   | `/api/webhooks/zalo` | OA follow/unfollow events. Verified with `ZALO_WEBHOOK_SECRET`; sets `isOaFollower`, `zaloOaId` |
 
 Unauthenticated by definition, authenticated by shared secret. Must reject replays and
 unknown event types with `200` (Zalo retries on non-2xx).

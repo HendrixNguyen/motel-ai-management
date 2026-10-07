@@ -7,11 +7,11 @@
 
 ## Targets
 
-| Surface | Viewport | Layout |
-|---------|----------|--------|
-| Manager app | Phone-first for on-site work; responsive through desktop | Compact mobile navigation; persistent sidebar only when viewport supports it |
-| Renter portal | Mobile-first, `375px–430px`, centred, max `480px` on desktop | Single column, sticky header |
-| Meter capture PWA | Mobile-only, `360px–430px`, installed to home screen | Full-screen, one-handed, no chrome |
+| Surface           | Viewport                                                     | Layout                                                                       |
+| ----------------- | ------------------------------------------------------------ | ---------------------------------------------------------------------------- |
+| Manager app       | Phone-first for on-site work; responsive through desktop     | Compact mobile navigation; persistent sidebar only when viewport supports it |
+| Renter portal     | Mobile-first, `375px–430px`, centred, max `480px` on desktop | Single column, sticky header                                                 |
+| Meter capture PWA | Mobile-only, `360px–430px`, installed to home screen         | Full-screen, one-handed, no chrome                                           |
 
 Locale `vi-VN`. Currency VND, formatted `3.500.000 ₫` (dot thousands separator, no
 decimals). Dates `DD/MM/YYYY`. Support narrow viewports from `360px`; never require horizontal
@@ -30,20 +30,20 @@ Manager contract screen shows draft, active, expired, and terminated badges. Cre
 Use semantic tokens throughout; no per-screen hex values. Status must never rely on colour
 alone. Normal text needs `4.5:1` contrast; focus indicators and control boundaries need `3:1`.
 
-| Token | Light value | Use |
-|-------|-------------|-----|
-| `primary` | `#0369A1` | Primary actions, active nav, links; use white text |
-| `primary-strong` | `#075985` | Primary hover/pressed; use white text |
-| `success` / `success-bg` | `#15803D` / `#DCFCE7` | Paid status, resolved tickets; dark text on pale background |
+| Token                    | Light value           | Use                                                                           |
+| ------------------------ | --------------------- | ----------------------------------------------------------------------------- |
+| `primary`                | `#0369A1`             | Primary actions, active nav, links; use white text                            |
+| `primary-strong`         | `#075985`             | Primary hover/pressed; use white text                                         |
+| `success` / `success-bg` | `#15803D` / `#DCFCE7` | Paid status, resolved tickets; dark text on pale background                   |
 | `warning` / `warning-bg` | `#92400E` / `#FEF3C7` | Draft period, unpaid invoice, expiring contract; dark text on pale background |
-| `danger` / `danger-bg` | `#B91C1C` / `#FEE2E2` | Overdue, destructive actions, validation errors; dark text on pale background |
-| `text` | `#0F172A` | Headings |
-| `text-body` | `#334155` | Body copy |
-| `text-muted` | `#475569` | Labels, helper text |
-| `border` | `#E2E8F0` | Dividers, card borders |
-| `border-strong` | `#64748B` | Control boundaries — input borders; the `3:1` rule above |
-| `surface` | `#FFFFFF` | Cards |
-| `canvas` | `#F8FAFC` | Page background |
+| `danger` / `danger-bg`   | `#B91C1C` / `#FEE2E2` | Overdue, destructive actions, validation errors; dark text on pale background |
+| `text`                   | `#0F172A`             | Headings                                                                      |
+| `text-body`              | `#334155`             | Body copy                                                                     |
+| `text-muted`             | `#475569`             | Labels, helper text                                                           |
+| `border`                 | `#E2E8F0`             | Dividers, card borders                                                        |
+| `border-strong`          | `#64748B`             | Control boundaries — input borders; the `3:1` rule above                      |
+| `surface`                | `#FFFFFF`             | Cards                                                                         |
+| `canvas`                 | `#F8FAFC`             | Page background                                                               |
 
 `border` measures `1.23:1` on `surface`, so it separates content and never marks a control a
 user has to see the edge of. Anything a user must perceive as a boundary — an input, select or
@@ -140,13 +140,13 @@ with no endpoint gets **no route and no nav item** — a sidebar entry that 404s
 affordance — and a measure with no endpoint is omitted rather than rendered zero-filled, since
 a "Doanh thu dự kiến 0 ₫" tile is a false claim about data that does not exist.
 
-| Surface | Built | Deferred — no endpoint exists |
-|---------|-------|-------------------------------|
-| Sidebar | **Tổng quan**, **Nhà trọ**, **Phòng trọ**, **Khách thuê** | **Tính tiền & Hóa đơn** (M5, M6), **Hợp đồng** (M7, M7a), **Sự cố & Yêu cầu** (M8), **Cài đặt** (M9) |
-| M1 Overview | **Phòng** card, live quick actions | **Doanh thu dự kiến**, **Tiền chưa thu**, **Sự cố chưa xử lý** cards, and both widgets |
-| M3 Phòng trọ | filters, cards, add/edit, change status | overdue indicator, meter history |
-| M4 Khách thuê | list, detail, **Tạo magic link** | **Gửi Zalo** |
-| M9 Cài đặt | prices, `otherFees`, and bank account — carried by the M2 edit modal | the Zalo OA status panel |
+| Surface       | Built                                                                | Deferred — no endpoint exists                                                                        |
+| ------------- | -------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| Sidebar       | **Tổng quan**, **Nhà trọ**, **Phòng trọ**, **Khách thuê**            | **Tính tiền & Hóa đơn** (M5, M6), **Hợp đồng** (M7, M7a), **Sự cố & Yêu cầu** (M8), **Cài đặt** (M9) |
+| M1 Overview   | **Phòng** card, live quick actions                                   | **Doanh thu dự kiến**, **Tiền chưa thu**, **Sự cố chưa xử lý** cards, and both widgets               |
+| M3 Phòng trọ  | filters, cards, add/edit, change status                              | overdue indicator, meter history                                                                     |
+| M4 Khách thuê | list, detail, **Tạo magic link**                                     | **Gửi Zalo**                                                                                         |
+| M9 Cài đặt    | prices, `otherFees`, and bank account — carried by the M2 edit modal | the Zalo OA status panel                                                                             |
 
 Each section below still describes the full intended screen. Read the table as what is
 delivered, not the section as what is.
@@ -156,12 +156,12 @@ delivered, not the section as what is.
 Four summary measures, shown as a compact list or restrained grid rather than interchangeable
 cards:
 
-| Card | Value | Sub-label |
-|------|-------|-----------|
-| Phòng | total rooms | `X đang thuê · Y trống · Z bảo trì` + occupancy % |
-| Doanh thu dự kiến | sum of `unpaid` + `overdue` `totalAmount` for the current period | `Tháng MM/YYYY` |
-| Tiền chưa thu | count of unsettled invoices | total VND |
-| Sự cố chưa xử lý | count of `open` + `in_progress` tickets | oldest age in days |
+| Card              | Value                                                            | Sub-label                                         |
+| ----------------- | ---------------------------------------------------------------- | ------------------------------------------------- |
+| Phòng             | total rooms                                                      | `X đang thuê · Y trống · Z bảo trì` + occupancy % |
+| Doanh thu dự kiến | sum of `unpaid` + `overdue` `totalAmount` for the current period | `Tháng MM/YYYY`                                   |
+| Tiền chưa thu     | count of unsettled invoices                                      | total VND                                         |
+| Sự cố chưa xử lý  | count of `open` + `in_progress` tickets                          | oldest age in days                                |
 
 The **Phòng** measure reads the selected motel's complete, unfiltered room list. It counts
 `occupied` as đang thuê, `available` as trống, and `maintenance` as bảo trì. Occupancy is
@@ -177,8 +177,8 @@ create-renter form immediately.
 Quick actions: **Chốt số điện/nước**, **Tạo hóa đơn**, **Thêm khách thuê**. Keep the next
 operational action prominent on mobile without hiding alerts or unpaid balance.
 
-Two widgets below: *Hóa đơn chưa thanh toán* (top overdue invoices, each with a **Gửi
-lại Zalo** action) and *Sự cố mới* (latest tickets with room, category, snippet,
+Two widgets below: _Hóa đơn chưa thanh toán_ (top overdue invoices, each with a **Gửi
+lại Zalo** action) and _Sự cố mới_ (latest tickets with room, category, snippet,
 timestamp).
 
 ### M2 — Nhà trọ `/motels`
@@ -305,11 +305,11 @@ the manager's manual confirmation; it does not verify a bank transfer automatica
 
 Two tabs.
 
-*Tab 1 — Hợp đồng:* grouped Active / Sắp hết hạn (≤30 days) / Đã thanh lý. Detail view
+_Tab 1 — Hợp đồng:_ grouped Active / Sắp hết hạn (≤30 days) / Đã thanh lý. Detail view
 lists every clause, rent, deposit, term, and signing metadata (`otpSignedAt`, renter
 phone).
 
-*Tab 2 — Mẫu hợp đồng `/contracts/templates`:* template list with a default marker.
+_Tab 2 — Mẫu hợp đồng `/contracts/templates`:_ template list with a default marker.
 Template editor is a clause builder — add, reorder, edit, or remove `{title, content}`
 rows, with a preview of the rendered contract. Setting a template as default clears the
 previous default for that motel.
@@ -358,12 +358,12 @@ to one renders it read-only with an explanatory banner.
 
 Sync-state chip, always visible, never a bare spinner:
 
-| State | Chip |
-|-------|------|
-| Online, nothing queued | `Đã đồng bộ · 17:42` |
-| Offline | `Ngoại tuyến · 3 đang chờ` (warning) |
-| Queued, flushing | `Đang gửi 2/3` |
-| Conflict present | `1 phòng cần kiểm tra` (danger) |
+| State                  | Chip                                 |
+| ---------------------- | ------------------------------------ |
+| Online, nothing queued | `Đã đồng bộ · 17:42`                 |
+| Offline                | `Ngoại tuyến · 3 đang chờ` (warning) |
+| Queued, flushing       | `Đang gửi 2/3`                       |
+| Conflict present       | `1 phòng cần kiểm tra` (danger)      |
 
 Sync state and progress must include text, not colour alone. Offline saves immediately confirm
 that the entry is stored on this device and waiting to sync.
@@ -479,10 +479,10 @@ Summary (rent, deposit, term, room) then clauses as an accordion.
 
 Two tabs.
 
-*Đã gửi:* ticket cards with status chip (`Đang chờ` / `Đang xử lý` / `Đã xử lý`),
+_Đã gửi:_ ticket cards with status chip (`Đang chờ` / `Đang xử lý` / `Đã xử lý`),
 category, date, description, thumbnails. Manager notes are never rendered here.
 
-*Tạo yêu cầu mới (`/portal/tickets/new`):* category selector, description textarea
+_Tạo yêu cầu mới (`/portal/tickets/new`):_ category selector, description textarea
 (min 10 characters, counter shown), up to 5 photos with thumbnail previews and per-photo
 remove, then **Gửi yêu cầu**. Submit shows a success toast and returns to the list.
 

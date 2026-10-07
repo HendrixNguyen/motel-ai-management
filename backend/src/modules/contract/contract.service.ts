@@ -1,36 +1,343 @@
 import { and, asc, desc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { resolveOwnedMotel, resolveRoomInMotel } from "@/middleware/tenancy";
-import { renters } from "@/modules/renter/renter.schema";
+import { resolveRenterInMotel } from "@/middleware/tenancy";
 import { rooms } from "@/modules/room/room.schema";
 import { type VndString } from "@/shared/money";
 import { AppError } from "@/shared/errors";
 import { contracts, contractTemplates } from "./contract.schema";
-import type { ContractResponse, ContractTemplateInput, ContractTemplateResponse, CreateContractInput, UpdateContractInput, UpdateContractTemplateInput } from "./contract.types";
+import type {
+  ContractResponse,
+  ContractTemplateInput,
+  ContractTemplateResponse,
+  CreateContractInput,
+  UpdateContractInput,
+  UpdateContractTemplateInput,
+} from "./contract.types";
 
-function templateResponse(row: typeof contractTemplates.$inferSelect): ContractTemplateResponse { return { ...row, createdAt: row.createdAt.toISOString() }; }
-function contractResponse(row: typeof contracts.$inferSelect): ContractResponse { return { ...row, monthlyRent: row.monthlyRent as VndString, deposit: row.deposit as VndString, otpSentAt: row.otpSentAt?.toISOString() ?? null, otpSignedAt: row.otpSignedAt?.toISOString() ?? null, createdAt: row.createdAt.toISOString() }; }
-function validateTemplate(input: ContractTemplateInput | UpdateContractTemplateInput) { if (input.name !== undefined && !input.name.trim()) throw AppError.badRequest("Tên mẫu hợp đồng không được để trống"); if (input.clauses !== undefined && input.clauses.some((c) => !c.title.trim() || !c.content.trim())) throw AppError.badRequest("Điều khoản không được để trống"); }
-async function clearDefault(tx: Parameters<Parameters<typeof db.transaction>[0]>[0], motelId: string) { await tx.update(contractTemplates).set({ isDefault: false }).where(and(eq(contractTemplates.motelId, motelId), eq(contractTemplates.isDefault, true))); }
-export async function listContractTemplates(motelId: string, managerId: string) { await resolveOwnedMotel(motelId, managerId); return (await db.select().from(contractTemplates).where(eq(contractTemplates.motelId, motelId)).orderBy(asc(contractTemplates.createdAt), asc(contractTemplates.id))).map(templateResponse); }
-export async function createContractTemplate(motelId: string, managerId: string, input: ContractTemplateInput) { await resolveOwnedMotel(motelId, managerId); validateTemplate(input); const result = await db.transaction(async (tx) => { if (input.isDefault) await clearDefault(tx, motelId); return tx.insert(contractTemplates).values({ motelId, name: input.name.trim(), clauses: input.clauses, isDefault: input.isDefault ?? false }).returning(); }); return templateResponse(result[0]!); }
-export async function getContractTemplate(motelId: string, templateId: string, managerId: string) { await resolveOwnedMotel(motelId, managerId); const row = await db.query.contractTemplates.findFirst({ where: and(eq(contractTemplates.id, templateId), eq(contractTemplates.motelId, motelId)) }); if (!row) throw AppError.notFound("Không tìm thấy mẫu hợp đồng"); return templateResponse(row); }
-export async function updateContractTemplate(motelId: string, templateId: string, managerId: string, input: UpdateContractTemplateInput) { const current = await getContractTemplate(motelId, templateId, managerId); validateTemplate(input); const patch: Partial<typeof contractTemplates.$inferInsert> = {}; if (input.name !== undefined) patch.name = input.name.trim(); if (input.clauses !== undefined) patch.clauses = input.clauses; if (input.isDefault !== undefined) patch.isDefault = input.isDefault; if (!Object.keys(patch).length) return current; const result = await db.transaction(async (tx) => { if (input.isDefault) await clearDefault(tx, motelId); return tx.update(contractTemplates).set(patch).where(eq(contractTemplates.id, templateId)).returning(); }); return templateResponse(result[0]!); }
-export async function deleteContractTemplate(motelId: string, templateId: string, managerId: string) { await getContractTemplate(motelId, templateId, managerId); if (await db.$count(contracts, eq(contracts.templateId, templateId))) throw AppError.conflict("Không thể xóa mẫu hợp đồng đang được sử dụng"); await db.delete(contractTemplates).where(eq(contractTemplates.id, templateId)); }
+function templateResponse(
+  row: typeof contractTemplates.$inferSelect,
+): ContractTemplateResponse {
+  return { ...row, createdAt: row.createdAt.toISOString() };
+}
+function contractResponse(
+  row: typeof contracts.$inferSelect,
+): ContractResponse {
+  return {
+    ...row,
+    monthlyRent: row.monthlyRent as VndString,
+    deposit: row.deposit as VndString,
+    otpSentAt: row.otpSentAt?.toISOString() ?? null,
+    otpSignedAt: row.otpSignedAt?.toISOString() ?? null,
+    createdAt: row.createdAt.toISOString(),
+  };
+}
+function validateTemplate(
+  input: ContractTemplateInput | UpdateContractTemplateInput,
+) {
+  if (input.name !== undefined && !input.name.trim())
+    throw AppError.badRequest("Tên mẫu hợp đồng không được để trống");
+  if (
+    input.clauses !== undefined &&
+    input.clauses.some((c) => !c.title.trim() || !c.content.trim())
+  )
+    throw AppError.badRequest("Điều khoản không được để trống");
+}
+async function clearDefault(
+  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  motelId: string,
+) {
+  await tx
+    .update(contractTemplates)
+    .set({ isDefault: false })
+    .where(
+      and(
+        eq(contractTemplates.motelId, motelId),
+        eq(contractTemplates.isDefault, true),
+      ),
+    );
+}
+export async function listContractTemplates(
+  motelId: string,
+  managerId: string,
+) {
+  await resolveOwnedMotel(motelId, managerId);
+  return (
+    await db
+      .select()
+      .from(contractTemplates)
+      .where(eq(contractTemplates.motelId, motelId))
+      .orderBy(asc(contractTemplates.createdAt), asc(contractTemplates.id))
+  ).map(templateResponse);
+}
+export async function createContractTemplate(
+  motelId: string,
+  managerId: string,
+  input: ContractTemplateInput,
+) {
+  await resolveOwnedMotel(motelId, managerId);
+  validateTemplate(input);
+  const result = await db.transaction(async (tx) => {
+    if (input.isDefault) await clearDefault(tx, motelId);
+    return tx
+      .insert(contractTemplates)
+      .values({
+        motelId,
+        name: input.name.trim(),
+        clauses: input.clauses,
+        isDefault: input.isDefault ?? false,
+      })
+      .returning();
+  });
+  return templateResponse(result[0]!);
+}
+export async function getContractTemplate(
+  motelId: string,
+  templateId: string,
+  managerId: string,
+) {
+  await resolveOwnedMotel(motelId, managerId);
+  const row = await db.query.contractTemplates.findFirst({
+    where: and(
+      eq(contractTemplates.id, templateId),
+      eq(contractTemplates.motelId, motelId),
+    ),
+  });
+  if (!row) throw AppError.notFound("Không tìm thấy mẫu hợp đồng");
+  return templateResponse(row);
+}
+export async function updateContractTemplate(
+  motelId: string,
+  templateId: string,
+  managerId: string,
+  input: UpdateContractTemplateInput,
+) {
+  const current = await getContractTemplate(motelId, templateId, managerId);
+  validateTemplate(input);
+  const patch: Partial<typeof contractTemplates.$inferInsert> = {};
+  if (input.name !== undefined) patch.name = input.name.trim();
+  if (input.clauses !== undefined) patch.clauses = input.clauses;
+  if (input.isDefault !== undefined) patch.isDefault = input.isDefault;
+  if (!Object.keys(patch).length) return current;
+  const result = await db.transaction(async (tx) => {
+    if (input.isDefault) await clearDefault(tx, motelId);
+    return tx
+      .update(contractTemplates)
+      .set(patch)
+      .where(eq(contractTemplates.id, templateId))
+      .returning();
+  });
+  return templateResponse(result[0]!);
+}
+export async function deleteContractTemplate(
+  motelId: string,
+  templateId: string,
+  managerId: string,
+) {
+  await getContractTemplate(motelId, templateId, managerId);
+  if (await db.$count(contracts, eq(contracts.templateId, templateId)))
+    throw AppError.conflict("Không thể xóa mẫu hợp đồng đang được sử dụng");
+  await db
+    .delete(contractTemplates)
+    .where(eq(contractTemplates.id, templateId));
+}
 
-async function ownedContract(motelId: string, contractId: string, managerId: string) { await resolveOwnedMotel(motelId, managerId); const row = await db.query.contracts.findFirst({ where: and(eq(contracts.id, contractId), eq(contracts.motelId, motelId)) }); if (!row) throw AppError.notFound("Không tìm thấy hợp đồng"); return row; }
-export async function createContract(motelId: string, managerId: string, input: CreateContractInput) { const motel = await resolveOwnedMotel(motelId, managerId); const room = await resolveRoomInMotel(input.roomId, motelId); if (await hasActiveContractForRoom(room.id)) throw AppError.conflict("Phòng đã có hợp đồng đang hoạt động"); const renter = await db.query.renters.findFirst({ where: and(eq(renters.id, input.renterId), eq(renters.motelId, motelId)) }); if (!renter) throw AppError.notFound("Không tìm thấy người thuê"); let template: typeof contractTemplates.$inferSelect | undefined; if (input.templateId) { template = await db.query.contractTemplates.findFirst({ where: and(eq(contractTemplates.id, input.templateId), eq(contractTemplates.motelId, motelId)) }); if (!template) throw AppError.notFound("Không tìm thấy mẫu hợp đồng"); } const [row] = await db.insert(contracts).values({ motelId, renterId: renter.id, roomId: room.id, templateId: template?.id, startDate: input.startDate, endDate: input.endDate, monthlyRent: input.monthlyRent ?? room.basePrice, deposit: input.deposit ?? "0", clauses: input.clauses ?? template?.clauses ?? null }).returning(); return contractResponse(row!); }
-export async function listContracts(motelId: string, managerId: string) { await resolveOwnedMotel(motelId, managerId); return (await db.select().from(contracts).where(eq(contracts.motelId, motelId)).orderBy(desc(contracts.createdAt), desc(contracts.id))).map(contractResponse); }
-export async function getContract(motelId: string, contractId: string, managerId: string) { return contractResponse(await ownedContract(motelId, contractId, managerId)); }
-export async function updateContract(motelId: string, contractId: string, managerId: string, input: UpdateContractInput) { const current = await ownedContract(motelId, contractId, managerId); if (current.status !== "draft") throw AppError.conflict("Chỉ có thể chỉnh sửa hợp đồng nháp"); const [row] = await db.update(contracts).set(input).where(eq(contracts.id, contractId)).returning(); return contractResponse(row!); }
-export async function terminateContract(motelId: string, contractId: string, managerId: string) { await ownedContract(motelId, contractId, managerId); const [row] = await db.update(contracts).set({ status: "terminated" }).where(and(eq(contracts.id, contractId), eq(contracts.motelId, motelId))).returning(); return contractResponse(row!); }
-export type ContractNotification = (contract: typeof contracts.$inferSelect) => Promise<boolean>;
+async function ownedContract(
+  motelId: string,
+  contractId: string,
+  managerId: string,
+) {
+  await resolveOwnedMotel(motelId, managerId);
+  const row = await db.query.contracts.findFirst({
+    where: and(eq(contracts.id, contractId), eq(contracts.motelId, motelId)),
+  });
+  if (!row) throw AppError.notFound("Không tìm thấy hợp đồng");
+  return row;
+}
+export async function createContract(
+  motelId: string,
+  managerId: string,
+  input: CreateContractInput,
+) {
+  const motel = await resolveOwnedMotel(motelId, managerId);
+  const room = await resolveRoomInMotel(input.roomId, motelId);
+  if (await hasActiveContractForRoom(room.id))
+    throw AppError.conflict("Phòng đã có hợp đồng đang hoạt động");
+  await resolveRenterInMotel(input.renterId, motelId);
+  const template = input.templateId
+    ? await db.query.contractTemplates.findFirst({
+        where: and(
+          eq(contractTemplates.id, input.templateId),
+          eq(contractTemplates.motelId, motelId),
+        ),
+      })
+    : await db.query.contractTemplates.findFirst({
+        where: and(
+          eq(contractTemplates.motelId, motelId),
+          eq(contractTemplates.isDefault, true),
+        ),
+      });
+  if (input.templateId && !template)
+    throw AppError.notFound("Không tìm thấy mẫu hợp đồng");
+  const [row] = await db
+    .insert(contracts)
+    .values({
+      motelId,
+      renterId: input.renterId,
+      roomId: room.id,
+      templateId: template?.id,
+      startDate: input.startDate,
+      endDate: input.endDate,
+      monthlyRent: input.monthlyRent ?? room.basePrice,
+      deposit: input.deposit ?? "0",
+      clauses: input.clauses ?? template?.clauses ?? null,
+    })
+    .returning();
+  return contractResponse(row!);
+}
+export async function listContracts(
+  motelId: string,
+  managerId: string,
+  status?: "draft" | "active" | "expired" | "terminated",
+) {
+  await resolveOwnedMotel(motelId, managerId);
+  const where = status
+    ? and(eq(contracts.motelId, motelId), eq(contracts.status, status))
+    : eq(contracts.motelId, motelId);
+  return (
+    await db
+      .select()
+      .from(contracts)
+      .where(where)
+      .orderBy(desc(contracts.createdAt), desc(contracts.id))
+  ).map(contractResponse);
+}
+export async function getContract(
+  motelId: string,
+  contractId: string,
+  managerId: string,
+) {
+  return contractResponse(await ownedContract(motelId, contractId, managerId));
+}
+export async function updateContract(
+  motelId: string,
+  contractId: string,
+  managerId: string,
+  input: UpdateContractInput,
+) {
+  const current = await ownedContract(motelId, contractId, managerId);
+  if (current.status !== "draft")
+    throw AppError.conflict("Chỉ có thể chỉnh sửa hợp đồng nháp");
+  const [row] = await db
+    .update(contracts)
+    .set(input)
+    .where(eq(contracts.id, contractId))
+    .returning();
+  return contractResponse(row!);
+}
+export async function terminateContract(
+  motelId: string,
+  contractId: string,
+  managerId: string,
+) {
+  const current = await ownedContract(motelId, contractId, managerId);
+  if (current.status !== "active")
+    throw AppError.conflict("Chỉ có thể chấm dứt hợp đồng đang hoạt động");
+  const [row] = await db
+    .update(contracts)
+    .set({ status: "terminated" })
+    .where(and(eq(contracts.id, contractId), eq(contracts.motelId, motelId)))
+    .returning();
+  return contractResponse(row!);
+}
+export type ContractNotification = (
+  contract: typeof contracts.$inferSelect,
+) => Promise<boolean>;
 let sendContractNotification: ContractNotification = async () => false;
-export function setContractNotificationSender(sender: ContractNotification) { sendContractNotification = sender; }
-export async function sendContract(motelId: string, contractId: string, managerId: string) { const current = await ownedContract(motelId, contractId, managerId); if (current.status !== "draft") throw AppError.conflict("Chỉ có thể gửi hợp đồng nháp"); if (!(await sendContractNotification(current))) throw new AppError("EXTERNAL_SERVICE_ERROR", "Không thể gửi hợp đồng"); const [row] = await db.update(contracts).set({ otpSentAt: new Date() }).where(eq(contracts.id, contractId)).returning(); return contractResponse(row!); }
+export function setContractNotificationSender(sender: ContractNotification) {
+  sendContractNotification = sender;
+}
+export async function sendContract(
+  motelId: string,
+  contractId: string,
+  managerId: string,
+) {
+  const current = await ownedContract(motelId, contractId, managerId);
+  if (current.status !== "draft")
+    throw AppError.conflict("Chỉ có thể gửi hợp đồng nháp");
+  if (!(await sendContractNotification(current)))
+    throw new AppError("EXTERNAL_SERVICE_ERROR", "Không thể gửi hợp đồng");
+  const [row] = await db
+    .update(contracts)
+    .set({ otpSentAt: new Date() })
+    .where(eq(contracts.id, contractId))
+    .returning();
+  return contractResponse(row!);
+}
 
-export async function listBillableContractsForMotel(motelId: string): Promise<Array<{ id: string; roomId: string; renterId: string; monthlyRent: VndString }>> { return db.select({ id: contracts.id, roomId: contracts.roomId, renterId: contracts.renterId, monthlyRent: contracts.monthlyRent }).from(contracts).innerJoin(rooms, eq(contracts.roomId, rooms.id)).where(and(eq(rooms.motelId, motelId), eq(contracts.status, "active"))).orderBy(asc(contracts.roomId), asc(contracts.id)); }
-export async function countContractTemplatesForMotel(motelId: string): Promise<number> { return db.$count(contractTemplates, eq(contractTemplates.motelId, motelId)); }
-export async function hasActiveContractForRoom(roomId: string): Promise<boolean> { return (await db.$count(contracts, and(eq(contracts.roomId, roomId), eq(contracts.status, "active")))) > 0; }
-export interface ActiveContractSummary { id: string; roomId: string; roomName: string; startDate: string; endDate: string; monthlyRent: VndString; }
-export async function getActiveContractForRenter(renterId: string): Promise<ActiveContractSummary | null> { const [row] = await db.select({ id: contracts.id, roomId: contracts.roomId, roomName: rooms.name, startDate: contracts.startDate, endDate: contracts.endDate, monthlyRent: contracts.monthlyRent }).from(contracts).innerJoin(rooms, eq(contracts.roomId, rooms.id)).where(and(eq(contracts.renterId, renterId), eq(contracts.status, "active"))).orderBy(desc(contracts.createdAt), desc(contracts.id)).limit(1); return row ?? null; }
+export async function listBillableContractsForMotel(
+  motelId: string,
+): Promise<
+  Array<{
+    id: string;
+    roomId: string;
+    renterId: string;
+    monthlyRent: VndString;
+  }>
+> {
+  return db
+    .select({
+      id: contracts.id,
+      roomId: contracts.roomId,
+      renterId: contracts.renterId,
+      monthlyRent: contracts.monthlyRent,
+    })
+    .from(contracts)
+    .innerJoin(rooms, eq(contracts.roomId, rooms.id))
+    .where(and(eq(rooms.motelId, motelId), eq(contracts.status, "active")))
+    .orderBy(asc(contracts.roomId), asc(contracts.id));
+}
+export async function countContractTemplatesForMotel(
+  motelId: string,
+): Promise<number> {
+  return db.$count(contractTemplates, eq(contractTemplates.motelId, motelId));
+}
+export async function hasActiveContractForRoom(
+  roomId: string,
+): Promise<boolean> {
+  return (
+    (await db.$count(
+      contracts,
+      and(eq(contracts.roomId, roomId), eq(contracts.status, "active")),
+    )) > 0
+  );
+}
+export interface ActiveContractSummary {
+  id: string;
+  roomId: string;
+  roomName: string;
+  startDate: string;
+  endDate: string;
+  monthlyRent: VndString;
+}
+export async function getActiveContractForRenter(
+  renterId: string,
+): Promise<ActiveContractSummary | null> {
+  const [row] = await db
+    .select({
+      id: contracts.id,
+      roomId: contracts.roomId,
+      roomName: rooms.name,
+      startDate: contracts.startDate,
+      endDate: contracts.endDate,
+      monthlyRent: contracts.monthlyRent,
+    })
+    .from(contracts)
+    .innerJoin(rooms, eq(contracts.roomId, rooms.id))
+    .where(
+      and(eq(contracts.renterId, renterId), eq(contracts.status, "active")),
+    )
+    .orderBy(desc(contracts.createdAt), desc(contracts.id))
+    .limit(1);
+  return row ?? null;
+}
