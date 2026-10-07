@@ -1,5 +1,10 @@
 import { db } from "@/db";
-import { parseAmount } from "@/shared/money";
+import { parseAmount as parseMoneyAmount } from "@/shared/money";
+import { parseMeterValue, formatMeterValue } from "@/modules/billing/billing.calculation";
+
+function parseAmount(value: string): string {
+  return value.includes(".") ? formatMeterValue(parseMeterValue(value)) : parseMoneyAmount(value);
+}
 import { normalisePhone } from "@/shared/phone";
 import {
   managers,
