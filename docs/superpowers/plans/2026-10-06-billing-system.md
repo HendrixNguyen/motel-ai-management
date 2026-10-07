@@ -247,7 +247,7 @@
 - HTTP: `PUT /api/manager/motels/:motelId/billing/periods/:periodId/readings` with `{ readings: Array<{ roomId, type, currentReading, photoUrl?, expectedUpdatedAt }> }`.
 - Failure is atomic: any invalid, foreign, missing, or conflicting row rolls back the complete batch.
 
-- [ ] **Step 1: Write failing HTTP tests for accepted batches**
+- [x] **Step 1: Write failing HTTP tests for accepted batches**
 
   Assert a batch updates current reading, optional object key, reading date, and `updatedAt`; rejects duplicate room/type entries in the same request; returns readings in request order; and never writes a reading belonging to another period or motel.
 

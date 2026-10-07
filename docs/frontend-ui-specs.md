@@ -168,8 +168,8 @@ Table: Mã HĐ, Phòng, Khách, Tổng tiền, Trạng thái (`Chưa thanh toán
 `Quá hạn`), Ngày gửi. Row actions: view detail with QR, **Xác nhận đã chuyển khoản**,
 **Gửi lại Zalo**, copy magic link.
 
-Confirming payment asks for confirmation, stamps `paidAt`, and fires the Zalo payment
-notification. A failed notification surfaces an inline warning with **Gửi lại**. This records
+Confirming payment asks for confirmation and stamps `paidAt`. Zalo payment notification is
+handled by sub-project 8. This records
 the manager's manual confirmation; it does not verify a bank transfer automatically.
 
 ### M7 — Hợp đồng `/contracts`

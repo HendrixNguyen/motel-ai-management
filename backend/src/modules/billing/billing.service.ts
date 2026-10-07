@@ -77,7 +77,7 @@ export async function updateMeterReadings(periodId: string, motelId: string, man
       if (current < previous) throw AppError.badRequest("Chỉ số mới không được nhỏ hơn chỉ số cũ");
       const expected = new Date(item.expectedUpdatedAt);
       if (Number.isNaN(expected.getTime())) throw AppError.badRequest("Thời điểm cập nhật không hợp lệ");
-      if (row.updatedAt.getTime() !== expected.getTime() && row.currentReading !== formatMeterValue(current)) {
+      if (row.updatedAt.getTime() !== expected.getTime()) {
         throw AppError.readingConflict({ id: row.id, roomId: row.roomId, type: row.type, previousReading: row.previousReading, currentReading: row.currentReading, readingDate: row.readingDate, updatedAt: row.updatedAt.toISOString() });
       }
       const [updated] = await tx.update(meterReadings).set({ currentReading: formatMeterValue(current), photoUrl: item.photoUrl ?? null, readingDate: new Date().toISOString().slice(0, 10), updatedAt: new Date() }).where(eq(meterReadings.id, row.id)).returning();
