@@ -305,16 +305,22 @@ export async function getRenterContract(contractId: string, renterId: string, mo
 }
 
 export async function requestContractOtp(contractId: string, renterId: string, motelId: string, generator: OtpGenerator = generateOtp) {
-  const current = await renterContract(contractId, renterId, motelId);
-  if (current.status !== "draft") throw AppError.conflict("Hợp đồng không ở trạng thái chờ ký");
-  if (current.otpSentAt && Date.now() - current.otpSentAt.getTime() < OTP_COOLDOWN_MS) throw AppError.rateLimited("Vui lòng thử lại sau", Math.ceil((OTP_COOLDOWN_MS - (Date.now() - current.otpSentAt.getTime())) / 1000));
   const otp = await generator();
   const now = new Date();
   const hash = await Bun.password.hash(otp, { algorithm: "argon2id" });
-  const [row] = await db.update(contracts).set({ otpHash: hash, otpSentAt: now, otpExpiresAt: new Date(now.getTime() + OTP_TTL_MS), otpAttempts: "0" }).where(and(eq(contracts.id, contractId), eq(contracts.status, "draft"))).returning();
-  if (!row) throw AppError.conflict("Hợp đồng không ở trạng thái chờ ký");
-  if (!(await sendRenterOtp({ contract: row, otp }))) {
-    await db.update(contracts).set({ otpHash: null, otpSentAt: current.otpSentAt, otpExpiresAt: current.otpExpiresAt, otpAttempts: current.otpAttempts }).where(eq(contracts.id, contractId));
+  const expires = new Date(now.getTime() + OTP_TTL_MS);
+  const staged = await db.transaction(async (tx) => {
+    await tx.execute(sql`SELECT id FROM contracts WHERE id = ${contractId} AND renter_id = ${renterId} AND motel_id = ${motelId} FOR UPDATE`);
+    const current = await tx.query.contracts.findFirst({ where: and(eq(contracts.id, contractId), eq(contracts.renterId, renterId), eq(contracts.motelId, motelId)) });
+    if (!current) throw AppError.notFound("Không tìm thấy hợp đồng");
+    if (current.status !== "draft") throw AppError.conflict("Hợp đồng không ở trạng thái chờ ký");
+    if (current.otpSentAt && Date.now() - current.otpSentAt.getTime() < OTP_COOLDOWN_MS) throw AppError.rateLimited("Vui lòng thử lại sau", Math.ceil((OTP_COOLDOWN_MS - (Date.now() - current.otpSentAt.getTime())) / 1000));
+    const [row] = await tx.update(contracts).set({ otpHash: hash, otpSentAt: now, otpExpiresAt: expires, otpAttempts: "0" }).where(and(eq(contracts.id, contractId), eq(contracts.status, "draft"))).returning();
+    if (!row) throw AppError.conflict("Hợp đồng không ở trạng thái chờ ký");
+    return { row, previous: current };
+  });
+  if (!(await sendRenterOtp({ contract: staged.row, otp }))) {
+    await db.update(contracts).set({ otpHash: staged.previous.otpHash, otpSentAt: staged.previous.otpSentAt, otpExpiresAt: staged.previous.otpExpiresAt, otpAttempts: staged.previous.otpAttempts }).where(and(eq(contracts.id, contractId), eq(contracts.otpHash, hash), eq(contracts.otpSentAt, now), eq(contracts.otpExpiresAt, expires)));
     throw new AppError("EXTERNAL_SERVICE_ERROR", "Không thể gửi mã xác thực");
   }
   return { sentAt: now.toISOString() };

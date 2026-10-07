@@ -61,7 +61,7 @@ form-level message; it cannot attribute the failure to a field.
 | POST | `/contracts/:contractId/sign-request` | — | `200 {sentAt}`; six-digit OTP is never returned |
 | POST | `/contracts/:contractId/verify` | `{otp}` | `200 Contract` with `status=active`; invalid, expired, or exhausted OTP uses `OTP_INVALID`/`OTP_EXPIRED` |
 
-OTP values are Argon2id-hashed with `Bun.password`, expire after five minutes, allow one request per five-minute cooldown, and permit at most three failed attempts. Verification activates contract and records `otpSignedAt` in one transaction.
+OTP values are Argon2id-hashed with `Bun.password`, expire after five minutes, allow one request per five-minute cooldown, and permit at most three failed attempts. Verification activates contract and records `otpSignedAt` in one transaction. Zalo delivery is not wired in this task; default sender rejects delivery, so deployment must configure `setRenterOtpSender` before enabling sign requests.
 
 ### Contracts — `/api/manager/motels/:motelId/contracts`
 
