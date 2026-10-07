@@ -1,8 +1,11 @@
 import { and, asc, desc, eq } from "drizzle-orm";
 import { db } from "@/db";
-import { resolveOwnedMotel, resolveRoomInMotel } from "@/middleware/tenancy";
-import { resolveRenterInMotel } from "@/middleware/tenancy";
-import { rooms } from "@/modules/room/room.schema";
+import {
+  resolveOwnedMotel,
+  resolveRoomInMotel,
+  resolveRenterInMotel,
+} from "@/middleware/tenancy";
+import { getRoomName } from "@/modules/room/room.service";
 import { type VndString } from "@/shared/money";
 import { AppError } from "@/shared/errors";
 import { contracts, contractTemplates } from "./contract.schema";
@@ -228,10 +231,20 @@ export async function updateContract(
   const current = await ownedContract(motelId, contractId, managerId);
   if (current.status !== "draft")
     throw AppError.conflict("Chỉ có thể chỉnh sửa hợp đồng nháp");
+  if (input.templateId) {
+    const template = await db.query.contractTemplates.findFirst({
+      where: and(
+        eq(contractTemplates.id, input.templateId),
+        eq(contractTemplates.motelId, motelId),
+      ),
+    });
+    if (!template) throw AppError.notFound("Không tìm thấy mẫu hợp đồng");
+    input = { ...input, clauses: template.clauses };
+  }
   const [row] = await db
     .update(contracts)
     .set(input)
-    .where(eq(contracts.id, contractId))
+    .where(and(eq(contracts.id, contractId), eq(contracts.motelId, motelId)))
     .returning();
   return contractResponse(row!);
 }
@@ -254,8 +267,10 @@ export type ContractNotification = (
   contract: typeof contracts.$inferSelect,
 ) => Promise<boolean>;
 let sendContractNotification: ContractNotification = async () => false;
-export function setContractNotificationSender(sender: ContractNotification) {
-  sendContractNotification = sender;
+export function setContractNotificationSender(
+  sender: ContractNotification | null,
+) {
+  sendContractNotification = sender ?? (async () => false);
 }
 export async function sendContract(
   motelId: string,
@@ -275,9 +290,7 @@ export async function sendContract(
   return contractResponse(row!);
 }
 
-export async function listBillableContractsForMotel(
-  motelId: string,
-): Promise<
+export async function listBillableContractsForMotel(motelId: string): Promise<
   Array<{
     id: string;
     roomId: string;
@@ -293,8 +306,7 @@ export async function listBillableContractsForMotel(
       monthlyRent: contracts.monthlyRent,
     })
     .from(contracts)
-    .innerJoin(rooms, eq(contracts.roomId, rooms.id))
-    .where(and(eq(rooms.motelId, motelId), eq(contracts.status, "active")))
+    .where(and(eq(contracts.motelId, motelId), eq(contracts.status, "active")))
     .orderBy(asc(contracts.roomId), asc(contracts.id));
 }
 export async function countContractTemplatesForMotel(
@@ -327,17 +339,16 @@ export async function getActiveContractForRenter(
     .select({
       id: contracts.id,
       roomId: contracts.roomId,
-      roomName: rooms.name,
       startDate: contracts.startDate,
       endDate: contracts.endDate,
       monthlyRent: contracts.monthlyRent,
     })
     .from(contracts)
-    .innerJoin(rooms, eq(contracts.roomId, rooms.id))
     .where(
       and(eq(contracts.renterId, renterId), eq(contracts.status, "active")),
     )
     .orderBy(desc(contracts.createdAt), desc(contracts.id))
     .limit(1);
-  return row ?? null;
+  if (!row) return null;
+  return { ...row, roomName: (await getRoomName(row.roomId)) ?? "" };
 }

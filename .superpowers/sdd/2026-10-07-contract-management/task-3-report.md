@@ -21,3 +21,7 @@ Fixed review findings: tenancy now uses middleware seams instead of renter schem
 Verification:
 - `bun run typecheck` passed.
 - Contract, room, and renter tests remain blocked by PostgreSQL `28P01 password authentication failed for user "postgres"`.
+
+## Latest review fixes
+
+Removed contract module room/renter schema reads: renter ownership stays behind tenancy seam, billing uses contract motel scope, and room display lookup uses room service seam. Draft template patch now refreshes clauses from selected template. Route status query remains validated and wired. Sender reset accepts `null` for deterministic tests. Tests were re-run and remain blocked by database authentication. Commit includes only focused contract/service/test/report changes; API docs retained existing formatting.
