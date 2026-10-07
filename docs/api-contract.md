@@ -250,6 +250,7 @@ renter id from the client.
 | GET    | `/invoices/current`                  | Current period invoice, or `404` if not yet issued                                                                                   |
 | GET    | `/invoices/:invoiceId`               | Full breakdown, `qrCodeData`, bank details, and `meterPhotos[]` — `{type, signedUrl, capturedAt}` per meter, signed URLs short-lived |
 | GET    | `/contract`                          | Active or latest contract with clauses                                                                                               |
+| GET    | `/contracts/:contractId`              | Contract scoped to renter session                                                                                                    |
 | POST   | `/contract/:contractId/sign-request` | Generates the OTP, sends it over Zalo, stamps `otpSentAt`; `429` within 5 minutes of a resend                                        |
 | POST   | `/contract/:contractId/verify`       | `{otp}` → `200 {otpSignedAt}`; `OTP_INVALID` / `OTP_EXPIRED`; max 3 attempts                                                         |
 | GET    | `/tickets`                           | Own tickets, never `managerNote`                                                                                                     |

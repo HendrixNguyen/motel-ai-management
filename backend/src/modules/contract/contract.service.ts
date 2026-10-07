@@ -304,6 +304,12 @@ export async function getRenterContract(contractId: string, renterId: string, mo
   return contractResponse(await renterContract(contractId, renterId, motelId));
 }
 
+export async function getLatestRenterContract(renterId: string, motelId: string) {
+  const [row] = await db.select().from(contracts).where(and(eq(contracts.renterId, renterId), eq(contracts.motelId, motelId))).orderBy(desc(contracts.createdAt), desc(contracts.id)).limit(1);
+  if (!row) throw AppError.notFound("Không tìm thấy hợp đồng");
+  return contractResponse(row);
+}
+
 export async function requestContractOtp(contractId: string, renterId: string, motelId: string, generator: OtpGenerator = generateOtp) {
   const otp = await generator();
   const now = new Date();
@@ -333,7 +339,9 @@ export async function verifyContractOtp(contractId: string, renterId: string, mo
     if (current.status !== "draft") throw AppError.conflict("Hợp đồng không ở trạng thái chờ ký");
     if (!current.otpExpiresAt || current.otpExpiresAt <= new Date()) throw new AppError("OTP_EXPIRED", "Mã xác thực đã hết hạn");
     const [claimed] = await tx.update(contracts).set({ otpAttempts: sql`${contracts.otpAttempts} + 1` }).where(and(eq(contracts.id, contractId), eq(contracts.status, "draft"), sql`${contracts.otpAttempts} < ${MAX_OTP_ATTEMPTS}`, sql`${contracts.otpExpiresAt} > now()`)).returning();
-    if (!claimed || !current.otpHash || !(await Bun.password.verify(otp, current.otpHash))) throw new AppError("OTP_INVALID", "Mã xác thực không hợp lệ");
+    if (!claimed || !current.otpHash || !(await Bun.password.verify(otp, current.otpHash))) {
+      throw new AppError("OTP_INVALID", "Mã xác thực không hợp lệ");
+    }
     const [row] = await tx.update(contracts).set({ status: "active", otpSignedAt: new Date(), otpHash: null, otpExpiresAt: null }).where(and(eq(contracts.id, contractId), eq(contracts.status, "draft"))).returning();
     if (!row) throw AppError.conflict("Hợp đồng đã được ký");
     return contractResponse(row);
@@ -352,7 +360,7 @@ export async function sendContract(
     throw new AppError("EXTERNAL_SERVICE_ERROR", "Không thể gửi hợp đồng");
   const [row] = await db
     .update(contracts)
-    .set({ otpSentAt: new Date() })
+    .set({ managerSentAt: new Date() })
     .where(eq(contracts.id, contractId))
     .returning();
   return contractResponse(row!);

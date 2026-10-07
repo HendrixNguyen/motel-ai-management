@@ -12,6 +12,7 @@ import {
   listContracts,
   sendContract,
   getRenterContract,
+  getLatestRenterContract,
   requestContractOtp,
   verifyContractOtp,
   terminateContract,
@@ -152,9 +153,13 @@ export const contractRoutes = new Elysia({ name: "contract-routes" })
        terminateContract(params.motelId, params.contractId, auth!.userId),
      { params: contractParams },
    )
-   .group("/renter/contracts/:contractId", (app) =>
+   .group("/renter", (app) =>
      app.use(renterAuth)
+       .get("/contract", ({ auth }) => getLatestRenterContract(auth!.renterId, auth!.motelId))
+       .group("/contracts/:contractId", (contractApp) =>
+         contractApp
        .get("", ({ params, auth }) => getRenterContract(params.contractId, auth!.renterId, auth!.motelId), { params: renterContractParams })
        .post("/sign-request", ({ params, auth }) => requestContractOtp(params.contractId, auth!.renterId, auth!.motelId), { params: renterContractParams })
-       .post("/verify", ({ params, auth, body }) => verifyContractOtp(params.contractId, auth!.renterId, auth!.motelId, body.otp), { params: renterContractParams, body: otpBody }),
-   );
+          .post("/verify", ({ params, auth, body }) => verifyContractOtp(params.contractId, auth!.renterId, auth!.motelId, body.otp), { params: renterContractParams, body: otpBody }),
+        ),
+    );
