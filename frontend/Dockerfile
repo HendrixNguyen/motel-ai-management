@@ -10,6 +10,7 @@ COPY frontend/tsconfig.json ./
 COPY frontend/next.config.ts ./
 COPY frontend/postcss.config.mjs ./
 COPY frontend/src ./src
+COPY frontend/e2e ./e2e
 COPY frontend/public ./public
 RUN bun run build
 
@@ -19,4 +20,6 @@ COPY --from=build /app/.next/standalone ./
 COPY --from=build /app/.next/static ./.next/static
 COPY --from=build /app/public ./public
 EXPOSE 3000
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD wget --quiet --spider http://127.0.0.1:3000/health || exit 1
 CMD ["node", "server.js"]
