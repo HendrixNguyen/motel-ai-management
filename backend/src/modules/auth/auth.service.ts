@@ -1,4 +1,3 @@
-import { hash, verify } from "argon2";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { managers } from "./auth.schema";
@@ -22,7 +21,7 @@ export async function registerManager(input: RegisterManagerInput): Promise<Mana
       email,
       name: input.name,
       phone: input.phone,
-      passwordHash: await hash(input.password),
+      passwordHash: await Bun.password.hash(input.password, { algorithm: "argon2id" }),
     })
     .returning();
   return row!;
@@ -33,7 +32,7 @@ export async function verifyManager(email: string, password: string): Promise<Ma
   const row = await db.query.managers.findFirst({
     where: eq(managers.email, normalizedEmail),
   });
-  if (!row || !(await verify(row.passwordHash, password))) {
+  if (!row || !(await Bun.password.verify(password, row.passwordHash))) {
     throw AppError.unauthorized("Email hoặc mật khẩu không đúng");
   }
   return row;

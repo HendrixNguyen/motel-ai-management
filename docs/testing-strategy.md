@@ -77,6 +77,7 @@ destroys the schema it is given.
 |------|---------|
 | Money calculation (`sumVnd`, invoice totals) | every branch, plus a value above `Number.MAX_SAFE_INTEGER` |
 | Billing utility rounding | meter parsing rejects invalid precision; utility costs cover below-half, exact-half, and above-half VND, with exact halves rounded up |
+| Billing workflows | readings batch is atomic and conflict-safe; sent periods reject mutation; invoice generation is idempotent with snapshots; payment transitions and tenant 404 are covered |
 | Phone normalisation | mobile, landline, each malformed form |
 | Auth | register, login, wrong password, unknown email, replay, expiry — for both roles |
 | Tenant scoping | both isolation directions, over HTTP |

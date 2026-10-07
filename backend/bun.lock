@@ -7,9 +7,8 @@
       "dependencies": {
         "@elysiajs/cookie": "^0.8.0",
         "@elysiajs/cors": "latest",
-        "@elysiajs/jwt": "latest",
-        "argon2": "latest",
-        "drizzle-orm": "latest",
+         "@elysiajs/jwt": "latest",
+         "drizzle-orm": "latest",
         "elysia": "latest",
         "postgres": "latest",
       },
@@ -106,7 +105,6 @@
 
     "@types/node": ["@types/node@26.6.4", "", { "dependencies": { "undici-types": "~8.9.0" } }, "sha512-ldVPDCzj7fsaGZrLB0NuHuTvJcsNasysBAqMolr/cgxrLd1xbqxIr3XJiPnHHJUCxj5sNF1vnRj9aWnrVh5Jcg=="],
 
-    "argon2": ["argon2@0.45.1", "", { "dependencies": { "@phc/format": "^1.0.0", "cross-env": "^10.1.0", "node-addon-api": "^8.9.0", "node-gyp-build": "^4.8.4" } }, "sha512-skm+/WCjkGqCQxF7FG1LuZXM5yvbFjgbfiCGsud2oLgaDhh6b6dbH0b1EkghbM+xx4Bj8Ape+KKgixoIlWZicQ=="],
 
     "buffer-from": ["buffer-from@1.1.2", "", {}, "sha512-E+XQCRwSbaaiChtv6k6Dwgc+bx+Bs6vuKJHHl5kox/BaKbhiXzqQOwK4cO22yElGp2OCmjwVhT3HmxgyPGnJfQ=="],
 

@@ -65,8 +65,7 @@ export async function seedData() {
       id: MANAGER_ID,
       email: "manager@example.com",
       passwordHash: await Bun.password.hash("password", {
-        algorithm: "bcrypt",
-        cost: 10,
+        algorithm: "argon2id",
       }),
       name: "Quản lý Mặt Bằng",
       phone: "0901234567",

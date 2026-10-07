@@ -112,6 +112,10 @@ motion requiring a reduced-motion override. No third-party UI library is added.
 
 ---
 
+## Billing states
+
+Draft periods allow meter edits and invoice generation. Sent periods are read-only; show `Đã gửi` and disable capture, regeneration, and destructive edits. Invoice badges: `Chưa thanh toán`, `Đã thanh toán`, `Quá hạn`; stale capture conflicts show `Cần kiểm tra` and require reload before retry.
+
 ## 2. Manager App
 
 Shell: responsive. On wide screens, left sidebar `240px`, sticky. On phones, use compact

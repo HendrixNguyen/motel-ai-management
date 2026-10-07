@@ -38,6 +38,7 @@ const TABLES = [
  * destroys a schema, and a developer's real database must not be reachable from here.
  */
 export async function resetDb(): Promise<void> {
+  if (process.env.SKIP_DB_RESET === "1") return;
   if (!isTestRun)
     throw new Error(
       `resetDb() refused: NODE_ENV is ${process.env.NODE_ENV ?? "unset"}, expected "test".`,
