@@ -1,4 +1,5 @@
 FROM oven/bun:1.4.2-alpine AS deps
+# QA deploys this image automatically from the qa branch through Dokploy's GitHub integration.
 WORKDIR /app
 COPY frontend/package.json frontend/bun.lock* ./
 RUN bun install --frozen-lockfile
