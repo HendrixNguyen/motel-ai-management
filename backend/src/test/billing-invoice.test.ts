@@ -12,6 +12,18 @@ import { generateInvoices } from "@/modules/billing/billing.service";
 
 beforeEach(resetDb);
 describe("billing invoices", () => {
+  test("rejects invoice generation without bank configuration", async () => {
+    const [manager] = await db.insert(managers).values({ email: "nobank@example.com", passwordHash: "x", name: "M" }).returning();
+    const [motel] = await db.insert(motels).values({ managerId: manager!.id, name: "M", electricityPrice: "2000", waterPrice: "15000" }).returning();
+    const [room] = await db.insert(rooms).values({ motelId: motel!.id, name: "101", basePrice: "5000000" }).returning();
+    const [renter] = await db.insert(renters).values({ motelId: motel!.id, name: "R", phone: "84123456785", roomId: room!.id }).returning();
+    const [period] = await db.insert(billingPeriods).values({ motelId: motel!.id, month: 1, year: 2026 }).returning();
+    await db.insert(meterReadings).values([{ billingPeriodId: period!.id, roomId: room!.id, type: "electric", previousReading: "0", currentReading: "1" }, { billingPeriodId: period!.id, roomId: room!.id, type: "water", previousReading: "0", currentReading: "1" }]);
+    await db.insert(contracts).values({ motelId: motel!.id, roomId: room!.id, renterId: renter!.id, startDate: "2026-01-01", endDate: "2026-12-31", monthlyRent: "5000000", status: "active" });
+    await expect(generateInvoices(period!.id, motel!.id, manager!.id)).rejects.toMatchObject({ status: 409 });
+    expect(await db.select().from(invoices)).toHaveLength(0);
+  });
+
   test("generation skips room without active contract", async () => {
     const [manager] = await db.insert(managers).values({ email: "invoice@example.com", passwordHash: "x", name: "M" }).returning();
     const [motel] = await db.insert(motels).values({ managerId: manager!.id, name: "M", electricityPrice: "2000", waterPrice: "15000", bankAccount: { bankCode: "970422", accountNumber: "123456", accountName: "M" } }).returning();

@@ -399,11 +399,11 @@ only by cookie.
 5. Rooms without an active contract are skipped and reported back to the manager; they
    never produce a partial invoice.
 6. Manager reviews drafts, then confirms → period status `sent`.
-7. System sends one Zalo notification per invoice with a magic link to the invoice.
+7. Zalo delivery is handled by sub-project 8; billing does not create notification rows.
 8. Renter opens the link, sees the breakdown, scans the VietQR code, pays in their
    banking app.
-9. Manager marks the invoice `paid`, which stamps `paidAt` and triggers a confirmation
-   notification.
+9. Manager marks the invoice `paid`, which stamps `paidAt`; payment notification is
+   handled by sub-project 8.
 
 ### Contract flow
 
