@@ -15,7 +15,6 @@
     "@elysiajs/cookie": "^0.8.0",
     "@elysiajs/cors": "latest",
     "@elysiajs/jwt": "latest",
-    "argon2": "latest",
     "drizzle-orm": "latest",
     "elysia": "latest",
     "postgres": "latest"

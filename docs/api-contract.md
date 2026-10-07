@@ -116,15 +116,14 @@ Phone is normalized to `84XXXXXXXXX` on write.
 | GET | `/periods` | All periods, newest first |
 | POST | `/periods` | `{month, year}`; `409` if that month already exists; seeds `meter_readings` |
 | GET | `/periods/:periodId` | Period + per-room reading rows with previous/current |
-| PUT | `/periods/:periodId/readings` | Batch upsert readings; `400` if `currentReading < previousReading`; `409 PERIOD_ALREADY_SENT` once sent. See [Capture sync](#meter-capture-sync) |
+| PUT | `/periods/:periodId/readings` | Atomic batch upsert; stale row writes return `409 READING_CONFLICT`; `400` if `currentReading < previousReading`; `409 PERIOD_ALREADY_SENT` once sent. See [Capture sync](#meter-capture-sync) |
 | POST | `/periods/:periodId/invoices` | Generates invoices; `details.skippedRooms` lists rooms with no active contract |
 | GET | `/periods/:periodId/invoices` | Invoice list with statuses |
-| POST | `/periods/:periodId/send` | Period → `sent`; sends one Zalo message per invoice |
+| POST | `/periods/:periodId/send` | Period → `sent`; queues one deferred Zalo delivery per invoice |
 | PATCH | `/invoices/:invoiceId/paid` | Stamps `paidAt`, triggers confirmation notification |
 | PATCH | `/invoices/:invoiceId/overdue` | Manual overdue marking |
 
-Invoice generation is idempotent per `(billingPeriodId, roomId)`: re-running updates draft
-invoices rather than duplicating them. Once the period is `sent`, generation returns `409`.
+Invoice generation is idempotent per `(billingPeriodId, roomId)`: re-running updates invoices while preserving invoice identity and payment state. Amounts, fees, rent, utility usage, and QR payload are snapshots. Once the period is `sent`, generation returns `409`; sent-period readings and invoices are immutable.
 
 ### Meter capture sync
 

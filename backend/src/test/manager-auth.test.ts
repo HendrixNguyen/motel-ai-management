@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, setDefaultTimeout, test } from "bun:test";
 import { app } from "@/app";
+import { db } from "@/db";
+import { managers } from "@/modules/auth/auth.schema";
 import { registerManager, verifyManager } from "@/modules/auth/auth.service";
 import { resetDb } from "@/db/test-db";
 
@@ -34,8 +36,12 @@ describe("manager auth", () => {
     });
   });
 
-  test("verify accepts the right password", async () => {
-    await registerManager(valid);
+  test("verify accepts an Argon2id hash from seed data", async () => {
+    await db.insert(managers).values({
+      email: valid.email,
+      passwordHash: await Bun.password.hash(valid.password, { algorithm: "argon2id" }),
+      name: valid.name,
+    });
     expect((await verifyManager(valid.email, valid.password)).id).toBeDefined();
   });
 
