@@ -53,6 +53,21 @@ form-level message; it cannot attribute the failure to a field.
 
 ## Manager endpoints
 
+### Contracts — `/api/manager/motels/:motelId/contracts`
+
+| Method | Path | Body | Returns |
+|--------|------|------|---------|
+| POST | `/contracts` | `{renterId, roomId, templateId?, startDate, endDate, monthlyRent?, deposit?, clauses?}` | `201 Contract` (draft; clauses and rent snapshotted) |
+| GET | `/contracts` | — | `200 Contract[]` |
+| GET | `/contracts/:contractId` | — | `200 Contract` |
+| PATCH | `/contracts/:contractId` | draft fields only | `200 Contract`; non-draft returns `409 CONFLICT` |
+| POST | `/contracts/:contractId/send` | — | `200 Contract`; notification failure returns `502 EXTERNAL_SERVICE_ERROR` |
+| POST | `/contracts/:contractId/terminate` | — | `200 Contract` with `status=terminated` |
+
+Contract creation validates motel ownership for renter, room, and template. Missing `monthlyRent` uses room `basePrice`; template clauses are copied into contract snapshot. Send stamps `otpSentAt` only after notification seam succeeds.
+
+### Contract templates
+
 ### Auth — `/api/auth`
 
 | Method | Path | Body | Returns |

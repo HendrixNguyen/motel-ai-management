@@ -19,6 +19,10 @@ page scrolling. Tables must reflow into readable rows or focused detail editors 
 
 ---
 
+## Contract lifecycle
+
+Manager contract screen shows draft, active, expired, and terminated badges. Create form requires renter, room, start date, and end date; rent defaults from room base price and clause content is shown as a snapshot. Drafts allow edits; active and terminated contracts are read-only. Send action reports notification failure without showing a sent timestamp. Terminate action is destructive and requires confirmation.
+
 ## 1. Design Tokens
 
 ### Colour
