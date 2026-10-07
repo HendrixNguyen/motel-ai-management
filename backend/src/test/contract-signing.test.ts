@@ -28,6 +28,18 @@ describe("renter contract signing", () => {
     expect(active!.otpSignedAt).not.toBeNull();
   });
 
+  test("exhausted verification returns OTP_INVALID", async () => {
+    const [row] = await db.insert(contracts).values({
+      motelId: "00000000-0000-0000-0000-000000000001", renterId: "00000000-0000-0000-0000-000000000002", roomId: "00000000-0000-0000-0000-000000000003",
+      startDate: "2026-01-01", endDate: "2026-12-31", monthlyRent: "1", deposit: "0",
+    }).returning();
+    await requestContractOtp(row!.id, row!.renterId, row!.motelId, async () => "123456");
+    for (let attempt = 0; attempt < 3; attempt++) {
+      await expect(verifyContractOtp(row!.id, row!.renterId, row!.motelId, "000000")).rejects.toMatchObject({ code: "OTP_INVALID" });
+    }
+    await expect(verifyContractOtp(row!.id, row!.renterId, row!.motelId, "000000")).rejects.toMatchObject({ code: "OTP_INVALID" });
+  });
+
   test("invalid verification persists attempt count", async () => {
     const [row] = await db.insert(contracts).values({
       motelId: "00000000-0000-0000-0000-000000000001", renterId: "00000000-0000-0000-0000-000000000002", roomId: "00000000-0000-0000-0000-000000000003",

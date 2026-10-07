@@ -40,8 +40,8 @@ form-level message; it cannot attribute the failure to a field.
 | `VALIDATION_ERROR`       | 400  | Schema validation failed. No `details` — see above                              |
 | `UNAUTHORIZED`           | 401  | Missing, malformed, or expired credential                                       |
 | `MAGIC_LINK_EXPIRED`     | 401  | Magic link past `expiresAt` or already `consumedAt`                             |
-| `OTP_INVALID`            | 401  | Wrong OTP                                                                       |
-| `OTP_EXPIRED`            | 401  | OTP past 5 minutes                                                              |
+| `OTP_INVALID`            | 401  | Wrong OTP or three-attempt allowance exhausted                                  |
+| `OTP_EXPIRED`            | 401  | OTP missing or past 5 minutes                                                   |
 | `RATE_LIMITED`           | 429  | Too many OTP or magic-link requests; `details.retryAfterSeconds`                |
 | `READING_CONFLICT`       | 409  | Reading write based on a stale `updatedAt`; `details.server` is the current row |
 | `PERIOD_ALREADY_SENT`    | 409  | Capture or generation on a period that is no longer `draft`                     |
@@ -61,7 +61,7 @@ Renter session JWT and cookie expire after 24 hours. Renter routes are singular 
 | --- | --- | --- | --- |
 | GET | `/contracts/:contractId` | — | `200 Contract`; renter session scopes access |
 | POST | `/contracts/:contractId/sign-request` | — | `200 {sentAt}`; six-digit OTP is never returned |
-| POST | `/contracts/:contractId/verify` | `{otp}` | `200 Contract` with `status=active`; invalid OTP uses `OTP_INVALID`; expired or exhausted OTP uses `OTP_EXPIRED` |
+| POST | `/contracts/:contractId/verify` | `{otp}` | `200 Contract` with `status=active`; invalid or exhausted OTP uses `OTP_INVALID`; missing or expired OTP uses `OTP_EXPIRED` |
 
 OTP values are Argon2id-hashed with `Bun.password`, expire after five minutes, allow one request per five-minute cooldown, and permit at most three failed attempts. Verification activates contract and records `otpSignedAt` in one transaction. Zalo delivery is not wired in this task; default sender rejects delivery, so deployment must configure `setRenterOtpSender` before enabling sign requests.
 

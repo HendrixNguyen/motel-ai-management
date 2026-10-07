@@ -348,7 +348,7 @@ export async function verifyContractOtp(contractId: string, renterId: string, mo
     const current = await tx.query.contracts.findFirst({ where: and(eq(contracts.id, contractId), eq(contracts.renterId, renterId), eq(contracts.motelId, motelId)) });
     if (!current) throw AppError.notFound("Không tìm thấy hợp đồng");
     if (current.status !== "draft") throw AppError.conflict("Hợp đồng không ở trạng thái chờ ký");
-    if (!current.otpExpiresAt || current.otpExpiresAt <= new Date() || Number(current.otpAttempts) >= MAX_OTP_ATTEMPTS) throw new AppError("OTP_EXPIRED", "Mã xác thực đã hết hạn");
+    if (!current.otpExpiresAt || current.otpExpiresAt <= new Date()) throw new AppError("OTP_EXPIRED", "Mã xác thực đã hết hạn");
     const [claimed] = await tx.update(contracts).set({ otpAttempts: sql`${contracts.otpAttempts} + 1` }).where(and(eq(contracts.id, contractId), eq(contracts.status, "draft"), sql`${contracts.otpAttempts} < ${MAX_OTP_ATTEMPTS}`, sql`${contracts.otpExpiresAt} > now()`)).returning();
     if (!claimed || !current.otpHash || !(await Bun.password.verify(otp, current.otpHash))) {
       throw new AppError("OTP_INVALID", "Mã xác thực không hợp lệ");
