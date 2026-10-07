@@ -390,8 +390,9 @@ only by cookie.
    `currentReading < previousReading` and consumption above 500 kWh / 30 m³.
 4. On generate, for every room with an active contract, the system writes one invoice:
    - `rentAmount` = `contract.monthlyRent`
-   - `electricityCost` = (`currentReading` − `previousReading`) × `motel.electricityPrice`
-   - `waterCost` = (`currentReading` − `previousReading`) × `motel.waterPrice`
+   - `electricityCost` = (`currentReading` − `previousReading`) × `motel.electricityPrice`, rounded to whole VND half-up
+   - `waterCost` = (`currentReading` − `previousReading`) × `motel.waterPrice`, rounded to whole VND half-up
+   - Meter arithmetic uses fixed-point hundredths and never JavaScript floating-point numbers.
    - `otherFees` = snapshot of `motel.otherFees`
    - `totalAmount` = `rentAmount` + `electricityCost` + `waterCost` + Σ `otherFees.amount`
    - `qrCodeData` = VietQR payload built from `motel.bankAccount` and `totalAmount`

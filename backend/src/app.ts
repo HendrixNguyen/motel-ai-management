@@ -7,6 +7,7 @@ import { magicLinkRoutes } from "@/modules/auth/magic-link.route";
 import { motelRoutes } from "@/modules/motel/motel.route";
 import { renterRoutes } from "@/modules/renter/renter.route";
 import { roomRoutes } from "@/modules/room/room.route";
+import { billingRoutes } from "@/modules/billing/billing.route";
 import { AppError } from "@/shared/errors";
 
 /**
@@ -33,8 +34,9 @@ export function createApp() {
         .use(authRoutes)
         .use(magicLinkRoutes)
         .use(motelRoutes)
-        .use(roomRoutes)
-        .use(renterRoutes),
+       .use(roomRoutes)
+       .use(billingRoutes)
+       .use(renterRoutes),
     )
     .all("*", () => {
       throw AppError.notFound("Không tìm thấy");

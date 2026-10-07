@@ -1,8 +1,17 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { rooms } from "@/modules/room/room.schema";
 import { type VndString } from "@/shared/money";
 import { contracts, contractTemplates } from "./contract.schema";
+
+export async function listBillableContractsForMotel(motelId: string): Promise<Array<{ id: string; roomId: string; renterId: string; monthlyRent: VndString }>> {
+  return db
+    .select({ id: contracts.id, roomId: contracts.roomId, renterId: contracts.renterId, monthlyRent: contracts.monthlyRent })
+    .from(contracts)
+    .innerJoin(rooms, eq(contracts.roomId, rooms.id))
+    .where(and(eq(rooms.motelId, motelId), eq(contracts.status, "active")))
+    .orderBy(asc(contracts.roomId), asc(contracts.id));
+}
 
 export async function countContractTemplatesForMotel(motelId: string): Promise<number> {
   return db.$count(contractTemplates, eq(contractTemplates.motelId, motelId));

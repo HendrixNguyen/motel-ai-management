@@ -32,6 +32,14 @@ const UNIQUE_VIOLATION = "23505";
 /** SQLSTATE for `foreign_key_violation`. */
 const FOREIGN_KEY_VIOLATION = "23503";
 
+export async function listRoomsForBilling(motelId: string): Promise<Array<{ id: string; name: string }>> {
+  return db
+    .select({ id: rooms.id, name: rooms.name })
+    .from(rooms)
+    .where(eq(rooms.motelId, motelId))
+    .orderBy(asc(rooms.name), asc(rooms.id));
+}
+
 export async function countRoomsForMotel(motelId: string): Promise<number> {
   return db.$count(rooms, eq(rooms.motelId, motelId));
 }

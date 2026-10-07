@@ -1,7 +1,158 @@
-import { desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { type VndString } from "@/shared/money";
-import { billingPeriods, invoices } from "./billing.schema";
+import { billingPeriods, meterReadings, invoices } from "./billing.schema";
+import { resolveOwnedMotel } from "@/middleware/tenancy";
+import { AppError } from "@/shared/errors";
+import { listRoomsForBilling } from "@/modules/room/room.service";
+import { rooms } from "@/modules/room/room.schema";
+import { type BillingPeriodDetailResponse, type BillingPeriodResponse, type CreateBillingPeriodInput, type InvoiceGenerationResponse, type InvoiceResponse, type MeterReadingResponse, type UpdateReadingsInput } from "./billing.types";
+import { listBillableContractsForMotel } from "@/modules/contract/contract.service";
+import { calculateInvoiceAmounts } from "./billing.calculation";
+import { buildTransferDescription, buildVietQrPayload } from "@/modules/vietqr/vietqr.service";
+import { parseMeterValue, formatMeterValue } from "./billing.calculation";
+
+function periodResponse(row: typeof billingPeriods.$inferSelect): BillingPeriodResponse {
+  return { ...row, createdAt: row.createdAt.toISOString() };
+}
+
+export async function listBillingPeriods(motelId: string, managerId: string): Promise<BillingPeriodResponse[]> {
+  await resolveOwnedMotel(motelId, managerId);
+  const rows = await db.query.billingPeriods.findMany({ where: eq(billingPeriods.motelId, motelId), orderBy: [desc(billingPeriods.year), desc(billingPeriods.month), desc(billingPeriods.id)] });
+  return rows.map(periodResponse);
+}
+
+export async function createBillingPeriod(motelId: string, managerId: string, input: CreateBillingPeriodInput): Promise<BillingPeriodDetailResponse> {
+  await resolveOwnedMotel(motelId, managerId);
+  if (input.month < 1 || input.month > 12) throw AppError.badRequest("Tháng không hợp lệ");
+  try {
+    const period = await db.transaction(async (tx) => {
+      const [created] = await tx.insert(billingPeriods).values({ motelId, month: input.month, year: input.year }).returning();
+      if (!created) throw AppError.conflict("Không thể tạo kỳ hóa đơn");
+      const roomRows = await tx.select({ id: rooms.id, name: rooms.name }).from(rooms).where(eq(rooms.motelId, motelId)).orderBy(asc(rooms.name), asc(rooms.id));
+      const roomIds = roomRows.map((room) => room.id);
+      const prior = roomIds.length ? await tx.query.meterReadings.findMany({ where: inArray(meterReadings.roomId, roomIds) }) : [];
+      const values = roomRows.flatMap((room) => (["electric", "water"] as const).map((type) => {
+        const latest = prior.filter((reading) => reading.roomId === room.id && reading.type === type).sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0];
+        return { billingPeriodId: created.id, roomId: room.id, type, previousReading: latest?.currentReading ?? "0.00" };
+      }));
+      if (values.length) await tx.insert(meterReadings).values(values);
+      return created;
+    });
+    return getBillingPeriod(period.id, motelId, managerId);
+  } catch (error) {
+    const driver = ((error as { cause?: { constraint_name?: string } }).cause ?? error) as { constraint_name?: string };
+    if (driver.constraint_name === "billing_periods_motel_month_year_uq") throw AppError.conflict("Kỳ hóa đơn đã tồn tại");
+    throw error;
+  }
+}
+
+export async function getBillingPeriod(periodId: string, motelId: string, managerId: string): Promise<BillingPeriodDetailResponse> {
+  await resolveOwnedMotel(motelId, managerId);
+  const period = await db.query.billingPeriods.findFirst({ where: and(eq(billingPeriods.id, periodId), eq(billingPeriods.motelId, motelId)) });
+  if (!period) throw new Error("billing period not found");
+  const rooms = await listRoomsForBilling(motelId);
+  const readings = await db.query.meterReadings.findMany({ where: eq(meterReadings.billingPeriodId, periodId), orderBy: [asc(meterReadings.type), asc(meterReadings.id)] });
+  return { ...periodResponse(period), rooms: rooms.map((room) => ({ ...room, readings: readings.filter((reading) => reading.roomId === room.id).map((reading) => ({ id: reading.id, roomId: reading.roomId, type: reading.type, previousReading: reading.previousReading, currentReading: reading.currentReading, readingDate: reading.readingDate, updatedAt: reading.updatedAt.toISOString() })) })) };
+}
+
+export async function updateMeterReadings(periodId: string, motelId: string, managerId: string, input: UpdateReadingsInput): Promise<MeterReadingResponse[]> {
+  await resolveOwnedMotel(motelId, managerId);
+  if (!input.readings.length) throw AppError.badRequest("Danh sách chỉ số không được trống");
+  return db.transaction(async (tx) => {
+    const period = await tx.query.billingPeriods.findFirst({ where: and(eq(billingPeriods.id, periodId), eq(billingPeriods.motelId, motelId)) });
+    if (!period) throw AppError.notFound("Không tìm thấy kỳ hóa đơn");
+    if (period.status !== "draft") throw AppError.periodAlreadySent();
+    const rows = await tx.query.meterReadings.findMany({ where: eq(meterReadings.billingPeriodId, periodId) });
+    const seen = new Set<string>();
+    const updates: MeterReadingResponse[] = [];
+    for (const item of input.readings) {
+      const key = `${item.roomId}:${item.type}`;
+      if (seen.has(key)) throw AppError.badRequest("Không được gửi trùng chỉ số công tơ");
+      seen.add(key);
+      const row = rows.find((candidate) => candidate.roomId === item.roomId && candidate.type === item.type);
+      if (!row) throw AppError.notFound("Không tìm thấy chỉ số công tơ");
+      const current = parseMeterValue(item.currentReading);
+      const previous = parseMeterValue(row.previousReading);
+      if (current < previous) throw AppError.badRequest("Chỉ số mới không được nhỏ hơn chỉ số cũ");
+      const expected = new Date(item.expectedUpdatedAt);
+      if (Number.isNaN(expected.getTime())) throw AppError.badRequest("Thời điểm cập nhật không hợp lệ");
+      if (row.updatedAt.getTime() !== expected.getTime() && row.currentReading !== formatMeterValue(current)) {
+        throw AppError.readingConflict({ id: row.id, roomId: row.roomId, type: row.type, previousReading: row.previousReading, currentReading: row.currentReading, readingDate: row.readingDate, updatedAt: row.updatedAt.toISOString() });
+      }
+      const [updated] = await tx.update(meterReadings).set({ currentReading: formatMeterValue(current), photoUrl: item.photoUrl ?? null, readingDate: new Date().toISOString().slice(0, 10), updatedAt: new Date() }).where(eq(meterReadings.id, row.id)).returning();
+      if (!updated) throw AppError.notFound("Không tìm thấy chỉ số công tơ");
+      updates.push({ id: updated.id, roomId: updated.roomId, type: updated.type, previousReading: updated.previousReading, currentReading: updated.currentReading, readingDate: updated.readingDate, updatedAt: updated.updatedAt.toISOString() });
+    }
+    return updates;
+  });
+}
+
+async function invoiceResponse(row: typeof invoices.$inferSelect, roomName: string): Promise<InvoiceResponse> {
+  return { ...row, roomName, paidAt: row.paidAt?.toISOString() ?? null, createdAt: row.createdAt.toISOString() };
+}
+
+export async function listInvoices(periodId: string, motelId: string, managerId: string): Promise<InvoiceResponse[]> {
+  await resolveOwnedMotel(motelId, managerId);
+  const rows = await db.select({ invoice: invoices, roomName: rooms.name }).from(invoices).innerJoin(rooms, eq(invoices.roomId, rooms.id)).where(and(eq(invoices.billingPeriodId, periodId), eq(invoices.motelId, motelId))).orderBy(asc(rooms.name), asc(invoices.id));
+  return Promise.all(rows.map(({ invoice, roomName }) => invoiceResponse(invoice, roomName)));
+}
+
+export async function generateInvoices(periodId: string, motelId: string, managerId: string): Promise<InvoiceGenerationResponse> {
+  const motel = await resolveOwnedMotel(motelId, managerId);
+  return db.transaction(async (tx) => {
+    const period = await tx.query.billingPeriods.findFirst({ where: and(eq(billingPeriods.id, periodId), eq(billingPeriods.motelId, motelId)) });
+    if (!period) throw AppError.notFound("Không tìm thấy kỳ hóa đơn");
+    if (period.status !== "draft") throw AppError.periodAlreadySent();
+    const roomsForBilling = await tx.select({ id: rooms.id, name: rooms.name }).from(rooms).where(eq(rooms.motelId, motelId));
+    const contracts = await listBillableContractsForMotel(motelId);
+    const readings = await tx.query.meterReadings.findMany({ where: eq(meterReadings.billingPeriodId, periodId) });
+    const skippedRooms = roomsForBilling.filter((room) => !contracts.some((contract) => contract.roomId === room.id));
+    const output: InvoiceResponse[] = [];
+    for (const contract of contracts) {
+      const room = roomsForBilling.find((candidate) => candidate.id === contract.roomId);
+      if (!room) continue;
+      const electric = readings.find((reading) => reading.roomId === room.id && reading.type === "electric");
+      const water = readings.find((reading) => reading.roomId === room.id && reading.type === "water");
+      if (!electric?.currentReading || !water?.currentReading) throw AppError.conflict(`Phòng ${room.name} chưa đủ chỉ số`);
+      const amounts = calculateInvoiceAmounts({ electricity: { previous: electric.previousReading, current: electric.currentReading, unitPrice: motel.electricityPrice }, water: { previous: water.previousReading, current: water.currentReading, unitPrice: motel.waterPrice }, rentAmount: contract.monthlyRent, otherFees: motel.otherFees });
+      const bank = motel.bankAccount;
+      if (!bank) throw AppError.conflict("Nhà trọ chưa cấu hình tài khoản nhận tiền");
+      const qrCodeData = buildVietQrPayload({ bankBin: bank.bankCode, accountNumber: bank.accountNumber, amount: amounts.totalAmount, description: buildTransferDescription({ motelName: motel.name, month: period.month, year: period.year, roomName: room.name }) });
+      const [saved] = await tx.insert(invoices).values({ billingPeriodId: periodId, roomId: room.id, renterId: contract.renterId, motelId, rentAmount: amounts.rentAmount, electricityUsage: amounts.electricityUsage, electricityCost: amounts.electricityCost, waterUsage: amounts.waterUsage, waterCost: amounts.waterCost, otherFees: motel.otherFees, totalAmount: amounts.totalAmount, qrCodeData }).onConflictDoUpdate({ target: [invoices.billingPeriodId, invoices.roomId], set: { renterId: contract.renterId, rentAmount: amounts.rentAmount, electricityUsage: amounts.electricityUsage, electricityCost: amounts.electricityCost, waterUsage: amounts.waterUsage, waterCost: amounts.waterCost, otherFees: motel.otherFees, totalAmount: amounts.totalAmount, qrCodeData } }).returning();
+      if (saved) output.push(await invoiceResponse(saved, room.name));
+    }
+    return { invoices: output, details: { skippedRooms } };
+  });
+}
+
+export async function sendBillingPeriod(periodId: string, motelId: string, managerId: string): Promise<BillingPeriodResponse> {
+  await resolveOwnedMotel(motelId, managerId);
+  return db.transaction(async (tx) => {
+    const period = await tx.query.billingPeriods.findFirst({ where: and(eq(billingPeriods.id, periodId), eq(billingPeriods.motelId, motelId)) });
+    if (!period) throw AppError.notFound("Không tìm thấy kỳ hóa đơn");
+    if (period.status !== "draft") throw AppError.periodAlreadySent();
+    const count = await tx.$count(invoices, eq(invoices.billingPeriodId, periodId));
+    if (!count) throw AppError.conflict("Kỳ hóa đơn chưa có hóa đơn");
+    const [updated] = await tx.update(billingPeriods).set({ status: "sent" }).where(eq(billingPeriods.id, periodId)).returning();
+    return periodResponse(updated!);
+  });
+}
+
+async function transitionInvoice(invoiceId: string, motelId: string, managerId: string, status: "paid" | "overdue"): Promise<InvoiceResponse> {
+  await resolveOwnedMotel(motelId, managerId);
+  return db.transaction(async (tx) => {
+    const row = await tx.select({ invoice: invoices, roomName: rooms.name }).from(invoices).innerJoin(rooms, eq(invoices.roomId, rooms.id)).where(and(eq(invoices.id, invoiceId), eq(invoices.motelId, motelId))).limit(1);
+    if (!row[0]) throw AppError.notFound("Không tìm thấy hóa đơn");
+    if (status === "overdue" && row[0].invoice.paymentStatus === "paid") throw AppError.conflict("Hóa đơn đã thanh toán");
+    if (status === "paid" && row[0].invoice.paymentStatus === "paid") return invoiceResponse(row[0].invoice, row[0].roomName);
+    const [updated] = await tx.update(invoices).set({ paymentStatus: status, paidAt: status === "paid" ? new Date() : null }).where(eq(invoices.id, invoiceId)).returning();
+    return invoiceResponse(updated!, row[0].roomName);
+  });
+}
+
+export const markInvoicePaid = (invoiceId: string, motelId: string, managerId: string) => transitionInvoice(invoiceId, motelId, managerId, "paid");
+export const markInvoiceOverdue = (invoiceId: string, motelId: string, managerId: string) => transitionInvoice(invoiceId, motelId, managerId, "overdue");
 
 export async function countBillingPeriodsForMotel(motelId: string): Promise<number> {
   return db.$count(billingPeriods, eq(billingPeriods.motelId, motelId));
