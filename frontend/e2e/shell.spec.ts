@@ -94,7 +94,7 @@ test("logout clears the session through the proxy and returns to login", async (
   await expect(page).toHaveURL("/login");
 });
 
-test("mobile navigation contains four reachable destinations and a labelled secondary menu", async ({ page, context }) => {
+test("mobile navigation contains five reachable destinations and a labelled secondary menu", async ({ page, context }) => {
   await signIn(context);
   await page.goto(`/?motel=${MOTEL.id}`);
   const nav = page.getByRole("navigation", { name: "Điều hướng chính trên điện thoại" });

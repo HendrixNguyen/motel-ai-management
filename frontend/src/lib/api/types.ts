@@ -189,6 +189,73 @@ export interface RoomResponse {
 }
 
 /* -------------------------------------------------------------------------- */
+/* Billing — backend/src/modules/billing/billing.types.ts                       */
+/* -------------------------------------------------------------------------- */
+
+export type BillingPeriodStatus = "draft" | "sent" | "closed";
+export type MeterType = "electric" | "water";
+export type PaymentStatus = "unpaid" | "paid" | "overdue";
+
+export interface BillingPeriodResponse {
+  id: string;
+  motelId: string;
+  month: number;
+  year: number;
+  status: BillingPeriodStatus;
+  createdAt: string;
+}
+
+export interface MeterReadingResponse {
+  id: string;
+  roomId: string;
+  type: MeterType;
+  previousReading: string;
+  currentReading: string | null;
+  readingDate: string | null;
+  updatedAt: string;
+}
+
+export interface BillingPeriodDetailResponse extends BillingPeriodResponse {
+  rooms: Array<{ id: string; name: string; readings: MeterReadingResponse[] }>;
+}
+
+export interface UpdateReadingInput {
+  roomId: string;
+  type: MeterType;
+  currentReading: string;
+  expectedUpdatedAt: string;
+}
+
+export interface UpdateReadingsInput {
+  readings: UpdateReadingInput[];
+}
+
+export interface InvoiceResponse {
+  id: string;
+  billingPeriodId: string;
+  roomId: string;
+  roomName: string;
+  renterId: string;
+  motelId: string;
+  rentAmount: VndString;
+  electricityUsage: string;
+  electricityCost: VndString;
+  waterUsage: string;
+  waterCost: VndString;
+  otherFees: MotelFeeInput[];
+  totalAmount: VndString;
+  qrCodeData: string | null;
+  paymentStatus: PaymentStatus;
+  paidAt: string | null;
+  createdAt: string;
+}
+
+export interface InvoiceGenerationResponse {
+  invoices: InvoiceResponse[];
+  details: { skippedRooms: Array<{ id: string; name: string }> };
+}
+
+/* -------------------------------------------------------------------------- */
 /* Renters — backend/src/modules/renter/renter.types.ts                         */
 /* -------------------------------------------------------------------------- */
 

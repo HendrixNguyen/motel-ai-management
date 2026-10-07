@@ -158,9 +158,13 @@ the same API the desktop uses, which is why both paths can coexist on one unique
 
 | Server state | Response | Notes |
 |--------------|----------|-------|
-| `expectedUpdatedAt` matches, or `currentReading` already equals the submitted value | row accepted, `updatedAt` bumped | Equal-value case makes a retried queued write idempotent without a key column |
+| `expectedUpdatedAt` matches | row accepted, `updatedAt` bumped | Any stale timestamp conflicts, including equal values; client must refresh and re-enter |
 | `expectedUpdatedAt` stale and value differs | `409 READING_CONFLICT`, `details.server` = current row | Client flags **Cần kiểm tra**; manager re-enters. Last write never silently wins |
 | Period is no longer `draft` | `409 PERIOD_ALREADY_SENT` | Client switches the whole capture session read-only |
+
+The current billing API accepts optional `photoUrl` input for compatibility, but does not expose photo fields in responses. Photo upload and signed URL delivery are deferred until the upload service exists.
+
+All billing errors use `{error, code, details?}`. `409 READING_CONFLICT` includes `details.server`; invoice generation may include `details.skippedRooms`. `POST /send` changes period status to `sent` only and sends no notification.
 
 `photoUrl` is an R2 **object key**, not a public URL. Responses expose short-lived signed
 URLs instead; a stored key is never a capability. Photos upload independently of the

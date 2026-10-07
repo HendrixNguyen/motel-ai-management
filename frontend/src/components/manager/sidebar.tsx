@@ -6,6 +6,7 @@ const destinations = [
   { href: "/motels", label: "Nhà trọ" },
   { href: "/rooms", label: "Phòng trọ" },
   { href: "/renters", label: "Khách thuê" },
+  { href: "/billing", label: "Tính tiền & Hóa đơn" },
 ] as const;
 
 /** A Server Component: the four supported destinations are defined in one place. */
@@ -20,7 +21,7 @@ export default function Sidebar() {
           </Suspense>
         </nav>
       </aside>
-      <nav aria-label="Điều hướng chính trên điện thoại" className="fixed inset-x-0 bottom-0 z-20 grid grid-cols-4 gap-2 border-t border-border bg-surface px-2 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] lg:hidden">
+      <nav aria-label="Điều hướng chính trên điện thoại" className="fixed inset-x-0 bottom-0 z-20 grid grid-cols-5 gap-1 border-t border-border bg-surface px-2 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] lg:hidden">
         <Suspense fallback={<p role="status" className="col-span-4">Đang tải điều hướng…</p>}>
           {destinations.map(({ href, label }) => <NavigationLink key={href} href={href} compact>{label}</NavigationLink>)}
         </Suspense>
