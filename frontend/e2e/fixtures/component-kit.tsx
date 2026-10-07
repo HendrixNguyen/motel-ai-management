@@ -25,6 +25,7 @@ function Kit() {
     <Modal open={modal} onClose={() => setModal(false)} title="Sửa phòng" description="Kiểm tra thông tin trước khi lưu">
       <label>Tên phòng<input className="min-h-11 w-full border border-border-strong" /></label>
       <Button onClick={() => setModal(false)}>Lưu phòng</Button>
+      <fieldset disabled><Button>Không khả dụng</Button></fieldset>
     </Modal>
     <Drawer open={drawer} onClose={() => setDrawer(false)} title="Chi tiết khách thuê"><p>Nguyễn Thị Ánh Hồng</p></Drawer>
     <CopyButton value="https://example.test/r/token" />

@@ -39,3 +39,8 @@
   --radius-input: 8px;
   --radius-card: 12px;
 }
+
+/* Keep keyboard focus paint clear of viewport edges and the fixed mobile navigation. */
+:where(a, button, input, select, textarea, summary):focus-visible {
+  scroll-margin: 6rem 1rem;
+}

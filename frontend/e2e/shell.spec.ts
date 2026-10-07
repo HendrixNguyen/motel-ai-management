@@ -27,7 +27,7 @@ test("401 login errors are inline Vietnamese text and keep the form", async ({ p
   await page.getByLabel("Email", { exact: true }).fill(MANAGER_ME.email);
   await page.getByLabel("Mật khẩu", { exact: true }).fill("wrong-password");
   await page.getByRole("button", { name: "Đăng nhập", exact: true }).click();
-  await expect(page.getByRole("alert")).toContainText("Email hoặc mật khẩu không đúng");
+  await expect(page.locator('[role="alert"]:not(#__next-route-announcer__)')).toContainText("Email hoặc mật khẩu không đúng");
   await expect(page).toHaveURL("/login");
 });
 
@@ -101,7 +101,9 @@ test("mobile navigation contains four reachable destinations and a labelled seco
   await expect(nav.getByRole("link")).toHaveCount(4);
   await expect(page.getByText("Menu phụ", { exact: true })).toBeVisible();
   for (const [name, path] of [["Nhà trọ", "/motels"], ["Phòng trọ", "/rooms"], ["Khách thuê", "/renters"], ["Tổng quan", "/"]]) {
-    await nav.getByRole("link", { name, exact: true }).click();
+    const link = nav.getByRole("link", { name, exact: true });
+    await link.focus();
+    await link.press("Enter");
     await expect(page.getByRole("heading", { name, exact: true })).toBeVisible();
     await expect(page).toHaveURL(`${path}?motel=${MOTEL.id}`);
   }

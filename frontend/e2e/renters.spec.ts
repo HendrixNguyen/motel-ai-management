@@ -64,8 +64,9 @@ for (const [status, code] of [[404, "NOT_FOUND"], [429, "RATE_LIMITED"], [500, "
     await page.goto(`/renters/${RENTER.id}?motel=${MOTEL.id}`);
     const action = page.getByRole("button", { name: "Tạo magic link", exact: true });
     await action.click();
-    await expect(page.getByRole("alert")).toBeFocused();
-    await expect(page.getByRole("alert")).toContainText(status === 500 ? "Đã xảy ra lỗi hệ thống" : "Chưa thể tạo liên kết");
+    const alert = page.locator('[role="alert"]:not(#__next-route-announcer__)');
+    await expect(alert).toBeFocused();
+    await expect(alert).toContainText(status === 500 ? "Đã xảy ra lỗi hệ thống" : "Chưa thể tạo liên kết");
     await expect(page.getByLabel("Magic link", { exact: true })).toHaveCount(0);
     await action.click();
     await expect.poll(() => attempts).toBe(2);

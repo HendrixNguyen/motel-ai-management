@@ -12,7 +12,7 @@ export default function CopyButton({ value, label = "Sao chép" }: { value: stri
         try { await navigator.clipboard.writeText(value); setStatus("copied"); }
         catch { setStatus("error"); }
       }}>{label}</Button>
-      <p role="status" className={`text-sm ${status === "error" ? "text-danger" : "text-success"}`}>
+      <p role="status" className={`min-h-5 text-sm ${status === "error" ? "text-danger" : "text-success"}`}>
         {status === "copied" ? "Đã sao chép" : status === "error" ? "Không thể sao chép. Hãy chọn và sao chép nội dung thủ công." : ""}
       </p>
     </div>

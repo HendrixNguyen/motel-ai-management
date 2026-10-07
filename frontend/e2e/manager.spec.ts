@@ -152,7 +152,7 @@ test("a Server Component 500 renders retry guidance without showing private back
   await signIn(context, "rooms-error");
   await page.goto(`/?motel=${MOTEL.id}`);
   await expect(page.getByRole("heading", { name: "Không thể tải nội dung", exact: true })).toBeVisible();
-  await expect(page.getByRole("alert")).not.toContainText("private database host");
+  await expect(page.locator('[role="alert"]:not(#__next-route-announcer__)')).not.toContainText("private database host");
   await keyboardActivate(page, page.getByRole("button", { name: "Thử lại", exact: true }));
   await expect(page.getByRole("heading", { name: "Không thể tải nội dung", exact: true })).toBeVisible();
   await noPageOverflow(page);
@@ -178,7 +178,13 @@ for (const [title, path] of [["Tổng quan", "/"], ["Nhà trọ", "/motels"], ["
     await expect(page.getByRole("heading", { name: title, exact: true })).toBeVisible();
     const selector = 'a[href], button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), summary';
     const actions = page.locator(selector);
-    const indices = await actions.evaluateAll((elements) => elements.flatMap((element, index) => element.getClientRects().length && getComputedStyle(element).visibility !== "hidden" ? [index] : []));
+    const indices = await actions.evaluateAll((elements) => elements.flatMap((element, index) => {
+      const closedDetails = element.closest("details:not([open])");
+      const collapsed = closedDetails && element !== closedDetails.querySelector("summary");
+      return element.getClientRects().length && getComputedStyle(element).visibility !== "hidden"
+        && !collapsed && !element.closest("nextjs-portal")
+        && element.getAttribute("aria-label") !== "Open Next.js Dev Tools" ? [index] : [];
+    }));
     const remaining = new Set(indices);
     for (let step = 0; step < indices.length * 3 && remaining.size; step += 1) {
       await page.keyboard.press("Tab");
@@ -186,6 +192,7 @@ for (const [title, path] of [["Tổng quan", "/"], ["Nhà trọ", "/motels"], ["
       if (!remaining.has(index)) continue;
       remaining.delete(index);
       const focused = actions.nth(index);
+      const focusedLabel = (await focused.getAttribute("aria-label")) ?? (await focused.innerText());
       const geometry = await focused.evaluate((element: HTMLElement) => {
         const rect = element.getBoundingClientRect();
         const style = getComputedStyle(element);
@@ -212,12 +219,16 @@ for (const [title, path] of [["Tổng quan", "/"], ["Nhà trọ", "/motels"], ["
           obscured: covers.some((cover) => cover.width > 0 && painted.left < cover.right && painted.right > cover.left && painted.top < cover.bottom && painted.bottom > cover.top),
           clipped, ring: paintExtent > 0 };
       });
-      expect(geometry.visible).toBe(true);
-      expect(geometry.obscured).toBe(false);
-      expect(geometry.clipped).toBe(false);
-      expect(geometry.ring).toBe(true);
+      expect(geometry.visible, `${focusedLabel} focus paint is outside the viewport`).toBe(true);
+      expect(geometry.obscured, `${focusedLabel} focus is covered by fixed chrome`).toBe(false);
+      expect(geometry.clipped, `${focusedLabel} focus paint is clipped`).toBe(false);
+      expect(geometry.ring, `${focusedLabel} has no visible focus indicator`).toBe(true);
     }
-    expect([...remaining], "actions unreachable by Tab").toEqual([]);
+    const unreachable = await Promise.all([...remaining].map(async (index) => ({
+      index,
+      label: (await actions.nth(index).getAttribute("aria-label")) ?? (await actions.nth(index).innerText()),
+    })));
+    expect(unreachable, "actions unreachable by Tab").toEqual([]);
     await noPageOverflow(page);
   });
 }

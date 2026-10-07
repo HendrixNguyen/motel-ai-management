@@ -14,7 +14,7 @@ test.beforeAll(() => {
 });
 
 test.beforeEach(async ({ page }) => {
-  await page.route("**/__component-kit", (route) => route.fulfill({ contentType: "text/html", body: html }));
+  await page.route("**/__component-kit", (route) => route.fulfill({ contentType: "text/html; charset=utf-8", body: html }));
   await page.goto("/__component-kit");
 });
 

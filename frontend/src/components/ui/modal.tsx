@@ -19,6 +19,24 @@ export function Dialog({ open, onClose, title, description, children, footer, dr
 
   return (
     <dialog ref={ref} aria-labelledby={`${id}-title`} aria-describedby={description ? `${id}-description` : undefined}
+      onKeyDown={(event) => {
+        if (event.key !== "Tab") return;
+        const dialog = ref.current;
+        if (!dialog) return;
+        const controls = Array.from(dialog.querySelectorAll<HTMLElement>(
+          'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        )).filter((control) => control.getClientRects().length > 0 && !control.matches(":disabled") && control.tabIndex >= 0);
+        const first = controls[0];
+        const last = controls.at(-1);
+        if (!first || !last) return;
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault();
+          last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
+          first.focus();
+        }
+      }}
       onClose={() => { if (!ref.current?.open) onClose(); }}
       className={`max-h-dvh w-full overflow-y-auto overscroll-contain border border-border bg-surface p-0 text-text-body shadow-xl backdrop:bg-text/40 ${drawer ? "fixed inset-y-0 right-0 left-auto m-0 h-dvh max-w-lg" : "m-auto max-w-lg rounded-card"}`}>
       <div className="flex items-start justify-between gap-3 border-b border-border p-4">
