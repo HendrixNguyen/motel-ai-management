@@ -61,6 +61,12 @@ export class AppError extends Error {
   static conflict(message: string, details?: Record<string, unknown>) {
     return new AppError("CONFLICT", message, details);
   }
+  static readingConflict(server: Record<string, unknown>) {
+    return new AppError("READING_CONFLICT", "Dữ liệu công tơ đã thay đổi, vui lòng tải lại.", { server });
+  }
+  static periodAlreadySent() {
+    return new AppError("PERIOD_ALREADY_SENT", "Kỳ hóa đơn đã gửi và không thể thay đổi.");
+  }
   static rateLimited(message: string, retryAfterSeconds: number) {
     return new AppError("RATE_LIMITED", message, { retryAfterSeconds });
   }
