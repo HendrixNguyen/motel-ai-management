@@ -55,7 +55,7 @@ form-level message; it cannot attribute the failure to a field.
 
 ### Renter signing — `/api/renter/contracts/:contractId`
 
-Renter session JWT and cookie expire after 24 hours. Renter routes are singular only where the resource itself is singular: `/renter/contract` for latest contract and `/renter/contracts/:contractId` for one contract.
+Renter session JWT and cookie expire after 24 hours. API routes use `/api/renter/contract` for latest contract and `/api/renter/contracts/:contractId` for one contract. Frontend canonical routes use `/portal/contract`; legacy `/renter/home`, `/renter/contract`, and `/renter/tickets` are removed.
 
 | Method | Path | Body | Returns |
 | --- | --- | --- | --- |

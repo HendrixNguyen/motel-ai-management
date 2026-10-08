@@ -1,6 +1,9 @@
 # Task 7 report
 
 ## Status
+Final Task 7 cleanup: anonymous `/renter` exchange preserved, authenticated legacy pages removed, canonical `/portal` retained, contract docs reconciled.
+
+## Latest verification
 Final Task 7 UX/docs pass: server-only transport guard, canonical legacy redirect, consent confirmation, ticket success/error messaging, and corrected logout contract.
 
 ## Latest verification
@@ -17,6 +20,9 @@ Canonical portal/API review pass implemented; backend DB and fixture E2E remain 
 - Added `renter.server.test.ts`; frontend 37 files/360 tests pass.
 - Renter E2E passes: 2/2 at 375px, including canonical period → invoice detail, QR/detail fields, expiry, and no overflow.
 - Backend typecheck passes.
+- Frontend full gates: typecheck/build pass; Vitest 37 files/360 tests pass; lint 0 errors/3 image warnings.
+- Renter E2E: 2/2 pass at 375px.
+- Backend renter DB tests attempted; blocked by unavailable DB (`Failed query`).
 
 ## Latest verification
 Implemented renter portal frontend and backend renter session/detail support. Review findings addressed.

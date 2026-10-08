@@ -1,7 +1,0 @@
-import { listRenterPeriods } from "@/lib/api/renter";
-import Link from "next/link";
-
-export default async function RenterHomePage() {
-  const periods = await listRenterPeriods();
-  return <section className="space-y-6"><div><h1 className="font-heading text-2xl font-bold text-text">Hóa đơn của tôi</h1><p className="mt-2 text-base text-text-muted">Chọn kỳ để xem chi tiết tiền thuê và chỉ số.</p></div>{periods.length ? <div className="space-y-3">{periods.map((period) => <Link key={period.id} href={`/renter/billing/${period.id}`} className="block min-h-11 rounded-card border border-border p-4 focus-visible:outline-2 focus-visible:outline-primary"><span className="font-semibold text-text">Tháng {String(period.month).padStart(2, "0")}/{period.year}</span><span className="mt-1 block text-sm text-text-muted">{period.status === "draft" ? "Đang lập" : period.status === "sent" ? "Đã gửi" : "Đã đóng"}</span></Link>)}</div> : <p className="rounded-card border border-border p-5 text-text-muted">Chưa có hóa đơn.</p>}<nav className="flex flex-wrap gap-3 border-t border-border pt-4"><Link className="min-h-11 rounded-input border border-border-strong px-4 py-2.5 font-semibold text-primary" href="/renter/contract">Hợp đồng</Link><Link className="min-h-11 rounded-input border border-border-strong px-4 py-2.5 font-semibold text-primary" href="/renter/tickets">Báo sự cố</Link></nav></section>;
-}
