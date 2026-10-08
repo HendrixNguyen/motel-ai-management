@@ -30,11 +30,11 @@ test("full flow covers capture save, invoice QR, OTP contract, payment state, an
   await expect(page).toHaveURL(/\/portal\/bills\/invoice/);
   await page.goto("/portal/tickets");
   await expect(page.getByRole("heading", { name: "Báo sự cố" })).toBeVisible();
-  await page.route("**/api/renter/contract", (route) => route.fulfill({ json: { id: "contract", status: "draft", monthlyRent: "3500000", startDate: "2026-10-01", endDate: "2027-09-30", clauses: [{ title: "Điều khoản", content: "Nội dung" }], otpSignedAt: null } }));
+  let contractReads = 0;
+  await page.route("**/api/renter/contract", (route) => { contractReads += 1; return route.fulfill({ json: { id: "contract", status: contractReads > 1 ? "active" : "draft", monthlyRent: "3500000", startDate: "2026-10-01", endDate: "2027-09-30", clauses: [{ title: "Điều khoản", content: "Nội dung" }], otpSignedAt: contractReads > 1 ? "2026-10-01T00:01:00.000Z" : null } }); });
   let verifyPayload: Record<string, unknown> | undefined;
   await page.route("**/api/renter/contracts/*/sign-request", (route) => route.fulfill({ json: { sentAt: "2026-10-01T00:00:00.000Z" } }));
   await page.route("**/api/renter/contracts/*/verify", async (route) => { verifyPayload = await route.request().postDataJSON(); await route.fulfill({ json: { otpSignedAt: "2026-10-01T00:01:00.000Z", status: "active" } }); });
-  await page.route("**/api/renter/contract", (route) => route.fulfill({ json: { id: "contract", status: "draft", monthlyRent: "3500000", startDate: "2026-10-01", endDate: "2027-09-30", clauses: [{ title: "Điều khoản", content: "Nội dung" }], otpSignedAt: null } }));
   await page.goto("/portal/contract");
   await page.getByLabel(/đồng ý/).check();
   await page.getByRole("button", { name: "Gửi mã OTP" }).click();
@@ -43,8 +43,11 @@ test("full flow covers capture save, invoice QR, OTP contract, payment state, an
   await page.getByRole("button", { name: "Xác nhận ký" }).click();
   await expect(page.getByText("Đã ký hợp đồng.")).toBeVisible();
   expect(verifyPayload).toEqual({ otp: "123456" });
-  await expect(page.getByRole("button", { name: "Xác nhận ký" })).toBeEnabled();
-  await expect(page.getByText("Đã ký hợp đồng.")).toBeVisible();
+  await expect(page).toHaveURL(/\/portal\/contract/);
+  await page.reload();
+  await expect(page.getByText(/Đang hiệu lực|Chờ ký/)).toBeVisible();
+  await expect(page.getByRole("button", { name: "Xác nhận ký" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Gửi mã OTP" })).toHaveCount(0);
   await page.route("**/api/renter/tickets", async (route) => { if (route.request().method() === "POST") { ticketPayload = await route.request().postDataJSON(); await route.fulfill({ status: 201, json: { id: "ticket-new", category: "electricity", description: "Điện chập chờn trong phòng", status: "open", createdAt: "2026-10-08T00:00:00.000Z" } }); } else await route.fulfill({ json: [] }); });
   await page.goto("/portal/tickets");
   await page.getByLabel("Mô tả").fill("Điện chập chờn trong phòng");
