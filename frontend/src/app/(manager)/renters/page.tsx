@@ -6,18 +6,18 @@ import MotelEditor from "@/components/manager/motel-editor";
 import RenterTable from "@/components/manager/renter-table";
 import RenterEditor from "@/components/manager/renter-editor";
 import { resolveMotelId, type MotelSearchParams } from "@/lib/motel-selection";
+import PageHeader from "@/components/ui/page-header";
 
 export default async function Renters({ searchParams }: { searchParams: Promise<MotelSearchParams> }) {
   const motels = await listMotels();
   const params = await searchParams;
   const motelId = resolveMotelId(motels, params);
-  if (!motelId) return <section className="space-y-6"><h1 className="font-heading text-2xl font-bold text-text">Khách thuê</h1><MotelEditor empty /></section>;
+  if (!motelId) return <section className="space-y-6"><PageHeader title="Khách thuê" description="Thông tin liên hệ, phòng thuê và hồ sơ của khách thuê." /><MotelEditor empty /></section>;
   const roomId = typeof params.roomId === "string" && params.roomId ? params.roomId : undefined;
   const [renters, rooms] = await Promise.all([listRenters(motelId, roomId ? { roomId } : {}), listRooms(motelId)]);
   const roomNames = Object.fromEntries(rooms.map((room) => [room.id, room.name]));
   return <section className="min-w-0 space-y-6">
-    <div><h1 className="font-heading text-2xl font-bold text-text">Khách thuê</h1>
-      <p className="mt-2 max-w-prose text-base text-text-muted">Thông tin liên hệ, phòng thuê và hồ sơ của khách thuê.</p></div>
+    <PageHeader title="Khách thuê" description="Thông tin liên hệ, phòng thuê và hồ sơ của khách thuê." />
     <RenterEditor key={motelId} motelId={motelId} rooms={rooms} initiallyOpen={params.create === "1"} />
     {roomId && <div className="flex min-w-0 flex-wrap items-center gap-3 text-base text-text-body">
       <p className="[overflow-wrap:anywhere]">Phòng: {roomNames[roomId] ?? "Chưa cập nhật"}</p>
