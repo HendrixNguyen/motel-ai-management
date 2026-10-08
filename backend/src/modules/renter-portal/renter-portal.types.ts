@@ -28,6 +28,9 @@ export interface RenterPeriod {
 }
 
 export interface RenterInvoice {
+  bankAccount?: { bankCode: string; accountNumber: string; accountName: string } | null;
+  transferDescription?: string;
+  meterPhotos?: Array<{ type: "electric" | "water"; signedUrl: string; capturedAt: string | null }>;
   id: string;
   billingPeriodId: string;
   month: number;

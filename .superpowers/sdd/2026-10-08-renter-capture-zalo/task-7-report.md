@@ -1,7 +1,14 @@
 # Task 7 report
 
 ## Status
+Canonical portal/API review pass implemented; backend DB and fixture E2E remain environment-blocked.
+
+## Latest verification
 Implemented renter portal frontend and backend renter session/detail support. Review findings addressed.
+- Added `/api/renter/invoices/:invoiceId`, expanded projection, tenant filtering, logout runtime route, canonical `/portal` tree, and removed legacy renter billing route.
+- Frontend gates: typecheck pass, lint 0 errors/3 image warnings, build pass, Vitest 36 files/359 tests pass.
+- Backend typecheck pass; renter DB tests fail `Failed query` because test DB unavailable.
+- Focused renter E2E still fails fixture backend/RSC session setup.
 
 ## Delivered
 - Magic-link exchange at `/r/[token]` with expiry-safe error state; documented `/portal` route aliases.

@@ -22,6 +22,7 @@ function periodResponse(row: typeof billingPeriods.$inferSelect): BillingPeriodR
 }
 
 export interface RenterInvoiceProjection { id: string; billingPeriodId: string; month: number; year: number; roomId: string; roomName: string; rentAmount: string; electricityUsage: string; electricityCost: string; waterUsage: string; waterCost: string; otherFees: unknown[]; totalAmount: string; qrCodeData: string | null; paymentStatus: "unpaid" | "paid" | "overdue"; paidAt: string | null; createdAt: string }
+export interface RenterInvoiceDetailProjection extends RenterInvoiceProjection { bankAccount: { bankCode: string; accountNumber: string; accountName: string } | null; transferDescription: string; meterPhotos: Array<{ type: "electric" | "water"; signedUrl: string; capturedAt: string | null }> }
 
 export async function hasRenterInvoicePeriod(renterId: string, motelId: string, periodId: string): Promise<boolean> {
   const row = await db.select({ id: invoices.id }).from(invoices).innerJoin(billingPeriods, and(eq(billingPeriods.id, invoices.billingPeriodId), eq(billingPeriods.motelId, motelId))).where(and(eq(invoices.renterId, renterId), eq(invoices.motelId, motelId), eq(invoices.billingPeriodId, periodId))).limit(1);

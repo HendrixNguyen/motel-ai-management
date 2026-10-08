@@ -98,3 +98,21 @@ describe("renter portal reads", () => {
     expect(await db.query.invoices.findFirst({ where: eq(invoices.id, data.invoiceA.id) })).toMatchObject({ paymentStatus: "unpaid" });
   });
 });
+
+
+test("returns expanded own invoice detail and hides foreign invoice", async () => {
+  const data = await seed();
+  const cookie = await sessionCookie(data.renterA.id);
+  const response = await app.handle(new Request(`/api/renter/invoices/${data.invoiceA.id}`, { headers: { cookie } }));
+  expect(response.status).toBe(200);
+  expect(await response.json()).toMatchObject({ id: data.invoiceA.id, bankAccount: { accountNumber: "123456" }, transferDescription: expect.any(String), meterPhotos: [] });
+  const foreign = await app.handle(new Request(`/api/renter/invoices/${data.invoiceA.id}`, { headers: { cookie: await sessionCookie(data.renterB.id) } }));
+  expect(foreign.status).toBe(404);
+});
+
+test("clears renter cookie on logout", async () => {
+  const data = await seed();
+  const response = await app.handle(new Request("/api/renter/logout", { method: "POST", headers: { cookie: await sessionCookie(data.renterA.id) } }));
+  expect(response.status).toBe(204);
+  expect(response.headers.get("set-cookie")).toContain("renter_session=");
+});
