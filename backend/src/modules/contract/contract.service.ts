@@ -289,6 +289,11 @@ const OTP_COOLDOWN_MS = 5 * 60 * 1000;
 const MAX_OTP_ATTEMPTS = 3;
 
 type OtpGenerator = () => string | Promise<string>;
+type OtpSender = (input: { contractId: string; renterId: string; motelId: string; otp: string; expiresAt: string }) => Promise<void>;
+let renterOtpSender: OtpSender = async ({ contractId, renterId, motelId, otp, expiresAt }) => {
+  await enqueueNotification({ eventKey: `contract:${contractId}:otp:${expiresAt}`, renterId, motelId, templateId: "otp", payload: { contractId, expiresAt, otp: "[REDACTED]" }, transientSecret: { otp } });
+};
+export function setRenterOtpSender(sender: OtpSender | undefined): void { renterOtpSender = sender ?? (async ({ contractId, renterId, motelId, otp, expiresAt }) => { await enqueueNotification({ eventKey: `contract:${contractId}:otp:${expiresAt}`, renterId, motelId, templateId: "otp", payload: { contractId, expiresAt, otp: "[REDACTED]" }, transientSecret: { otp } }); }); }
 
 function generateOtp() {
   return randomInt(0, 1_000_000).toString().padStart(6, "0");
@@ -326,8 +331,8 @@ export async function requestContractOtp(contractId: string, renterId: string, m
     return { row, previous: current };
   });
    try {
-     await enqueueNotification({ eventKey: `contract:${contractId}:otp:${now.toISOString()}`, renterId, motelId, templateId: "otp", payload: { contractId, expiresAt: expires.toISOString(), otp: "[REDACTED]" }, transientSecret: { otp } });
-   } catch {
+      await renterOtpSender({ contractId, renterId, motelId, otp, expiresAt: expires.toISOString() });
+    } catch {
      await db.update(contracts).set({ otpHash: staged.previous.otpHash, otpSentAt: staged.previous.otpSentAt, otpExpiresAt: staged.previous.otpExpiresAt, otpAttempts: staged.previous.otpAttempts }).where(and(eq(contracts.id, contractId), eq(contracts.otpHash, hash), eq(contracts.otpSentAt, now), eq(contracts.otpExpiresAt, expires)));
      throw new AppError("EXTERNAL_SERVICE_ERROR", "Không thể gửi mã xác thực");
    }
