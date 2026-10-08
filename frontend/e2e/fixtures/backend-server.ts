@@ -8,7 +8,7 @@ export function createFixtureBackend(onMissingFixture: (failure: Error) => void 
   queueMicrotask(() => { throw failure; });
 }) {
   const states = new Map<string, { motels: MotelResponse[]; rooms: RoomResponse[]; renters: RenterResponse[] }>();
-  const signedRenters = new Set<string>();
+  const signedRenters = new Map<string, string>();
   const stateFor = (session: string) => {
     if (!states.has(session)) states.set(session, {
       motels: session.startsWith("no-motels") ? [] : structuredClone([MOTEL, MOTEL_WITHOUT_EXTRAS]),
@@ -20,7 +20,7 @@ export function createFixtureBackend(onMissingFixture: (failure: Error) => void 
     const url = new URL(request.url ?? "/", "http://127.0.0.1:3002");
     const path = url.pathname;
     const method = request.method;
-    const session = /(?:^|;\s*)manager_session=([^;]+)/.exec(request.headers.cookie ?? "")?.[1];
+    const session = /(?:^|;\s*)(?:manager_session|renter_session)=([^;]+)/.exec(request.headers.cookie ?? "")?.[1] ?? "anonymous";
     const json = (body: unknown, status = 200) => {
       response.writeHead(status, { "content-type": "application/json" }); response.end(JSON.stringify(body));
     };
@@ -49,9 +49,9 @@ export function createFixtureBackend(onMissingFixture: (failure: Error) => void 
         if (method === "GET" && path === "/api/renter/billing/periods") return json([{ id: "period", month: 10, year: 2026, status: "sent", createdAt: "2026-10-01T00:00:00.000Z" }]);
         if (method === "GET" && path.match(/^\/api\/renter\/billing\/periods\/[^/]+\/invoices$/)) return json([{ id: "invoice", billingPeriodId: "period", month: 10, year: 2026, roomId: "room", roomName: "P.101", rentAmount: "3500000", electricityUsage: "20.00", electricityCost: "70000", waterUsage: "3.00", waterCost: "45000", otherFees: [{ name: "Vệ sinh", amount: "50000" }], totalAmount: "3665000", qrCodeData: "000201010212", paymentStatus: "unpaid", paidAt: null, createdAt: "2026-10-01T00:00:00.000Z" }]);
         if (method === "GET" && path.match(/^\/api\/renter\/invoices\/[^/]+$/)) return json({ id: "invoice", billingPeriodId: "period", month: 10, year: 2026, roomId: "room", roomName: "P.101", rentAmount: "3500000", electricityUsage: "20.00", electricityCost: "70000", waterUsage: "3.00", waterCost: "45000", otherFees: [{ name: "Vệ sinh", amount: "50000" }], totalAmount: "3665000", qrCodeData: "000201010212", paymentStatus: "unpaid", paidAt: null, createdAt: "2026-10-01T00:00:00.000Z" });
-        if (path === "/api/renter/contracts/contract/verify" && method === "POST") { signedRenters.add("renter"); return json({ otpSignedAt: new Date().toISOString(), status: "active" }); }
-         if (path === "/api/renter/contract" && method === "GET") return json({ id: "contract", status: signedRenters.has("renter") ? "active" : "draft", monthlyRent: "3500000", startDate: "2026-10-01", endDate: "2027-09-30", clauses: [{ title: "Điều khoản", content: "Nội dung" }], otpSignedAt: null });
-         if (path === "/api/renter/tickets" && method === "GET") return json([]);
+        if (path === "/api/renter/contracts/contract/verify" && method === "POST") { const otpSignedAt = new Date().toISOString(); signedRenters.set(session, otpSignedAt); return json({ otpSignedAt, status: "active" }); }
+        if (path === "/api/renter/contract" && method === "GET") { const otpSignedAt = signedRenters.get(session) ?? null; return json({ id: "contract", status: otpSignedAt ? "active" : "draft", monthlyRent: "3500000", startDate: "2026-10-01", endDate: "2027-09-30", clauses: [{ title: "Điều khoản", content: "Nội dung" }], otpSignedAt }); }
+        if (path === "/api/renter/tickets" && method === "GET") return json([]);
         if (path === "/api/renter/tickets" && method === "POST") return json({ id: "ticket", category: "water", description: "Nước bị rò rỉ trong phòng", status: "open", createdAt: new Date().toISOString() }, 201);
       }
       if (!session) return unauthorized();
