@@ -14,9 +14,9 @@ Implemented renter portal read APIs and session-scoped DTOs.
 
 ## Verification
 - `bun run typecheck`: passed.
-- `bun test src/test/renter-portal.test.ts`: blocked/fails before assertions because test DB reset migration attempts to add existing `contracts.otp_sent_at` (`42701 column already exists`).
-- `bun test --max-concurrency=1 src/test/renter-portal.test.ts`: same migration failure.
-- `bun test` with `SKIP_DB_RESET=1`: database connection/query unavailable in current environment.
+- `bun test src/test/renter-portal.test.ts`: blocked before assertions because test DB reset migration attempts to add existing `contracts.otp_sent_at` (`42701 column already exists`).
+- `bun test --max-concurrency=1 src/test/renter-auth.test.ts` with `SKIP_DB_RESET=1`: blocked because test schema is absent (`42P01 relation managers does not exist`).
+- `bun run typecheck`: passed.
 
 ## Findings fixed
 - Portal now consumes renter, motel, room, billing, and invoice projections through owning services; direct cross-module schema reads removed from portal service.
