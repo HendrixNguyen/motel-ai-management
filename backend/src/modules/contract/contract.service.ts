@@ -1,6 +1,6 @@
 import { and, asc, desc, eq, sql } from "drizzle-orm";
 import { randomInt } from "node:crypto";
-import { db } from "@/db";
+import { db, type Db } from "@/db";
 import {
   resolveOwnedMotel,
   resolveRoomInMotel,
@@ -378,7 +378,9 @@ export async function listExpiringContracts(now: Date, until: Date, windowDays: 
   return rows.map((contract) => ({ id: contract.id, renterId: contract.renterId, motelId: contract.motelId, endDate: contract.endDate, eventKey: `contract:${contract.id}:expiry:${contract.endDate}:${windowDays}` }));
 }
 
-export async function listBillableContractsForMotel(motelId: string): Promise<
+type ContractReader = Pick<Db, "select">;
+
+export async function listBillableContractsForMotel(motelId: string, reader: ContractReader = db): Promise<
   Array<{
     id: string;
     roomId: string;
@@ -386,7 +388,7 @@ export async function listBillableContractsForMotel(motelId: string): Promise<
     monthlyRent: VndString;
   }>
 > {
-  return db
+  return reader
     .select({
       id: contracts.id,
       roomId: contracts.roomId,

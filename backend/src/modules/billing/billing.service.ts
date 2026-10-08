@@ -150,7 +150,7 @@ export async function generateInvoices(periodId: string, motelId: string, manage
     if (!period) throw AppError.notFound("Không tìm thấy kỳ hóa đơn");
     if (period.status !== "draft") throw AppError.periodAlreadySent();
     const roomsForBilling = await listRoomsForBilling(motelId, tx);
-    const contracts = await listBillableContractsForMotel(motelId);
+    const contracts = await listBillableContractsForMotel(motelId, tx);
     const readings = await tx.query.meterReadings.findMany({ where: eq(meterReadings.billingPeriodId, periodId) });
     const skippedRooms = roomsForBilling.filter((room) => !contracts.some((contract) => contract.roomId === room.id));
     const output: InvoiceResponse[] = [];
