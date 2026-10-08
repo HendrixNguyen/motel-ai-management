@@ -2,6 +2,7 @@ import { apiGet, apiSend } from "./client";
 import type { CreateRenterTicketInput, RenterContract, RenterInvoice, RenterPeriod, RenterPortalProfile, RenterTicket } from "./types";
 
 export function exchangeRenterMagicLink(token: string) { return apiSend<{ renterId: string; motelId: string }>("/api/renter/magic-links/exchange", "POST", { token }); }
+export function logoutRenter() { return apiSend<void>("/api/renter/logout", "POST"); }
 export function getRenterMe() { return apiGet<RenterPortalProfile>("/api/renter/me"); }
 export function listRenterPeriods() { return apiGet<RenterPeriod[]>("/api/renter/billing/periods"); }
 export function listRenterInvoices(periodId: string) { return apiGet<RenterInvoice[]>(`/api/renter/billing/periods/${encodeURIComponent(periodId)}/invoices`); }

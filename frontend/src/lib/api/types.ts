@@ -389,7 +389,7 @@ export interface RenterPortalProfile {
   name: string;
   phone: string;
   room: { id: string; name: string; floor: number | null } | null;
-  motel: { id: string; name: string };
+  motel: { id: string; name: string; bankAccount: { bankCode: string; accountNumber: string; accountName: string } | null };
   activeContract: ActiveContractSummary | null;
 }
 

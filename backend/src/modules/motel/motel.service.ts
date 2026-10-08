@@ -37,10 +37,10 @@ function toResponse(row: MotelRow): MotelResponse {
   return { ...row, createdAt: row.createdAt.toISOString() };
 }
 
-export interface RenterMotelProjection { id: string; name: string }
+export interface RenterMotelProjection { id: string; name: string; bankAccount: BankAccount | null }
 
 export async function getMotelForRenter(motelId: string): Promise<RenterMotelProjection | null> {
-  const row = await db.query.motels.findFirst({ where: eq(motels.id, motelId), columns: { id: true, name: true } });
+  const row = await db.query.motels.findFirst({ where: eq(motels.id, motelId), columns: { id: true, name: true, bankAccount: true } });
   return row ?? null;
 }
 
