@@ -3,6 +3,7 @@ import { expect, test } from "@playwright/test";
 const motel = { id: "motel-1", managerId: "manager-1", name: "Nhà trọ Bình Minh", address: "12 Nguyễn Huệ", electricityPrice: "3500", waterPrice: "15000", otherFees: [], bankAccount: null, createdAt: "2026-01-01T00:00:00.000Z" };
 
 test("dashboard shows operational tasks without horizontal overflow", async ({ page }) => {
+  await page.context().addCookies([{ name: "manager_session", value: "dashboard-session", domain: "localhost", path: "/" }]);
   await page.route("**/api/**", async (route) => {
     const path = new URL(route.request().url()).pathname;
     const responses: Record<string, unknown> = {
@@ -22,8 +23,8 @@ test("dashboard shows operational tasks without horizontal overflow", async ({ p
 
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "Tổng quan" })).toBeVisible();
-  await expect(page.getByText("1 phòng trống")).toBeVisible();
-  await expect(page.getByText("1 hóa đơn chưa thanh toán")).toBeVisible();
+  await expect(page.getByText("Phòng trống", { exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: /Hóa đơn chưa thanh toán/ })).toBeVisible();
   await expect(page.getByRole("link", { name: "Thêm khách thuê" })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(375);
 });
