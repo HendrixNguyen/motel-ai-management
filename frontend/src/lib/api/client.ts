@@ -180,9 +180,9 @@ async function send(path: string, method: string, body?: unknown): Promise<Respo
       credentials: "same-origin",
       headers: {
         accept: "application/json",
-        ...(body === undefined ? {} : { "content-type": "application/json" }),
+        ...(body === undefined || body instanceof FormData ? {} : { "content-type": "application/json" }),
       },
-      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+      ...(body === undefined ? {} : { body: body instanceof FormData ? body : JSON.stringify(body) }),
     });
   } catch {
     throw new ApiError(0, "INTERNAL_ERROR", GENERIC_ERROR_MESSAGE);

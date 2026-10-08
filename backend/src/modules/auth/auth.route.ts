@@ -90,8 +90,9 @@ export const authRoutes = new Elysia({ name: "auth-routes" })
         if (!renter || renter.motelId !== motel.id) {
           throw AppError.notFound("Không tìm thấy người thuê");
         }
-        const { token, url } = await issueMagicLink(renter.id);
-        set.status = 200;
+         const { token, url } = await issueMagicLink(renter.id);
+         set.status = 200;
+
         return { token, url };
       },
       {

@@ -1,6 +1,6 @@
 import { and, asc, desc, eq, sql } from "drizzle-orm";
 import { randomInt } from "node:crypto";
-import { db } from "@/db";
+import { db, type Db } from "@/db";
 import {
   resolveOwnedMotel,
   resolveRoomInMotel,
@@ -10,6 +10,7 @@ import { getRoomName } from "@/modules/room/room.service";
 import { parseAmount, type VndString } from "@/shared/money";
 import { AppError } from "@/shared/errors";
 import { contracts, contractTemplates } from "./contract.schema";
+import { enqueueNotification } from "@/modules/notification/notification.service";
 import type {
   ContractResponse,
   ContractTemplateInput,
@@ -283,23 +284,16 @@ export async function terminateContract(
     .returning();
   return contractResponse(row!);
 }
-export type ContractNotification = (input: {
-  contract: typeof contracts.$inferSelect;
-  otp: string;
-}) => Promise<boolean>;
-let sendContractNotification: ContractNotification = async () => false;
-let sendRenterOtp: ContractNotification = async () => false;
-export function setContractNotificationSender(sender: ContractNotification | null) {
-  sendContractNotification = sender ?? (async () => false);
-}
-export function setRenterOtpSender(sender: ContractNotification | null) {
-  sendRenterOtp = sender ?? (async () => false);
-}
 const OTP_TTL_MS = 5 * 60 * 1000;
 const OTP_COOLDOWN_MS = 5 * 60 * 1000;
 const MAX_OTP_ATTEMPTS = 3;
 
 type OtpGenerator = () => string | Promise<string>;
+type OtpSender = (input: { contractId: string; renterId: string; motelId: string; otp: string; expiresAt: string }) => Promise<void>;
+let renterOtpSender: OtpSender = async ({ contractId, renterId, motelId, otp, expiresAt }) => {
+  await enqueueNotification({ eventKey: `contract:${contractId}:otp:${expiresAt}`, renterId, motelId, templateId: "otp", payload: { contractId, expiresAt, otp: "[REDACTED]" }, transientSecret: { otp } });
+};
+export function setRenterOtpSender(sender: OtpSender | undefined): void { renterOtpSender = sender ?? (async ({ contractId, renterId, motelId, otp, expiresAt }) => { await enqueueNotification({ eventKey: `contract:${contractId}:otp:${expiresAt}`, renterId, motelId, templateId: "otp", payload: { contractId, expiresAt, otp: "[REDACTED]" }, transientSecret: { otp } }); }); }
 
 function generateOtp() {
   return randomInt(0, 1_000_000).toString().padStart(6, "0");
@@ -336,12 +330,16 @@ export async function requestContractOtp(contractId: string, renterId: string, m
     if (!row) throw AppError.conflict("Hợp đồng không ở trạng thái chờ ký");
     return { row, previous: current };
   });
-  if (!(await sendRenterOtp({ contract: staged.row, otp }))) {
-    await db.update(contracts).set({ otpHash: staged.previous.otpHash, otpSentAt: staged.previous.otpSentAt, otpExpiresAt: staged.previous.otpExpiresAt, otpAttempts: staged.previous.otpAttempts }).where(and(eq(contracts.id, contractId), eq(contracts.otpHash, hash), eq(contracts.otpSentAt, now), eq(contracts.otpExpiresAt, expires)));
-    throw new AppError("EXTERNAL_SERVICE_ERROR", "Không thể gửi mã xác thực");
-  }
-  return { sentAt: now.toISOString() };
+   try {
+      await renterOtpSender({ contractId, renterId, motelId, otp, expiresAt: expires.toISOString() });
+    } catch {
+     await db.update(contracts).set({ otpHash: staged.previous.otpHash, otpSentAt: staged.previous.otpSentAt, otpExpiresAt: staged.previous.otpExpiresAt, otpAttempts: staged.previous.otpAttempts }).where(and(eq(contracts.id, contractId), eq(contracts.otpHash, hash), eq(contracts.otpSentAt, now), eq(contracts.otpExpiresAt, expires)));
+     throw new AppError("EXTERNAL_SERVICE_ERROR", "Không thể gửi mã xác thực");
+   }
+
+   return { sentAt: now.toISOString() };
 }
+
 
 export async function verifyContractOtp(contractId: string, renterId: string, motelId: string, otp: string) {
   const current = await db.query.contracts.findFirst({ where: and(eq(contracts.id, contractId), eq(contracts.renterId, renterId), eq(contracts.motelId, motelId)) });
@@ -365,8 +363,7 @@ export async function sendContract(
   const current = await ownedContract(motelId, contractId, managerId);
   if (current.status !== "draft")
     throw AppError.conflict("Chỉ có thể gửi hợp đồng nháp");
-  if (!(await sendContractNotification({ contract: current, otp: "" })))
-    throw new AppError("EXTERNAL_SERVICE_ERROR", "Không thể gửi hợp đồng");
+  await enqueueNotification({ eventKey: `contract:${contractId}:sent`, renterId: current.renterId, motelId, templateId: "contract", payload: { contractId } });
   const [row] = await db
     .update(contracts)
     .set({ managerSentAt: new Date() })
@@ -375,7 +372,15 @@ export async function sendContract(
   return contractResponse(row!);
 }
 
-export async function listBillableContractsForMotel(motelId: string): Promise<
+export interface ExpiringContract { id: string; renterId: string; motelId: string; endDate: string; eventKey: string; }
+export async function listExpiringContracts(now: Date, until: Date, windowDays: number): Promise<ExpiringContract[]> {
+  const rows = await db.query.contracts.findMany({ where: and(eq(contracts.status, "active"), sql`${contracts.endDate} >= ${now.toISOString().slice(0, 10)}`, sql`${contracts.endDate} <= ${until.toISOString().slice(0, 10)}`) });
+  return rows.map((contract) => ({ id: contract.id, renterId: contract.renterId, motelId: contract.motelId, endDate: contract.endDate, eventKey: `contract:${contract.id}:expiry:${contract.endDate}:${windowDays}` }));
+}
+
+type ContractReader = Pick<Db, "select">;
+
+export async function listBillableContractsForMotel(motelId: string, reader: ContractReader = db): Promise<
   Array<{
     id: string;
     roomId: string;
@@ -383,7 +388,7 @@ export async function listBillableContractsForMotel(motelId: string): Promise<
     monthlyRent: VndString;
   }>
 > {
-  return db
+  return reader
     .select({
       id: contracts.id,
       roomId: contracts.roomId,
@@ -419,6 +424,7 @@ export interface ActiveContractSummary {
 }
 export async function getActiveContractForRenter(
   renterId: string,
+  motelId?: string,
 ): Promise<ActiveContractSummary | null> {
   const [row] = await db
     .select({
@@ -430,7 +436,7 @@ export async function getActiveContractForRenter(
     })
     .from(contracts)
     .where(
-      and(eq(contracts.renterId, renterId), eq(contracts.status, "active")),
+      and(eq(contracts.renterId, renterId), ...(motelId ? [eq(contracts.motelId, motelId)] : []), eq(contracts.status, "active")),
     )
     .orderBy(desc(contracts.createdAt), desc(contracts.id))
     .limit(1);

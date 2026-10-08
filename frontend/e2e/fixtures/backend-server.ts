@@ -1,13 +1,14 @@
 /** Test-only backend: RSC reads and mutations share typed, per-session state. */
 import { createServer } from "node:http";
 import { fileURLToPath } from "node:url";
-import { MANAGER_AUTH, MANAGER_ME, MOTEL, MOTEL_WITHOUT_EXTRAS, ROOMS, RENTERS } from "../../src/lib/api/__tests__/fixtures";
+import { MANAGER_AUTH, MANAGER_ME, MOTEL, MOTEL_WITHOUT_EXTRAS, ROOMS, RENTERS, CAPTURE_PERIOD, CAPTURE_PERIOD_DETAIL } from "../../src/lib/api/__tests__/fixtures";
 import type { ApiErrorBody, CreateMotelInput, CreateRenterInput, CreateRoomInput, MotelResponse, RenterDetailResponse, RenterResponse, RoomResponse, UpdateMotelInput, UpdateRenterInput, UpdateRoomInput } from "../../src/lib/api/types";
 
 export function createFixtureBackend(onMissingFixture: (failure: Error) => void = (failure) => {
   queueMicrotask(() => { throw failure; });
 }) {
   const states = new Map<string, { motels: MotelResponse[]; rooms: RoomResponse[]; renters: RenterResponse[] }>();
+  const signedRenters = new Map<string, string>();
   const stateFor = (session: string) => {
     if (!states.has(session)) states.set(session, {
       motels: session.startsWith("no-motels") ? [] : structuredClone([MOTEL, MOTEL_WITHOUT_EXTRAS]),
@@ -19,7 +20,7 @@ export function createFixtureBackend(onMissingFixture: (failure: Error) => void 
     const url = new URL(request.url ?? "/", "http://127.0.0.1:3002");
     const path = url.pathname;
     const method = request.method;
-    const session = /(?:^|;\s*)manager_session=([^;]+)/.exec(request.headers.cookie ?? "")?.[1];
+    const session = /(?:^|;\s*)(?:manager_session|renter_session)=([^;]+)/.exec(request.headers.cookie ?? "")?.[1] ?? "anonymous";
     const json = (body: unknown, status = 200) => {
       response.writeHead(status, { "content-type": "application/json" }); response.end(JSON.stringify(body));
     };
@@ -41,9 +42,24 @@ export function createFixtureBackend(onMissingFixture: (failure: Error) => void 
       if (method === "POST" && path === "/api/auth/logout") {
         response.writeHead(204, { "set-cookie": "manager_session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0" }); return response.end();
       }
+      if (method === "POST" && path === "/api/renter/magic-links/exchange") { const body = await input<{ token: string }>(); if (body.token === "expired-token") return error(401, "MAGIC_LINK_EXPIRED", "Liên kết đã hết hạn"); response.setHeader("set-cookie", "renter_session=fixture; Path=/; HttpOnly; SameSite=Lax"); return json({ renterId: "renter", motelId: "motel" }); }
+      if (path.startsWith("/api/renter/")) {
+        if (path === "/api/renter/logout" && method === "POST") { response.writeHead(204, { "set-cookie": "renter_session=; Path=/; Max-Age=0" }); return response.end(); }
+        if (path === "/api/renter/me") return json({ id: "renter", name: "An", phone: "84901234567", room: { id: "room", name: "P.101", floor: 1 }, motel: { id: "motel", name: "Nhà trọ Minh Anh" }, activeContract: null });
+        if (method === "GET" && path === "/api/renter/billing/periods") return json([{ id: "period", month: 10, year: 2026, status: "sent", createdAt: "2026-10-01T00:00:00.000Z" }]);
+        if (method === "GET" && path.match(/^\/api\/renter\/billing\/periods\/[^/]+\/invoices$/)) return json([{ id: "invoice", billingPeriodId: "period", month: 10, year: 2026, roomId: "room", roomName: "P.101", rentAmount: "3500000", electricityUsage: "20.00", electricityCost: "70000", waterUsage: "3.00", waterCost: "45000", otherFees: [{ name: "Vệ sinh", amount: "50000" }], totalAmount: "3665000", qrCodeData: "000201010212", paymentStatus: "unpaid", paidAt: null, createdAt: "2026-10-01T00:00:00.000Z" }]);
+        if (method === "GET" && path.match(/^\/api\/renter\/invoices\/[^/]+$/)) return json({ id: "invoice", billingPeriodId: "period", month: 10, year: 2026, roomId: "room", roomName: "P.101", rentAmount: "3500000", electricityUsage: "20.00", electricityCost: "70000", waterUsage: "3.00", waterCost: "45000", otherFees: [{ name: "Vệ sinh", amount: "50000" }], totalAmount: "3665000", qrCodeData: "000201010212", paymentStatus: "unpaid", paidAt: null, createdAt: "2026-10-01T00:00:00.000Z" });
+        if (path === "/api/renter/contracts/contract/verify" && method === "POST") { const otpSignedAt = new Date().toISOString(); signedRenters.set(session, otpSignedAt); return json({ otpSignedAt, status: "active" }); }
+        if (path === "/api/renter/contract" && method === "GET") { const otpSignedAt = signedRenters.get(session) ?? null; return json({ id: "contract", status: otpSignedAt ? "active" : "draft", monthlyRent: "3500000", startDate: "2026-10-01", endDate: "2027-09-30", clauses: [{ title: "Điều khoản", content: "Nội dung" }], otpSignedAt }); }
+        if (path === "/api/renter/tickets" && method === "GET") return json([]);
+        if (path === "/api/renter/tickets" && method === "POST") return json({ id: "ticket", category: "water", description: "Nước bị rò rỉ trong phòng", status: "open", createdAt: new Date().toISOString() }, 201);
+      }
       if (!session) return unauthorized();
       if (method === "GET" && path === "/api/auth/me") return session === "me-expired" ? unauthorized() : json(MANAGER_ME);
       const state = stateFor(session);
+      if (method === "GET" && path.match(/^\/api\/manager\/motels\/[^/]+\/billing\/periods$/)) return json([CAPTURE_PERIOD]);
+      if (method === "GET" && path.match(/^\/api\/manager\/motels\/[^/]+\/billing\/periods\/[^/]+$/)) return json(session === "sent-capture" ? { ...CAPTURE_PERIOD_DETAIL, status: "sent" } : CAPTURE_PERIOD_DETAIL);
+      if (method === "PUT" && path.match(/^\/api\/manager\/motels\/[^/]+\/billing\/periods\/[^/]+\/readings$/)) return json({ ok: true });
       if (path === "/api/manager/motels") {
         if (method === "GET") return session === "motels-expired" ? unauthorized() : json(state.motels);
         if (method === "POST") {

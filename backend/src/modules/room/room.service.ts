@@ -32,10 +32,21 @@ const UNIQUE_VIOLATION = "23505";
 /** SQLSTATE for `foreign_key_violation`. */
 const FOREIGN_KEY_VIOLATION = "23503";
 
+export interface RenterRoomProjection { id: string; name: string; floor: number | null }
+export interface BillingRoomProjection { id: string; name: string }
+
+export async function getRoomForRenter(roomId: string, motelId: string): Promise<RenterRoomProjection | null> {
+  const row = await db.query.rooms.findFirst({ where: and(eq(rooms.id, roomId), eq(rooms.motelId, motelId)), columns: { id: true, name: true, floor: true } });
+  return row ?? null;
+}
+
+type RoomReader = Pick<typeof db, "select">;
+
 export async function listRoomsForBilling(
   motelId: string,
-): Promise<Array<{ id: string; name: string }>> {
-  return db
+  reader: RoomReader = db,
+): Promise<BillingRoomProjection[]> {
+  return reader
     .select({ id: rooms.id, name: rooms.name })
     .from(rooms)
     .where(eq(rooms.motelId, motelId))

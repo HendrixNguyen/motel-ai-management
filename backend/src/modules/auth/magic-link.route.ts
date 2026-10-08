@@ -30,6 +30,7 @@ export const magicLinkRoutes = new Elysia({ name: "magic-link-routes" })
       body: t.Object({ token: t.String() }),
     },
   )
+  .post("/renter/logout", ({ cookie, set }) => { cookie[COOKIE_NAME]?.remove(); set.status = 204; return ""; }, { detail: { security: [{ renterAuth: [] }] } })
   .group("/renter/magic-links", (app) =>
     app.use(renterAuth).post(
       "/resend",

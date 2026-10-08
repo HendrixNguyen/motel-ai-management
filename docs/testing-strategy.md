@@ -185,6 +185,15 @@ success/failure, internal table search/sort/pagination, toast dismissal, mobile 
 visible focus, reduced motion, and monetary alignment. `BUN_EXECUTABLE` can select the Bun binary
 when `bun` is not on the runner's PATH.
 
+## Task 9 delivery gate
+
+Run backend checks sequentially because every integration file resets one PostgreSQL schema. Run
+`cd backend && bun run typecheck`, then each explicit file in `docs/full-flow-test-plan.md` in listed
+order. Run frontend in order: `bun run typecheck`, `bun run lint`, `bun run build`, `bun run test`,
+then fixture `bun run test:e2e`. Run `E2E_REAL=1 bun run test:e2e` only with QA stack and explicit
+credentials. A browser launch failure from missing OS libraries is **blocked**, never pass. Record
+command, timestamp, SHA, counts, environment, and blocker in the Task 9 report.
+
 ## Commands
 
 ```bash

@@ -1,5 +1,6 @@
 import { apiSend } from "./client";
 import type { LoginInput, ManagerAuthResponse, RegisterManagerInput } from "./types";
+import { clearAllCaptureQueue } from "@/lib/capture/queue";
 
 /**
  * The three auth calls that must be made **by the browser**.
@@ -35,6 +36,6 @@ export function login(input: LoginInput): Promise<ManagerAuthResponse> {
  * `POST /api/auth/logout` — `auth.route.ts:65`. Answers 204 with no body, so this resolves
  * `undefined`, and the browser drops the cookie because the backend cleared it.
  */
-export function logout(): Promise<void> {
-  return apiSend<void>("/api/auth/logout", "POST");
+export async function logout(): Promise<void> {
+  try { await apiSend<void>("/api/auth/logout", "POST"); } finally { await clearAllCaptureQueue(); }
 }

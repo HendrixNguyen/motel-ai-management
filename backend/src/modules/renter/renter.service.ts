@@ -6,6 +6,7 @@ import { getActiveContractForRenter } from "@/modules/contract/contract.service"
 import { AppError } from "@/shared/errors";
 import { normalisePhone } from "@/shared/phone";
 import { renters } from "./renter.schema";
+import { enqueueNotification } from "@/modules/notification/notification.service";
 import type {
   CreateRenterInput,
   ListRentersFilters,
@@ -16,6 +17,10 @@ import type {
 } from "./renter.types";
 
 export type RenterRow = typeof renters.$inferSelect;
+export type NotificationRecipient = Pick<RenterRow, "phone" | "zaloOaId" | "isOaFollower">;
+export async function getRenterNotificationRecipient(renterId: string, motelId: string): Promise<NotificationRecipient | undefined> {
+  return db.query.renters.findFirst({ where: and(eq(renters.id, renterId), eq(renters.motelId, motelId)), columns: { phone: true, zaloOaId: true, isOaFollower: true } });
+}
 
 type RenterPatch = Partial<{
   name: string;
@@ -63,6 +68,24 @@ export async function createRenter(input: {
     .values({ ...input, phone })
     .returning();
   return row!;
+}
+
+export async function getRenterForNotification(renterId: string, motelId: string): Promise<RenterRow | undefined> {
+  return db.query.renters.findFirst({ where: and(eq(renters.id, renterId), eq(renters.motelId, motelId)) });
+}
+
+type RenterWriter = Pick<typeof db, "query" | "update">;
+
+export async function mapZaloFollowerByPhone(motelId: string, phone: string, followerId: string, writer: RenterWriter = db): Promise<boolean> {
+  const normalizedPhone = normalisePhone(phone);
+  const candidates = await writer.query.renters.findMany({ where: and(eq(renters.motelId, motelId), eq(renters.phone, normalizedPhone)), columns: { id: true } });
+  if (candidates.length !== 1) throw new Error("follower mapping unavailable");
+  await writer.update(renters).set({ zaloOaId: followerId, isOaFollower: true }).where(eq(renters.id, candidates[0]!.id));
+  return true;
+}
+
+export async function clearZaloFollower(followerId: string, writer: RenterWriter = db): Promise<void> {
+  await writer.update(renters).set({ zaloOaId: null, isOaFollower: false }).where(eq(renters.zaloOaId, followerId));
 }
 
 export async function getRenterByPhone(motelId: string, phone: string): Promise<RenterRow | undefined> {
@@ -211,7 +234,9 @@ export async function createRenterForMotel(
       // accept.
       ...(input.roomId === undefined || input.roomId === null ? {} : { roomId: input.roomId }),
     });
-    return toResponse(row);
+     await enqueueNotification({ eventKey: `renter:${row.id}:welcome`, renterId: row.id, motelId, templateId: "welcome", payload: { name: row.name } }).catch(() => undefined);
+     return toResponse(row);
+
   } catch (error) {
     if (isDuplicatePhone(error)) {
       const stored = normalisePhone(input.phone);

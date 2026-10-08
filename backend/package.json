@@ -12,6 +12,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1147.0",
+    "@aws-sdk/s3-request-presigner": "^3.1147.0",
     "@elysiajs/cookie": "^0.8.0",
     "@elysiajs/cors": "latest",
     "@elysiajs/jwt": "latest",

@@ -71,6 +71,11 @@ export interface ApiErrorBody {
   details?: Record<string, unknown>;
 }
 
+export interface ReadingConflictDetails {
+  server?: { roomId: string; type: MeterType; currentReading: string | null; updatedAt: string };
+  [key: string]: unknown;
+}
+
 /* -------------------------------------------------------------------------- */
 /* Motels — backend/src/modules/motel/motel.types.ts                          */
 /* -------------------------------------------------------------------------- */
@@ -219,6 +224,10 @@ export interface BillingPeriodDetailResponse extends BillingPeriodResponse {
   rooms: Array<{ id: string; name: string; readings: MeterReadingResponse[] }>;
 }
 
+export interface CapturePeriodFixture extends BillingPeriodDetailResponse {
+  rooms: Array<{ id: string; name: string; readings: MeterReadingResponse[] }>;
+}
+
 export interface UpdateReadingInput {
   roomId: string;
   type: MeterType;
@@ -253,6 +262,18 @@ export interface InvoiceResponse {
 export interface InvoiceGenerationResponse {
   invoices: InvoiceResponse[];
   details: { skippedRooms: Array<{ id: string; name: string }> };
+}
+
+export interface UploadResponse {
+  id: string;
+  contentType: string;
+  size: number;
+  checksum: string;
+  createdAt: string;
+}
+
+export interface CaptureUploadResponse extends UploadResponse {
+  url?: string;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -363,6 +384,81 @@ export interface RenterDetailResponse extends RenterResponse {
   invoices: RecentInvoice[];
 }
 
+export interface RenterPortalProfile {
+  id: string;
+  name: string;
+  phone: string;
+  room: { id: string; name: string; floor: number | null } | null;
+  motel: { id: string; name: string; bankAccount: { bankCode: string; accountNumber: string; accountName: string } | null };
+  activeContract: ActiveContractSummary | null;
+}
+
+export interface RenterPeriod {
+  id: string;
+  month: number;
+  year: number;
+  status: "draft" | "sent" | "closed";
+  createdAt: string;
+}
+
+export interface RenterInvoiceSummary {
+  id: string;
+  billingPeriodId: string;
+  month: number;
+  year: number;
+  roomId: string;
+  roomName: string;
+  rentAmount: VndString;
+  electricityUsage: string;
+  electricityCost: VndString;
+  waterUsage: string;
+  waterCost: VndString;
+  otherFees: Array<{ name: string; amount: VndString }>;
+  totalAmount: VndString;
+  qrCodeData: string | null;
+  paymentStatus: PaymentStatus;
+  paidAt: string | null;
+  createdAt: string;
+}
+export interface RenterInvoiceDetail extends RenterInvoiceSummary {
+  bankAccount: { bankCode: string; accountNumber: string; accountName: string } | null;
+  transferDescription: string;
+  meterPhotos: Array<{ type: "electric" | "water"; signedUrl: string; capturedAt: string | null }>;
+}
+export type RenterInvoice = RenterInvoiceSummary | RenterInvoiceDetail;
+
+export interface CreateRenterTicketInput {
+  category: RenterTicketCategory;
+  description: string;
+  photoUrls?: string[];
+  photos?: File[];
+}
+
+export interface RenterContract {
+  id: string;
+  motelId: string;
+  renterId: string;
+  roomId: string;
+  startDate: string;
+  endDate: string;
+  monthlyRent: VndString;
+  deposit: VndString;
+  clauses: Array<{ title: string; content: string }>;
+  otpSentAt: string | null;
+  otpSignedAt: string | null;
+  status: "draft" | "active" | "expired" | "terminated";
+  createdAt: string;
+}
+
+export type RenterTicketCategory = "electricity" | "water" | "facilities" | "other";
+export interface RenterTicket {
+  id: string;
+  category: RenterTicketCategory;
+  description: string;
+  status: "open" | "in_progress" | "resolved";
+  createdAt: string;
+  photoUrls?: string[];
+}
 /* -------------------------------------------------------------------------- */
 /* Auth — backend/src/modules/auth/auth.route.ts                                 */
 /* -------------------------------------------------------------------------- */

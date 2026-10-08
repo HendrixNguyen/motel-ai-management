@@ -1,6 +1,7 @@
 import {
   check,
   index,
+  uniqueIndex,
   jsonb,
   pgEnum,
   pgTable,
@@ -9,9 +10,8 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
-import { motels } from "@/modules/motel/motel.schema";
-import { renters } from "@/modules/renter/renter.schema";
-import { rooms } from "@/modules/room/room.schema";
+
+export type TicketCategory = "electricity" | "water" | "facilities" | "other";
 
 export const ticketCategory = pgEnum("ticket_category", [
   "electricity",
@@ -26,15 +26,9 @@ export const helpTickets = pgTable(
   "help_tickets",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    renterId: uuid("renter_id")
-      .notNull()
-      .references(() => renters.id),
-    roomId: uuid("room_id")
-      .notNull()
-      .references(() => rooms.id),
-    motelId: uuid("motel_id")
-      .notNull()
-      .references(() => motels.id),
+    renterId: uuid("renter_id").notNull(),
+    roomId: uuid("room_id").notNull(),
+    motelId: uuid("motel_id").notNull(),
     category: ticketCategory("category").notNull(),
     description: text("description").notNull(),
     /** R2 URLs, at most five. */
@@ -48,6 +42,7 @@ export const helpTickets = pgTable(
   (t) => [
     index("help_tickets_renter_id_idx").on(t.renterId),
     index("help_tickets_motel_id_idx").on(t.motelId),
+    uniqueIndex("help_tickets_id_motel_id_uq").on(t.id, t.motelId),
     check("help_tickets_photo_urls_max_5", sql`jsonb_array_length(${t.photoUrls}) <= 5`),
   ],
 );
