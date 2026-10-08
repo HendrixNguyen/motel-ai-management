@@ -8,7 +8,9 @@ import {
   timestamp,
   uuid,
   uniqueIndex,
+  check,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { motels } from "@/modules/motel/motel.schema";
 import { renters } from "@/modules/renter/renter.schema";
 
@@ -50,5 +52,6 @@ export const notificationEvents = pgTable(
     index("notification_events_renter_id_idx").on(table.renterId),
     index("notification_events_motel_id_idx").on(table.motelId),
     index("notification_events_retry_idx").on(table.status, table.nextRetryAt),
+    check("notification_events_attempt_count_range", sql`${table.attemptCount} between 0 and 3`),
   ],
 );

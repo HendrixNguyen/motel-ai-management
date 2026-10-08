@@ -29,9 +29,12 @@ export async function deliverNotification(eventId: string): Promise<Notification
   const now = new Date();
   const leaseId = crypto.randomUUID();
   const [claimed] = await db.update(notificationEvents).set({ leaseId, leaseUntil: new Date(Date.now() + 30_000), updatedAt: now }).where(and(eq(notificationEvents.id, eventId), eq(notificationEvents.status, "pending"), or(isNull(notificationEvents.nextRetryAt), lte(notificationEvents.nextRetryAt, now)), or(isNull(notificationEvents.leaseUntil), lte(notificationEvents.leaseUntil, now)))).returning();
-  const event = claimed ?? await db.query.notificationEvents.findFirst({ where: eq(notificationEvents.id, eventId) });
-  if (!event) throw AppError.notFound("Không tìm thấy sự kiện thông báo");
-  if (event.status === "sent" || event.status === "failed" || event.nextRetryAt && event.nextRetryAt > now) return event;
+  if (!claimed) {
+    const event = await db.query.notificationEvents.findFirst({ where: eq(notificationEvents.id, eventId) });
+    if (!event) throw AppError.notFound("Không tìm thấy sự kiện thông báo");
+    return event;
+  }
+  const event = claimed;
   const renter = await getRenterForNotification(event.renterId, event.motelId);
   if (!renter) throw AppError.notFound("Không tìm thấy người thuê");
   const transientSecret = secrets.get(event.id);

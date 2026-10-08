@@ -69,16 +69,18 @@ export async function getRenterForNotification(renterId: string, motelId: string
   return db.query.renters.findFirst({ where: and(eq(renters.id, renterId), eq(renters.motelId, motelId)) });
 }
 
-export async function mapZaloFollowerByPhone(phone: string, followerId: string): Promise<boolean> {
+type RenterWriter = Pick<typeof db, "query" | "update">;
+
+export async function mapZaloFollowerByPhone(phone: string, followerId: string, writer: RenterWriter = db): Promise<boolean> {
   const normalizedPhone = normalisePhone(phone);
-  const candidates = await db.query.renters.findMany({ where: eq(renters.phone, normalizedPhone), columns: { id: true } });
+  const candidates = await writer.query.renters.findMany({ where: eq(renters.phone, normalizedPhone), columns: { id: true } });
   if (candidates.length !== 1) return false;
-  await db.update(renters).set({ zaloOaId: followerId, isOaFollower: true }).where(eq(renters.id, candidates[0]!.id));
+  await writer.update(renters).set({ zaloOaId: followerId, isOaFollower: true }).where(eq(renters.id, candidates[0]!.id));
   return true;
 }
 
-export async function clearZaloFollower(followerId: string): Promise<void> {
-  await db.update(renters).set({ zaloOaId: null, isOaFollower: false }).where(eq(renters.zaloOaId, followerId));
+export async function clearZaloFollower(followerId: string, writer: RenterWriter = db): Promise<void> {
+  await writer.update(renters).set({ zaloOaId: null, isOaFollower: false }).where(eq(renters.zaloOaId, followerId));
 }
 
 export async function getRenterByPhone(motelId: string, phone: string): Promise<RenterRow | undefined> {
