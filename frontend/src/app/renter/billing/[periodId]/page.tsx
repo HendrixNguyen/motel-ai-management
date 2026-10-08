@@ -1,0 +1,9 @@
+import { listRenterInvoices } from "@/lib/api/renter";
+import { formatVnd } from "@/lib/format/vnd";
+import Link from "next/link";
+
+export default async function RenterBillingPage({ params }: { params: Promise<{ periodId: string }> }) {
+  const { periodId } = await params;
+  const invoices = await listRenterInvoices(periodId);
+  return <section className="space-y-6"><Link href="/renter/home" className="text-sm font-semibold text-primary underline">← Hóa đơn</Link><h1 className="font-heading text-2xl font-bold text-text">Chi tiết hóa đơn</h1>{invoices.map((invoice) => <article key={invoice.id} className="space-y-4 rounded-card border border-border p-5"><div><p className="font-semibold text-text">{invoice.roomName}</p><p className="mt-1 text-sm text-text-muted">{invoice.paymentStatus === "paid" ? "Đã thanh toán" : invoice.paymentStatus === "overdue" ? "Quá hạn" : "Chưa thanh toán"}</p></div><dl className="space-y-2 text-base"><div className="flex justify-between gap-4"><dt>Tiền thuê</dt><dd className="tabular-nums">{formatVnd(invoice.rentAmount)}</dd></div><div className="flex justify-between gap-4"><dt>Điện</dt><dd className="tabular-nums">{formatVnd(invoice.electricityCost)}</dd></div><div className="flex justify-between gap-4"><dt>Nước</dt><dd className="tabular-nums">{formatVnd(invoice.waterCost)}</dd></div><div className="flex justify-between gap-4 border-t border-border pt-2 font-bold text-text"><dt>Tổng cộng</dt><dd className="tabular-nums">{formatVnd(invoice.totalAmount)}</dd></div></dl>{invoice.qrCodeData && <div className="rounded-input border border-border bg-canvas p-3"><p className="text-sm font-semibold text-text">Mã thanh toán VietQR</p><code className="mt-2 block break-all text-xs text-text-muted">{invoice.qrCodeData}</code><p className="mt-2 text-sm text-text-muted">Thanh toán xong, chủ nhà sẽ cập nhật trạng thái. Bạn không thể tự đánh dấu đã trả.</p></div>}</article>)}</section>;
+}

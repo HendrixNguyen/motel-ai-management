@@ -384,6 +384,73 @@ export interface RenterDetailResponse extends RenterResponse {
   invoices: RecentInvoice[];
 }
 
+export interface RenterPortalProfile {
+  id: string;
+  name: string;
+  phone: string;
+  room: { id: string; name: string; floor: number | null } | null;
+  motel: { id: string; name: string };
+  activeContract: ActiveContractSummary | null;
+}
+
+export interface RenterPeriod {
+  id: string;
+  month: number;
+  year: number;
+  status: "draft" | "sent" | "closed";
+  createdAt: string;
+}
+
+export interface RenterInvoice {
+  id: string;
+  billingPeriodId: string;
+  month: number;
+  year: number;
+  roomId: string;
+  roomName: string;
+  rentAmount: VndString;
+  electricityUsage: string;
+  electricityCost: VndString;
+  waterUsage: string;
+  waterCost: VndString;
+  otherFees: Array<{ name: string; amount: VndString }>;
+  totalAmount: VndString;
+  qrCodeData: string | null;
+  paymentStatus: PaymentStatus;
+  paidAt: string | null;
+  createdAt: string;
+}
+
+export interface RenterContract {
+  id: string;
+  motelId: string;
+  renterId: string;
+  roomId: string;
+  startDate: string;
+  endDate: string;
+  monthlyRent: VndString;
+  deposit: VndString;
+  clauses: Array<{ title: string; content: string }>;
+  otpSentAt: string | null;
+  otpSignedAt: string | null;
+  status: "draft" | "active" | "expired" | "terminated";
+  createdAt: string;
+}
+
+export type RenterTicketCategory = "electricity" | "water" | "facilities" | "other";
+export interface RenterTicket {
+  id: string;
+  category: RenterTicketCategory;
+  description: string;
+  status: "open" | "in_progress" | "resolved";
+  createdAt: string;
+}
+export interface CreateRenterTicketInput {
+  category: RenterTicketCategory;
+  description: string;
+  photoUrls?: string[];
+}
+
 /* -------------------------------------------------------------------------- */
 /* Auth — backend/src/modules/auth/auth.route.ts                                 */
 /* -------------------------------------------------------------------------- */
