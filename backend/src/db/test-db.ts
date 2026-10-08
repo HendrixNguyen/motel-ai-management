@@ -62,7 +62,6 @@ export async function resetDb(): Promise<void> {
     await resetDb.execute(sql.raw("CREATE SCHEMA public"));
     await resetDb.execute(sql.raw("CREATE SCHEMA drizzle"));
     await resetDb.execute(sql.raw("SET search_path TO public, drizzle"));
-    await resetDb.execute(sql.raw('ALTER TABLE "contracts" DROP COLUMN IF EXISTS "otp_sent_at"'));
     await migrate(resetDb, { migrationsFolder });
     await resetDb.execute(sql.raw(`TRUNCATE ${TABLES.join(", ")} RESTART IDENTITY CASCADE`));
   } finally {
