@@ -37,6 +37,5 @@ export function login(input: LoginInput): Promise<ManagerAuthResponse> {
  * `undefined`, and the browser drops the cookie because the backend cleared it.
  */
 export async function logout(): Promise<void> {
-  await apiSend<void>("/api/auth/logout", "POST");
-  await clearAllCaptureQueue();
+  try { await apiSend<void>("/api/auth/logout", "POST"); } finally { await clearAllCaptureQueue(); }
 }

@@ -1,7 +1,7 @@
 /** Test-only backend: RSC reads and mutations share typed, per-session state. */
 import { createServer } from "node:http";
 import { fileURLToPath } from "node:url";
-import { MANAGER_AUTH, MANAGER_ME, MOTEL, MOTEL_WITHOUT_EXTRAS, ROOMS, RENTERS } from "../../src/lib/api/__tests__/fixtures";
+import { MANAGER_AUTH, MANAGER_ME, MOTEL, MOTEL_WITHOUT_EXTRAS, ROOMS, RENTERS, CAPTURE_PERIOD, CAPTURE_PERIOD_DETAIL } from "../../src/lib/api/__tests__/fixtures";
 import type { ApiErrorBody, CreateMotelInput, CreateRenterInput, CreateRoomInput, MotelResponse, RenterDetailResponse, RenterResponse, RoomResponse, UpdateMotelInput, UpdateRenterInput, UpdateRoomInput } from "../../src/lib/api/types";
 
 export function createFixtureBackend(onMissingFixture: (failure: Error) => void = (failure) => {
@@ -44,6 +44,9 @@ export function createFixtureBackend(onMissingFixture: (failure: Error) => void 
       if (!session) return unauthorized();
       if (method === "GET" && path === "/api/auth/me") return session === "me-expired" ? unauthorized() : json(MANAGER_ME);
       const state = stateFor(session);
+      if (method === "GET" && path.match(/^\/api\/manager\/motels\/[^/]+\/billing\/periods$/)) return json([CAPTURE_PERIOD]);
+      if (method === "GET" && path.match(/^\/api\/manager\/motels\/[^/]+\/billing\/periods\/[^/]+$/)) return json(CAPTURE_PERIOD_DETAIL);
+      if (method === "PUT" && path.match(/^\/api\/manager\/motels\/[^/]+\/billing\/periods\/[^/]+\/readings$/)) return json({ ok: true });
       if (path === "/api/manager/motels") {
         if (method === "GET") return session === "motels-expired" ? unauthorized() : json(state.motels);
         if (method === "POST") {

@@ -1,19 +1,18 @@
 
 ## Review fixes appended
 
-Commit `065e55b8216a0f6c2d79f305a4fb31efe100555b`.
+Implemented capture flow corrections and truthful sync state.
 
-- Added independent `/capture`, `/capture/[periodId]`, and `/capture/[periodId]/room/[readingId]` screens.
-- Added startup/reconnect sync, conflict messaging, sent/closed lock, logout queue clear.
-- Removed volatile memory fallback; unsupported IndexedDB now returns `CAPTURE_QUEUE_UNSUPPORTED`.
-- Added separate Blob photo queue and retry path.
-- Added typed conflict details and upload client response.
-- Restricted service worker to explicit same-origin shell paths; bypasses API, RSC, Next assets, signed paths.
-- Added capture Playwright spec and service-worker boundary test.
+- `/capture` now links to `/capture/[periodId]`.
+- Added typed billing fixtures and fixture backend routes for periods, detail, and readings.
+- Reading screen now shows utility title, previous reading, live usage/cost, photo preview/retake, lock state, sync state, and typed conflict handling.
+- Sync returns sent/failed/conflict/locked counts; logout clears queue in `finally`.
+- Added queue unsupported behavior tests and sync result tests.
+- Service worker supports dynamic capture navigation fallback while bypassing API/RSC/Next/signed paths.
 
 Verification:
-- typecheck pass
-- lint pass with existing hook warning resolved after commit preparation
-- Vitest pass: 349 tests
-- build pass
-- capture E2E attempted; fixture route assumptions caused 2 UI failures, service-worker request test passed. Browser run available but full capture fixture data still needs alignment.
+- Typecheck pass.
+- Vitest pass: 350 tests.
+- Build pass.
+- Lint pass with one Next image optimization warning.
+- Capture E2E still has 2 fixture UI failures; service-worker test passes. Failure remains fixture server/session route mismatch, not browser launch.

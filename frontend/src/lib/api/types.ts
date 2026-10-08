@@ -224,6 +224,10 @@ export interface BillingPeriodDetailResponse extends BillingPeriodResponse {
   rooms: Array<{ id: string; name: string; readings: MeterReadingResponse[] }>;
 }
 
+export interface CapturePeriodFixture extends BillingPeriodDetailResponse {
+  rooms: Array<{ id: string; name: string; readings: MeterReadingResponse[] }>;
+}
+
 export interface UpdateReadingInput {
   roomId: string;
   type: MeterType;
