@@ -65,6 +65,20 @@ export async function createRenter(input: {
   return row!;
 }
 
+export async function getRenterForNotification(renterId: string, motelId: string): Promise<RenterRow | undefined> {
+  return db.query.renters.findFirst({ where: and(eq(renters.id, renterId), eq(renters.motelId, motelId)) });
+}
+
+export async function mapZaloFollowerToRenter(motelId: string, phone: string, followerId: string): Promise<boolean> {
+  const normalizedPhone = normalisePhone(phone);
+  const rows = await db.update(renters).set({ zaloOaId: followerId, isOaFollower: true }).where(and(eq(renters.motelId, motelId), eq(renters.phone, normalizedPhone))).returning({ id: renters.id });
+  return rows.length === 1;
+}
+
+export async function clearZaloFollower(followerId: string): Promise<void> {
+  await db.update(renters).set({ zaloOaId: null, isOaFollower: false }).where(eq(renters.zaloOaId, followerId));
+}
+
 export async function getRenterByPhone(motelId: string, phone: string): Promise<RenterRow | undefined> {
   const normalizedPhone = normalisePhone(phone);
   return db.query.renters.findFirst({

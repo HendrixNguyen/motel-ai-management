@@ -1,23 +1,11 @@
-# Task 3 report
 
-## Status
-Implemented notification outbox and Zalo provider seams. Backend typecheck passes.
+## Follow-up critical/high fixes
 
-## Changes
-- Added `notification_events` schema and migration with unique event key, channel, status, attempts, retry time, failure class, provider ID, timestamps.
-- Added `enqueueNotification`, `deliverNotification`, `setZaloProvider`.
-- Added OA/ZNS selection, OTP/payload redaction, bounded transient retry, permanent failure handling.
-- Added signed Zalo follow/unfollow webhook route with idempotent state updates.
-- Registered schema, route, and test reset table.
-- Added notification and webhook tests.
+- OTP transient secrets now travel only through in-memory delivery input; outbox payload stores `[REDACTED]` audit values.
+- Renter lookup and Zalo follower mutation moved behind exported `renter.service` functions with motel scoping.
+- Webhook HMAC verifies exact raw request bytes; route disables body parsing before verification.
+- Added durable webhook event-id deduplication and tenant-qualified follow mapping.
+- Delivery uses conditional DB claims/updates, retry eligibility via `nextRetryAt`, bounded attempts, and safe failure reason classes.
+- OA delivery falls back to ZNS when OA ID is nullable; provider error text is never persisted.
 
-## Tests
-- `bun run typecheck`: pass
-- `git diff --check`: pass
-- `bun test src/test/notification.test.ts`: blocked/fails because local test database schema is unavailable (`Failed query`).
-- `bun test src/test/zalo.test.ts`: not run separately; shared app import requires configured DB only for verified follow path.
-
-## Concerns
-- Existing local PostgreSQL test schema is not migrated; `bun run db:migrate` also fails with `Failed query`.
-- Webhook maps follower payload to renter by normalized phone because provider payload lacks a tenant key.
-- Existing unrelated untracked files preserved.
+Verification: `bun run typecheck` passes. Focused DB tests remain blocked by local PostgreSQL migration/schema failures (`Failed query`); `zalo.test.ts` also shows expected missing `notification_webhook_events` schema in local DB.

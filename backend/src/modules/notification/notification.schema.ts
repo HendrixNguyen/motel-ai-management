@@ -16,6 +16,13 @@ export const notificationEventChannel = pgEnum("notification_event_channel", ["o
 export const notificationEventStatus = pgEnum("notification_event_status", ["pending", "sent", "failed"]);
 export const notificationFailureClass = pgEnum("notification_failure_class", ["transient", "permanent"]);
 
+export const notificationWebhookEvents = pgTable("notification_webhook_events", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  eventId: text("event_id").notNull(),
+  payload: jsonb("payload").$type<Record<string, unknown>>().notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [uniqueIndex("notification_webhook_events_event_id_uq").on(table.eventId)]);
+
 export const notificationEvents = pgTable(
   "notification_events",
   {
