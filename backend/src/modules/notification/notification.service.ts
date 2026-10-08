@@ -1,6 +1,6 @@
 import { and, eq, isNull, lte, or } from "drizzle-orm";
 import { db } from "@/db";
-import type { NotificationRecipient } from "@/shared/notification-recipient";
+export type NotificationRecipient = { phone: string; zaloOaId: string | null; isOaFollower: boolean };
 import { AppError } from "@/shared/errors";
 import { notificationEvents } from "./notification.schema";
 import type { NotificationEvent, NotificationInput, RetryFailureKind, ZaloProvider } from "./notification.types";
@@ -8,7 +8,7 @@ import type { NotificationEvent, NotificationInput, RetryFailureKind, ZaloProvid
 const MAX_ATTEMPTS = 3;
 let provider: ZaloProvider | undefined;
 const secrets = new Map<string, Record<string, unknown>>();
-let recipientResolver: (renterId: string, motelId: string) => Promise<NotificationRecipient | undefined>;
+let recipientResolver: (renterId: string, motelId: string) => Promise<NotificationRecipient | undefined> = async () => undefined;
 export function setNotificationRecipientResolver(resolver: (renterId: string, motelId: string) => Promise<NotificationRecipient | undefined>): void { recipientResolver = resolver; }
 
 export function setZaloProvider(next: ZaloProvider | undefined): void { provider = next; }

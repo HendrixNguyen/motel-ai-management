@@ -1,8 +1,8 @@
 
-## Final remaining findings update
+## Final review cleanup
 
-- Notification recipient lookup is now injected at app composition via renter-owned projection; notification/shared code has no renter schema import.
-- Expiry window is typed and validates `0..365` days; contract projection bounds end dates inclusively from current date through `until`, active contracts only.
-- Scheduler now targets fixed daily UTC 00:05, retries up to three times with bounded delays, uses `unref`, and avoids interval drift.
-- OTP policy remains fail-safe: enqueue acceptance is required before success; process restart loses secret and permanently fails event as `secret_unavailable`, with no plaintext persistence.
-- Typecheck passes. DB integration remains blocked by local PostgreSQL `Failed query`; migration reset repair and DB-backed boundary/provider assertions could not run.
+- Removed stale shared resolver implementation and notification module resolver re-export; shared layer now contains only neutral recipient type, with renter-owned DB projection injected at app composition.
+- Added explicit `ExpiringContract` DTO return type for contract expiry projection.
+- Confirmed duplicate `otp_sent_at` definition remains across immutable `0000` baseline and `0001` alter migration; no migration rewrite performed to preserve repo immutability. Existing reset migration chain still fails against local DB.
+- `bun run typecheck` passes.
+- Sequential notification and contract DB tests both blocked by `Failed query` during PostgreSQL reset/setup; expiry tests could not execute for same reason.
