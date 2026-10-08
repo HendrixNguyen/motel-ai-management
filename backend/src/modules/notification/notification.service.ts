@@ -8,8 +8,8 @@ import type { NotificationEvent, NotificationInput, RetryFailureKind, ZaloProvid
 const MAX_ATTEMPTS = 3;
 let provider: ZaloProvider | undefined;
 const secrets = new Map<string, Record<string, unknown>>();
-let recipientResolver: (renterId: string, motelId: string) => Promise<NotificationRecipient | undefined> = async () => undefined;
-export function setNotificationRecipientResolver(resolver: (renterId: string, motelId: string) => Promise<NotificationRecipient | undefined>): void { recipientResolver = resolver; }
+let recipientResolver: ((renterId: string, motelId: string) => Promise<NotificationRecipient | undefined>) | undefined;
+export function setNotificationRecipientResolver(resolver: ((renterId: string, motelId: string) => Promise<NotificationRecipient | undefined>) | null): void { recipientResolver = resolver ?? undefined; }
 
 export function setZaloProvider(next: ZaloProvider | undefined): void { provider = next; }
 function redactPayload(payload: Record<string, unknown>) { return Object.fromEntries(Object.entries(payload).map(([key, value]) => [/otp|password|token|secret/i.test(key) ? [key, "[REDACTED]"] : [key, value]])); }

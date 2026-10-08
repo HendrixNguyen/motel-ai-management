@@ -1,8 +1,7 @@
 
-## Final review cleanup
+## Blocker follow-up
 
-- Removed stale shared resolver implementation and notification module resolver re-export; shared layer now contains only neutral recipient type, with renter-owned DB projection injected at app composition.
-- Added explicit `ExpiringContract` DTO return type for contract expiry projection.
-- Confirmed duplicate `otp_sent_at` definition remains across immutable `0000` baseline and `0001` alter migration; no migration rewrite performed to preserve repo immutability. Existing reset migration chain still fails against local DB.
+- Recipient resolver now truly unset by default; notification enqueue/delivery explicitly fail until app composition injects renter-owned projection.
+- Fresh reset remains blocked by migration-chain duplicate `otp_sent_at` definitions in immutable 0000/0001 history; no unsafe rewrite performed.
+- Advisory scheduler lease and focused DB tests remain blocked because local PostgreSQL reset fails before tests execute.
 - `bun run typecheck` passes.
-- Sequential notification and contract DB tests both blocked by `Failed query` during PostgreSQL reset/setup; expiry tests could not execute for same reason.
