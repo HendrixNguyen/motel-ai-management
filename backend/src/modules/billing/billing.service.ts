@@ -192,7 +192,8 @@ export async function uploadMeterPhoto(motelId: string, periodId: string, readin
         if (previous) await tx.delete(uploads).where(eq(uploads.id, previous.id));
         const [created] = await tx.insert(uploads).values({ resourceType: "meter_reading", resourceId: readingId, motelId, objectKey: stored.objectKey, contentType: stored.contentType, size: stored.size, checksum: stored.checksum }).returning();
         if (!created) throw AppError.externalService();
-        await tx.update(meterReadings).set({ photoUrl: stored.objectKey }).where(eq(meterReadings.id, readingId));
+        const linked = await tx.update(meterReadings).set({ photoUrl: stored.objectKey }).where(eq(meterReadings.id, readingId)).returning({ id: meterReadings.id });
+        if (linked.length === 0) throw AppError.notFound("Không tìm thấy chỉ số công tơ");
         return created;
       });
       if (previousKey) await uploadStorage.delete(previousKey).catch(() => undefined);

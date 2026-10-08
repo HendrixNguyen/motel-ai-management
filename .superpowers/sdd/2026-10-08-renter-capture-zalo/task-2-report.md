@@ -28,3 +28,13 @@ Verification after fixes:
 - `bun run typecheck` passed.
 - `bun test src/test/upload.test.ts` still blocked by PostgreSQL query failures.
 - `git diff --check` passed.
+
+## Remaining finding fix
+
+- Meter-reading linkage now checks `UPDATE ... RETURNING` row count inside same transaction.
+- Zero-row linkage raises `NOT_FOUND`, rolls back upload metadata, and outer cleanup deletes newly stored object.
+- Added regression test for zero-row linkage cleanup.
+
+Verification:
+- `bun run typecheck` passed.
+- `bun test src/test/upload.test.ts` remains blocked by local PostgreSQL query failures.

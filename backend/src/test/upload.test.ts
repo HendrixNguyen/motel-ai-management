@@ -47,6 +47,13 @@ describe("meter photo uploads", () => {
     await expect(uploadMeterPhoto(data.motel.id, data.period.id, data.reading.id, data.manager.id, new File([new Uint8Array(10 * 1024 * 1024 + 1)], "big.jpg", { type: "image/jpeg" }))).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
   });
 
+  test("cleans uploaded object when reading linkage updates no rows", async () => {
+    const data = await seed();
+    const storage = new FakeStorageAdapter();
+    configureUploadStorage(storage);
+    await expect(uploadMeterPhoto(data.motel.id, data.period.id, "00000000-0000-0000-0000-000000000000", data.manager.id, jpeg())).rejects.toMatchObject({ code: "NOT_FOUND" });
+  });
+
   test("hides foreign reading and storage failures", async () => {
     const own = await seed();
     const other = await seed();
