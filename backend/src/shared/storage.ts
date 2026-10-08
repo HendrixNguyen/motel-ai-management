@@ -55,6 +55,7 @@ export async function readStorageBody(body: StoragePutInput["body"]): Promise<Ui
 }
 
 export async function validateStorageInput(input: StoragePutInput): Promise<Uint8Array> {
+  input.objectKey = input.objectKey.replace(/^\/+/, "").replace(/\/+/g, "/");
   if (!/^[-a-zA-Z0-9_./]+$/.test(input.objectKey) || input.objectKey.includes("..")) throw new StorageError("Object key không hợp lệ");
   if (!SUPPORTED_CONTENT_TYPES.includes(input.contentType)) throw new StorageError("MIME không được hỗ trợ");
   const bytes = await readStorageBody(input.body);
