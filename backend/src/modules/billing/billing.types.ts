@@ -6,3 +6,5 @@ export type UpdateReadingInput = { roomId: string; type: "electric" | "water"; c
 export type UpdateReadingsInput = { readings: UpdateReadingInput[] };
 export type InvoiceResponse = { id: string; billingPeriodId: string; roomId: string; roomName: string; renterId: string; motelId: string; rentAmount: string; electricityUsage: string; electricityCost: string; waterUsage: string; waterCost: string; otherFees: unknown[]; totalAmount: string; qrCodeData: string | null; paymentStatus: "unpaid" | "paid" | "overdue"; paidAt: string | null; createdAt: string };
 export type InvoiceGenerationResponse = { invoices: InvoiceResponse[]; details: { skippedRooms: Array<{ id: string; name: string }> } };
+export type UploadResponse = { id: string; objectKey: string; contentType: string; size: number; checksum: string; createdAt: string };
+export type SignedUploadResponse = { url: string; contentType: string; size: number; checksum: string };

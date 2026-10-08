@@ -67,6 +67,10 @@ export class AppError extends Error {
   static periodAlreadySent() {
     return new AppError("PERIOD_ALREADY_SENT", "Kỳ hóa đơn đã gửi và không thể thay đổi.");
   }
+  static externalService(message = "Dịch vụ lưu trữ tạm thời không khả dụng") {
+    return new AppError("EXTERNAL_SERVICE_ERROR", message);
+  }
+
   static rateLimited(message: string, retryAfterSeconds: number) {
     return new AppError("RATE_LIMITED", message, { retryAfterSeconds });
   }

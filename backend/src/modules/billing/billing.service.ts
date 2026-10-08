@@ -6,7 +6,12 @@ import { resolveOwnedMotel } from "@/middleware/tenancy";
 import { AppError } from "@/shared/errors";
 import { listRoomsForBilling } from "@/modules/room/room.service";
 import { rooms } from "@/modules/room/room.schema";
-import { type BillingPeriodDetailResponse, type BillingPeriodResponse, type CreateBillingPeriodInput, type InvoiceGenerationResponse, type InvoiceResponse, type MeterReadingResponse, type UpdateReadingsInput } from "./billing.types";
+import { type BillingPeriodDetailResponse, type BillingPeriodResponse, type CreateBillingPeriodInput, type InvoiceGenerationResponse, type InvoiceResponse, type MeterReadingResponse, type UpdateReadingsInput, type SignedUploadResponse, type UploadResponse } from "./billing.types";
+import { uploads } from "@/shared/upload.schema";
+import { FakeStorageAdapter, StorageError, type StorageAdapter } from "@/shared/storage";
+
+let uploadStorage: StorageAdapter = new FakeStorageAdapter();
+export function configureUploadStorage(storage: StorageAdapter): void { uploadStorage = storage; }
 import { listBillableContractsForMotel } from "@/modules/contract/contract.service";
 import { calculateInvoiceAmounts } from "./billing.calculation";
 import { buildTransferDescription, buildVietQrPayload } from "@/modules/vietqr/vietqr.service";
@@ -161,6 +166,36 @@ async function transitionInvoice(invoiceId: string, motelId: string, managerId: 
 
 export const markInvoicePaid = (invoiceId: string, motelId: string, managerId: string) => transitionInvoice(invoiceId, motelId, managerId, "paid");
 export const markInvoiceOverdue = (invoiceId: string, motelId: string, managerId: string) => transitionInvoice(invoiceId, motelId, managerId, "overdue");
+
+export async function uploadMeterPhoto(motelId: string, periodId: string, readingId: string, managerId: string, file: File): Promise<UploadResponse> {
+  await resolveOwnedMotel(motelId, managerId);
+  const reading = await db.query.meterReadings.findFirst({ where: and(eq(meterReadings.id, readingId), eq(meterReadings.billingPeriodId, periodId)) });
+  const period = await db.query.billingPeriods.findFirst({ where: and(eq(billingPeriods.id, periodId), eq(billingPeriods.motelId, motelId)) });
+  if (!reading || !period) throw AppError.notFound("Không tìm thấy chỉ số công tơ");
+  if (period.status !== "draft") throw AppError.periodAlreadySent();
+  if (file.type !== "image/jpeg" && file.type !== "image/png") throw AppError.badRequest("Chỉ hỗ trợ ảnh JPEG hoặc PNG");
+  const objectKey = `motels/${motelId}/meter/${readingId}/${crypto.randomUUID()}`;
+  try {
+    const stored = await uploadStorage.put({ objectKey, body: new Uint8Array(await file.arrayBuffer()), contentType: file.type as "image/jpeg" | "image/png" });
+    const previous = await db.query.uploads.findFirst({ where: and(eq(uploads.resourceType, "meter_reading"), eq(uploads.resourceId, readingId)) });
+    if (previous) { await uploadStorage.delete(previous.objectKey); await db.delete(uploads).where(eq(uploads.id, previous.id)); }
+    const [row] = await db.insert(uploads).values({ resourceType: "meter_reading", resourceId: readingId, motelId, objectKey: stored.objectKey, contentType: stored.contentType, size: stored.size, checksum: stored.checksum }).returning();
+    await db.update(meterReadings).set({ photoUrl: stored.objectKey }).where(eq(meterReadings.id, readingId));
+    if (!row) throw AppError.externalService();
+    return { id: row.id, objectKey: row.objectKey, contentType: row.contentType, size: row.size, checksum: row.checksum, createdAt: row.createdAt.toISOString() };
+  } catch (error) {
+    if (error instanceof AppError || error instanceof StorageError) throw error instanceof StorageError ? AppError.externalService() : error;
+    throw AppError.externalService();
+  }
+}
+
+export async function getMeterPhoto(motelId: string, periodId: string, readingId: string, managerId: string): Promise<SignedUploadResponse> {
+  await resolveOwnedMotel(motelId, managerId);
+  const reading = await db.query.meterReadings.findFirst({ where: and(eq(meterReadings.id, readingId), eq(meterReadings.billingPeriodId, periodId)) });
+  const upload = await db.query.uploads.findFirst({ where: and(eq(uploads.resourceType, "meter_reading"), eq(uploads.resourceId, readingId), eq(uploads.motelId, motelId)) });
+  if (!reading || !upload) throw AppError.notFound("Không tìm thấy ảnh công tơ");
+  try { return { url: await uploadStorage.createSignedDownload(upload.objectKey, 300), contentType: upload.contentType, size: upload.size, checksum: upload.checksum }; } catch { throw AppError.externalService(); }
+}
 
 export async function countBillingPeriodsForMotel(motelId: string): Promise<number> {
   return db.$count(billingPeriods, eq(billingPeriods.motelId, motelId));
