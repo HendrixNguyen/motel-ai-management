@@ -2,6 +2,9 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import Field from "@/components/ui/field";
+import PageHeader from "@/components/ui/page-header";
+import { ToastProvider } from "@/components/ui/toast";
+import { Toaster } from "sonner";
 import Sidebar from "@/components/manager/sidebar";
 import TopBar from "@/components/manager/top-bar";
 import LoginPage from "@/app/(auth)/login/page";
@@ -49,6 +52,13 @@ describe("accessible shell controls", () => {
     expect(html).toContain("Menu phụ");
     expect(html).toContain("Đăng xuất");
     expect(html).toMatch(/<summary[^>]*aria-label="[^"]*Menu phụ[^"]*Tài khoản[^"]*"/);
+  });
+  it("renders shared page header actions and toast adapter", () => {
+    const html = renderToStaticMarkup(createElement(ToastProvider, null, createElement(PageHeader, { title: "Tổng quan", description: "Hôm nay", actions: createElement("button", null, "Tạo") })));
+    expect(html).toContain("Tổng quan");
+    expect(html).toContain("Hôm nay");
+    expect(html).toContain("Tạo");
+    expect(renderToStaticMarkup(createElement(Toaster))).toContain('aria-label="Notifications alt+T"');
   });
   it("disables the motel selector when no motel exists", () => {
     const html = renderToStaticMarkup(createElement(TopBar, { manager: MANAGER_ME, motels: [] }));

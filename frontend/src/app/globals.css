@@ -32,6 +32,7 @@
   --color-border-strong: #64748B;
   --color-surface: #FFFFFF;
   --color-canvas: #F8FAFC;
+  --color-surface-raised: #F1F5F9;
 
   --font-heading: var(--font-be-vietnam-pro);
   --font-sans: var(--font-noto-sans);
@@ -43,4 +44,21 @@
 /* Keep keyboard focus paint clear of viewport edges and the fixed mobile navigation. */
 :where(a, button, input, select, textarea, summary):focus-visible {
   scroll-margin: 6rem 1rem;
+}
+
+html {
+  background: var(--color-canvas);
+}
+
+body {
+  min-width: 320px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
 }
