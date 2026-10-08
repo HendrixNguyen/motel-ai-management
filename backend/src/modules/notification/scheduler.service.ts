@@ -1,28 +1,33 @@
-import { sql } from "drizzle-orm";
-import { db } from "@/db";
+import postgres from "postgres";
+import { connectionString } from "@/db";
 
 export interface AdvisoryLeaseDb {
-  tryAdvisoryLock(key: number): Promise<boolean>;
-  releaseAdvisoryLock(key: number): Promise<void>;
+  runWithLease<T>(key: number, task: () => Promise<T>): Promise<{ acquired: true; value: T } | { acquired: false }>;
 }
 
-export const postgresAdvisoryLeaseDb: AdvisoryLeaseDb = {
-  async tryAdvisoryLock(key) {
-    const result = await db.execute(sql`select pg_try_advisory_lock(${key}) as acquired`);
-    return Boolean(result[0]?.acquired);
-  },
-  async releaseAdvisoryLock(key) {
-    await db.execute(sql`select pg_advisory_unlock(${key})`);
-  },
-};
+type PostgresClient = ReturnType<typeof postgres>;
+
+export function createPostgresAdvisoryLeaseDb(client: PostgresClient): AdvisoryLeaseDb {
+  return {
+    async runWithLease(key, task) {
+      return client.begin(async (session) => {
+        const [row] = await session.unsafe<{ acquired: boolean }[]>("select pg_try_advisory_lock($1) as acquired", [key]);
+        if (!row?.acquired) return { acquired: false } as const;
+        try {
+          return { acquired: true, value: await task() } as const;
+        } finally {
+          await session.unsafe("select pg_advisory_unlock($1)", [key]);
+        }
+      });
+    },
+  };
+}
+
+const postgresClient = postgres(connectionString, { max: 1, onnotice: () => {} });
+export const postgresAdvisoryLeaseDb = createPostgresAdvisoryLeaseDb(postgresClient);
 
 export async function runWithAdvisoryLease<T>(leaseDb: AdvisoryLeaseDb, key: number, task: () => Promise<T>): Promise<{ acquired: true; value: T } | { acquired: false }> {
-  if (!(await leaseDb.tryAdvisoryLock(key))) return { acquired: false };
-  try {
-    return { acquired: true, value: await task() };
-  } finally {
-    await leaseDb.releaseAdvisoryLock(key);
-  }
+  return leaseDb.runWithLease(key, task);
 }
 
 export function nextExpiryRunAt(now: Date): Date {

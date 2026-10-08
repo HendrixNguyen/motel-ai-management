@@ -10,7 +10,10 @@ import { contracts } from "@/modules/contract/contract.schema";
 import { notificationEvents } from "@/modules/notification/notification.schema";
 import { createRenterForMotel } from "@/modules/renter/renter.service";
 import { markInvoicePaid } from "@/modules/billing/billing.service";
+import { listExpiringContracts } from "@/modules/contract/contract.service";
 import { requestContractOtp } from "@/modules/contract/contract.service";
+import { setNotificationRecipientResolver, enqueueNotification } from "@/modules/notification/notification.service";
+import { runWithAdvisoryLease, type AdvisoryLeaseDb } from "@/modules/notification/scheduler.service";
 import { eq } from "drizzle-orm";
 
 setDefaultTimeout(120_000);
@@ -41,6 +44,36 @@ describe("domain notification integration", () => {
     const [invoice] = await db.insert(invoices).values({ billingPeriodId: period!.id, roomId: room.id, renterId: renter.id, motelId: motel.id, rentAmount: "1", electricityUsage: "0", electricityCost: "0", waterUsage: "0", waterCost: "0", totalAmount: "1" }).returning();
     await markInvoicePaid(invoice!.id, motel.id, manager.id);
     expect(await keys()).toContain(`invoice:${invoice!.id}:paid`);
+  });
+
+  test("lists active contracts inclusively and excludes inactive contracts", async () => {
+    const { motel, room, renter } = await fixture();
+    await db.insert(contracts).values([
+      { motelId: motel.id, renterId: renter.id, roomId: room.id, startDate: "2026-01-01", endDate: "2026-01-08", monthlyRent: "1", deposit: "0", status: "active" },
+      { motelId: motel.id, renterId: renter.id, roomId: room.id, startDate: "2026-01-01", endDate: "2026-01-09", monthlyRent: "1", deposit: "0", status: "expired" },
+    ]);
+    const rows = await listExpiringContracts(new Date("2026-01-01T00:00:00Z"), new Date("2026-01-08T23:59:59Z"), 7);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.endDate).toBe("2026-01-08");
+  });
+
+  test("deduplicates expiry notification event key", async () => {
+    const { motel, renter } = await fixture();
+    setNotificationRecipientResolver(async () => ({ phone: renter.phone, zaloOaId: null, isOaFollower: false }));
+    const input = { eventKey: `contract:${crypto.randomUUID()}:expiry:2026-01-08:7`, renterId: renter.id, motelId: motel.id, templateId: "expiry", payload: { contractId: crypto.randomUUID() } };
+    await enqueueNotification(input);
+    await enqueueNotification(input);
+    expect(await keys()).toHaveLength(1);
+  });
+
+  test("serializes two workers through advisory lease", async () => {
+    let held = false;
+    const dbLease: AdvisoryLeaseDb = { runWithLease: async (_key, task) => { if (held) return { acquired: false }; held = true; try { return { acquired: true, value: await task() }; } finally { held = false; } } };
+    let runs = 0;
+    const task = () => runWithAdvisoryLease(dbLease, 99, async () => { runs++; await new Promise((resolve) => setTimeout(resolve, 10)); return runs; });
+    const results = await Promise.all([task(), task()]);
+    expect(results.filter((result) => result.acquired)).toHaveLength(1);
+    expect(runs).toBe(1);
   });
 
   test("creates OTP event and keeps contract state safe when notification fails", async () => {

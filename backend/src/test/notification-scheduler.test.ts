@@ -24,8 +24,7 @@ describe("runWithAdvisoryLease", () => {
   test("runs task once and releases lease", async () => {
     const calls: string[] = [];
     const db: AdvisoryLeaseDb = {
-      tryAdvisoryLock: async (key) => { calls.push(`acquire:${key}`); return true; },
-      releaseAdvisoryLock: async (key) => { calls.push(`release:${key}`); },
+      runWithLease: async (key, task) => { calls.push(`acquire:${key}`); const value = await task(); calls.push(`release:${key}`); return { acquired: true, value }; },
     };
     const result = await runWithAdvisoryLease(db, 42, async () => { calls.push("task"); return 7; });
     expect(result).toEqual({ acquired: true, value: 7 });
@@ -35,8 +34,7 @@ describe("runWithAdvisoryLease", () => {
   test("skips task when another worker owns lease", async () => {
     let ran = false;
     const db: AdvisoryLeaseDb = {
-      tryAdvisoryLock: async () => false,
-      releaseAdvisoryLock: async () => { throw new Error("must not release"); },
+      runWithLease: async () => ({ acquired: false }),
     };
     const result = await runWithAdvisoryLease(db, 42, async () => { ran = true; return 1; });
     expect(result).toEqual({ acquired: false });
@@ -44,15 +42,14 @@ describe("runWithAdvisoryLease", () => {
   });
 
   test("scheduler uses injected lease and task", async () => {
-    const db: AdvisoryLeaseDb = { tryAdvisoryLock: async () => true, releaseAdvisoryLock: async () => {} };
+    const db: AdvisoryLeaseDb = { runWithLease: async (_key, task) => ({ acquired: true, value: await task() }) };
     expect(await runExpirySchedulerOnce({ clock: () => new Date("2026-01-01T00:00:00Z"), leaseDb: db, run: async (now) => { expect(now.toISOString()).toBe("2026-01-01T00:00:00.000Z"); return 3; }, leaseKey: 9 })).toEqual({ acquired: true, count: 3 });
   });
 
   test("releases lease when task fails", async () => {
     let released = false;
     const db: AdvisoryLeaseDb = {
-      tryAdvisoryLock: async () => true,
-      releaseAdvisoryLock: async () => { released = true; },
+      runWithLease: async (_key, task) => { try { return { acquired: true, value: await task() }; } finally { released = true; } },
     };
     await expect(runWithAdvisoryLease(db, 42, async () => { throw new Error("boom"); })).rejects.toThrow("boom");
     expect(released).toBe(true);
