@@ -4,11 +4,14 @@ import { CaptureQueue, CaptureQueueUnavailableError, clearCaptureQueue } from "@
 describe("capture queue", () => {
   it("refuses unsupported storage instead of using volatile memory", async () => {
     if (typeof indexedDB !== "undefined") return;
-    await expect(new CaptureQueue("manager-1").list()).rejects.toBeInstanceOf(CaptureQueueUnavailableError);
+    const queue = new CaptureQueue("manager-1");
+    await expect(queue.list()).rejects.toBeInstanceOf(CaptureQueueUnavailableError);
+    await expect(queue.enqueue({ managerId: "manager-2", motelId: "motel-1", periodId: "period-1", periodStatus: "draft", readings: [] })).rejects.toBeInstanceOf(CaptureQueueUnavailableError);
     await expect(clearCaptureQueue("manager-1")).resolves.toBeUndefined();
   });
 
   it("rejects writes for another manager before storage", async () => {
+    if (typeof indexedDB === "undefined") return;
     await expect(new CaptureQueue("manager-1").enqueue({ managerId: "manager-2", motelId: "motel-1", periodId: "period-1", periodStatus: "draft", readings: [] })).rejects.toThrow("CAPTURE_QUEUE_MANAGER_MISMATCH");
   });
 

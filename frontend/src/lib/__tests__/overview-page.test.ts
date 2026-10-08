@@ -50,7 +50,8 @@ describe("M1 overview", () => {
     expect(html).toContain(`href="/renters?create=1&amp;motel=${MOTEL.id}"`);
     expect(html).toContain("Thêm khách thuê");
     expect(html.match(/aria-labelledby="dashboard-metrics"/g)).toHaveLength(1);
-    expect(html).not.toMatch(/Doanh thu dự kiến|Tiền chưa thu|Sự cố chưa xử lý|Sự cố mới|Chốt số điện\/nước|Tạo hóa đơn/);
+    expect(html).toContain("Tạo hóa đơn");
+    expect(html).not.toMatch(/Doanh thu dự kiến|Tiền chưa thu|Sự cố chưa xử lý|Sự cố mới|Chốt số điện\/nước/);
     expect(fetchMock).toHaveBeenCalledTimes(5);
   });
 
