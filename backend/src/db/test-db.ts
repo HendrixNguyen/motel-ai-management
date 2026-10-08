@@ -10,6 +10,7 @@ const migrationsFolder = path.join(import.meta.dir, "../../drizzle");
 
 const TABLES = [
   "uploads",
+  "notification_events",
   "zalo_notifications",
   "magic_links",
   "help_tickets",

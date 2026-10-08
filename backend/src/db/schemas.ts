@@ -6,3 +6,4 @@ export * from "@/modules/billing/billing.schema";
 export * from "@/modules/contract/contract.schema";
 export * from "@/modules/ticket/ticket.schema";
 export * from "@/modules/billing/upload.schema";
+export * from "@/modules/notification/notification.schema";
