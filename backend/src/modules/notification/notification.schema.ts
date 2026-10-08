@@ -1,18 +1,14 @@
-import {
-  integer,
-  index,
-  jsonb,
-  pgEnum,
-  pgTable,
-  text,
-  timestamp,
-  uuid,
-  uniqueIndex,
-  check,
-} from "drizzle-orm/pg-core";
+import { check, index, integer, jsonb, pgEnum, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { motels } from "@/modules/motel/motel.schema";
 import { renters } from "@/modules/renter/renter.schema";
+
+export const zaloOaMotelMappings = pgTable("zalo_oa_motel_mappings", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  oaId: text("oa_id").notNull(),
+  motelId: uuid("motel_id").notNull().references(() => motels.id),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [uniqueIndex("zalo_oa_motel_mappings_oa_id_uq").on(table.oaId), index("zalo_oa_motel_mappings_motel_id_idx").on(table.motelId)]);
 
 export const notificationEventChannel = pgEnum("notification_event_channel", ["oa_message", "zns"]);
 export const notificationEventStatus = pgEnum("notification_event_status", ["pending", "sent", "failed"]);

@@ -1,17 +1,17 @@
 # Task 3 report
 
-## Review fixes
+## Remaining review findings
 
-- Lease loser now returns persisted event immediately and never invokes provider.
-- Webhook deduplication and renter mapping run in one DB transaction; mapping errors leave dedup row absent so provider retries safely.
-- Webhook body no longer trusts `motel_id`; mapping resolves one globally unambiguous renter by verified phone. Canonical route remains `POST /api/zalo/webhook`.
-- Added attempt-count Drizzle `check` declaration and migration constraint.
-- Added restart-safe OTP behavior: transient secret remains process-memory only; after restart event fails permanently with `secret_unavailable`, never sends redacted placeholder.
-- Added typed provider failure taxonomy and lease fields.
+- Follow webhook now validates required phone before dedup insert.
+- Parsed webhook payload must be non-null object; `event_name` limited to `follow`/`unfollow`; malformed payload returns `VALIDATION_ERROR`.
+- Internal DB errors now propagate through Elysia normal `INTERNAL_ERROR` handling instead of being mislabeled `EXTERNAL_SERVICE_ERROR`.
+- Removed unused notification service SQL import.
+- Drizzle schema retains explicit attempt-count check declaration and focused migration.
+- Canonical route remains `POST /api/zalo/webhook`; exact raw-body HMAC path preserved.
 
 ## Verification
 
 - `bun run typecheck`: pass.
-- `bun test src/test/notification.test.ts`: blocked by local PostgreSQL schema/query failure (`Failed query`).
-- `bun test src/test/zalo.test.ts`: blocked by local DB/schema setup; one assertion cannot complete.
+- `bun test src/test/zalo.test.ts`: blocked by local PostgreSQL schema/query failure (`notification_webhook_events` missing).
+- `bun test src/test/notification.test.ts`: blocked by local PostgreSQL schema/query failure.
 - Unrelated untracked files preserved.

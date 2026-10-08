@@ -1,4 +1,4 @@
-import { and, eq, isNull, lte, or, sql } from "drizzle-orm";
+import { and, eq, isNull, lte, or } from "drizzle-orm";
 import { db } from "@/db";
 import { getRenterForNotification } from "@/modules/renter/renter.service";
 import { AppError } from "@/shared/errors";
