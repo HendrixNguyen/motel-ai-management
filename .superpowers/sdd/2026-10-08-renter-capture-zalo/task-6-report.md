@@ -1,25 +1,19 @@
-# Task 6 report
 
-## Status
-Implemented capture queue, sync handling, upload client, capture entry route, and app-shell service worker.
+## Review fixes appended
 
-## Changed
-- IndexedDB-backed capture queue with memory fallback, manager-scoped clearing, statuses: pending/failed/conflict/sent/locked.
-- Sync retries failed writes, preserves conflicts, locks sent/closed periods.
-- Meter-photo multipart client and typed upload response.
-- `/capture` mobile entry route.
-- Service worker caches only static shell/offline page; skips `/api/` requests and signed URL responses.
-- Existing manager layout registers service worker.
+Commit `065e55b8216a0f6c2d79f305a4fb31efe100555b`.
 
-## Verification
-- `cd frontend && bun test src/lib/capture/queue.test.ts` — pass, 4 tests.
-- `cd frontend && bun run typecheck` — pass.
-- `cd frontend && bun run lint` — pass.
-- `cd frontend && bun run test` — pass, 350 tests.
-- `cd frontend && bun run build` — pass.
-- `cd frontend && bun run test:e2e --grep capture` — no tests found; `frontend/e2e/capture.spec.ts` does not exist yet.
+- Added independent `/capture`, `/capture/[periodId]`, and `/capture/[periodId]/room/[readingId]` screens.
+- Added startup/reconnect sync, conflict messaging, sent/closed lock, logout queue clear.
+- Removed volatile memory fallback; unsupported IndexedDB now returns `CAPTURE_QUEUE_UNSUPPORTED`.
+- Added separate Blob photo queue and retry path.
+- Added typed conflict details and upload client response.
+- Restricted service worker to explicit same-origin shell paths; bypasses API, RSC, Next assets, signed paths.
+- Added capture Playwright spec and service-worker boundary test.
 
-## Concerns
-- Capture E2E remains unimplemented because brief requested file is absent from current tree.
-- Browser-level IndexedDB persistence needs Playwright coverage once capture fixture spec is added.
-- Unrelated pre-existing untracked docs/plans were not staged.
+Verification:
+- typecheck pass
+- lint pass with existing hook warning resolved after commit preparation
+- Vitest pass: 349 tests
+- build pass
+- capture E2E attempted; fixture route assumptions caused 2 UI failures, service-worker request test passed. Browser run available but full capture fixture data still needs alignment.
