@@ -13,6 +13,10 @@ import { AppError } from "@/shared/errors";
 import { notificationRoutes } from "@/modules/notification/notification.route";
 import { renterPortalRoutes } from "@/modules/renter-portal/renter-portal.route";
 import { ticketRoutes } from "@/modules/ticket/ticket.route";
+import { getRenterNotificationRecipient } from "@/modules/renter/renter.service";
+import { setNotificationRecipientResolver } from "@/modules/notification/notification.service";
+
+setNotificationRecipientResolver(getRenterNotificationRecipient);
 
 /**
  * A fresh instance per call. `app` is the one the server listens on; tests build their own

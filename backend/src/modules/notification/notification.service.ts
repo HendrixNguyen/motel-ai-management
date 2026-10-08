@@ -1,6 +1,6 @@
 import { and, eq, isNull, lte, or } from "drizzle-orm";
 import { db } from "@/db";
-import { getNotificationRecipient } from "./notification.recipient";
+import type { NotificationRecipient } from "@/shared/notification-recipient";
 import { AppError } from "@/shared/errors";
 import { notificationEvents } from "./notification.schema";
 import type { NotificationEvent, NotificationInput, RetryFailureKind, ZaloProvider } from "./notification.types";
@@ -8,13 +8,16 @@ import type { NotificationEvent, NotificationInput, RetryFailureKind, ZaloProvid
 const MAX_ATTEMPTS = 3;
 let provider: ZaloProvider | undefined;
 const secrets = new Map<string, Record<string, unknown>>();
+let recipientResolver: (renterId: string, motelId: string) => Promise<NotificationRecipient | undefined>;
+export function setNotificationRecipientResolver(resolver: (renterId: string, motelId: string) => Promise<NotificationRecipient | undefined>): void { recipientResolver = resolver; }
 
 export function setZaloProvider(next: ZaloProvider | undefined): void { provider = next; }
 function redactPayload(payload: Record<string, unknown>) { return Object.fromEntries(Object.entries(payload).map(([key, value]) => [/otp|password|token|secret/i.test(key) ? [key, "[REDACTED]"] : [key, value]])); }
 function failureKind(error: unknown): { transient: boolean; reason: RetryFailureKind } { const kind = (error as { kind?: unknown }).kind; if (kind === "rate_limited" || kind === "provider_unavailable" || kind === "timeout") return { transient: true, reason: kind }; if (kind === "invalid_recipient" || kind === "invalid_template" || kind === "unauthorized") return { transient: false, reason: kind }; return { transient: false, reason: "provider_error" }; }
 
 export async function enqueueNotification(input: NotificationInput): Promise<NotificationEvent> {
-  const recipient = await getNotificationRecipient(input.renterId, input.motelId);
+  if (!recipientResolver) throw AppError.externalService("Notification recipient resolver chưa được cấu hình");
+  const recipient = await recipientResolver(input.renterId, input.motelId);
   if (!recipient) throw AppError.notFound("Không tìm thấy người thuê");
   const channel = recipient.isOaFollower && recipient.zaloOaId ? "oa_message" : "zns";
   const [row] = await db.insert(notificationEvents).values({ eventKey: input.eventKey, renterId: input.renterId, motelId: input.motelId, channel, templateId: input.templateId, payload: redactPayload(input.payload) }).onConflictDoNothing({ target: notificationEvents.eventKey }).returning();
@@ -35,7 +38,8 @@ export async function deliverNotification(eventId: string): Promise<Notification
     return event;
   }
   const event = claimed;
-  const recipient = await getNotificationRecipient(event.renterId, event.motelId);
+  if (!recipientResolver) throw AppError.externalService("Notification recipient resolver chưa được cấu hình");
+  const recipient = await recipientResolver(event.renterId, event.motelId);
   if (!recipient) throw AppError.notFound("Không tìm thấy người thuê");
   const transientSecret = secrets.get(event.id);
   if (Object.values(event.payload).some((value) => value === "[REDACTED]") && !transientSecret) {

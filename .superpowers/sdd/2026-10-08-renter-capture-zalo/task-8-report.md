@@ -1,9 +1,8 @@
 
-## Task 8 remaining findings update
+## Final remaining findings update
 
-- Added startup expiry producer invocation and daily scheduler in `backend/src/index.ts`.
-- Moved expiring-contract projection into contract service with inclusive current..until bounds; notification module no longer imports contract schema.
-- Replaced renter↔notification runtime dependency with neutral `shared/notification-recipient.ts` resolver.
-- Expiry key remains stable and deduplicated by contract/end-date/window.
-- Typecheck passes.
-- DB integration test remains blocked by repeated `Failed query` during local PostgreSQL reset/setup; migration repair and full producer/provider assertions require functioning TEST_DATABASE_URL.
+- Notification recipient lookup is now injected at app composition via renter-owned projection; notification/shared code has no renter schema import.
+- Expiry window is typed and validates `0..365` days; contract projection bounds end dates inclusively from current date through `until`, active contracts only.
+- Scheduler now targets fixed daily UTC 00:05, retries up to three times with bounded delays, uses `unref`, and avoids interval drift.
+- OTP policy remains fail-safe: enqueue acceptance is required before success; process restart loses secret and permanently fails event as `secret_unavailable`, with no plaintext persistence.
+- Typecheck passes. DB integration remains blocked by local PostgreSQL `Failed query`; migration reset repair and DB-backed boundary/provider assertions could not run.
