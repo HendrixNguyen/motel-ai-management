@@ -135,18 +135,18 @@ selected motel; switching motels reloads the current route against the new id.
 
 ### What is built
 
-Only the endpoints in [`docs/api-contract.md`](api-contract.md) can be served. A destination
+Only the endpoints in [`docs/api-contract.md`](api-contract.md) can be served. Billing M5 and M6 are now built: period creation/list, meter entry, invoice generation/list, local QR rendering, finalization, and manual payment status transitions. Finalization sends no renter notification. A destination
 with no endpoint gets **no route and no nav item** — a sidebar entry that 404s is a broken
 affordance — and a measure with no endpoint is omitted rather than rendered zero-filled, since
 a "Doanh thu dự kiến 0 ₫" tile is a false claim about data that does not exist.
 
-| Surface       | Built                                                                | Deferred — no endpoint exists                                                                        |
-| ------------- | -------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| Sidebar       | **Tổng quan**, **Nhà trọ**, **Phòng trọ**, **Khách thuê**            | **Tính tiền & Hóa đơn** (M5, M6), **Hợp đồng** (M7, M7a), **Sự cố & Yêu cầu** (M8), **Cài đặt** (M9) |
-| M1 Overview   | **Phòng** card, live quick actions                                   | **Doanh thu dự kiến**, **Tiền chưa thu**, **Sự cố chưa xử lý** cards, and both widgets               |
-| M3 Phòng trọ  | filters, cards, add/edit, change status                              | overdue indicator, meter history                                                                     |
-| M4 Khách thuê | list, detail, **Tạo magic link**                                     | **Gửi Zalo**                                                                                         |
-| M9 Cài đặt    | prices, `otherFees`, and bank account — carried by the M2 edit modal | the Zalo OA status panel                                                                             |
+| Surface | Built | Deferred — no endpoint exists |
+|---------|-------|-------------------------------|
+| Sidebar | **Tổng quan**, **Nhà trọ**, **Phòng trọ**, **Khách thuê**, **Tính tiền & Hóa đơn** (M5, M6) | **Hợp đồng** (M7, M7a), **Sự cố & Yêu cầu** (M8), **Cài đặt** (M9) |
+| M1 Overview | **Phòng** card, live quick actions | **Doanh thu dự kiến**, **Tiền chưa thu**, **Sự cố chưa xử lý** cards, and both widgets |
+| M3 Phòng trọ | filters, cards, add/edit, change status | overdue indicator, meter history |
+| M4 Khách thuê | list, detail, **Tạo magic link** | **Gửi Zalo** |
+| M9 Cài đặt | prices, `otherFees`, and bank account — carried by the M2 edit modal | the Zalo OA status panel |
 
 Each section below still describes the full intended screen. Read the table as what is
 delivered, not the section as what is.

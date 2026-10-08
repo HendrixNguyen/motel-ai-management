@@ -38,7 +38,7 @@ export default function TopBar({ manager, motels }: { manager: ManagerMeResponse
   }
 
   return (
-    <header className="border-b border-border bg-surface px-4 py-4 lg:px-8">
+    <header className="border-b border-border bg-surface px-4 py-3 lg:px-8">
       <div className="mx-auto flex max-w-6xl items-end gap-4">
         <div className="min-w-0 flex-1 lg:max-w-sm">
           <label htmlFor="motel-selector" className="mb-2 block text-sm font-semibold text-text">Nhà trọ</label>

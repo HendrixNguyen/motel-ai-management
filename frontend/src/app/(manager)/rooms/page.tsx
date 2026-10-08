@@ -12,6 +12,7 @@ import { formatPhone } from "@/lib/format/phone";
 import { roomStatusLabel } from "@/lib/format/status";
 import { parseRoomFilters, roomFiltersHref } from "@/lib/room-query";
 import { resolveMotelId, type MotelSearchParams } from "@/lib/motel-selection";
+import PageHeader from "@/components/ui/page-header";
 
 const statusTone: Record<RoomStatus, BadgeTone> = { available: "neutral", occupied: "success", maintenance: "warning" };
 
@@ -19,7 +20,7 @@ export default async function Rooms({ searchParams }: { searchParams: Promise<Mo
   const motels = await listMotels();
   const params = await searchParams;
   const motelId = resolveMotelId(motels, params);
-  if (!motelId) return <section className="space-y-6"><h1 className="font-heading text-2xl font-bold text-text">Phòng trọ</h1><MotelEditor empty /></section>;
+  if (!motelId) return <section className="space-y-6"><PageHeader title="Phòng trọ" description="Quản lý phòng, giá thuê cơ bản và trạng thái sử dụng." /><MotelEditor empty /></section>;
   const filters = parseRoomFilters(params);
   // D10: one read each, then an O(rooms + renters) join; no per-card requests.
   const [rooms, renters] = await Promise.all([listRooms(motelId, filters), listRenters(motelId)]);
@@ -34,11 +35,7 @@ export default async function Rooms({ searchParams }: { searchParams: Promise<Mo
   const filterKey = roomFiltersHref(motelId, filters);
 
   return <section className="min-w-0 space-y-6">
-    <div className="flex flex-wrap items-start justify-between gap-4">
-      <div className="min-w-0"><h1 className="font-heading text-2xl font-bold text-text">Phòng trọ</h1>
-        <p className="mt-2 max-w-prose text-base text-text-muted">Quản lý phòng, giá thuê cơ bản và trạng thái sử dụng.</p></div>
-      {(rooms.length > 0 || filtered) && <RoomEditor key={motelId} motelId={motelId} />}
-    </div>
+    <PageHeader title="Phòng trọ" description="Quản lý phòng, giá thuê cơ bản và trạng thái sử dụng." actions={(rooms.length > 0 || filtered) && <RoomEditor key={motelId} motelId={motelId} />} />
     <RoomFilters key={filterKey} motelId={motelId} filters={filters} />
     {rooms.length === 0 ? filtered
       ? <div className="rounded-card border border-border bg-surface p-6 text-center">

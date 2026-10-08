@@ -41,12 +41,14 @@ export const GENERIC_ERROR_MESSAGE = "Đã xảy ra lỗi hệ thống";
 export class ApiError extends Error {
   readonly status: number;
   readonly code: ErrorCode;
+  readonly details?: Record<string, unknown>;
 
-  constructor(status: number, code: ErrorCode, message: string) {
+  constructor(status: number, code: ErrorCode, message: string, details?: Record<string, unknown>) {
     super(message);
     this.name = "ApiError";
     this.status = status;
     this.code = code;
+    this.details = details;
   }
 }
 
@@ -109,7 +111,10 @@ const MONEY_KEYS: ReadonlySet<string> = new Set([
   "basePrice",
   "electricityPrice",
   "monthlyRent",
+  "rentAmount",
+  "electricityCost",
   "totalAmount",
+  "waterCost",
   "waterPrice",
 ]);
 
@@ -155,7 +160,7 @@ export async function apiGet<T>(path: string): Promise<T> {
  */
 export async function apiSend<T>(
   path: string,
-  method: "POST" | "PATCH" | "DELETE",
+  method: "POST" | "PATCH" | "PUT" | "DELETE",
   body?: unknown,
 ): Promise<T> {
   assertRelativePath(path);
@@ -222,7 +227,7 @@ function errorFrom(status: number, body: unknown): ApiError {
   // The code is kept, because a `502 EXTERNAL_SERVICE_ERROR` says something a manager can act on.
   const message = status >= 500 || envelope === null ? GENERIC_ERROR_MESSAGE : envelope.error;
 
-  return new ApiError(status, code, message);
+  return new ApiError(status, code, message, envelope?.details);
 }
 
 /**
@@ -237,7 +242,14 @@ function asErrorBody(body: unknown): ApiErrorBody | null {
   const { error, code } = body as Record<string, unknown>;
   if (typeof error !== "string" || typeof code !== "string") return null;
   if (STATUS_FOR_CODE[code as ErrorCode] === undefined) return null;
-  return { error, code: code as ErrorCode };
+  const details = (body as Record<string, unknown>).details;
+  return {
+    error,
+    code: code as ErrorCode,
+    ...(details && typeof details === "object" && !Array.isArray(details)
+      ? { details: details as Record<string, unknown> }
+      : {}),
+  };
 }
 
 /**

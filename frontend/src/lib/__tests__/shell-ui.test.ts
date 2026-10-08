@@ -32,12 +32,12 @@ describe("accessible shell controls", () => {
     expect(html).toContain('type="password"');
     expect(html).toContain("Đăng nhập");
   });
-  it("renders four destinations per navigation and preserves motel scope", () => {
+  it("renders five destinations per navigation and preserves motel scope", () => {
     const html = renderToStaticMarkup(createElement(Sidebar));
-    for (const path of ["/", "/motels", "/rooms", "/renters"]) {
+    for (const path of ["/", "/motels", "/rooms", "/renters", "/billing"]) {
       expect(html).toContain(`href="${path}?motel=${MOTEL_WITHOUT_EXTRAS.id}"`);
     }
-    expect(html.match(/href=/g)).toHaveLength(8);
+    expect(html.match(/href=/g)).toHaveLength(10);
     expect(html).toContain('aria-current="page"');
     expect(html).toContain('aria-label="Điều hướng chính trên điện thoại"');
   });

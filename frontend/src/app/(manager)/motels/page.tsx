@@ -3,6 +3,7 @@ import { listRooms } from "@/lib/api/rooms";
 import { formatVnd } from "@/lib/format/vnd";
 import MotelEditor from "@/components/manager/motel-editor";
 import { resolveMotelId, type MotelSearchParams } from "@/lib/motel-selection";
+import PageHeader from "@/components/ui/page-header";
 
 export default async function Motels({ searchParams }: { searchParams: Promise<MotelSearchParams> }) {
   const motels = await listMotels();
@@ -12,13 +13,7 @@ export default async function Motels({ searchParams }: { searchParams: Promise<M
   const cards = await Promise.all(motels.map(async (motel) => ({ motel, roomCount: (await listRooms(motel.id)).length })));
 
   return <section className="space-y-6">
-    <div className="flex flex-wrap items-start justify-between gap-4">
-      <div className="min-w-0">
-        <h1 className="font-heading text-2xl font-bold text-text">Nhà trọ</h1>
-        <p className="mt-2 max-w-prose text-base text-text-muted">Quản lý thông tin, đơn giá và tài khoản nhận tiền của các nhà trọ.</p>
-      </div>
-      {cards.length > 0 && <MotelEditor />}
-    </div>
+    <PageHeader title="Nhà trọ" description="Quản lý thông tin, đơn giá và tài khoản nhận tiền của các nhà trọ." actions={cards.length > 0 && <MotelEditor />} />
     {cards.length === 0 ? <MotelEditor empty /> : <div className="grid min-w-0 gap-4 md:grid-cols-2 xl:grid-cols-3">
       {cards.map(({ motel, roomCount }) => <article key={motel.id} aria-labelledby={`motel-${motel.id}`} className="flex min-w-0 flex-col rounded-card border border-border bg-surface p-4 sm:p-6">
         <h2 id={`motel-${motel.id}`} className="font-heading text-lg font-semibold text-text [overflow-wrap:anywhere]">{motel.name}</h2>
