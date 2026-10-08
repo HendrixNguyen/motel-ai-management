@@ -5,7 +5,11 @@ export const zaloOaMotelMappings = pgTable("zalo_oa_motel_mappings", {
   oaId: text("oa_id").notNull(),
   motelId: uuid("motel_id").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-}, (table) => [uniqueIndex("zalo_oa_motel_mappings_oa_id_uq").on(table.oaId), index("zalo_oa_motel_mappings_motel_id_idx").on(table.motelId)]);
+}, (table) => [
+  uniqueIndex("zalo_oa_motel_mappings_oa_id_uq").on(table.oaId),
+  index("zalo_oa_motel_mappings_motel_id_idx").on(table.motelId),
+  check("zalo_oa_motel_mappings_oa_id_nonempty", sql`length(trim(${table.oaId})) > 0`),
+]);
 
 export const notificationEventChannel = pgEnum("notification_event_channel", ["oa_message", "zns"]);
 export const notificationEventStatus = pgEnum("notification_event_status", ["pending", "sent", "failed"]);

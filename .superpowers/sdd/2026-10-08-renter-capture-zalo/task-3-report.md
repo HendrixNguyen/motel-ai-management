@@ -1,11 +1,11 @@
 # Task 3 report
 
-## Final review fixes
+## Final fixes
 
-- Removed notification schema direct imports and FK references to motel/renter tables per ADR-0004. Notification outbox owns opaque IDs; renter service owns follower mapping operations.
-- Added `zalo_oa_motel_mappings` migration, unique OA constraint, non-empty OA check, index, and reset registration.
-- Follow mapping failures now throw inside webhook transaction; dedup insert rolls back so retry remains possible.
-- Webhook validates non-null object, event enum, non-empty follower ID, and required non-empty phone before dedup insert.
+- OA mapping is notification-owned and now resolves `oa_id -> motel_id` before renter mapping; renter service receives motel scope explicitly.
+- Follow mapping failures throw inside transaction, rolling back webhook dedup row for retry.
+- Supplied `event_id` remains accepted only as non-empty value through route validation; absent IDs hash exact raw body.
+- Removed duplicate attempt-count constraint from lease migration; added safe drop/re-add migration for existing duplicate schemas.
 
 ## Verification
 

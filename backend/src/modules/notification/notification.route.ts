@@ -9,7 +9,7 @@ function validSignature(raw: Uint8Array, signature: string | undefined): boolean
 export const notificationRoutes = new Elysia({ name: "notification-routes" }).post("/zalo/webhook", async ({ request, headers, set }) => {
   const raw = new Uint8Array(await request.arrayBuffer());
   if (!validSignature(raw, headers["x-zalo-signature"])) { set.status = 401; return { error: "Chữ ký không hợp lệ", code: "UNAUTHORIZED" }; }
-  let event: { event_id?: string; event_name?: string; user_id?: string; follower_id?: string; phone?: string; motel_id?: string };
+  let event: { event_id?: string; event_name?: string; user_id?: string; follower_id?: string; phone?: string; oa_id?: string };
   try {
     const parsed: unknown = JSON.parse(new TextDecoder().decode(raw));
     if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("invalid object");
@@ -22,7 +22,7 @@ export const notificationRoutes = new Elysia({ name: "notification-routes" }).po
   const eventId = event.event_id ?? createHmac("sha256", env.zalo.webhookSecret).update(raw).digest("hex");
   const followerId = follower;
   try {
-    await processZaloWebhook(eventId, { event_name: event.event_name, user_id: followerId, phone: event.phone });
+    await processZaloWebhook(eventId, { event_name: event.event_name, user_id: followerId, phone: event.phone, oa_id: event.oa_id });
   } catch (error) {
     if (error instanceof AppError) throw error;
     throw error;
