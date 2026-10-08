@@ -1,8 +1,8 @@
 # Task 9 Findings Report
 
-Final fix commit: `a9237e0e54e03b24ce70e59cebe21849340872d8`.
+Final fix commit: `d9cb2c8acb8e0ccc30cf44a05f72ce2a5e82ba2d`.
 
-Latest evidence: targeted `e2e/full-flow.spec.ts` 2/2; frontend typecheck/lint/build/unit gates run after final E2E assertion changes. Lint remains 0 errors with 4 existing image warnings. Expected fixture stderr includes sanitized Next `ApiError`/`destination stream closed early` diagnostics from intentional error-path tests; no secrets.
+Final evidence: `frontend bun run test:e2e` PASS, 76/76 tests, after commit. Targeted full-flow E2E PASS, 2/2. Frontend typecheck/build/unit gates PASS; lint 0 errors with 4 existing image warnings. Expected fixture stderr includes sanitized Next `ApiError`/`destination stream closed early` diagnostics from intentional error-path tests; no secrets.
 
 - Date: 2026-10-08
 - Status: frontend coverage added; backend DB integration remains blocked
