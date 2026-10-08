@@ -32,7 +32,7 @@ test("full flow covers capture save, invoice QR, OTP contract, payment state, an
   await expect(page.getByRole("heading", { name: "Báo sự cố" })).toBeVisible();
   let verifyPayload: Record<string, unknown> | undefined;
   await page.route("**/api/renter/contracts/*/sign-request", (route) => route.fulfill({ json: { sentAt: "2026-10-01T00:00:00.000Z" } }));
-  await page.route("**/api/renter/contracts/*/verify", async (route) => { verifyPayload = await route.request().postDataJSON(); await route.fulfill({ json: { otpSignedAt: "2026-10-01T00:01:00.000Z", status: "active" } }); });
+  page.on("request", (request) => { if (request.url().includes("/api/renter/contracts/") && request.url().endsWith("/verify")) verifyPayload = request.postDataJSON() as Record<string, unknown>; });
   await page.goto("/portal/contract");
   await page.getByLabel(/đồng ý/).check();
   await page.getByRole("button", { name: "Gửi mã OTP" }).click();
