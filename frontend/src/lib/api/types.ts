@@ -419,6 +419,16 @@ export interface RenterInvoice {
   paymentStatus: PaymentStatus;
   paidAt: string | null;
   createdAt: string;
+  bankAccount?: { bankCode: string; accountNumber: string; accountName: string } | null;
+  transferDescription?: string;
+  meterPhotos?: Array<{ type: "electric" | "water"; signedUrl: string; capturedAt: string | null }>;
+}
+
+export interface CreateRenterTicketInput {
+  category: RenterTicketCategory;
+  description: string;
+  photoUrls?: string[];
+  photos?: File[];
 }
 
 export interface RenterContract {
@@ -445,12 +455,6 @@ export interface RenterTicket {
   status: "open" | "in_progress" | "resolved";
   createdAt: string;
 }
-export interface CreateRenterTicketInput {
-  category: RenterTicketCategory;
-  description: string;
-  photoUrls?: string[];
-}
-
 /* -------------------------------------------------------------------------- */
 /* Auth — backend/src/modules/auth/auth.route.ts                                 */
 /* -------------------------------------------------------------------------- */

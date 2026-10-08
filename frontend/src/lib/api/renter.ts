@@ -10,4 +10,8 @@ export function getRenterContract(contractId?: string) { return apiGet<RenterCon
 export function requestRenterContractOtp(contractId: string) { return apiSend<{ sentAt: string }>(`/api/renter/contracts/${encodeURIComponent(contractId)}/sign-request`, "POST"); }
 export function verifyRenterContractOtp(contractId: string, otp: string) { return apiSend<{ otpSignedAt: string }>(`/api/renter/contracts/${encodeURIComponent(contractId)}/verify`, "POST", { otp }); }
 export function listRenterTickets() { return apiGet<RenterTicket[]>("/api/renter/tickets"); }
-export function createRenterTicket(input: CreateRenterTicketInput) { return apiSend<RenterTicket>("/api/renter/tickets", "POST", input); }
+export function createRenterTicket(input: CreateRenterTicketInput) {
+  if (!input.photos?.length) return apiSend<RenterTicket>("/api/renter/tickets", "POST", { category: input.category, description: input.description });
+  const form = new FormData(); form.set("category", input.category); form.set("description", input.description); input.photos.forEach((photo) => form.append("photos", photo));
+  return apiSend<RenterTicket>("/api/renter/tickets", "POST", form);
+}
