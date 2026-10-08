@@ -457,6 +457,8 @@ export interface RenterTicket {
   description: string;
   status: "open" | "in_progress" | "resolved";
   createdAt: string;
+  phone?: string;
+  photoUrls?: string[];
 }
 /* -------------------------------------------------------------------------- */
 /* Auth — backend/src/modules/auth/auth.route.ts                                 */

@@ -1,6 +1,9 @@
 # Task 7 report
 
 ## Status
+Final Task 7 findings addressed: consent now gates OTP request/reveal, ticket success uses exact Zalo copy, and renter ticket DTO carries phone/photo metadata.
+
+## Final verification
 Final portal loop/UX pass: anonymous exchange retained, session redirect scoped, canonical links repaired, error copy differentiated, exact ticket success copy added.
 
 ## Final verification
@@ -28,6 +31,8 @@ Canonical portal/API review pass implemented; backend DB and fixture E2E remain 
 - Backend typecheck passes.
 - Frontend full gates: typecheck/build pass; Vitest 37 files/360 tests pass; lint 0 errors/3 image warnings.
 - Renter E2E: 2/2 pass at 375px.
+- Latest frontend gates: typecheck/build pass; Vitest 37 files/360 tests pass; lint 0 errors/4 image warnings.
+- Consent, ticket success copy, and typed ticket photo metadata updated.
 - Latest frontend gates: typecheck/build pass; Vitest 37 files/360 tests pass; lint 0 errors/3 image warnings.
 - Legacy authenticated `/renter/home`, `/renter/contract`, `/renter/tickets` removed; `/renter` remains anonymous exchange and redirects only with session.
 - Backend renter DB tests attempted; blocked by unavailable DB (`Failed query`).
