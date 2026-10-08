@@ -1,9 +1,9 @@
 
-## Service worker review fix appended
+## Final test-boundary fixes appended
 
-- Service-worker Vitest now executes install, activate, and fetch handlers with mocked `self`, Cache Storage, network fetch, and `respondWith`.
-- Assertions cover shell precache, capture navigation network/cache fallback, API bypass, signed URL bypass, and offline fallback.
-- Capture E2E remains green with auth cookie and capture route fixtures.
+- E2E now inspects Cache Storage contents and asserts no `/api/` or signed URL entries.
+- Service-worker tests assert actual response status/body for online shell, cached capture navigation, and offline fallback.
+- Added table-driven exclusions for non-GET, cross-origin, `/_next/`, `_rsc`, `RSC`, and `Next-Router-State-Tree` requests.
 
 Verification:
 - Typecheck pass.

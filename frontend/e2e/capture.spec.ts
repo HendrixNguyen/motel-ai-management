@@ -15,8 +15,10 @@ test.describe("offline meter capture", () => {
     await expect(page.getByText(/P\.101/)).toBeVisible();
   });
 
-  test("does not cache API responses in service worker", async ({ page }) => {
-    const response = await page.evaluate(async () => fetch("/api/auth/me", { headers: { RSC: "1" } }).catch(() => null));
-    expect(response).toBeTruthy();
+  test("keeps API and signed URL responses out of Cache Storage", async ({ page }) => {
+    await page.evaluate(async () => { await fetch("/api/auth/me", { headers: { RSC: "1" } }); await fetch("/capture/signed-url").catch(() => undefined); });
+    const keys = await page.evaluate(async () => { const names = await caches.keys(); const urls: string[] = []; for (const name of names) { const cache = await caches.open(name); for (const request of await cache.keys()) urls.push(request.url); } return urls; });
+    expect(keys.some((url) => url.includes("/api/"))).toBe(false);
+    expect(keys.some((url) => url.includes("signed-url"))).toBe(false);
   });
 });
