@@ -1,14 +1,25 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+type Event = { type: string; request?: Request; respondWith?: ReturnType<typeof vi.fn>; waitUntil?: ReturnType<typeof vi.fn> };
 
 describe("capture service worker behavior", () => {
-  it("executes capture-sw decision logic", async () => {
+  it("executes install, activate, and fetch boundaries", async () => {
     const source = await import("node:fs/promises").then((fs) => fs.readFile(new URL("../../../public/capture-sw.js", import.meta.url), "utf8"));
-    const context = { location: { origin: "http://localhost" }, captureShouldHandle: undefined as unknown } as { location: { origin: string }; captureShouldHandle?: (request: Request, url: URL) => boolean };
-    const script = new Function("self", source.replace(/self\.addEventListener\([\s\S]*/, "")); script(context);
-    const decide = context.captureShouldHandle!;
-    const navigation = (url: string, headers: Record<string, string> = {}) => ({ method: "GET", mode: "navigate", headers: new Headers(headers) }) as unknown as Request;
-    expect(decide(navigation("http://localhost/capture/p/room"), new URL("http://localhost/capture/p/room"))).toBe(true);
-    expect(decide(new Request("http://localhost/api/auth/me", { method: "GET" }), new URL("http://localhost/api/auth/me"))).toBe(false);
-    expect(decide(new Request("http://localhost/capture", { method: "GET", headers: { RSC: "1" } }), new URL("http://localhost/capture"))).toBe(false);
+    const listeners = new Map<string, (event: Event) => void>();
+    const shell = new Map<string, Response>();
+    const cache = { addAll: vi.fn(async (urls: string[]) => { for (const url of urls) shell.set(url, new Response(`shell:${url}`)); }), put: vi.fn(async (request: Request, response: Response) => { shell.set(request.url, response); }), match: vi.fn(async (request: Request | string) => shell.get(typeof request === "string" ? request : new URL(request.url).pathname)) };
+    let captureFetches = 0; const fetchMock = vi.fn(async (request: Request) => { if (request.url.includes("period/room") && captureFetches++ > 0) throw new Error("offline"); return new Response(`network:${new URL(request.url).pathname}`); });
+    const context = { location: { origin: "http://localhost" }, addEventListener: (type: string, handler: (event: Event) => void) => listeners.set(type, handler), skipWaiting: vi.fn(), clients: { claim: vi.fn() }, caches: { open: vi.fn(async () => cache), match: cache.match }, fetch: fetchMock };
+    new Function("self", "caches", "fetch", source)(context, context.caches, fetchMock);
+    const install: Event = { type: "install", waitUntil: vi.fn() }; listeners.get("install")!(install); await install.waitUntil!.mock.calls[0]![0];
+    expect(cache.addAll).toHaveBeenCalledWith(["/", "/login", "/capture", "/offline.html"]);
+    const activate: Event = { type: "activate", waitUntil: vi.fn() }; listeners.get("activate")!(activate); await activate.waitUntil!.mock.calls[0]![0]; expect(context.clients.claim).toHaveBeenCalled();
+    const fetchCase = async (url: string, init: RequestInit = {}) => { const request = { method: "GET", mode: init.mode ?? "same-origin", headers: new Headers(init.headers), url: `http://localhost${url}` } as unknown as Request; const event: Event = { type: "fetch", request, respondWith: vi.fn() }; listeners.get("fetch")!(event); if (event.respondWith!.mock.calls.length) return event.respondWith!.mock.calls[0]![0] as Promise<Response>; return undefined; };
+    await fetchCase("/capture/period/room", { mode: "navigate" as RequestMode });
+    expect(cache.put).toHaveBeenCalled();
+    const api = await fetchCase("/api/auth/me"); expect(api).toBeUndefined();
+    const signed = await fetchCase("/capture/signed-url"); expect(signed).toBeUndefined();
+    const offline = await fetchCase("/capture/period/room", { mode: "navigate" as RequestMode }); await offline;
+    expect(cache.match).toHaveBeenCalled();
   });
 });
