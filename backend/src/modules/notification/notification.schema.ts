@@ -1,12 +1,9 @@
 import { check, index, integer, jsonb, pgEnum, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
-import { motels } from "@/modules/motel/motel.schema";
-import { renters } from "@/modules/renter/renter.schema";
-
 export const zaloOaMotelMappings = pgTable("zalo_oa_motel_mappings", {
   id: uuid("id").primaryKey().defaultRandom(),
   oaId: text("oa_id").notNull(),
-  motelId: uuid("motel_id").notNull().references(() => motels.id),
+  motelId: uuid("motel_id").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [uniqueIndex("zalo_oa_motel_mappings_oa_id_uq").on(table.oaId), index("zalo_oa_motel_mappings_motel_id_idx").on(table.motelId)]);
 
@@ -26,8 +23,8 @@ export const notificationEvents = pgTable(
   {
     id: uuid("id").primaryKey().defaultRandom(),
     eventKey: text("event_key").notNull(),
-    renterId: uuid("renter_id").notNull().references(() => renters.id),
-    motelId: uuid("motel_id").notNull().references(() => motels.id),
+    renterId: uuid("renter_id").notNull(),
+    motelId: uuid("motel_id").notNull(),
     channel: notificationEventChannel("channel").notNull(),
     templateId: text("template_id"),
     payload: jsonb("payload").$type<Record<string, unknown>>().notNull(),

@@ -15,12 +15,12 @@ export const notificationRoutes = new Elysia({ name: "notification-routes" }).po
     if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("invalid object");
     event = parsed as typeof event;
   } catch { set.status = 400; return { error: "Dữ liệu webhook không hợp lệ", code: "VALIDATION_ERROR" }; }
-  if (event.event_name !== "follow" && event.event_name !== "unfollow") { set.status = 400; return { error: "Dữ liệu webhook không hợp lệ", code: "VALIDATION_ERROR" }; }
-  if (!(event.user_id ?? event.follower_id)) { set.status = 400; return { error: "Dữ liệu webhook không hợp lệ", code: "VALIDATION_ERROR" }; }
-  if (event.event_name === "follow" && !event.phone) { set.status = 400; return { error: "Dữ liệu webhook không hợp lệ", code: "VALIDATION_ERROR" }; }
+  if (!(typeof event.event_name === "string" && (event.event_name === "follow" || event.event_name === "unfollow"))) { set.status = 400; return { error: "Dữ liệu webhook không hợp lệ", code: "VALIDATION_ERROR" }; }
+  const follower = event.user_id ?? event.follower_id;
+  if (typeof follower !== "string" || follower.trim() === "") { set.status = 400; return { error: "Dữ liệu webhook không hợp lệ", code: "VALIDATION_ERROR" }; }
+  if (event.event_name === "follow" && (typeof event.phone !== "string" || event.phone.trim() === "")) { set.status = 400; return { error: "Dữ liệu webhook không hợp lệ", code: "VALIDATION_ERROR" }; }
   const eventId = event.event_id ?? createHmac("sha256", env.zalo.webhookSecret).update(raw).digest("hex");
-  const followerId = event.user_id ?? event.follower_id;
-  if (!followerId) { set.status = 400; return { error: "Dữ liệu webhook không hợp lệ", code: "VALIDATION_ERROR" }; }
+  const followerId = follower;
   try {
     await processZaloWebhook(eventId, { event_name: event.event_name, user_id: followerId, phone: event.phone });
   } catch (error) {

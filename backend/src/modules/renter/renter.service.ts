@@ -74,7 +74,7 @@ type RenterWriter = Pick<typeof db, "query" | "update">;
 export async function mapZaloFollowerByPhone(phone: string, followerId: string, writer: RenterWriter = db): Promise<boolean> {
   const normalizedPhone = normalisePhone(phone);
   const candidates = await writer.query.renters.findMany({ where: eq(renters.phone, normalizedPhone), columns: { id: true } });
-  if (candidates.length !== 1) return false;
+  if (candidates.length !== 1) throw new Error("follower mapping unavailable");
   await writer.update(renters).set({ zaloOaId: followerId, isOaFollower: true }).where(eq(renters.id, candidates[0]!.id));
   return true;
 }

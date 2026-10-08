@@ -50,6 +50,13 @@
       "when": 1791393500000,
       "tag": "0006_notification_attempt_count_check",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1791394000000,
+      "tag": "0007_zalo_oa_motel_mappings",
+      "breakpoints": true
     }
   ]
 }

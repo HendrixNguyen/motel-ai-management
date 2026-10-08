@@ -1,13 +1,11 @@
 # Task 3 report
 
-## Remaining review findings
+## Final review fixes
 
-- Follow webhook now validates required phone before dedup insert.
-- Parsed webhook payload must be non-null object; `event_name` limited to `follow`/`unfollow`; malformed payload returns `VALIDATION_ERROR`.
-- Internal DB errors now propagate through Elysia normal `INTERNAL_ERROR` handling instead of being mislabeled `EXTERNAL_SERVICE_ERROR`.
-- Removed unused notification service SQL import.
-- Drizzle schema retains explicit attempt-count check declaration and focused migration.
-- Canonical route remains `POST /api/zalo/webhook`; exact raw-body HMAC path preserved.
+- Removed notification schema direct imports and FK references to motel/renter tables per ADR-0004. Notification outbox owns opaque IDs; renter service owns follower mapping operations.
+- Added `zalo_oa_motel_mappings` migration, unique OA constraint, non-empty OA check, index, and reset registration.
+- Follow mapping failures now throw inside webhook transaction; dedup insert rolls back so retry remains possible.
+- Webhook validates non-null object, event enum, non-empty follower ID, and required non-empty phone before dedup insert.
 
 ## Verification
 
