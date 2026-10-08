@@ -41,8 +41,9 @@ Verification:
 
 ## Regression test strengthening
 
-- Replaced invalid-ID-only test with observable race simulation: fake storage deletes meter row after object put.
-- Test asserts `NOT_FOUND`, exactly one object cleanup, and zero persisted upload metadata rows.
+- Renamed test to describe deterministic resource disappearance after storage put; no race claim.
+- Observable fake storage exposes existence through signed-read lookup.
+- Test asserts `NOT_FOUND`, exactly one cleanup, object absence, and zero persisted upload metadata rows.
 - Implementation unchanged.
 - `bun run typecheck` passed.
 - Targeted upload test remains blocked by local PostgreSQL query failures.

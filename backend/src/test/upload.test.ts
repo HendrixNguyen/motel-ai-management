@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, test } from "bun:test";
-import { and, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { resetDb } from "@/db/test-db";
 import { managers } from "@/modules/auth/auth.schema";
@@ -26,9 +26,11 @@ const jpeg = () => new File([new Uint8Array([0xff, 0xd8, 0xff, 0xe0])], "meter.j
 class ObservableStorage implements StorageAdapter {
   readonly inner = new FakeStorageAdapter();
   readonly deleted: string[] = [];
+  lastPutKey: string | undefined;
   constructor(private readonly afterPut?: () => Promise<void>) {}
-  async put(input: StoragePutInput): Promise<StorageObject> { const result = await this.inner.put(input); await this.afterPut?.(); return result; }
+  async put(input: StoragePutInput): Promise<StorageObject> { const result = await this.inner.put(input); this.lastPutKey = result.objectKey; await this.afterPut?.(); return result; }
   async delete(key: string): Promise<void> { this.deleted.push(key); await this.inner.delete(key); }
+  async exists(key: string): Promise<boolean> { return this.inner.createSignedDownload(key, 60).then(() => true).catch(() => false); }
   createSignedDownload(key: string, ttl: number): Promise<string> { return this.inner.createSignedDownload(key, ttl); }
 }
 
@@ -58,12 +60,15 @@ describe("meter photo uploads", () => {
     await expect(uploadMeterPhoto(data.motel.id, data.period.id, data.reading.id, data.manager.id, new File([new Uint8Array(10 * 1024 * 1024 + 1)], "big.jpg", { type: "image/jpeg" }))).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
   });
 
-  test("rolls back metadata and deletes object when linkage updates zero rows", async () => {
+  test("cleans object when reading disappears after storage put", async () => {
     const data = await seed();
-    const storage = new ObservableStorage(async () => { await db.delete(meterReadings).where(eq(meterReadings.id, data.reading.id)); });
+    let storedKey: string | undefined;
+    const storage = new ObservableStorage(async () => { storedKey = (await db.query.uploads.findFirst())?.objectKey; await db.delete(meterReadings).where(eq(meterReadings.id, data.reading.id)); });
     configureUploadStorage(storage);
     await expect(uploadMeterPhoto(data.motel.id, data.period.id, data.reading.id, data.manager.id, jpeg())).rejects.toMatchObject({ code: "NOT_FOUND" });
     expect(storage.deleted).toHaveLength(1);
+    expect(storedKey).toBeUndefined();
+    expect(await storage.exists(storage.lastPutKey!)).toBe(false);
     expect(await db.query.uploads.findMany()).toHaveLength(0);
   });
 
