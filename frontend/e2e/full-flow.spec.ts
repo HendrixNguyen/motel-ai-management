@@ -45,7 +45,7 @@ test("full flow covers capture save, invoice QR, OTP contract, payment state, an
   await page.reload();
   await page.waitForTimeout(500);
   await expect(page.getByText("Đang hiệu lực")).toBeVisible({ timeout: 10000 });
-  await expect(page.getByRole("button", { name: "Xác nhận ký" })).toHaveCount(1);
+  await expect(page.getByRole("button", { name: "Xác nhận ký" })).toHaveCount(0);
   await page.route("**/api/renter/tickets", async (route) => { if (route.request().method() === "POST") { ticketPayload = await route.request().postDataJSON(); await route.fulfill({ status: 201, json: { id: "ticket-new", category: "electricity", description: "Điện chập chờn trong phòng", status: "open", createdAt: "2026-10-08T00:00:00.000Z" } }); } else await route.fulfill({ json: [] }); });
   await page.goto("/portal/tickets");
   await page.getByLabel("Mô tả").fill("Điện chập chờn trong phòng");
