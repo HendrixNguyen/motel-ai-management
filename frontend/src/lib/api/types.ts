@@ -457,7 +457,6 @@ export interface RenterTicket {
   description: string;
   status: "open" | "in_progress" | "resolved";
   createdAt: string;
-  phone?: string;
   photoUrls?: string[];
 }
 /* -------------------------------------------------------------------------- */
