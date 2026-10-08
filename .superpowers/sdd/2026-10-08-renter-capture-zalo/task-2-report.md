@@ -38,3 +38,11 @@ Verification after fixes:
 Verification:
 - `bun run typecheck` passed.
 - `bun test src/test/upload.test.ts` remains blocked by local PostgreSQL query failures.
+
+## Regression test strengthening
+
+- Replaced invalid-ID-only test with observable race simulation: fake storage deletes meter row after object put.
+- Test asserts `NOT_FOUND`, exactly one object cleanup, and zero persisted upload metadata rows.
+- Implementation unchanged.
+- `bun run typecheck` passed.
+- Targeted upload test remains blocked by local PostgreSQL query failures.

@@ -1,11 +1,13 @@
 import { beforeEach, describe, expect, test } from "bun:test";
+import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { resetDb } from "@/db/test-db";
 import { managers } from "@/modules/auth/auth.schema";
 import { billingPeriods, meterReadings } from "@/modules/billing/billing.schema";
+import { uploads } from "@/modules/billing/upload.schema";
 import { motels } from "@/modules/motel/motel.schema";
 import { rooms } from "@/modules/room/room.schema";
-import { FakeStorageAdapter } from "@/shared/storage";
+import { FakeStorageAdapter, type StorageAdapter, type StorageObject, type StoragePutInput } from "@/shared/storage";
 import { configureUploadStorage, getMeterPhoto, uploadMeterPhoto } from "@/modules/billing/billing.service";
 
 beforeEach(async () => { await resetDb(); configureUploadStorage(new FakeStorageAdapter()); });
@@ -20,6 +22,15 @@ async function seed(status: "draft" | "sent" = "draft") {
 }
 
 const jpeg = () => new File([new Uint8Array([0xff, 0xd8, 0xff, 0xe0])], "meter.jpg", { type: "image/jpeg" });
+
+class ObservableStorage implements StorageAdapter {
+  readonly inner = new FakeStorageAdapter();
+  readonly deleted: string[] = [];
+  constructor(private readonly afterPut?: () => Promise<void>) {}
+  async put(input: StoragePutInput): Promise<StorageObject> { const result = await this.inner.put(input); await this.afterPut?.(); return result; }
+  async delete(key: string): Promise<void> { this.deleted.push(key); await this.inner.delete(key); }
+  createSignedDownload(key: string, ttl: number): Promise<string> { return this.inner.createSignedDownload(key, ttl); }
+}
 
 describe("meter photo uploads", () => {
   test("stores private metadata and returns signed read", async () => {
@@ -47,11 +58,13 @@ describe("meter photo uploads", () => {
     await expect(uploadMeterPhoto(data.motel.id, data.period.id, data.reading.id, data.manager.id, new File([new Uint8Array(10 * 1024 * 1024 + 1)], "big.jpg", { type: "image/jpeg" }))).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
   });
 
-  test("cleans uploaded object when reading linkage updates no rows", async () => {
+  test("rolls back metadata and deletes object when linkage updates zero rows", async () => {
     const data = await seed();
-    const storage = new FakeStorageAdapter();
+    const storage = new ObservableStorage(async () => { await db.delete(meterReadings).where(eq(meterReadings.id, data.reading.id)); });
     configureUploadStorage(storage);
-    await expect(uploadMeterPhoto(data.motel.id, data.period.id, "00000000-0000-0000-0000-000000000000", data.manager.id, jpeg())).rejects.toMatchObject({ code: "NOT_FOUND" });
+    await expect(uploadMeterPhoto(data.motel.id, data.period.id, data.reading.id, data.manager.id, jpeg())).rejects.toMatchObject({ code: "NOT_FOUND" });
+    expect(storage.deleted).toHaveLength(1);
+    expect(await db.query.uploads.findMany()).toHaveLength(0);
   });
 
   test("hides foreign reading and storage failures", async () => {
