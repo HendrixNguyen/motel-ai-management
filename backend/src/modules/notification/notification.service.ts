@@ -68,7 +68,7 @@ export async function deliverNotification(eventId: string): Promise<Notification
     return sent ?? event;
   } catch (error) {
     const failure = failureKind(error); const attemptCount = event.attemptCount + 1; const exhausted = attemptCount >= MAX_ATTEMPTS || !failure.transient;
-    const [failed] = await db.update(notificationEvents).set({ status: exhausted ? "failed" : "pending", attemptCount, failureClass: failure.transient ? "transient" : "permanent", failureReason: failure.reason, nextRetryAt: exhausted ? null : new Date(Date.now() + 2 ** attemptCount * 1000), updatedAt: new Date() }).where(and(eq(notificationEvents.id, event.id), eq(notificationEvents.leaseId, leaseId))).returning();
+    const [failed] = await db.update(notificationEvents).set({ status: exhausted ? "failed" : "pending", attemptCount, failureClass: failure.transient ? "transient" : "permanent", failureReason: failure.reason, nextRetryAt: exhausted ? null : new Date(Date.now() + 2 ** attemptCount * 1000), leaseId: null, leaseUntil: null, updatedAt: new Date() }).where(and(eq(notificationEvents.id, event.id), eq(notificationEvents.leaseId, leaseId))).returning();
     if (exhausted) secrets.delete(event.id);
     return failed ?? event;
   }

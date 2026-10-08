@@ -1,14 +1,16 @@
 import { beforeEach, describe, expect, setDefaultTimeout, test } from "bun:test";
 import { db } from "@/db";
+import { eq } from "drizzle-orm";
 import { resetDb } from "@/db/test-db";
 import { managers } from "@/modules/auth/auth.schema";
 import { motels } from "@/modules/motel/motel.schema";
 import { renters } from "@/modules/renter/renter.schema";
-import { deliverNotification, enqueueNotification, setZaloProvider } from "@/modules/notification/notification.service";
+import { notificationEvents } from "@/modules/notification/notification.schema";
+import { deliverNotification, enqueueNotification, setNotificationRecipientResolver, setZaloProvider } from "@/modules/notification/notification.service";
 import type { ZaloProvider } from "@/modules/notification/notification.types";
 
 setDefaultTimeout(120_000);
-beforeEach(async () => { await resetDb(); setZaloProvider(undefined); });
+beforeEach(async () => { await resetDb(); setZaloProvider(undefined); setNotificationRecipientResolver(null); });
 
 async function fixture() {
   const [manager] = await db.insert(managers).values({ email: `${crypto.randomUUID()}@example.com`, passwordHash: "hash", name: "Manager" }).returning();
@@ -37,6 +39,21 @@ describe("notification security and delivery", () => {
     setZaloProvider(provider({ sendOaMessage: async () => { throw new Error("must not send"); } }));
     const result = await deliverNotification(event.id);
     expect(result).toMatchObject({ status: "failed", failureReason: "secret_unavailable" });
+  });
+
+  test("clears lease before retry window so retry waits on nextRetryAt", async () => {
+    const { motel, renter } = await fixture();
+    setNotificationRecipientResolver(async () => ({ phone: renter.phone, zaloOaId: renter.zaloOaId, isOaFollower: true }));
+    setZaloProvider(provider({ sendOaMessage: async () => { throw Object.assign(new Error("temporary"), { kind: "provider_unavailable" }); } }));
+    const event = await enqueueNotification({ eventKey: "retry-lease", renterId: renter.id, motelId: motel.id, payload: {} });
+    const result = await deliverNotification(event.id);
+    expect(result.status).toBe("pending");
+    expect(result.leaseId).toBeNull();
+    expect(result.leaseUntil).toBeNull();
+    expect(result.nextRetryAt).not.toBeNull();
+    await db.update(notificationEvents).set({ nextRetryAt: new Date(Date.now() - 1_000) }).where(eq(notificationEvents.id, event.id));
+    const claimedAgain = await deliverNotification(event.id);
+    expect(claimedAgain.attemptCount).toBe(2);
   });
 
   test("classifies provider errors without persisting provider text", async () => {
