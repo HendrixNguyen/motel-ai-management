@@ -1,11 +1,8 @@
 import { index, integer, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 import { helpTickets } from "./ticket.schema";
-import { motels } from "@/modules/motel/motel.schema";
-
 export const ticketPhotoUploads = pgTable("ticket_photo_uploads", {
   id: uuid("id").primaryKey().defaultRandom(),
   ticketId: uuid("ticket_id").notNull().references(() => helpTickets.id),
-  motelId: uuid("motel_id").notNull().references(() => motels.id),
   objectKey: text("object_key").notNull(),
   contentType: text("content_type").notNull(),
   size: integer("size").notNull(),

@@ -20,16 +20,23 @@ export const ticketRoutes = new Elysia({ name: "ticket-routes" })
     let categoryValue: string | null;
     let description: string | null;
     let files: File[];
-    if (contentType.includes("multipart/form-data")) {
-      const form = await request.formData();
-      categoryValue = form.get("category") as string | null;
-      description = form.get("description") as string | null;
-      files = form.getAll("photos").filter((value) => typeof value !== "string") as unknown as File[];
-    } else {
-      const body = await request.json() as { category?: string; description?: string };
-      categoryValue = body.category ?? null;
-      description = body.description ?? null;
-      files = [];
+    try {
+      if (contentType.includes("multipart/form-data")) {
+        const form = await request.formData();
+        categoryValue = typeof form.get("category") === "string" ? form.get("category") as string : null;
+        description = typeof form.get("description") === "string" ? form.get("description") as string : null;
+        files = form.getAll("photos").filter((value) => value instanceof File) as unknown as File[];
+      } else if (contentType.includes("application/json")) {
+        const body = await request.json() as unknown;
+          if (typeof body !== "object" || body === null || Array.isArray(body)) throw new Error("invalid json body");
+        const record = body as Record<string, unknown>;
+        categoryValue = typeof record.category === "string" ? record.category : null;
+        description = typeof record.description === "string" ? record.description : null;
+        files = [];
+      } else throw new Error("unsupported content type");
+    } catch {
+      set.status = 400;
+      return { error: "Dữ liệu gửi lên không hợp lệ", code: "VALIDATION_ERROR" };
     }
     if (!category.Value.Check(categoryValue) || !description) { set.status = 400; return { error: "Dữ liệu gửi lên không hợp lệ", code: "VALIDATION_ERROR" }; }
     const ticketCategory = categoryValue as "electricity" | "water" | "facilities" | "other";

@@ -61,6 +61,13 @@ describe("renter tickets", () => {
     expect((await app.handle(new Request("http://localhost/api/renter/tickets", { method: "POST", headers: { cookie: data.cookie }, body: bad }))).status).toBe(400);
   });
 
+  test("malformed JSON returns validation error", async () => {
+    const data = await seed("malformed-ticket@example.com");
+    const response = await app.handle(new Request("http://localhost/api/renter/tickets", { method: "POST", headers: { cookie: data.cookie, "content-type": "application/json" }, body: "{" }));
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ error: "Dữ liệu gửi lên không hợp lệ", code: "VALIDATION_ERROR" });
+  });
+
   test("ticket remains created when notification provider fails", async () => {
     const data = await seed("notify-ticket@example.com");
     const response = await json("POST", "/api/renter/tickets", data.cookie, { category: "electricity", description: "Điện chập chờn trong phòng" });
