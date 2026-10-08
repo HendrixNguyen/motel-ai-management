@@ -58,6 +58,13 @@ describe("domain notification integration", () => {
     expect(rows[0]?.endDate).toBe("2026-01-08");
   });
 
+  test("rejects recipient resolver from another motel", async () => {
+    const first = await fixture();
+    const second = await fixture();
+    setNotificationRecipientResolver(async (renterId, motelId) => renterId === first.renter.id && motelId === first.motel.id ? { phone: first.renter.phone, zaloOaId: null, isOaFollower: false } : undefined);
+    await expect(enqueueNotification({ eventKey: `cross-motel:${crypto.randomUUID()}`, renterId: second.renter.id, motelId: first.motel.id, templateId: "expiry", payload: {} })).rejects.toMatchObject({ code: "NOT_FOUND" });
+  });
+
   test("deduplicates expiry notification event key", async () => {
     const { motel, renter } = await fixture();
     setNotificationRecipientResolver(async () => ({ phone: renter.phone, zaloOaId: null, isOaFollower: false }));
@@ -69,14 +76,17 @@ describe("domain notification integration", () => {
 
   test("serializes two workers through real PostgreSQL advisory lease and recovers", async () => {
     const client = postgres(process.env.TEST_DATABASE_URL!, { max: 2, onnotice: () => {} });
-    const lease = createPostgresAdvisoryLeaseDb(client);
-    let runs = 0;
-    const task = () => runWithAdvisoryLease(lease, 91, async () => { runs++; await new Promise((resolve) => setTimeout(resolve, 25)); return runs; });
-    const results = await Promise.all([task(), task()]);
-    expect(results.filter((result) => result.acquired)).toHaveLength(1);
-    expect(runs).toBe(1);
-    expect((await runWithAdvisoryLease(lease, 91, async () => { runs++; return runs; })).acquired).toBe(true);
-    await client.end();
+    try {
+      const lease = createPostgresAdvisoryLeaseDb(client);
+      let runs = 0;
+      const task = () => runWithAdvisoryLease(lease, 91, async () => { runs++; await new Promise((resolve) => setTimeout(resolve, 25)); return runs; });
+      const results = await Promise.all([task(), task()]);
+      expect(results.filter((result) => result.acquired)).toHaveLength(1);
+      expect(runs).toBe(1);
+      expect((await runWithAdvisoryLease(lease, 91, async () => { runs++; return runs; })).acquired).toBe(true);
+    } finally {
+      await client.end();
+    }
   });
 
   test("serializes two workers through advisory lease", async () => {
