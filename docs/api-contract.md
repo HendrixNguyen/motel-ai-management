@@ -270,7 +270,7 @@ renter id from the client.
 | POST   | `/contract/:contractId/verify`       | `{otp}` → `200 {otpSignedAt}`; `OTP_INVALID` / `OTP_EXPIRED`; max 3 attempts                                                         |
 | GET    | `/tickets`                           | Own tickets, never `managerNote`                                                                                                     |
 | POST   | `/tickets`                           | `{category, description, photoUrls[]}`; description ≥ 10 chars, max 5 photos                                                         |
-| GET    | `/tickets/:ticketId`                 | Own ticket only                                                                                                                      |
+| GET    | `/tickets/:ticketId`                 | Own ticket only; signed-photo storage failure returns `502 EXTERNAL_SERVICE_ERROR`, and committed ticket/photo metadata remains persisted                                                                                                                      |
 
 ## Webhooks
 
