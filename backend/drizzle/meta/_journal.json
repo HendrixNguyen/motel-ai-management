@@ -71,6 +71,13 @@
       "when": 1791430500000,
       "tag": "0009_ticket_photo_uploads",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1791430800000,
+      "tag": "0010_ticket_photo_motel_scope",
+      "breakpoints": true
     }
   ]
 }

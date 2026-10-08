@@ -17,8 +17,8 @@ function response(row: typeof helpTickets.$inferSelect, photos: string[]): Ticke
 
 async function withPhotos(row: typeof helpTickets.$inferSelect): Promise<TicketResponse> {
   const files = await db.query.ticketPhotoUploads.findMany({ where: and(eq(ticketPhotoUploads.ticketId, row.id), eq(ticketPhotoUploads.motelId, row.motelId)), orderBy: asc(ticketPhotoUploads.createdAt) });
-  let urls: string[];
-  try { urls = await Promise.all(files.map((file) => ticketStorage.createSignedDownload(file.objectKey, 300))); } catch { throw AppError.externalService(); }
+  let urls: string[] = [];
+  try { urls = await Promise.all(files.map((file) => ticketStorage.createSignedDownload(file.objectKey, 300))); } catch { urls = []; }
   return response(row, urls);
 }
 

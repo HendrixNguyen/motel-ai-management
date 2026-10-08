@@ -1,6 +1,7 @@
 import {
   check,
   index,
+  uniqueIndex,
   jsonb,
   pgEnum,
   pgTable,
@@ -41,6 +42,7 @@ export const helpTickets = pgTable(
   (t) => [
     index("help_tickets_renter_id_idx").on(t.renterId),
     index("help_tickets_motel_id_idx").on(t.motelId),
+    uniqueIndex("help_tickets_id_motel_id_uq").on(t.id, t.motelId),
     check("help_tickets_photo_urls_max_5", sql`jsonb_array_length(${t.photoUrls}) <= 5`),
   ],
 );
