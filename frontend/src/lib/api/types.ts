@@ -71,6 +71,11 @@ export interface ApiErrorBody {
   details?: Record<string, unknown>;
 }
 
+export interface ReadingConflictDetails {
+  server?: { roomId: string; type: MeterType; currentReading: string | null; updatedAt: string };
+  [key: string]: unknown;
+}
+
 /* -------------------------------------------------------------------------- */
 /* Motels — backend/src/modules/motel/motel.types.ts                          */
 /* -------------------------------------------------------------------------- */
