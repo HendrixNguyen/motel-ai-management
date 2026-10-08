@@ -1,6 +1,6 @@
 import { and, eq, isNull, lte, or } from "drizzle-orm";
 import { db } from "@/db";
-import { getRenterForNotification } from "@/modules/renter/renter.service";
+import { getNotificationRecipient } from "./notification.recipient";
 import { AppError } from "@/shared/errors";
 import { notificationEvents } from "./notification.schema";
 import type { NotificationEvent, NotificationInput, RetryFailureKind, ZaloProvider } from "./notification.types";
@@ -14,9 +14,9 @@ function redactPayload(payload: Record<string, unknown>) { return Object.fromEnt
 function failureKind(error: unknown): { transient: boolean; reason: RetryFailureKind } { const kind = (error as { kind?: unknown }).kind; if (kind === "rate_limited" || kind === "provider_unavailable" || kind === "timeout") return { transient: true, reason: kind }; if (kind === "invalid_recipient" || kind === "invalid_template" || kind === "unauthorized") return { transient: false, reason: kind }; return { transient: false, reason: "provider_error" }; }
 
 export async function enqueueNotification(input: NotificationInput): Promise<NotificationEvent> {
-  const renter = await getRenterForNotification(input.renterId, input.motelId);
-  if (!renter) throw AppError.notFound("Không tìm thấy người thuê");
-  const channel = renter.isOaFollower && renter.zaloOaId ? "oa_message" : "zns";
+  const recipient = await getNotificationRecipient(input.renterId, input.motelId);
+  if (!recipient) throw AppError.notFound("Không tìm thấy người thuê");
+  const channel = recipient.isOaFollower && recipient.zaloOaId ? "oa_message" : "zns";
   const [row] = await db.insert(notificationEvents).values({ eventKey: input.eventKey, renterId: input.renterId, motelId: input.motelId, channel, templateId: input.templateId, payload: redactPayload(input.payload) }).onConflictDoNothing({ target: notificationEvents.eventKey }).returning();
   if (row) { if (input.transientSecret) secrets.set(row.id, input.transientSecret); return row; }
   const existing = await db.query.notificationEvents.findFirst({ where: eq(notificationEvents.eventKey, input.eventKey) });
@@ -35,8 +35,8 @@ export async function deliverNotification(eventId: string): Promise<Notification
     return event;
   }
   const event = claimed;
-  const renter = await getRenterForNotification(event.renterId, event.motelId);
-  if (!renter) throw AppError.notFound("Không tìm thấy người thuê");
+  const recipient = await getNotificationRecipient(event.renterId, event.motelId);
+  if (!recipient) throw AppError.notFound("Không tìm thấy người thuê");
   const transientSecret = secrets.get(event.id);
   if (Object.values(event.payload).some((value) => value === "[REDACTED]") && !transientSecret) {
     const [failedSecret] = await db.update(notificationEvents).set({ status: "failed", failureClass: "permanent", failureReason: "secret_unavailable", leaseId: null, leaseUntil: null, updatedAt: new Date() }).where(and(eq(notificationEvents.id, event.id), eq(notificationEvents.leaseId, leaseId))).returning();
@@ -44,7 +44,7 @@ export async function deliverNotification(eventId: string): Promise<Notification
   }
   const payload = { ...event.payload, ...(transientSecret ?? {}) };
   try {
-    const result = event.channel === "oa_message" && renter.zaloOaId ? await provider.sendOaMessage({ recipientId: renter.zaloOaId, payload }) : await provider.sendZns({ phone: renter.phone, templateId: event.templateId ?? "", payload });
+    const result = event.channel === "oa_message" && recipient.zaloOaId ? await provider.sendOaMessage({ recipientId: recipient.zaloOaId, payload }) : await provider.sendZns({ phone: recipient.phone, templateId: event.templateId ?? "", payload });
     secrets.delete(event.id);
     const [sent] = await db.update(notificationEvents).set({ status: "sent", providerId: result.providerId, sentAt: new Date(), updatedAt: new Date(), nextRetryAt: null, failureClass: null, failureReason: null, leaseId: null, leaseUntil: null }).where(and(eq(notificationEvents.id, event.id), eq(notificationEvents.leaseId, leaseId))).returning();
     return sent ?? event;

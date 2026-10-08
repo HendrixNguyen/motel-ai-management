@@ -10,11 +10,11 @@ import { contracts } from "@/modules/contract/contract.schema";
 import { notificationEvents } from "@/modules/notification/notification.schema";
 import { createRenterForMotel } from "@/modules/renter/renter.service";
 import { markInvoicePaid } from "@/modules/billing/billing.service";
-import { requestContractOtp, setRenterOtpSender } from "@/modules/contract/contract.service";
+import { requestContractOtp } from "@/modules/contract/contract.service";
 import { eq } from "drizzle-orm";
 
 setDefaultTimeout(120_000);
-beforeEach(async () => { await resetDb(); setRenterOtpSender(null); });
+beforeEach(async () => { await resetDb(); });
 
 async function fixture() {
   const [manager] = await db.insert(managers).values({ email: `${crypto.randomUUID()}@example.com`, passwordHash: "hash", name: "M" }).returning();
@@ -46,7 +46,6 @@ describe("domain notification integration", () => {
   test("creates OTP event and keeps contract state safe when notification fails", async () => {
     const { motel, room, renter } = await fixture();
     const [contract] = await db.insert(contracts).values({ motelId: motel.id, renterId: renter.id, roomId: room.id, startDate: "2026-01-01", endDate: "2026-12-31", monthlyRent: "1", deposit: "0" }).returning();
-    setRenterOtpSender(async () => false);
     await expect(requestContractOtp(contract!.id, renter.id, motel.id, async () => "123456")).rejects.toMatchObject({ code: "EXTERNAL_SERVICE_ERROR" });
     const stored = await db.query.contracts.findFirst({ where: eq(contracts.id, contract!.id) });
     expect(stored?.otpSentAt).toBeNull();

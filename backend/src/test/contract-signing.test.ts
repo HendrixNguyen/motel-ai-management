@@ -10,7 +10,6 @@ import { requestContractOtp, setRenterOtpSender, verifyContractOtp } from "@/mod
 
 setDefaultTimeout(20_000);
 beforeEach(async () => {
-  setRenterOtpSender(async () => true);
   await resetDb();
 });
 

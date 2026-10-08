@@ -5,7 +5,6 @@ import { db } from "@/db";
 import { magicLinks } from "@/modules/auth/auth.schema";
 import { renters } from "@/modules/renter/renter.schema";
 import { AppError } from "@/shared/errors";
-import { enqueueNotification } from "@/modules/notification/notification.service";
 
 export type RenterRow = typeof renters.$inferSelect;
 
@@ -32,8 +31,6 @@ export async function issueMagicLink(renterId: string): Promise<{ token: string;
   // The landing route is `/r/[token]` (frontend-ui-specs.md R0) — the renter portal's only
   // token-bearing route. A link built for any other path 404s on arrival.
   const url = `${env.frontendUrl}/r/${token}`;
-  await enqueueNotification({ eventKey: `magic-link:${token}`, renterId: renter.id, motelId: renter.motelId, templateId: "welcome", payload: { url, expiresAt: expiresAt.toISOString() } }).catch(() => undefined);
-
   return { token, expiresAt, url };
 }
 

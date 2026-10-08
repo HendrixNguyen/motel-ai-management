@@ -284,18 +284,6 @@ export async function terminateContract(
     .returning();
   return contractResponse(row!);
 }
-export type ContractNotification = (input: {
-  contract: typeof contracts.$inferSelect;
-  otp: string;
-}) => Promise<boolean>;
-let sendContractNotification: ContractNotification = async () => false;
-let sendRenterOtp: ContractNotification = async () => false;
-export function setContractNotificationSender(sender: ContractNotification | null) {
-  sendContractNotification = sender ?? (async () => false);
-}
-export function setRenterOtpSender(sender: ContractNotification | null) {
-  sendRenterOtp = sender ?? (async () => false);
-}
 const OTP_TTL_MS = 5 * 60 * 1000;
 const OTP_COOLDOWN_MS = 5 * 60 * 1000;
 const MAX_OTP_ATTEMPTS = 3;
@@ -337,13 +325,13 @@ export async function requestContractOtp(contractId: string, renterId: string, m
     if (!row) throw AppError.conflict("Hợp đồng không ở trạng thái chờ ký");
     return { row, previous: current };
   });
-   const sent = await sendRenterOtp({ contract: staged.row, otp });
-   if (!sent) {
-
-    await db.update(contracts).set({ otpHash: staged.previous.otpHash, otpSentAt: staged.previous.otpSentAt, otpExpiresAt: staged.previous.otpExpiresAt, otpAttempts: staged.previous.otpAttempts }).where(and(eq(contracts.id, contractId), eq(contracts.otpHash, hash), eq(contracts.otpSentAt, now), eq(contracts.otpExpiresAt, expires)));
-    throw new AppError("EXTERNAL_SERVICE_ERROR", "Không thể gửi mã xác thực");
+   try {
+     await enqueueNotification({ eventKey: `contract:${contractId}:otp:${now.toISOString()}`, renterId, motelId, templateId: "otp", payload: { contractId, expiresAt: expires.toISOString(), otp: "[REDACTED]" }, transientSecret: { otp } });
+   } catch {
+     await db.update(contracts).set({ otpHash: staged.previous.otpHash, otpSentAt: staged.previous.otpSentAt, otpExpiresAt: staged.previous.otpExpiresAt, otpAttempts: staged.previous.otpAttempts }).where(and(eq(contracts.id, contractId), eq(contracts.otpHash, hash), eq(contracts.otpSentAt, now), eq(contracts.otpExpiresAt, expires)));
+     throw new AppError("EXTERNAL_SERVICE_ERROR", "Không thể gửi mã xác thực");
    }
-   await enqueueNotification({ eventKey: `contract:${contractId}:otp:${now.toISOString()}`, renterId, motelId, templateId: "otp", payload: { contractId, expiresAt: expires.toISOString(), otp: "[REDACTED]" }, transientSecret: { otp } }).catch(() => undefined);
+
    return { sentAt: now.toISOString() };
 }
 
@@ -370,9 +358,7 @@ export async function sendContract(
   const current = await ownedContract(motelId, contractId, managerId);
   if (current.status !== "draft")
     throw AppError.conflict("Chỉ có thể gửi hợp đồng nháp");
-  if (!(await sendContractNotification({ contract: current, otp: "" })))
-    throw new AppError("EXTERNAL_SERVICE_ERROR", "Không thể gửi hợp đồng");
-  await enqueueNotification({ eventKey: `contract:${contractId}:sent`, renterId: current.renterId, motelId, templateId: "contract", payload: { contractId } }).catch(() => undefined);
+  await enqueueNotification({ eventKey: `contract:${contractId}:sent`, renterId: current.renterId, motelId, templateId: "contract", payload: { contractId } });
   const [row] = await db
     .update(contracts)
     .set({ managerSentAt: new Date() })
