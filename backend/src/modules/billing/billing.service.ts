@@ -191,20 +191,19 @@ export async function sendBillingPeriod(periodId: string, motelId: string, manag
 
 async function transitionInvoice(invoiceId: string, motelId: string, managerId: string, status: "paid" | "overdue"): Promise<InvoiceResponse> {
   await resolveOwnedMotel(motelId, managerId);
-  return db.transaction(async (tx) => {
+  const result = await db.transaction(async (tx) => {
     const row = await tx.select({ invoice: invoices, roomName: rooms.name }).from(invoices).innerJoin(rooms, eq(invoices.roomId, rooms.id)).where(and(eq(invoices.id, invoiceId), eq(invoices.motelId, motelId))).limit(1);
     if (!row[0]) throw AppError.notFound("Không tìm thấy hóa đơn");
     if (status === "overdue" && row[0].invoice.paymentStatus === "paid") throw AppError.conflict("Hóa đơn đã thanh toán");
-     if (status === "paid" && row[0].invoice.paymentStatus === "paid") return invoiceResponse(row[0].invoice, row[0].roomName);
-     if (status === "overdue" && row[0].invoice.paymentStatus === "overdue") return invoiceResponse(row[0].invoice, row[0].roomName);
+     if (status === "paid" && row[0].invoice.paymentStatus === "paid") return { invoice: row[0].invoice, roomName: row[0].roomName };
+     if (status === "overdue" && row[0].invoice.paymentStatus === "overdue") return { invoice: row[0].invoice, roomName: row[0].roomName };
       const [updated] = await tx.update(invoices).set({ paymentStatus: status, paidAt: status === "paid" ? new Date() : null }).where(eq(invoices.id, invoiceId)).returning();
-      const response = invoiceResponse(updated!, row[0].roomName);
-      if (status === "paid") await enqueueNotification({ eventKey: `invoice:${invoiceId}:paid`, renterId: updated!.renterId, motelId, templateId: "paymentConfirmed", payload: { invoiceId, totalAmount: updated!.totalAmount } }).catch(() => undefined);
-      return response;
+       return { invoice: updated!, roomName: row[0].roomName };
+    });
+    if (status === "paid") await enqueueNotification({ eventKey: `invoice:${invoiceId}:paid`, renterId: result.invoice.renterId, motelId, templateId: "paymentConfirmed", payload: { invoiceId, totalAmount: result.invoice.totalAmount } }).catch(() => undefined);
+    return invoiceResponse(result.invoice, result.roomName);
+ }
 
-   });
-
-}
 
 export const markInvoicePaid = (invoiceId: string, motelId: string, managerId: string) => transitionInvoice(invoiceId, motelId, managerId, "paid");
 export const markInvoiceOverdue = (invoiceId: string, motelId: string, managerId: string) => transitionInvoice(invoiceId, motelId, managerId, "overdue");

@@ -17,6 +17,12 @@ import type {
 } from "./renter.types";
 
 export type RenterRow = typeof renters.$inferSelect;
+export type NotificationRecipient = Pick<RenterRow, "phone" | "zaloOaId" | "isOaFollower">;
+
+export async function getRenterNotificationRecipient(renterId: string, motelId: string): Promise<NotificationRecipient | undefined> {
+  const row = await db.query.renters.findFirst({ where: and(eq(renters.id, renterId), eq(renters.motelId, motelId)), columns: { phone: true, zaloOaId: true, isOaFollower: true } });
+  return row;
+}
 
 type RenterPatch = Partial<{
   name: string;
