@@ -31,10 +31,11 @@ async function seed() {
   const [periodA, periodB] = await db.insert(billingPeriods).values([
     { motelId: motelA!.id, month: 1, year: 2026, status: "sent" },
     { motelId: motelB!.id, month: 1, year: 2026, status: "sent" },
+    { motelId: motelA!.id, month: 2, year: 2026, status: "sent" },
   ]).returning();
   const [contract] = await db.insert(contracts).values({ motelId: motelA!.id, renterId: renterA!.id, roomId: roomA!.id, startDate: "2026-01-01", endDate: "2026-12-31", monthlyRent: "5000000", deposit: "5000000", clauses: [{ title: "Điều 1", content: "Nội dung" }], status: "active" }).returning();
   const [invoiceA] = await db.insert(invoices).values({ billingPeriodId: periodA!.id, motelId: motelA!.id, renterId: renterA!.id, roomId: roomA!.id, rentAmount: "5000000", electricityUsage: "10.00", electricityCost: "35000", waterUsage: "4.00", waterCost: "100000", otherFees: [{ name: "Rác", amount: "50000" }], totalAmount: "5185000", qrCodeData: "PAYLOAD" }).returning();
-  return { renterA: renterA!, renterB: renterB!, periodA: periodA!, periodB: periodB!, invoiceA: invoiceA!, contract: contract! };
+  return { renterA: renterA!, renterB: renterB!, periodA: periodA!, periodB: periodB!, invoiceA: invoiceA!, contract: contract!, emptyPeriod: (await db.query.billingPeriods.findFirst({ where: eq(billingPeriods.month, 2) }))! };
 }
 
 async function sessionCookie(renterId: string) {
@@ -61,7 +62,9 @@ describe("renter portal reads", () => {
     const cookie = await sessionCookie(data.renterA.id);
     const periods = await app.handle(new Request("http://localhost/api/renter/billing/periods", { headers: { cookie } }));
     expect(periods.status).toBe(200);
-    expect(await periods.json()).toEqual([expect.objectContaining({ id: data.periodA.id, month: 1, year: 2026 })]);
+    const periodBody = await periods.json() as any;
+    expect(periodBody).toEqual([expect.objectContaining({ id: data.periodA.id, month: 1, year: 2026 })]);
+    expect(periodBody).not.toContainEqual(expect.objectContaining({ id: data.emptyPeriod.id }));
     const invoicesResponse = await app.handle(new Request(`http://localhost/api/renter/billing/periods/${data.periodA.id}/invoices`, { headers: { cookie } }));
     expect(invoicesResponse.status).toBe(200);
     const body = await invoicesResponse.json() as any;

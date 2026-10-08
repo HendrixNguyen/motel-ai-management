@@ -37,6 +37,13 @@ function toResponse(row: MotelRow): MotelResponse {
   return { ...row, createdAt: row.createdAt.toISOString() };
 }
 
+export interface RenterMotelProjection { id: string; name: string }
+
+export async function getMotelForRenter(motelId: string): Promise<RenterMotelProjection | null> {
+  const row = await db.query.motels.findFirst({ where: eq(motels.id, motelId), columns: { id: true, name: true } });
+  return row ?? null;
+}
+
 export async function listMotels(managerId: string): Promise<MotelResponse[]> {
   const rows = await db.query.motels.findMany({
     where: eq(motels.managerId, managerId),

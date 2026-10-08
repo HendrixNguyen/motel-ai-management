@@ -61,6 +61,16 @@ describe("magic links", () => {
     });
   });
 
+  test("concurrent exchanges consume link once", async () => {
+    const renter = await seedRenter();
+    const { token } = await issueMagicLink(renter.id);
+    const results = await Promise.allSettled([consumeMagicLink(token), consumeMagicLink(token)]);
+    expect(results.filter((result) => result.status === "fulfilled")).toHaveLength(1);
+    expect(results.filter((result) => result.status === "rejected")).toHaveLength(1);
+    const rejected = results.find((result): result is PromiseRejectedResult => result.status === "rejected");
+    expect(rejected?.reason).toMatchObject({ code: "MAGIC_LINK_EXPIRED" });
+  });
+
   test("an expired link is rejected", async () => {
     const renter = await seedRenter();
     const { token } = await issueMagicLink(renter.id);

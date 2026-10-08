@@ -1,4 +1,4 @@
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 import { randomBytes } from "crypto";
 import { env } from "@/config";
 import { db } from "@/db";
@@ -36,22 +36,16 @@ export async function issueMagicLink(renterId: string): Promise<{ token: string;
 }
 
 export async function consumeMagicLink(token: string): Promise<RenterRow> {
-  const link = await db.query.magicLinks.findFirst({
-    where: eq(magicLinks.token, token),
-  });
-
-  if (!link) throw new AppError("MAGIC_LINK_EXPIRED", "Liên kết không hợp lệ hoặc đã hết hạn");
-
-  if (link.consumedAt) throw new AppError("MAGIC_LINK_EXPIRED", "Liên kết không hợp lệ hoặc đã hết hạn");
-
-  if (link.expiresAt < new Date()) throw new AppError("MAGIC_LINK_EXPIRED", "Liên kết không hợp lệ hoặc đã hết hạn");
-
-  await db
+  const now = new Date();
+  const [claimed] = await db
     .update(magicLinks)
-    .set({ consumedAt: new Date() })
-    .where(eq(magicLinks.token, token));
+    .set({ consumedAt: now })
+    .where(and(eq(magicLinks.token, token), isNull(magicLinks.consumedAt), sql`${magicLinks.expiresAt} > ${now}`))
+    .returning({ renterId: magicLinks.renterId });
 
-  const renter = await db.query.renters.findFirst({ where: eq(renters.id, link.renterId) });
+  if (!claimed) throw new AppError("MAGIC_LINK_EXPIRED", "Liên kết không hợp lệ hoặc đã hết hạn");
+
+  const renter = await db.query.renters.findFirst({ where: eq(renters.id, claimed.renterId) });
   if (!renter) throw AppError.notFound("Không tìm thấy người thuê");
 
   return renter;

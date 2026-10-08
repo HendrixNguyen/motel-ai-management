@@ -258,8 +258,10 @@ renter id from the client.
 
 | Method | Path                                 | Notes                                                                                                                                |
 | ------ | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------ |
-| GET    | `/me`                                | Renter + room + motel name, for the portal header                                                                                    |
-| GET    | `/invoices`                          | Reverse-chronological; `?year=&month=` optional                                                                                      |
+| GET    | `/me`                                | `200 {id,name,phone,room:{id,name,floor}|null,motel:{id,name},activeContract:{id,roomId,roomName,startDate,endDate,monthlyRent}|null}`; excludes CCCD, manager ID, OTP/hash fields |
+| GET    | `/billing/periods`                   | Bare array `{id,month,year,status,createdAt}`; only periods containing an invoice for session renter, newest first                   |
+| GET    | `/billing/periods/:periodId/invoices`| Bare array itemized invoices `{id,billingPeriodId,month,year,roomId,roomName,rentAmount,electricityUsage,electricityCost,waterUsage,waterCost,otherFees,totalAmount,qrCodeData,paymentStatus,paidAt,createdAt}`; foreign period `404` |
+| GET    | `/invoices`                          | Reverse-chronological; `?year=&month=` optional (planned)                                                                            |
 | GET    | `/invoices/current`                  | Current period invoice, or `404` if not yet issued                                                                                   |
 | GET    | `/invoices/:invoiceId`               | Full breakdown, `qrCodeData`, bank details, and `meterPhotos[]` — `{type, signedUrl, capturedAt}` per meter, signed URLs short-lived |
 | GET    | `/contract`                          | Active or latest contract with clauses                                                                                               |

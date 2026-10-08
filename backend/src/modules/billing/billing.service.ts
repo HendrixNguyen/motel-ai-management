@@ -21,6 +21,18 @@ function periodResponse(row: typeof billingPeriods.$inferSelect): BillingPeriodR
   return { ...row, createdAt: row.createdAt.toISOString() };
 }
 
+export interface RenterInvoiceProjection { id: string; billingPeriodId: string; month: number; year: number; roomId: string; roomName: string; rentAmount: string; electricityUsage: string; electricityCost: string; waterUsage: string; waterCost: string; otherFees: unknown[]; totalAmount: string; qrCodeData: string | null; paymentStatus: "unpaid" | "paid" | "overdue"; paidAt: string | null; createdAt: string }
+
+export async function listRenterInvoicesForPeriod(renterId: string, motelId: string, periodId: string): Promise<RenterInvoiceProjection[]> {
+  const rows = await db.select({ invoice: invoices, roomName: rooms.name, month: billingPeriods.month, year: billingPeriods.year }).from(invoices).innerJoin(rooms, and(eq(rooms.id, invoices.roomId), eq(rooms.motelId, motelId))).innerJoin(billingPeriods, and(eq(billingPeriods.id, invoices.billingPeriodId), eq(billingPeriods.motelId, motelId))).where(and(eq(invoices.renterId, renterId), eq(invoices.motelId, motelId), eq(invoices.billingPeriodId, periodId))).orderBy(asc(rooms.name), asc(invoices.id));
+  return rows.map(({ invoice, roomName, month, year }) => ({ id: invoice.id, billingPeriodId: invoice.billingPeriodId, month, year, roomId: invoice.roomId, roomName, rentAmount: invoice.rentAmount, electricityUsage: invoice.electricityUsage, electricityCost: invoice.electricityCost, waterUsage: invoice.waterUsage, waterCost: invoice.waterCost, otherFees: invoice.otherFees, totalAmount: invoice.totalAmount, qrCodeData: invoice.qrCodeData, paymentStatus: invoice.paymentStatus, paidAt: invoice.paidAt?.toISOString() ?? null, createdAt: invoice.createdAt.toISOString() }));
+}
+
+export async function listBillingPeriodsForRenter(motelId: string, renterId: string): Promise<BillingPeriodResponse[]> {
+  const rows = await db.select({ period: billingPeriods }).from(billingPeriods).innerJoin(invoices, and(eq(invoices.billingPeriodId, billingPeriods.id), eq(invoices.renterId, renterId), eq(invoices.motelId, motelId))).where(eq(billingPeriods.motelId, motelId)).orderBy(desc(billingPeriods.year), desc(billingPeriods.month), desc(billingPeriods.id));
+  return rows.map(({ period }) => periodResponse(period));
+}
+
 export async function listBillingPeriods(motelId: string, managerId: string): Promise<BillingPeriodResponse[]> {
   await resolveOwnedMotel(motelId, managerId);
   const rows = await db.query.billingPeriods.findMany({ where: eq(billingPeriods.motelId, motelId), orderBy: [desc(billingPeriods.year), desc(billingPeriods.month), desc(billingPeriods.id)] });
