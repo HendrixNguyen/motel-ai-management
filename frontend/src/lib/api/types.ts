@@ -401,7 +401,7 @@ export interface RenterPeriod {
   createdAt: string;
 }
 
-export interface RenterInvoice {
+export interface RenterInvoiceSummary {
   id: string;
   billingPeriodId: string;
   month: number;
@@ -419,10 +419,13 @@ export interface RenterInvoice {
   paymentStatus: PaymentStatus;
   paidAt: string | null;
   createdAt: string;
+}
+export interface RenterInvoiceDetail extends RenterInvoiceSummary {
   bankAccount: { bankCode: string; accountNumber: string; accountName: string } | null;
   transferDescription: string;
   meterPhotos: Array<{ type: "electric" | "water"; signedUrl: string; capturedAt: string | null }>;
 }
+export type RenterInvoice = RenterInvoiceSummary | RenterInvoiceDetail;
 
 export interface CreateRenterTicketInput {
   category: RenterTicketCategory;
