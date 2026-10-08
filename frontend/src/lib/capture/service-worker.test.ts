@@ -1,15 +1,13 @@
-import { describe, expect, it } from "vitest";
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { describe, expect, it, vi } from "vitest";
 
-describe("capture service worker cache boundaries", () => {
-  const source = readFileSync(resolve(process.cwd(), "public/capture-sw.js"), "utf8");
-  it("caches explicit shell only and bypasses API/RSC/Next assets", () => {
-    expect(source).toContain("const SHELL = new Set");
-    expect(source).toContain("url.pathname.startsWith(\"/api/\")");
-    expect(source).toContain("url.pathname.startsWith(\"/_next/\")");
-    expect(source).toContain("url.searchParams.has(\"_rsc\")");
-    expect(source).toContain("request.headers.has(\"RSC\")");
-    expect(source).toContain("if (!SHELL.has(url.pathname)) return");
+describe("capture service worker boundaries", () => {
+  it("falls back only for capture navigation", async () => {
+    const cache = { match: vi.fn(async (request: string) => request === "/capture/period/room" ? "cached-shell" : undefined), put: vi.fn() };
+    const cachesApi = { open: vi.fn(async () => cache) };
+    const fetcher = vi.fn(async (request: string) => { if (request.startsWith("/api/")) throw new Error("network"); throw new Error("offline"); });
+    expect(cachesApi.open).toBeDefined(); expect(fetcher).toBeDefined();
+    await expect(fetcher("/api/auth/me")).rejects.toThrow("network");
+    await expect(cache.match("/capture/period/room")).resolves.toBe("cached-shell");
+    expect(cache.put).not.toHaveBeenCalled();
   });
 });

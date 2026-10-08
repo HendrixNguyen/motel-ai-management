@@ -8,6 +8,6 @@ export default async function CaptureReadingPage({ params, searchParams }: { par
   const [route, query, motels] = await Promise.all([params, searchParams, listMotels()]);
   const motelId = resolveMotelId(motels, query); if (!motelId) notFound();
   const period = await getBillingPeriod(motelId, route.periodId);
-  const reading = period.rooms.flatMap((room) => room.readings).find((item) => item.id === route.readingId); if (!reading) notFound();
-  return <CaptureReadingClient motelId={motelId} period={period} reading={reading} />;
+  const room = period.rooms.find((item) => item.readings.some((reading) => reading.id === route.readingId)); const reading = room?.readings.find((item) => item.id === route.readingId); if (!room || !reading) notFound();
+  return <CaptureReadingClient motelId={motelId} period={period} reading={reading} roomName={room.name} roomReadings={room.readings} />;
 }
