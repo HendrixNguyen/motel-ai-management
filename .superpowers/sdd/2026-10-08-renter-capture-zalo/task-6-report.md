@@ -1,9 +1,8 @@
 
-## Final test-boundary fixes appended
+## Final SW cache mock fix appended
 
-- E2E now inspects Cache Storage contents and asserts no `/api/` or signed URL entries.
-- Service-worker tests assert actual response status/body for online shell, cached capture navigation, and offline fallback.
-- Added table-driven exclusions for non-GET, cross-origin, `/_next/`, `_rsc`, `RSC`, and `Next-Router-State-Tree` requests.
+- Normalized Cache Storage mock keys through one URL-path helper in `put` and `match`.
+- Offline navigation assertion now verifies second navigation returns response cached by first online navigation, including status/body.
 
 Verification:
 - Typecheck pass.

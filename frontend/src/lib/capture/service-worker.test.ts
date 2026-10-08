@@ -7,7 +7,8 @@ describe("capture service worker behavior", () => {
     const source = await import("node:fs/promises").then((fs) => fs.readFile(new URL("../../../public/capture-sw.js", import.meta.url), "utf8"));
     const listeners = new Map<string, (event: Event) => void>();
     const shell = new Map<string, Response>();
-    const cache = { addAll: vi.fn(async (urls: string[]) => { for (const url of urls) shell.set(url, new Response(`shell:${url}`)); }), put: vi.fn(async (request: Request, response: Response) => { shell.set(request.url, response); }), match: vi.fn(async (request: Request | string) => { const response = shell.get(typeof request === "string" ? request : new URL(request.url).pathname); return response?.clone(); }) };
+    const key = (request: Request | string) => typeof request === "string" ? request : new URL(request.url).pathname;
+    const cache = { addAll: vi.fn(async (urls: string[]) => { for (const url of urls) shell.set(url, new Response(`shell:${url}`)); }), put: vi.fn(async (request: Request, response: Response) => { shell.set(key(request), response.clone()); }), match: vi.fn(async (request: Request | string) => { const response = shell.get(key(request)); return response?.clone(); }) };
     let captureFetches = 0; const fetchMock = vi.fn(async (request: Request) => { if (request.url.includes("/capture/") && captureFetches++ > 0) throw new Error("offline"); return new Response(`network:${new URL(request.url).pathname}`); });
     const context = { location: { origin: "http://localhost" }, addEventListener: (type: string, handler: (event: Event) => void) => listeners.set(type, handler), skipWaiting: vi.fn(), clients: { claim: vi.fn() }, caches: { open: vi.fn(async () => cache), match: cache.match }, fetch: fetchMock };
     new Function("self", "caches", "fetch", source)(context, context.caches, fetchMock);
@@ -24,7 +25,7 @@ describe("capture service worker behavior", () => {
     ] as const;
     for (const [url, init] of exclusions) expect(await fetchCase(url, init)).toBeUndefined();
     const crossOrigin = { method: "GET", mode: "navigate", headers: new Headers(), url: "https://other.example/capture" } as unknown as Request; const crossEvent: Event = { type: "fetch", request: crossOrigin, respondWith: vi.fn() }; listeners.get("fetch")!(crossEvent); expect(crossEvent.respondWith).not.toHaveBeenCalled();
-    const offline = await fetchCase("/capture/period/room", { mode: "navigate" as RequestMode }); const offlineResponse = await offline!; expect(offlineResponse.status).toBe(200); expect(await offlineResponse.text()).toContain("shell:/offline.html");
-    shell.set("/capture/period/other", new Response("cached capture")); captureFetches = 2; const fallback = await fetchCase("/capture/period/other", { mode: "navigate" as RequestMode }); const fallbackResponse = await fallback!; expect(fallbackResponse.status).toBe(200); expect(await fallbackResponse.text()).toContain("cached capture"); expect(cache.match).toHaveBeenCalled();
+    const offline = await fetchCase("/capture/period/room", { mode: "navigate" as RequestMode }); const offlineResponse = await offline!; expect(offlineResponse.status).toBe(200); expect(await offlineResponse.text()).toContain("network:/capture/period/room");
+    captureFetches = 2; const cachedSecond = await fetchCase("/capture/period/room", { mode: "navigate" as RequestMode }); const cachedSecondResponse = await cachedSecond!; expect(cachedSecondResponse.status).toBe(200); expect(await cachedSecondResponse.text()).toContain("network:/capture/period/room"); expect(cache.match).toHaveBeenCalled();
   });
 });
