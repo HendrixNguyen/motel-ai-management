@@ -1,12 +1,12 @@
 import { beforeEach, describe, expect, setDefaultTimeout, test } from "bun:test";
 import { and, eq } from "drizzle-orm";
-import { AppError } from "@/shared/errors";
 import type { StorageAdapter, StorageObject, StoragePutInput } from "@/shared/storage";
 import { app } from "@/app";
 import { db } from "@/db";
 import { resetDb } from "@/db/test-db";
 import { registerManager } from "@/modules/auth/auth.service";
 import { helpTickets } from "@/modules/ticket/ticket.schema";
+import { ticketPhotoUploads } from "@/modules/ticket/ticket-upload.schema";
 import { motels } from "@/modules/motel/motel.schema";
 import { rooms } from "@/modules/room/room.schema";
 import { renters } from "@/modules/renter/renter.schema";
@@ -81,9 +81,13 @@ describe("renter tickets", () => {
     const form = new FormData(); form.set("category", "other"); form.set("description", "Mô tả lỗi có ảnh"); form.append("photos", new File([new Uint8Array([0xff, 0xd8, 0xff])], "x.jpg", { type: "image/jpeg" }));
     const response = await app.handle(new Request("http://localhost/api/renter/tickets", { method: "POST", headers: { cookie: data.cookie }, body: form }));
     expect(response.status).toBe(502);
+    expect(await response.json()).toEqual({ error: "Dịch vụ lưu trữ tạm thời không khả dụng", code: "EXTERNAL_SERVICE_ERROR" });
     const ticket = await db.query.helpTickets.findFirst({ where: and(eq(helpTickets.renterId, data.renter.id), eq(helpTickets.motelId, data.motel.id)) });
     expect(ticket).toBeDefined();
     expect(ticket!.photoUrls).toHaveLength(1);
+    const metadata = await db.query.ticketPhotoUploads.findMany({ where: eq(ticketPhotoUploads.ticketId, ticket!.id) });
+    expect(metadata).toHaveLength(1);
+    expect(metadata[0]).toMatchObject({ motelId: data.motel.id, objectKey: ticket!.photoUrls[0], contentType: "image/jpeg", size: 3 });
   });
 
   test("ticket remains created when notification provider fails", async () => {
