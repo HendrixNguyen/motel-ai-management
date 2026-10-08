@@ -1,6 +1,9 @@
 # Task 7 report
 
 ## Status
+Final Task 7 UX/docs pass: server-only transport guard, canonical legacy redirect, consent confirmation, ticket success/error messaging, and corrected logout contract.
+
+## Latest verification
 Root cause fixed: portal Server Components now use absolute BACKEND_URL transport with forwarded renter_session cookie; browser mutations retain apiGet/apiSend.
 
 ## Latest verification
