@@ -4,7 +4,7 @@
 Implemented shared private storage adapter contract, validation, fake adapter, and R2 adapter boundary.
 
 ## Tests
-- `bun test src/test/storage.test.ts` — pass (4 tests)
+- `bun test src/test/storage.test.ts` — pass (7 tests)
 - `bun run typecheck` — pass
 - Full `bun test` not run: repository guidance warns parallel DB-reset tests can cross-talk; targeted storage tests cover this task.
 
