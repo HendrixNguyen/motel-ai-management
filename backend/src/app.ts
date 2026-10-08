@@ -11,6 +11,7 @@ import { billingRoutes } from "@/modules/billing/billing.route";
 import { contractRoutes } from "@/modules/contract/contract.route";
 import { AppError } from "@/shared/errors";
 import { notificationRoutes } from "@/modules/notification/notification.route";
+import { renterPortalRoutes } from "@/modules/renter-portal/renter-portal.route";
 
 /**
  * A fresh instance per call. `app` is the one the server listens on; tests build their own
@@ -40,7 +41,8 @@ export function createApp() {
        .use(billingRoutes)
        .use(contractRoutes)
        .use(renterRoutes)
-       .use(notificationRoutes),
+        .use(notificationRoutes)
+        .use(renterPortalRoutes),
     )
     .all("*", () => {
       throw AppError.notFound("Không tìm thấy");

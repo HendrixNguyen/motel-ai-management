@@ -419,6 +419,7 @@ export interface ActiveContractSummary {
 }
 export async function getActiveContractForRenter(
   renterId: string,
+  motelId?: string,
 ): Promise<ActiveContractSummary | null> {
   const [row] = await db
     .select({
@@ -430,7 +431,7 @@ export async function getActiveContractForRenter(
     })
     .from(contracts)
     .where(
-      and(eq(contracts.renterId, renterId), eq(contracts.status, "active")),
+      and(eq(contracts.renterId, renterId), ...(motelId ? [eq(contracts.motelId, motelId)] : []), eq(contracts.status, "active")),
     )
     .orderBy(desc(contracts.createdAt), desc(contracts.id))
     .limit(1);
