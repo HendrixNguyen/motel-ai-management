@@ -102,7 +102,7 @@ is made from a Server Component with the cookie forwarded.
 | Method | Path | Body | Returns |
 | --- | --- | --- | --- |
 | POST | `/exchange` | `{token}` | `200 {renterId,motelId}`; sets 24-hour `renter_session` httpOnly cookie and consumes token |
-| POST | `/resend` | — | `200 {message,url}`; renter session required; URL is `${FRONTEND_URL}/r/<token>` |
+| POST | `/resend` | — | `200 {message,url}`; renter session required; URL is `${RENTER_PORTAL_URL}/r/<token>`; this manager-issued resend path is superseded in favor of manager-issued links and is not part of current frontend rollout |
 | POST | `/api/renter/logout` | — | `204 No Content`; clears `renter_session` httpOnly cookie |
 
 `MAGIC_LINK_EXPIRED` is returned for expired or consumed tokens. Exchange validation failures use
@@ -272,8 +272,12 @@ or motel ID from the client to select tenant ownership. Lists are bare arrays.
 | POST | `/contracts/:contractId/sign-request` | `200 {sentAt}`; OTP never returned; cooldown or provider limit uses `429 RATE_LIMITED` |
 | POST | `/contracts/:contractId/verify` | `{otp}` → `200 Contract` with `status=active`; `OTP_INVALID` / `OTP_EXPIRED` |
 | GET | `/tickets` | `200 Ticket[]`; own tickets only, no `managerNote` or object keys |
-| POST | `/tickets` | JSON `{category,description}` or multipart fields `category`, `description`, repeated `photos`; `201 Ticket`; description ≥10 chars, max 5 JPEG/PNG files, 10 MB each |
-| GET | `/tickets/:ticketId` | `200 Ticket`; foreign ticket `404`; signed-photo failure `502 EXTERNAL_SERVICE_ERROR` without deleting committed metadata |
+| POST | `/tickets` | JSON `{category,description}` or multipart fields `category`, `description`, repeated `photos`; `201 Ticket`; route rejects malformed/unsupported bodies and invalid category with `400 {error:"Dữ liệu gửi lên không hợp lệ",code:"VALIDATION_ERROR"}`; service enforces description ≥10 chars, max 5 JPEG/PNG files, 10 MB each |
+| GET | `/tickets/:ticketId` | `200 Ticket`; foreign ticket `404`; signed-photo failure returns `502 EXTERNAL_SERVICE_ERROR` while committed ticket/photo metadata remains persisted |
+
+Ticket create provider delivery is best-effort: Zalo enqueue failure does not roll back a committed
+ticket. Storage failure before commit returns `502 EXTERNAL_SERVICE_ERROR` and removes staged
+objects; storage failure while signing a committed read returns the same safe 502.
 
 `Ticket` is `{id,renterId,motelId,roomId,category,description,photoUrls,status,createdAt,resolvedAt}`.
 Renter responses never permit payment mutation.
@@ -287,7 +291,9 @@ Renter responses never permit payment mutation.
 Unauthenticated by definition; `x-zalo-signature` must equal HMAC-SHA256 of raw body using
 `ZALO_WEBHOOK_SECRET`. Invalid signature returns `401 {error,code:UNAUTHORIZED}`. Malformed or
 unsupported events return `400 {error,code:VALIDATION_ERROR}`. `event_id` deduplicates retries;
-missing IDs use a raw-body digest. Follow requires `oa_id` and `phone`; unfollow clears follower
+missing IDs use a raw-body digest. Follow requires `oa_id` and `phone`. An unknown OA mapping is an internal mapping failure: return
+`500 {error,code:INTERNAL_ERROR}`, roll back webhook dedupe state, and allow retry after mapping is
+configured; do not classify it as `NOT_FOUND` or expose mapping details. Unfollow clears follower
 state. Provider IDs, secrets, and raw payload credentials never enter responses or logs.
 
 

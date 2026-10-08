@@ -1,51 +1,32 @@
-# Task 9 Report
+# Task 9 Findings Report
 
-- **Task:** Documentation and delivery verification for renter capture, renter portal, and Zalo flows
-- **Date:** 2026-10-08
-- **Status:** BLOCKED by backend integration database failures; documentation and non-DB gates complete
+- Date: 2026-10-08
+- Status: frontend coverage added; backend DB integration remains blocked
 
-## Documentation
+## Evidence record
 
-Updated exact contracts and rollout guidance in:
+| Timestamp (UTC) | SHA | Environment | Command | Result / counts | Sanitized blocker output |
+|---|---|---|---|---|---|
+| 2026-10-08T06:35Z | `8c34423` | local Bun 1.4.2, PostgreSQL integration target | `cd backend && bun run typecheck` | PASS | — |
+| 2026-10-08T06:35Z | `8c34423` | local Bun 1.4.2, configured TEST_DATABASE_URL | explicit backend integration sequence | BLOCKED | `error: Failed query:` repeated; actionable cause: inspect/restart disposable PostgreSQL and verify `TEST_DATABASE_URL` connectivity, then rerun files sequentially |
+| 2026-10-08T06:35Z | `8c34423` | local frontend, Chromium fixture project | `bun run typecheck && bun run lint && bun run build && bun run test` | PASS: 360 unit tests; lint 0 errors, 4 image warnings | — |
+| 2026-10-08T06:49Z | working tree before commit | local frontend, Chromium fixture project | `bun run typecheck && bun run lint && bun run build && bun run test && bun run test:e2e` | PASS: 360 unit tests; 76 E2E; build/typecheck pass; lint 0 errors, 4 image warnings | — |
+| 2026-10-08T06:49Z | working tree before commit | local Bun 1.4.2, configured TEST_DATABASE_URL | `bun test src/test/schema-constraints.test.ts` | BLOCKED | `error: Failed query:`; actionable cause: verify disposable PostgreSQL is running, inspect `TEST_DATABASE_URL` host/database/credentials without printing secrets, then rerun |
+| 2026-10-08T06:35Z | `8c34423` | local frontend, Chromium fixture project | `bun run test:e2e` | PASS: 75 tests | — |
+| 2026-10-08T06:40Z | working tree before commit | local frontend, Chromium fixture project | new E2E files | initial failures exposed auth redirect and ambiguous alert locator; fixes applied | no secrets; failures were `ERR_TOO_MANY_REDIRECTS` and strict alert selection |
 
-- `docs/api-contract.md`
-  - Corrected magic-link exchange response to `{renterId,motelId}`.
-  - Documented renter profile, invoice, ticket, OTP, upload-safe response shapes.
-  - Corrected webhook path to `/api/zalo/webhook`, HMAC header, payload, validation, and deduplication behavior.
-  - Added deployment-controlled rollout order and secret boundaries.
-- `docs/frontend-ui-specs.md`
-  - Documented renter portal exchange/expiry/error behavior, exact money and ticket payload rules.
-  - Documented capture queue states, service-worker cache boundary, sent-period lock, and rollout gate.
-- `docs/testing-strategy.md`
-  - Added Task 9 gate order, sequential backend reset rule, fixture/real E2E distinction, and evidence requirements.
-- `backend/.env.example`
-  - Added deployment-controlled feature rollout note without adding a runtime flag; `E2E_REAL=1` remains test-command-only.
-- `docs/full-flow-test-plan.md`
-  - Marked as Task 9 delivery gate and corrected backend test filenames/order to current repository files.
+## Changes
 
-## Verification evidence
-
-| Command | Result |
-|---|---|
-| `cd backend && bun run typecheck` | PASS |
-| Explicit backend integration sequence from full-flow plan | BLOCKED: every DB-backed file emitted `error: Failed query:`; first isolated `schema-constraints.test.ts` failed identically |
-| `cd backend && bun test src/test/money.test.ts` | PASS: 8 tests |
-| `cd backend && bun test src/test/env.test.ts` | PASS: 9 tests |
-| `cd frontend && bun run typecheck` | PASS |
-| `cd frontend && bun run lint` | PASS with 4 existing `@next/next/no-img-element` warnings; 0 errors |
-| `cd frontend && bun run build` | PASS |
-| `cd frontend && bun run test` | PASS: 37 files, 360 tests |
-| `cd frontend && bun run test:e2e` | PASS: 75 tests |
-| `git diff --check` | PASS |
-
-`E2E_REAL=1 bun run test:e2e` was not run: no explicit QA-stack authorization/credentials supplied.
-
-## Review
-
-No `.kilo/agent/` reviewer definitions or review dispatch tool were available in this session. Manual diff/doc consistency review completed. No product code changed.
+- Added `frontend/e2e/zalo-failure.spec.ts` for provider-safe errors and retry.
+- Added `frontend/e2e/full-flow.spec.ts` for capture → renter portal and expiry recovery.
+- Added `frontend/e2e/capture-delivery.spec.ts` for queue persistence/reconnect, conflict, and sent lock.
+- Corrected `RENTER_PORTAL_URL` vs `FRONTEND_URL` authority in API/ADR docs.
+- Marked old renter resend plan superseded in API contract.
+- Aligned ticket validation boundary, storage failure semantics, and best-effort Zalo delivery.
+- Classified unknown OA mapping as sanitized `500 INTERNAL_ERROR` with dedupe rollback/retry.
 
 ## Concerns
 
-1. Backend DB integration gate remains blocked by generic `Failed query:` output. Must rerun against a healthy disposable `TEST_DATABASE_URL` before release.
-2. Frontend lint retains four pre-existing image optimization warnings; no errors.
-3. Existing unrelated untracked planning/spec files were preserved and not staged.
+1. New E2E files need one final full-suite run after current edits; failures above were captured before final selector/session corrections.
+2. Backend DB tests remain blocked by disposable PostgreSQL query failure; no claim of backend integration pass.
+3. Existing frontend lint warnings remain non-blocking.
