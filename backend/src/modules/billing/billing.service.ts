@@ -35,7 +35,12 @@ export async function listRenterInvoicesForPeriod(renterId: string, motelId: str
 
 export async function listBillingPeriodsForRenter(motelId: string, renterId: string): Promise<BillingPeriodResponse[]> {
   const rows = await db.select({ period: billingPeriods }).from(billingPeriods).innerJoin(invoices, and(eq(invoices.billingPeriodId, billingPeriods.id), eq(invoices.renterId, renterId), eq(invoices.motelId, motelId))).where(eq(billingPeriods.motelId, motelId)).orderBy(desc(billingPeriods.year), desc(billingPeriods.month), desc(billingPeriods.id));
-  return rows.map(({ period }) => periodResponse(period));
+  const seen = new Set<string>();
+  return rows.flatMap(({ period }) => {
+    if (seen.has(period.id)) return [];
+    seen.add(period.id);
+    return [periodResponse(period)];
+  });
 }
 
 export async function listBillingPeriods(motelId: string, managerId: string): Promise<BillingPeriodResponse[]> {

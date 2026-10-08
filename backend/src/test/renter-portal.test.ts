@@ -30,13 +30,15 @@ async function seed() {
     { managerId: manager.id, name: "Nhà A", electricityPrice: "3500", waterPrice: "25000", bankAccount: { bankCode: "970422", accountNumber: "123456", accountName: "NHA A" } },
     { managerId: manager.id, name: "Nhà B", electricityPrice: "3500", waterPrice: "25000" },
   ]).returning();
-  const [roomA, roomB] = await db.insert(rooms).values([
+  const [roomA, roomB, roomC] = await db.insert(rooms).values([
     { motelId: motelA!.id, name: "P.101", floor: 1, basePrice: "5000000" },
     { motelId: motelB!.id, name: "P.202", floor: 2, basePrice: "6000000" },
+    { motelId: motelA!.id, name: "P.102", floor: 1, basePrice: "5000000" },
   ]).returning();
-  const [renterA, renterB] = await db.insert(renters).values([
+  const [renterA, renterB, renterC] = await db.insert(renters).values([
     { motelId: motelA!.id, roomId: roomA!.id, name: "Renter A", phone: "84901234567" },
     { motelId: motelB!.id, roomId: roomB!.id, name: "Renter B", phone: "84901234568" },
+    { motelId: motelA!.id, roomId: roomC!.id, name: "Renter C", phone: "84901234569" },
   ]).returning();
   const [periodA, periodB] = await db.insert(billingPeriods).values([
     { motelId: motelA!.id, month: 1, year: 2026, status: "sent" },
@@ -45,6 +47,7 @@ async function seed() {
   ]).returning();
   const [contract] = await db.insert(contracts).values({ motelId: motelA!.id, renterId: renterA!.id, roomId: roomA!.id, startDate: "2026-01-01", endDate: "2026-12-31", monthlyRent: "5000000", deposit: "5000000", clauses: [{ title: "Điều 1", content: "Nội dung" }], status: "active" }).returning();
   const [invoiceA] = await db.insert(invoices).values({ billingPeriodId: periodA!.id, motelId: motelA!.id, renterId: renterA!.id, roomId: roomA!.id, rentAmount: "5000000", electricityUsage: "10.00", electricityCost: "35000", waterUsage: "4.00", waterCost: "100000", otherFees: [{ name: "Rác", amount: "50000" }], totalAmount: "5185000", qrCodeData: "PAYLOAD" }).returning();
+  const [secondInvoiceA] = await db.insert(invoices).values({ billingPeriodId: periodA!.id, motelId: motelA!.id, renterId: renterA!.id, roomId: roomC!.id, rentAmount: "5000000", electricityUsage: "10.00", electricityCost: "35000", waterUsage: "4.00", waterCost: "100000", otherFees: [], totalAmount: "5185000", qrCodeData: "PAYLOAD-2" }).returning();
   return { renterA: renterA!, renterB: renterB!, periodA: periodA!, periodB: periodB!, invoiceA: invoiceA!, contract: contract!, emptyPeriod: (await db.query.billingPeriods.findFirst({ where: eq(billingPeriods.month, 2) }))! };
 }
 
