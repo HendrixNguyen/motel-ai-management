@@ -9,9 +9,6 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
-import { motels } from "@/modules/motel/motel.schema";
-import { renters } from "@/modules/renter/renter.schema";
-import { rooms } from "@/modules/room/room.schema";
 
 export type TicketCategory = "electricity" | "water" | "facilities" | "other";
 
@@ -28,15 +25,9 @@ export const helpTickets = pgTable(
   "help_tickets",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    renterId: uuid("renter_id")
-      .notNull()
-      .references(() => renters.id),
-    roomId: uuid("room_id")
-      .notNull()
-      .references(() => rooms.id),
-    motelId: uuid("motel_id")
-      .notNull()
-      .references(() => motels.id),
+    renterId: uuid("renter_id").notNull(),
+    roomId: uuid("room_id").notNull(),
+    motelId: uuid("motel_id").notNull(),
     category: ticketCategory("category").notNull(),
     description: text("description").notNull(),
     /** R2 URLs, at most five. */

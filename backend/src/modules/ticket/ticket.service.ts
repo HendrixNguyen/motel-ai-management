@@ -16,7 +16,7 @@ function response(row: typeof helpTickets.$inferSelect, photos: string[]): Ticke
 }
 
 async function withPhotos(row: typeof helpTickets.$inferSelect): Promise<TicketResponse> {
-  const files = await db.query.ticketPhotoUploads.findMany({ where: eq(ticketPhotoUploads.ticketId, row.id), orderBy: asc(ticketPhotoUploads.createdAt) });
+  const files = await db.query.ticketPhotoUploads.findMany({ where: and(eq(ticketPhotoUploads.ticketId, row.id), eq(ticketPhotoUploads.motelId, row.motelId)), orderBy: asc(ticketPhotoUploads.createdAt) });
   let urls: string[];
   try { urls = await Promise.all(files.map((file) => ticketStorage.createSignedDownload(file.objectKey, 300))); } catch { throw AppError.externalService(); }
   return response(row, urls);
@@ -34,24 +34,28 @@ export async function createTicket(input: CreateTicketInput): Promise<TicketResp
   if (input.description.trim().length < 10) throw AppError.badRequest("Mô tả sự cố phải có ít nhất 10 ký tự");
   if (input.files.length > 5) throw AppError.badRequest("Tối đa 5 ảnh");
   const stored: StorageObject[] = [];
+  let committed = false;
   try {
     for (const file of input.files) {
       if (file.type !== "image/jpeg" && file.type !== "image/png") throw AppError.badRequest("Chỉ hỗ trợ ảnh JPEG hoặc PNG");
       const bytes = new Uint8Array(await file.arrayBuffer());
       const objectKey = `motels/${input.motelId}/tickets/${crypto.randomUUID()}`;
       try { await validateStorageInput({ objectKey, body: bytes, contentType: file.type }); } catch (error) { if (error instanceof StorageError) throw AppError.badRequest(error.message); throw error; }
-      try { stored.push(await ticketStorage.put({ objectKey, body: bytes, contentType: file.type })); } catch (error) { if (error instanceof StorageError) throw AppError.badRequest(error.message); throw error; }
+      try { stored.push(await ticketStorage.put({ objectKey, body: bytes, contentType: file.type })); } catch { throw AppError.externalService(); }
     }
     const row = await db.transaction(async (tx) => {
       const [created] = await tx.insert(helpTickets).values({ renterId: input.renterId, motelId: input.motelId, roomId: input.roomId, category: input.category, description: input.description.trim(), photoUrls: stored.map((file) => file.objectKey) }).returning();
       if (!created) throw AppError.externalService();
-      for (const file of stored) await tx.insert(ticketPhotoUploads).values({ ticketId: created.id, objectKey: file.objectKey, contentType: file.contentType, size: file.size, checksum: file.checksum });
+      for (const file of stored) await tx.insert(ticketPhotoUploads).values({ ticketId: created.id, motelId: input.motelId, objectKey: file.objectKey, contentType: file.contentType, size: file.size, checksum: file.checksum });
       return created;
     });
+    committed = true;
     try { await enqueueNotification({ eventKey: `ticket-created:${row.id}`, renterId: row.renterId, motelId: row.motelId, templateId: "ticket", payload: { category: row.category, description: row.description } }); } catch { /* notification failure must not roll back ticket */ }
     return await withPhotos(row);
   } catch (error) {
-    await Promise.all(stored.map((file) => ticketStorage.delete(file.objectKey).catch(() => undefined)));
+    if (!committed) await Promise.all(stored.map((file) => ticketStorage.delete(file.objectKey).catch(() => undefined)));
+    if (committed) throw error;
+
     if (error instanceof AppError) throw error;
     throw AppError.externalService();
   }
