@@ -99,11 +99,15 @@ is made from a Server Component with the cookie forwarded.
 
 ### Magic links — `/api/renter/magic-links`
 
-| Method | Path        | Body      | Returns                                                         |
-| ------ | ----------- | --------- | --------------------------------------------------------------- |
-| POST   | `/exchange` | `{token}` | `200 {renter}` + sets `renter_session`, marks token consumed    |
-| POST   | `/resend`           | —         | `200 {message, url}` — renter asks the manager for a fresh link |
-| POST   | `/api/renter/logout` | —         | `204 No Content`; clears `renter_session` httpOnly cookie |
+| Method | Path | Body | Returns |
+| --- | --- | --- | --- |
+| POST | `/exchange` | `{token}` | `200 {renterId,motelId}`; sets 24-hour `renter_session` httpOnly cookie and consumes token |
+| POST | `/resend` | — | `200 {message,url}`; renter session required; URL is `${FRONTEND_URL}/r/<token>` |
+| POST | `/api/renter/logout` | — | `204 No Content`; clears `renter_session` httpOnly cookie |
+
+`MAGIC_LINK_EXPIRED` is returned for expired or consumed tokens. Exchange validation failures use
+`{error,code}` with `VALIDATION_ERROR`; token values never appear in logs or response bodies.
+
 
 ### Manager-issued magic links — `/api/manager/motels/:motelId/renters/:renterId`
 
@@ -254,33 +258,48 @@ Creation validates renter, room, template, and motel tenant ownership. Missing `
 
 ## Renter endpoints
 
-All under `/api/renter`, all scoped to the session's `renterId`. No endpoint accepts a
-renter id from the client.
+All under `/api/renter`, scoped to session `renterId` and `motelId`. No endpoint accepts a renter
+or motel ID from the client to select tenant ownership. Lists are bare arrays.
 
-| Method | Path                                 | Notes                                                                                                                                |
-| ------ | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------ |
-| GET    | `/me`                                | `200 {id,name,phone,room:{id,name,floor}|null,motel:{id,name},activeContract:{id,roomId,roomName,startDate,endDate,monthlyRent}|null}`; excludes CCCD, manager ID, OTP/hash fields |
-| GET    | `/billing/periods`                   | Bare array `{id,month,year,status,createdAt}`; only periods containing an invoice for session renter, newest first                   |
-| GET    | `/billing/periods/:periodId/invoices`| Bare array itemized invoices `{id,billingPeriodId,month,year,roomId,roomName,rentAmount,electricityUsage,electricityCost,waterUsage,waterCost,otherFees,totalAmount,qrCodeData,paymentStatus,paidAt,createdAt}`; foreign period `404` |
-| GET    | `/invoices`                          | Reverse-chronological; `?year=&month=` optional (planned)                                                                            |
-| GET    | `/invoices/current`                  | Current period invoice, or `404` if not yet issued                                                                                   |
-| GET    | `/invoices/:invoiceId`               | Full breakdown, `qrCodeData`, bank details, and `meterPhotos[]` — `{type, signedUrl, capturedAt}` per meter, signed URLs short-lived |
-| GET    | `/contract`                          | Active or latest contract with clauses                                                                                               |
-| GET    | `/contracts/:contractId`              | Contract scoped to renter session                                                                                                    |
-| POST   | `/contract/:contractId/sign-request` | Generates the OTP, sends it over Zalo, stamps `otpSentAt`; `429` within 5 minutes of a resend                                        |
-| POST   | `/contract/:contractId/verify`       | `{otp}` → `200 {otpSignedAt}`; `OTP_INVALID` / `OTP_EXPIRED`; max 3 attempts                                                         |
-| GET    | `/tickets`                           | Own tickets, never `managerNote`                                                                                                     |
-| POST   | `/tickets`                           | `{category, description, photoUrls[]}`; description ≥ 10 chars, max 5 photos                                                         |
-| GET    | `/tickets/:ticketId`                 | Own ticket only; signed-photo storage failure returns `502 EXTERNAL_SERVICE_ERROR`, and committed ticket/photo metadata remains persisted                                                                                                                      |
+| Method | Path | Exact response / notes |
+| --- | --- | --- |
+| GET | `/me` | `200 {id,name,phone,room:{id,name,floor}|null,motel:{id,name,bankAccount}|activeContract:{id,roomId,roomName,startDate,endDate,monthlyRent}|null}`; excludes CCCD, manager IDs, OTP/hash fields |
+| GET | `/billing/periods` | `200 Array<{id,month,year,status,createdAt}>`; only periods containing an invoice for session renter |
+| GET | `/billing/periods/:periodId/invoices` | `200 Array<{id,billingPeriodId,month,year,roomId,roomName,rentAmount,electricityUsage,electricityCost,waterUsage,waterCost,otherFees,totalAmount,qrCodeData,paymentStatus,paidAt,createdAt}>`; foreign period `404 NOT_FOUND` |
+| GET | `/invoices/:invoiceId` | `200` same invoice fields plus `bankAccount:{bankCode,accountNumber,accountName}|null`, `transferDescription`, and `meterPhotos:Array<{type,signedUrl,capturedAt}>`; signed URLs expire in 300 seconds |
+| GET | `/contract` | Existing latest-contract route; session-scoped |
+| GET | `/contracts/:contractId` | `200 Contract`; renter session-scoped |
+| POST | `/contracts/:contractId/sign-request` | `200 {sentAt}`; OTP never returned; cooldown or provider limit uses `429 RATE_LIMITED` |
+| POST | `/contracts/:contractId/verify` | `{otp}` → `200 Contract` with `status=active`; `OTP_INVALID` / `OTP_EXPIRED` |
+| GET | `/tickets` | `200 Ticket[]`; own tickets only, no `managerNote` or object keys |
+| POST | `/tickets` | JSON `{category,description}` or multipart fields `category`, `description`, repeated `photos`; `201 Ticket`; description ≥10 chars, max 5 JPEG/PNG files, 10 MB each |
+| GET | `/tickets/:ticketId` | `200 Ticket`; foreign ticket `404`; signed-photo failure `502 EXTERNAL_SERVICE_ERROR` without deleting committed metadata |
 
-## Webhooks
+`Ticket` is `{id,renterId,motelId,roomId,category,description,photoUrls,status,createdAt,resolvedAt}`.
+Renter responses never permit payment mutation.
 
-| Method | Path                 | Notes                                                                                           |
-| ------ | -------------------- | ----------------------------------------------------------------------------------------------- |
-| POST   | `/api/webhooks/zalo` | OA follow/unfollow events. Verified with `ZALO_WEBHOOK_SECRET`; sets `isOaFollower`, `zaloOaId` |
+## Zalo webhook
 
-Unauthenticated by definition, authenticated by shared secret. Must reject replays and
-unknown event types with `200` (Zalo retries on non-2xx).
+| Method | Path | Body | Response |
+| --- | --- | --- | --- |
+| POST | `/api/zalo/webhook` | `{event_id?,event_name:"follow"|"unfollow",user_id?|follower_id?,phone?,oa_id?}` | `200 {ok:true}` |
+
+Unauthenticated by definition; `x-zalo-signature` must equal HMAC-SHA256 of raw body using
+`ZALO_WEBHOOK_SECRET`. Invalid signature returns `401 {error,code:UNAUTHORIZED}`. Malformed or
+unsupported events return `400 {error,code:VALIDATION_ERROR}`. `event_id` deduplicates retries;
+missing IDs use a raw-body digest. Follow requires `oa_id` and `phone`; unfollow clears follower
+state. Provider IDs, secrets, and raw payload credentials never enter responses or logs.
+
+
+## Rollout flags and order
+
+No runtime feature flags are implemented in this delivery; rollout is deployment-controlled.
+Keep `ZALO_ACCESS_TOKEN`, `ZALO_OA_SECRET`, `ZALO_WEBHOOK_SECRET`, and all `ZNS_TEMPLATE_*`
+values server-only. Roll out in this order: additive migrations and fake adapters; deploy R2/Zalo
+configuration with sends disabled; verify private storage and webhook signatures; enable renter
+reads and capture sync; enable notification delivery per event after provider smoke tests; publish
+frontend route groups only after API and fixture E2E gates pass. `E2E_REAL=1` is a test-runner gate,
+not an application feature flag.
 
 ## Conventions
 

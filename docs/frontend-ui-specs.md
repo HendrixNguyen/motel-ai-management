@@ -272,7 +272,13 @@ text, no referrer and no server image optimization; absent/unsafe URLs or storag
 a resolvable URL show **Chưa cập nhật**. The magic-link action posts from the browser through
 relative `/api/...`, disables itself while pending and exposes the returned `/r/[token]` URL
 with a read-only field and copy action. A 401 returns to login; other failures show a focused
-error and allow retry. **Gửi Zalo** remains deferred as listed above.
+error and allow retry. **Gửi Zalo** remains deferred as listed above. The renter portal receives notification state only
+through the server-rendered profile; it never receives OA IDs, access tokens, template IDs, or
+provider failure details. The magic-link exchange accepts `{token}` once, sets the 24-hour
+httpOnly `renter_session`, then redirects to `/portal`; `MAGIC_LINK_EXPIRED` renders **Liên kết đã
+hết hạn** with a Zalo recovery instruction. Portal invoice responses use exact VND digit strings,
+render QR from `qrCodeData`, and never offer a paid-status mutation. Ticket submit supports JSON
+without photos or multipart repeated `photos` fields (0–5 private JPEG/PNG files, 10 MB each).
 
 ### M5 — Nhập số & tính tiền `/billing/[periodId]`
 
@@ -338,6 +344,12 @@ There is no chat UI in this product. The drawer must not imply one exists.
   only configured / missing status. Provide no secret fields or secret values in the UI.
 
 ### M5a — Meter Capture (PWA)
+
+Rollout is deployment-controlled: ship the capture route and service worker only after the API
+and fixture E2E gates pass. The service worker caches app-shell assets and non-sensitive static
+data only; never cache authenticated API responses or signed URLs. Queue states are **Chờ đồng
+bộ**, **Đã đồng bộ**, **Cần kiểm tra**, and **Lỗi**. A sent period is read-only and queued writes
+are not retried. Logout clears local capture data for the affected manager/device.
 
 Design intent: the manager is standing at a meter, one hand on the phone, poor light, and
 wants to type four digits and move on. No sidebar, no tables, nothing that needs two hands.
