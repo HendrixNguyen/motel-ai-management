@@ -35,6 +35,8 @@ export const notificationEvents = pgTable(
     payload: jsonb("payload").$type<Record<string, unknown>>().notNull(),
     status: notificationEventStatus("status").notNull().default("pending"),
     attemptCount: integer("attempt_count").notNull().default(0),
+    leaseId: uuid("lease_id"),
+    leaseUntil: timestamp("lease_until", { withTimezone: true }),
     nextRetryAt: timestamp("next_retry_at", { withTimezone: true }),
     failureClass: notificationFailureClass("failure_class"),
     failureReason: text("failure_reason"),

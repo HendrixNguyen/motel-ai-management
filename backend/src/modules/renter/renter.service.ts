@@ -69,10 +69,12 @@ export async function getRenterForNotification(renterId: string, motelId: string
   return db.query.renters.findFirst({ where: and(eq(renters.id, renterId), eq(renters.motelId, motelId)) });
 }
 
-export async function mapZaloFollowerToRenter(motelId: string, phone: string, followerId: string): Promise<boolean> {
+export async function mapZaloFollowerByPhone(phone: string, followerId: string): Promise<boolean> {
   const normalizedPhone = normalisePhone(phone);
-  const rows = await db.update(renters).set({ zaloOaId: followerId, isOaFollower: true }).where(and(eq(renters.motelId, motelId), eq(renters.phone, normalizedPhone))).returning({ id: renters.id });
-  return rows.length === 1;
+  const candidates = await db.query.renters.findMany({ where: eq(renters.phone, normalizedPhone), columns: { id: true } });
+  if (candidates.length !== 1) return false;
+  await db.update(renters).set({ zaloOaId: followerId, isOaFollower: true }).where(eq(renters.id, candidates[0]!.id));
+  return true;
 }
 
 export async function clearZaloFollower(followerId: string): Promise<void> {

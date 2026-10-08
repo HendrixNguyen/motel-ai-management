@@ -30,6 +30,15 @@ describe("notification security and delivery", () => {
     expect(sent?.otp).toBe("123456");
   });
 
+  test("does not retry OTP after process restart loses transient secret", async () => {
+    const { motel, renter } = await fixture();
+    setZaloProvider(provider({ sendOaMessage: async () => ({ providerId: "id" }) }));
+    const event = await enqueueNotification({ eventKey: "otp:restart", renterId: renter.id, motelId: motel.id, payload: { otp: "[REDACTED]" }, transientSecret: { otp: "123456" } });
+    setZaloProvider(provider({ sendOaMessage: async () => { throw new Error("must not send"); } }));
+    const result = await deliverNotification(event.id);
+    expect(result).toMatchObject({ status: "failed", failureReason: "secret_unavailable" });
+  });
+
   test("classifies provider errors without persisting provider text", async () => {
     const { motel, renter } = await fixture();
     setZaloProvider(provider({ sendOaMessage: async () => { throw Object.assign(new Error("token=secret"), { kind: "invalid_recipient" }); } }));
