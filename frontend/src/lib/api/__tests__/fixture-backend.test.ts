@@ -21,6 +21,12 @@ function request(path: string, session = "session-a", method = "GET", body?: unk
 const renters = `/manager/motels/${MOTEL.id}/renters`;
 
 describe("the fixture backend used by manager E2E", () => {
+  it("returns manager billing period invoices with backend DTO shape", async () => {
+    const response = await request(`/manager/motels/${MOTEL.id}/billing/periods/${"b1c2d3e4-f5a6-4b7c-8d9e-0f1a2b3c4d5e"}/invoices`);
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual([expect.objectContaining({ billingPeriodId: "b1c2d3e4-f5a6-4b7c-8d9e-0f1a2b3c4d5e", motelId: MOTEL.id, totalAmount: "3665000" })]);
+  });
+
   it("persists renter creates/edits in RSC reads while isolating parallel sessions", async () => {
     const input: CreateRenterInput = { name: "Nguyễn An", phone: "84933333333", roomId: ROOM.id, idNumber: "00001234" };
     const created = await request(renters, "a", "POST", input);

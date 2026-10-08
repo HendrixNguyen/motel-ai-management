@@ -59,6 +59,7 @@ export function createFixtureBackend(onMissingFixture: (failure: Error) => void 
       const state = stateFor(session);
       if (method === "GET" && path.match(/^\/api\/manager\/motels\/[^/]+\/billing\/periods$/)) return json([CAPTURE_PERIOD]);
       if (method === "GET" && path.match(/^\/api\/manager\/motels\/[^/]+\/billing\/periods\/[^/]+$/)) return json(session === "sent-capture" ? { ...CAPTURE_PERIOD_DETAIL, status: "sent" } : CAPTURE_PERIOD_DETAIL);
+      if (method === "GET" && path.match(/^\/api\/manager\/motels\/[^/]+\/billing\/periods\/[^/]+\/invoices$/)) return json([{ id: "e5f6a7b8-c9d0-4e1f-8a2b-3c4d5e6f7a8b", billingPeriodId: "b1c2d3e4-f5a6-4b7c-8d9e-0f1a2b3c4d5e", roomId: "9e8d7c6b-5a49-4382-9170-6f5e4d3c2b1a", roomName: "P.101", renterId: "9e8d7c6b-5a49-4382-9170-6f5e4d3c2b1a", motelId: "6f1c1a52-0d4e-4a2b-9c3d-8e5f6a7b8c9d", rentAmount: "3500000", electricityUsage: "20.00", electricityCost: "70000", waterUsage: "3.00", waterCost: "45000", otherFees: [{ name: "Vệ sinh chung", amount: "50000" }], totalAmount: "3665000", qrCodeData: null, paymentStatus: "unpaid", paidAt: null, createdAt: "2026-10-01T00:00:00.000Z" }]);
       if (method === "PUT" && path.match(/^\/api\/manager\/motels\/[^/]+\/billing\/periods\/[^/]+\/readings$/)) return json({ ok: true });
       if (path === "/api/manager/motels") {
         if (method === "GET") return session === "motels-expired" ? unauthorized() : json(state.motels);
