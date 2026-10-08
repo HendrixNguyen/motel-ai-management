@@ -4,7 +4,7 @@
 Final error/interaction pass: direct token page stores distinct ApiError codes, OTP handlers formatted, unused renter ticket phone removed.
 
 ## Final verification
-Final Task 7 findings addressed: consent now gates OTP request/reveal, ticket success uses exact Zalo copy, and renter ticket DTO carries phone/photo metadata.
+Final Task 7 findings addressed: consent now gates OTP request/reveal, ticket success uses exact Zalo copy, and renter ticket DTO carries photo metadata only.
 
 ## Final verification
 Final portal loop/UX pass: anonymous exchange retained, session redirect scoped, canonical links repaired, error copy differentiated, exact ticket success copy added.
