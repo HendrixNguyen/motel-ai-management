@@ -1,34 +1,36 @@
-import { createHmac } from "node:crypto";
+import { DeleteObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { env } from "@/config";
 import { validateStorageInput, type StorageAdapter, type StorageObject, type StoragePutInput, StorageError } from "@/shared/storage";
 
 const MAX_TTL = 900;
-type Requester = (request: Request) => Promise<Response>;
-
 export class R2StorageAdapter implements StorageAdapter {
-  private readonly baseUrl: string;
-  private readonly request: Requester;
-  constructor(private readonly credentials = env.r2, request: Requester = fetch) {
-    this.baseUrl = `https://${credentials.accountId}.r2.cloudflarestorage.com/${credentials.bucket}`;
-    this.request = request;
+  private readonly client: S3Client;
+  constructor(private readonly credentials = env.r2, client?: S3Client, private readonly signer = getSignedUrl) {
+    this.client = client ?? new S3Client({ region: "auto", endpoint: `https://${credentials.accountId}.r2.cloudflarestorage.com`, credentials: { accessKeyId: credentials.accessKeyId, secretAccessKey: credentials.secretAccessKey } });
   }
-  private key(objectKey: string): string { return objectKey.replace(/^\/+/, "").replace(/\/+/g, "/"); }
-  private url(objectKey: string): string { return `${this.baseUrl}/${encodeURIComponent(this.key(objectKey)).replace(/%2F/g, "/")}`; }
-  private async call(request: Request): Promise<Response> {
-    try { const response = await this.request(request); if (!response.ok) throw new StorageError("storage failure"); return response; }
-    catch (error) { if (error instanceof StorageError) throw error; throw new StorageError("storage failure"); }
+  private key(objectKey: string): string {
+    const key = objectKey.replace(/^\/+/, "").replace(/\/+/g, "/");
+    if (!key || key.includes("..") || !/^[-a-zA-Z0-9_./]+$/.test(key)) throw new StorageError("Object key không hợp lệ");
+    return key;
   }
   async put(input: StoragePutInput): Promise<StorageObject> {
-    const bytes = await validateStorageInput(input);
-    await this.call(new Request(this.url(input.objectKey), { method: "PUT", body: bytes, headers: { "content-type": input.contentType, authorization: `AWS4-HMAC-SHA256 Credential=${this.credentials.accessKeyId}` } }));
-    const checksum = new Uint8Array(await crypto.subtle.digest("SHA-256", new Uint8Array(bytes)));
-    return { objectKey: this.key(input.objectKey), size: bytes.byteLength, checksum: [...checksum].map((byte) => byte.toString(16).padStart(2, "0")).join(""), contentType: input.contentType };
+    const objectKey = this.key(input.objectKey);
+    const bytes = await validateStorageInput({ ...input, objectKey });
+    try { await this.client.send(new PutObjectCommand({ Bucket: this.credentials.bucket, Key: objectKey, Body: bytes, ContentType: input.contentType })); }
+    catch { throw new StorageError("storage failure"); }
+    const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", new Uint8Array(bytes)));
+    return { objectKey, size: bytes.byteLength, checksum: [...digest].map((byte) => byte.toString(16).padStart(2, "0")).join(""), contentType: input.contentType };
   }
-  async delete(objectKey: string): Promise<void> { await this.call(new Request(this.url(objectKey), { method: "DELETE", headers: { authorization: `AWS4-HMAC-SHA256 Credential=${this.credentials.accessKeyId}` } })); }
+  async delete(objectKey: string): Promise<void> {
+    const key = this.key(objectKey);
+    try { await this.client.send(new DeleteObjectCommand({ Bucket: this.credentials.bucket, Key: key })); }
+    catch { throw new StorageError("storage failure"); }
+  }
   async createSignedDownload(objectKey: string, expiresInSeconds: number): Promise<string> {
+    const key = this.key(objectKey);
     if (!Number.isInteger(expiresInSeconds) || expiresInSeconds < 1 || expiresInSeconds > MAX_TTL) throw new StorageError("TTL không hợp lệ");
-    const expires = Math.floor(Date.now() / 1000) + expiresInSeconds;
-    const signature = createHmac("sha256", this.credentials.secretAccessKey).update(`${this.key(objectKey)}:${expires}`).digest("hex");
-    return `${this.url(objectKey)}?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=${encodeURIComponent(this.credentials.accessKeyId)}&X-Amz-Expires=${expiresInSeconds}&X-Amz-Signature=${signature}`;
+    try { return await this.signer(this.client, new (await import("@aws-sdk/client-s3")).GetObjectCommand({ Bucket: this.credentials.bucket, Key: key }), { expiresIn: expiresInSeconds }); }
+    catch { throw new StorageError("storage failure"); }
   }
 }

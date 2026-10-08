@@ -12,3 +12,4 @@ Implemented shared private storage adapter contract, validation, fake adapter, a
 - Existing R2 environment fields already existed in `backend/src/env.ts`, `backend/src/config.ts`, and `.env.example`; no changes needed.
 - Review fix: implemented S3-compatible R2 PUT/DELETE and bounded signed URL generation with server-only credentials and generic failure errors.
 - Added stream-size, TTL-boundary, delete/sign failure, key normalization, and credential non-leakage tests.
+- Review fix: added AWS SDK S3 client and presigner with ADR-0009; R2 adapter now uses SigV4 PUT, DELETE, and presigned GET, validates keys without mutating input, and tests signature fields.
