@@ -47,7 +47,7 @@ const contractBody = t.Object({
   endDate: date,
   monthlyRent: t.Optional(vnd),
   deposit: t.Optional(vnd),
-  clauses: t.Array(clause),
+  clauses: t.Optional(t.Array(clause)),
 });
 const renterContractParams = t.Object({ contractId: t.String({ format: "uuid" }) });
 const otpBody = t.Object({ otp: t.String({ pattern: "^[0-9]{6}$" }) });
