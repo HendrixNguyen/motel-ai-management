@@ -68,7 +68,8 @@ describe("meter photo uploads", () => {
     await expect(uploadMeterPhoto(data.motel.id, data.period.id, data.reading.id, data.manager.id, jpeg())).rejects.toMatchObject({ code: "NOT_FOUND" });
     expect(storage.deleted).toHaveLength(1);
     expect(storedKey).toBeUndefined();
-    expect(await storage.exists(storage.lastPutKey!)).toBe(false);
+    expect(storage.lastPutKey).toBeDefined();
+    expect(await storage.exists(storage.lastPutKey as string)).toBe(false);
     expect(await db.query.uploads.findMany()).toHaveLength(0);
   });
 

@@ -47,3 +47,8 @@ Verification:
 - Implementation unchanged.
 - `bun run typecheck` passed.
 - Targeted upload test remains blocked by local PostgreSQL query failures.
+
+## Low finding fix
+
+- Removed non-null assertion from cleanup test; explicit `toBeDefined()` precedes string narrowing for storage existence check.
+- `bun run typecheck` passed.
