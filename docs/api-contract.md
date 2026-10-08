@@ -102,7 +102,8 @@ is made from a Server Component with the cookie forwarded.
 | Method | Path        | Body      | Returns                                                         |
 | ------ | ----------- | --------- | --------------------------------------------------------------- |
 | POST   | `/exchange` | `{token}` | `200 {renter}` + sets `renter_session`, marks token consumed    |
-| POST   | `/resend`   | —         | `200 {message, url}` — renter asks the manager for a fresh link |
+| POST   | `/resend`           | —         | `200 {message, url}` — renter asks the manager for a fresh link |
+| POST   | `/logout`            | —         | `204` and clears `renter_session` cookie |
 
 ### Manager-issued magic links — `/api/manager/motels/:motelId/renters/:renterId`
 

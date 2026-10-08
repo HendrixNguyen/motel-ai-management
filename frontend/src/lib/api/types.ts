@@ -419,9 +419,9 @@ export interface RenterInvoice {
   paymentStatus: PaymentStatus;
   paidAt: string | null;
   createdAt: string;
-  bankAccount?: { bankCode: string; accountNumber: string; accountName: string } | null;
-  transferDescription?: string;
-  meterPhotos?: Array<{ type: "electric" | "water"; signedUrl: string; capturedAt: string | null }>;
+  bankAccount: { bankCode: string; accountNumber: string; accountName: string } | null;
+  transferDescription: string;
+  meterPhotos: Array<{ type: "electric" | "water"; signedUrl: string; capturedAt: string | null }>;
 }
 
 export interface CreateRenterTicketInput {

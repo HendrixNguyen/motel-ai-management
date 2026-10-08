@@ -1,7 +1,13 @@
 # Task 7 report
 
 ## Status
+Final review pass: service-owned invoice projections, signed private photo URLs, canonical portal billing list, and logout documentation added.
+
+## Latest verification
 Canonical portal/API review pass implemented; backend DB and fixture E2E remain environment-blocked.
+- Backend renter detail now delegates invoice reads to billing-owned projection and storage adapter signing; object keys stay server-side.
+- Added `/portal/bills` and corrected portal navigation. Invoice detail fields are required in frontend DTO.
+- `docs/api-contract.md` documents renter logout.
 
 ## Latest verification
 Implemented renter portal frontend and backend renter session/detail support. Review findings addressed.
