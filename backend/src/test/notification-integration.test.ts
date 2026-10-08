@@ -12,12 +12,13 @@ import { createRenterForMotel } from "@/modules/renter/renter.service";
 import { markInvoicePaid } from "@/modules/billing/billing.service";
 import { listExpiringContracts } from "@/modules/contract/contract.service";
 import { requestContractOtp } from "@/modules/contract/contract.service";
-import { setNotificationRecipientResolver, enqueueNotification } from "@/modules/notification/notification.service";
-import { runWithAdvisoryLease, type AdvisoryLeaseDb } from "@/modules/notification/scheduler.service";
+import { resetNotificationRecipientResolver, setNotificationRecipientResolver, enqueueNotification } from "@/modules/notification/notification.service";
+import { createPostgresAdvisoryLeaseDb, runWithAdvisoryLease, type AdvisoryLeaseDb } from "@/modules/notification/scheduler.service";
+import postgres from "postgres";
 import { eq } from "drizzle-orm";
 
 setDefaultTimeout(120_000);
-beforeEach(async () => { await resetDb(); });
+beforeEach(async () => { resetNotificationRecipientResolver(); await resetDb(); });
 
 async function fixture() {
   const [manager] = await db.insert(managers).values({ email: `${crypto.randomUUID()}@example.com`, passwordHash: "hash", name: "M" }).returning();
@@ -64,6 +65,18 @@ describe("domain notification integration", () => {
     await enqueueNotification(input);
     await enqueueNotification(input);
     expect(await keys()).toHaveLength(1);
+  });
+
+  test("serializes two workers through real PostgreSQL advisory lease and recovers", async () => {
+    const client = postgres(process.env.TEST_DATABASE_URL!, { max: 2, onnotice: () => {} });
+    const lease = createPostgresAdvisoryLeaseDb(client);
+    let runs = 0;
+    const task = () => runWithAdvisoryLease(lease, 91, async () => { runs++; await new Promise((resolve) => setTimeout(resolve, 25)); return runs; });
+    const results = await Promise.all([task(), task()]);
+    expect(results.filter((result) => result.acquired)).toHaveLength(1);
+    expect(runs).toBe(1);
+    expect((await runWithAdvisoryLease(lease, 91, async () => { runs++; return runs; })).acquired).toBe(true);
+    await client.end();
   });
 
   test("serializes two workers through advisory lease", async () => {
