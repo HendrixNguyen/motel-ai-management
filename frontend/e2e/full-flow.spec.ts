@@ -30,7 +30,7 @@ test("full flow covers capture save, invoice QR, OTP contract, payment state, an
   await expect(page).toHaveURL(/\/portal\/bills\/invoice/);
   await page.goto("/portal/tickets");
   await expect(page.getByRole("heading", { name: "Báo sự cố" })).toBeVisible();
-  await page.route("**/api/renter/contract", (route) => route.fulfill({ json: { id: "contract", status: "draft", monthlyRent: "3500000", startDate: "2026-10-01", endDate: "2027-09-30", clauses: [{ title: "Điều khoản", content: "Nội dung" }], otpSignedAt: contractReads > 1 ? "2026-10-01T00:01:00.000Z" : null } }); });
+  await page.route("**/api/renter/contract", (route) => route.fulfill({ json: { id: "contract", status: "draft", monthlyRent: "3500000", startDate: "2026-10-01", endDate: "2027-09-30", clauses: [{ title: "Điều khoản", content: "Nội dung" }], otpSignedAt: null } }));
   let verifyPayload: Record<string, unknown> | undefined;
   await page.route("**/api/renter/contracts/*/sign-request", (route) => route.fulfill({ json: { sentAt: "2026-10-01T00:00:00.000Z" } }));
   await page.route("**/api/renter/contracts/*/verify", async (route) => { verifyPayload = await route.request().postDataJSON(); await route.fulfill({ json: { otpSignedAt: "2026-10-01T00:01:00.000Z", status: "active" } }); });
