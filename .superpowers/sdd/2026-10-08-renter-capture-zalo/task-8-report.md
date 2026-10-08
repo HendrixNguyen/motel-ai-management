@@ -1,9 +1,9 @@
 
-## Final Task 8 follow-up
+## Task 8 remaining findings update
 
-- Recipient access now routes through renter service projection; notification layer no longer imports renter schema.
-- Payment event moved after successful invoice transaction commit; enqueue failure cannot roll back payment state.
-- Added stable contract expiry producer key: `contract:<id>:expiry:<endDate>:<windowDays>`.
+- Added startup expiry producer invocation and daily scheduler in `backend/src/index.ts`.
+- Moved expiring-contract projection into contract service with inclusive current..until bounds; notification module no longer imports contract schema.
+- Replaced renter↔notification runtime dependency with neutral `shared/notification-recipient.ts` resolver.
+- Expiry key remains stable and deduplicated by contract/end-date/window.
 - Typecheck passes.
-- Notification integration test remains blocked by local PostgreSQL `Failed query` during reset/setup; no DB-backed test claims made.
-- OTP remains explicit fail-safe: secret is process-memory only; restart/worker loss marks event `secret_unavailable` instead of sending plaintext or mutating contract state.
+- DB integration test remains blocked by repeated `Failed query` during local PostgreSQL reset/setup; migration repair and full producer/provider assertions require functioning TEST_DATABASE_URL.

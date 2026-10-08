@@ -367,6 +367,11 @@ export async function sendContract(
   return contractResponse(row!);
 }
 
+export async function listExpiringContracts(now: Date, until: Date, windowDays: number) {
+  const rows = await db.query.contracts.findMany({ where: and(eq(contracts.status, "active"), sql`${contracts.endDate} >= ${now.toISOString().slice(0, 10)}`, sql`${contracts.endDate} <= ${until.toISOString().slice(0, 10)}`) });
+  return rows.map((contract) => ({ id: contract.id, renterId: contract.renterId, motelId: contract.motelId, endDate: contract.endDate, eventKey: `contract:${contract.id}:expiry:${contract.endDate}:${windowDays}` }));
+}
+
 export async function listBillableContractsForMotel(motelId: string): Promise<
   Array<{
     id: string;

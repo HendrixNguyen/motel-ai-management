@@ -1,3 +1,1 @@
-import { getRenterNotificationRecipient } from "@/modules/renter/renter.service";
-
-export const getNotificationRecipient = getRenterNotificationRecipient;
+export { resolveNotificationRecipient as getNotificationRecipient } from "@/shared/notification-recipient";
