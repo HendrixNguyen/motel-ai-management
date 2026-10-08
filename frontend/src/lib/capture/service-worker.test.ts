@@ -1,13 +1,14 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
-describe("capture service worker boundaries", () => {
-  it("falls back only for capture navigation", async () => {
-    const cache = { match: vi.fn(async (request: string) => request === "/capture/period/room" ? "cached-shell" : undefined), put: vi.fn() };
-    const cachesApi = { open: vi.fn(async () => cache) };
-    const fetcher = vi.fn(async (request: string) => { if (request.startsWith("/api/")) throw new Error("network"); throw new Error("offline"); });
-    expect(cachesApi.open).toBeDefined(); expect(fetcher).toBeDefined();
-    await expect(fetcher("/api/auth/me")).rejects.toThrow("network");
-    await expect(cache.match("/capture/period/room")).resolves.toBe("cached-shell");
-    expect(cache.put).not.toHaveBeenCalled();
+describe("capture service worker behavior", () => {
+  it("executes capture-sw decision logic", async () => {
+    const source = await import("node:fs/promises").then((fs) => fs.readFile(new URL("../../../public/capture-sw.js", import.meta.url), "utf8"));
+    const context = { location: { origin: "http://localhost" }, captureShouldHandle: undefined as unknown } as { location: { origin: string }; captureShouldHandle?: (request: Request, url: URL) => boolean };
+    const script = new Function("self", source.replace(/self\.addEventListener\([\s\S]*/, "")); script(context);
+    const decide = context.captureShouldHandle!;
+    const navigation = (url: string, headers: Record<string, string> = {}) => ({ method: "GET", mode: "navigate", headers: new Headers(headers) }) as unknown as Request;
+    expect(decide(navigation("http://localhost/capture/p/room"), new URL("http://localhost/capture/p/room"))).toBe(true);
+    expect(decide(new Request("http://localhost/api/auth/me", { method: "GET" }), new URL("http://localhost/api/auth/me"))).toBe(false);
+    expect(decide(new Request("http://localhost/capture", { method: "GET", headers: { RSC: "1" } }), new URL("http://localhost/capture"))).toBe(false);
   });
 });

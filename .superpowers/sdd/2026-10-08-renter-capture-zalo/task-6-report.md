@@ -1,17 +1,15 @@
 
-## Final findings appended
+## Final E2E/auth fixes appended
 
-Commit `22ecb289ebad6837f0c2ff2a79f0715d509c7c20`.
+Commit pending.
 
-- Capture entry now routes to capture period screen.
-- Room walk shows room title, utility progress, electric/water sequence, save-and-next, back-to-room-list, explicit sync/lock/offline statuses, and photo retake.
-- Capture E2E UUID fixture corrected and assertions target `/capture` routes.
-- Service-worker test uses mocked cache/fetch boundary behavior instead of source-string checks.
-- Queue and sync behavior tests remain present; unsupported IndexedDB is explicit rather than volatile fallback.
+- Capture E2E now seeds `manager_session=capture-session`; UUID motel/period assertions match fixture data.
+- Room walk index derives from `currentId` and active reading, preserving electric → water → terminal progression.
+- Service worker exposes executable `captureShouldHandle` decision logic; Vitest evaluates it with mocked request/cache boundaries rather than source strings.
 
 Verification:
-- Typecheck pass.
-- Vitest pass: 350 tests.
-- Build pass.
-- Lint pass with one Next `<img>` optimization warning.
-- Capture E2E: service-worker boundary test passes; two UI tests still fail during fixture-backed server navigation and need further fixture route/session diagnosis.
+- `bun run typecheck` pass.
+- `bun run lint` pass with existing Next `<img>` optimization warning.
+- `bun run test` pass: 350 tests.
+- `bun run build` pass.
+- `bun run test:e2e --grep capture` pass: 3 tests.
