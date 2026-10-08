@@ -55,8 +55,8 @@ export async function readStorageBody(body: StoragePutInput["body"]): Promise<Ui
 }
 
 export async function validateStorageInput(input: StoragePutInput): Promise<Uint8Array> {
-  input.objectKey = input.objectKey.replace(/^\/+/, "").replace(/\/+/g, "/");
-  if (!/^[-a-zA-Z0-9_./]+$/.test(input.objectKey) || input.objectKey.includes("..")) throw new StorageError("Object key không hợp lệ");
+  const objectKey = input.objectKey.replace(/^\/+/, "").replace(/\/+/g, "/");
+  if (!/^[-a-zA-Z0-9_./]+$/.test(objectKey) || objectKey.includes("..")) throw new StorageError("Object key không hợp lệ");
   if (!SUPPORTED_CONTENT_TYPES.includes(input.contentType)) throw new StorageError("MIME không được hỗ trợ");
   const bytes = await readStorageBody(input.body);
   if (bytes.byteLength > MAX_STORAGE_BYTES) throw new StorageError("Tệp vượt quá giới hạn 10 MB");
@@ -70,8 +70,9 @@ export class FakeStorageAdapter implements StorageAdapter {
   async put(input: StoragePutInput): Promise<StorageObject> {
     if (this.options.failure) throw this.options.failure;
     const bytes = await validateStorageInput(input);
-    const object = { objectKey: input.objectKey, size: bytes.byteLength, checksum: createHash("sha256").update(bytes).digest("hex"), contentType: input.contentType };
-    this.objects.set(input.objectKey, object);
+    const objectKey = input.objectKey.replace(/^\/+/, "").replace(/\/+/g, "/");
+    const object = { objectKey, size: bytes.byteLength, checksum: createHash("sha256").update(bytes).digest("hex"), contentType: input.contentType };
+    this.objects.set(objectKey, object);
     return object;
   }
   async delete(objectKey: string): Promise<void> {

@@ -52,20 +52,22 @@ describe("FakeStorageAdapter", () => {
   });
 
   test("R2 adapter uses S3-compatible operations without leaking credentials", async () => {
-    const requests: Request[] = [];
-    const adapter = new R2StorageAdapter({ accountId: "acct", accessKeyId: "key", secretAccessKey: "secret", bucket: "bucket", publicUrl: "" }, { send: async (command: { input: Record<string, string> }) => { requests.push(new Request(`https://example.test/${command.input.Key}`, { method: command.input.Bucket ? "PUT" : "DELETE", headers: { authorization: "AWS4-HMAC-SHA256 Credential=key/test", "x-amz-content-sha256": "a".repeat(64), "x-amz-date": "20261008T000000Z" } })); return {}; } } as never, async () => "https://signed.test/file?X-Amz-SignedHeaders=host&X-Amz-Expires=60");
-    const result = await adapter.put({ objectKey: "/motel//one/file", body: new Uint8Array([0xff, 0xd8, 0xff]), contentType: "image/jpeg" });
+    const requests: Array<{ name: string; input: Record<string, unknown> }> = [];
+    const adapter = new R2StorageAdapter({ accountId: "acct", accessKeyId: "key", secretAccessKey: "secret", bucket: "bucket", publicUrl: "" }, { send: async (command: { input: Record<string, string> }) => { requests.push({ name: command.constructor.name, input: command.input }); return {}; } } as never, async () => "https://signed.test/file?X-Amz-Credential=key&X-Amz-SignedHeaders=host&X-Amz-Expires=60");
+    const input = { objectKey: "/motel//one/file", body: new Uint8Array([0xff, 0xd8, 0xff]), contentType: "image/jpeg" } as const;
+    const originalKey = input.objectKey;
+    const result = await adapter.put(input);
+    expect(input.objectKey).toBe(originalKey);
     expect(result.objectKey).toBe("motel/one/file");
     await adapter.delete(result.objectKey);
     const url = await adapter.createSignedDownload(result.objectKey, 60);
     expect(url).toContain("X-Amz-Expires=60");
     expect(url).not.toContain("secret");
-    expect(requests.map((request) => request.method)).toEqual(["PUT", "PUT"]);
-    expect(requests[0]?.headers.get("authorization")).toMatch(/^AWS4-HMAC-SHA256 Credential=key\//);
-    expect(requests[0]?.headers.get("x-amz-content-sha256")).toMatch(/^[a-f0-9]{64}$/);
-    expect(requests[0]?.headers.get("x-amz-date")).toMatch(/^\d{8}T\d{6}Z$/);
-    expect(requests[1]?.headers.get("authorization")).toMatch(/^AWS4-HMAC-SHA256 Credential=key\//);
+    expect(requests.map((request) => request.name)).toEqual(["PutObjectCommand", "DeleteObjectCommand"]);
+    expect(JSON.stringify(requests)).not.toContain("secret");
     expect(url).toMatch(/X-Amz-SignedHeaders=/);
+    expect(url).toMatch(/X-Amz-Credential=/);
+    expect(url).not.toContain("secret");
   });
 
   test("can fail operations for failure-path tests", async () => {
