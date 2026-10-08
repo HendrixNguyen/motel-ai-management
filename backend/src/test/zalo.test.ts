@@ -8,7 +8,7 @@ import { resetDb } from "@/db/test-db";
 import { managers } from "@/modules/auth/auth.schema";
 import { motels } from "@/modules/motel/motel.schema";
 import { renters } from "@/modules/renter/renter.schema";
-import { zaloOaMotelMappings } from "@/modules/notification/notification.schema";
+import { notificationWebhookEvents, zaloOaMotelMappings } from "@/modules/notification/notification.schema";
 
 setDefaultTimeout(120_000);
 beforeEach(resetDb);
@@ -28,7 +28,8 @@ async function webhook(body: unknown) {
 
 describe("Zalo webhook", () => {
   test("rejects invalid signatures", async () => { const response = await app.handle(new Request("http://localhost/api/zalo/webhook", { method: "POST", headers: { "x-zalo-signature": "invalid" }, body: "{}" })); expect(response.status).toBe(401); });
-  test("requires OA ID and phone for follow", async () => { await fixture(); expect((await webhook({ event_name: "follow", user_id: "u", phone: "84912345678" })).status).toBe(400); expect((await webhook({ event_name: "follow", user_id: "u", oa_id: "oa-1" })).status).toBe(400); });
+  test("requires OA ID and phone for follow", async () => { await fixture(); expect((await webhook({ event_name: "follow", user_id: "u", phone: "84912345678" })).status).toBe(400); expect((await webhook({ event_name: "follow", user_id: "u", oa_id: "   ", phone: "84912345678" })).status).toBe(400); expect((await webhook({ event_name: "follow", user_id: "u", oa_id: "oa-1" })).status).toBe(400); });
+  test("unknown OA mapping rolls back dedup and retries after mapping is seeded", async () => { const { renter } = await fixture(); const body = { event_id: "evt-unknown-oa", event_name: "follow", user_id: "u", oa_id: "oa-missing", phone: "84912345678" }; expect((await webhook(body)).status).toBe(500); const dedupAfterFailure = await db.query.notificationWebhookEvents.findFirst({ where: eq(notificationWebhookEvents.eventId, body.event_id) }); expect(dedupAfterFailure).toBeUndefined(); await db.insert(zaloOaMotelMappings).values({ oaId: body.oa_id, motelId: renter.motelId }); expect((await webhook(body)).status).toBe(200); const mapped = await db.query.renters.findFirst({ where: eq(renters.id, renter.id) }); expect(mapped?.zaloOaId).toBe("u"); });
   test("maps verified OA follow to renter and duplicate event is idempotent", async () => { const { renter } = await fixture(); const body = { event_id: "evt-1", event_name: "follow", user_id: "u", oa_id: "oa-1", phone: "84912345678" }; expect((await webhook(body)).status).toBe(200); expect((await webhook(body)).status).toBe(200); const row = await db.query.renters.findFirst({ where: eq(renters.id, renter.id) }); expect(row?.zaloOaId).toBe("u"); expect(row?.isOaFollower).toBe(true); });
   test("unfollow clears follower", async () => { const { renter } = await fixture(); await db.update(renters).set({ zaloOaId: "u", isOaFollower: true }).where(eq(renters.id, renter.id)); expect((await webhook({ event_name: "unfollow", user_id: "u", oa_id: "oa-1" })).status).toBe(200); const row = await db.query.renters.findFirst({ where: eq(renters.id, renter.id) }); expect(row?.isOaFollower).toBe(false); });
 });

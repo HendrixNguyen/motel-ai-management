@@ -1,9 +1,9 @@
 # Task 3 report
 
-## Stale test fixes
+## Test additions
 
-- Webhook fixtures now seed `zalo_oa_motel_mappings` and include required `oa_id` for follow events.
-- Added focused tests for missing/blank follow OA ID and phone, verified OA-to-renter mapping, duplicate event idempotency, and unfollow clearing.
+- Added blank `oa_id` follow validation test.
+- Added unknown OA mapping rollback/retry test asserting dedup row absence after failed mapping, then successful retry after mapping seed and renter mapping.
 
 ## Verification
 
