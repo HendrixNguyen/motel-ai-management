@@ -1,9 +1,8 @@
 
-## Query-key cache test fix appended
+## Final SW offline-cache fix appended
 
-- Cache mock now normalizes full same-origin URL, preserving query strings in `put` and `match`.
-- Added query-distinct assertion: `motel=two` does not hit `motel=one` cache entry.
-- Offline repeat uses exact first URL and verifies cached response body/status.
+- `addAll` now normalizes shell entries through same absolute URL key helper used by `put`/`match`.
+- Added uncached capture navigation assertion: offline request returns `/offline.html` shell response with status/body.
 
 Verification:
 - Typecheck pass.

@@ -8,7 +8,7 @@ describe("capture service worker behavior", () => {
     const listeners = new Map<string, (event: Event) => void>();
     const shell = new Map<string, Response>();
     const key = (request: Request | string) => typeof request === "string" ? new URL(request, "http://localhost").href : new URL(request.url).href;
-    const cache = { addAll: vi.fn(async (urls: string[]) => { for (const url of urls) shell.set(url, new Response(`shell:${url}`)); }), put: vi.fn(async (request: Request, response: Response) => { shell.set(key(request), response.clone()); }), match: vi.fn(async (request: Request | string) => { const response = shell.get(key(request)); return response?.clone(); }) };
+    const cache = { addAll: vi.fn(async (urls: string[]) => { for (const url of urls) shell.set(key(url), new Response(`shell:${url}`)); }), put: vi.fn(async (request: Request, response: Response) => { shell.set(key(request), response.clone()); }), match: vi.fn(async (request: Request | string) => { const response = shell.get(key(request)); return response?.clone(); }) };
     let captureFetches = 0; const fetchMock = vi.fn(async (request: Request) => { if (request.url.includes("/capture/") && captureFetches++ > 0) throw new Error("offline"); return new Response(`network:${new URL(request.url).pathname}`); });
     const context = { location: { origin: "http://localhost" }, addEventListener: (type: string, handler: (event: Event) => void) => listeners.set(type, handler), skipWaiting: vi.fn(), clients: { claim: vi.fn() }, caches: { open: vi.fn(async () => cache), match: cache.match }, fetch: fetchMock };
     new Function("self", "caches", "fetch", source)(context, context.caches, fetchMock);
@@ -26,6 +26,7 @@ describe("capture service worker behavior", () => {
     for (const [url, init] of exclusions) expect(await fetchCase(url, init)).toBeUndefined();
     const crossOrigin = { method: "GET", mode: "navigate", headers: new Headers(), url: "https://other.example/capture" } as unknown as Request; const crossEvent: Event = { type: "fetch", request: crossOrigin, respondWith: vi.fn() }; listeners.get("fetch")!(crossEvent); expect(crossEvent.respondWith).not.toHaveBeenCalled();
     const offline = await fetchCase("/capture/period/room?motel=one", { mode: "navigate" as RequestMode }); const offlineResponse = await offline!; expect(offlineResponse.status).toBe(200); expect(await offlineResponse.text()).toContain("network:/capture/period/room");
-    captureFetches = 2; const cachedSecond = await fetchCase("/capture/period/room?motel=one", { mode: "navigate" as RequestMode }); const cachedSecondResponse = await cachedSecond!; expect(cachedSecondResponse.status).toBe(200); expect(await cachedSecondResponse.text()).toContain("network:/capture/period/room"); expect(cache.match).toHaveBeenCalled();
+    captureFetches = 2; const cachedSecond = await fetchCase("/capture/period/room?motel=one", { mode: "navigate" as RequestMode }); const cachedSecondResponse = await cachedSecond!; expect(cachedSecondResponse.status).toBe(200); expect(await cachedSecondResponse.text()).toContain("network:/capture/period/room");
+    const uncached = await fetchCase("/capture/period/new?motel=three", { mode: "navigate" as RequestMode }); const uncachedResponse = await uncached!; expect(uncachedResponse.status).toBe(200); expect(await uncachedResponse.text()).toContain("shell:/offline.html"); expect(cache.match).toHaveBeenCalled();
   });
 });
