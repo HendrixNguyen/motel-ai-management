@@ -51,7 +51,7 @@ Renter endpoints derive renter ID from `renter_session`; request IDs cannot wide
 
 ## Error behavior
 
-Use existing error envelope and codes. Invalid OTP uses `OTP_INVALID`; expired or exhausted OTP uses `OTP_EXPIRED`; resend within five minutes uses `RATE_LIMITED` with retry details; invalid lifecycle transitions use `CONFLICT`; missing tenant-owned resources use `NOT_FOUND`. Delivery failure uses `EXTERNAL_SERVICE_ERROR`, leaves contract draft, and does not expose OTP or provider details.
+Use existing error envelope and codes. Invalid or exhausted OTP uses `OTP_INVALID`; missing or expired OTP uses `OTP_EXPIRED`; resend within five minutes uses `RATE_LIMITED` with retry details; invalid lifecycle transitions use `CONFLICT`; missing tenant-owned resources use `NOT_FOUND`. Delivery failure uses `EXTERNAL_SERVICE_ERROR`, leaves contract draft, and does not expose OTP or provider details.
 
 ## Verification
 

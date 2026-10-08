@@ -10,7 +10,7 @@ const COOKIE_NAME = "renter_session";
 
 export const magicLinkRoutes = new Elysia({ name: "magic-link-routes" })
   .use(cookie())
-  .use(jwt({ name: "renterJwt", secret: env.renterSessionSecret, exp: "30d" }))
+  .use(jwt({ name: "renterJwt", secret: env.renterSessionSecret, exp: "24h" }))
   .post(
     "/renter/magic-links/exchange",
     async ({ body, renterJwt, cookie, set }) => {
@@ -21,7 +21,7 @@ export const magicLinkRoutes = new Elysia({ name: "magic-link-routes" })
         httpOnly: true,
         secure: env.nodeEnv === "production",
         sameSite: "lax",
-        maxAge: 60 * 60 * 24 * 30,
+        maxAge: 60 * 60 * 24,
         path: "/",
       });
       return { renterId: renter.id, motelId: renter.motelId };

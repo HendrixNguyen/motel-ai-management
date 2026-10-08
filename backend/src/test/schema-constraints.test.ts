@@ -98,6 +98,28 @@ describe("schema constraints", () => {
     expect(row[0]?.currentReading).toBeNull();
   });
 
+  test("contract OTP attempts stay between zero and three", async () => {
+    await seed();
+    const renter = await db
+      .insert(renters)
+      .values({ motelId, name: "R", phone: "84901234567", roomId })
+      .returning();
+    const values = {
+      renterId: renter[0]!.id,
+      roomId,
+      motelId,
+      startDate: "2026-01-01",
+      endDate: "2026-12-31",
+      monthlyRent: "3000000",
+      otpAttempts: "3",
+    };
+    await db.insert(contracts).values(values);
+    await expect(db.insert(contracts).values({ ...values, otpAttempts: "4" }).execute())
+      .rejects.toThrow();
+    await expect(db.insert(contracts).values({ ...values, otpAttempts: "-1" }).execute())
+      .rejects.toThrow();
+  });
+
   test("one active contract per room", async () => {
     await seed();
     const renter = await db
