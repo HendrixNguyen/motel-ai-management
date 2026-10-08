@@ -15,6 +15,7 @@ const TABLES = [
   "notification_events",
   "zalo_notifications",
   "magic_links",
+  "ticket_photo_uploads",
   "help_tickets",
   "invoices",
   "meter_readings",

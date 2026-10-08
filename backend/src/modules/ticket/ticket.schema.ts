@@ -13,6 +13,8 @@ import { motels } from "@/modules/motel/motel.schema";
 import { renters } from "@/modules/renter/renter.schema";
 import { rooms } from "@/modules/room/room.schema";
 
+export type TicketCategory = "electricity" | "water" | "facilities" | "other";
+
 export const ticketCategory = pgEnum("ticket_category", [
   "electricity",
   "water",
