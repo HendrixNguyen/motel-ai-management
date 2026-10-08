@@ -23,6 +23,12 @@ export interface StorageAdapter {
   createSignedDownload(objectKey: string, expiresInSeconds: number): Promise<string>;
 }
 
+export function normalizeStorageKey(objectKey: string): string {
+  const key = objectKey.replace(/^\/+/, "").replace(/\/+/g, "/");
+  if (!key || !/^[-a-zA-Z0-9_./]+$/.test(key) || key.includes("..")) throw new StorageError("Object key không hợp lệ");
+  return key;
+}
+
 export class StorageError extends Error {
   constructor(message: string) {
     super(message);
@@ -55,8 +61,7 @@ export async function readStorageBody(body: StoragePutInput["body"]): Promise<Ui
 }
 
 export async function validateStorageInput(input: StoragePutInput): Promise<Uint8Array> {
-  const objectKey = input.objectKey.replace(/^\/+/, "").replace(/\/+/g, "/");
-  if (!/^[-a-zA-Z0-9_./]+$/.test(objectKey) || objectKey.includes("..")) throw new StorageError("Object key không hợp lệ");
+  normalizeStorageKey(input.objectKey);
   if (!SUPPORTED_CONTENT_TYPES.includes(input.contentType)) throw new StorageError("MIME không được hỗ trợ");
   const bytes = await readStorageBody(input.body);
   if (bytes.byteLength > MAX_STORAGE_BYTES) throw new StorageError("Tệp vượt quá giới hạn 10 MB");
@@ -70,19 +75,20 @@ export class FakeStorageAdapter implements StorageAdapter {
   async put(input: StoragePutInput): Promise<StorageObject> {
     if (this.options.failure) throw this.options.failure;
     const bytes = await validateStorageInput(input);
-    const objectKey = input.objectKey.replace(/^\/+/, "").replace(/\/+/g, "/");
+    const objectKey = normalizeStorageKey(input.objectKey);
     const object = { objectKey, size: bytes.byteLength, checksum: createHash("sha256").update(bytes).digest("hex"), contentType: input.contentType };
     this.objects.set(objectKey, object);
     return object;
   }
   async delete(objectKey: string): Promise<void> {
     if (this.options.failure) throw this.options.failure;
-    this.objects.delete(objectKey);
+    this.objects.delete(normalizeStorageKey(objectKey));
   }
   async createSignedDownload(objectKey: string, expiresInSeconds: number): Promise<string> {
     if (this.options.failure) throw this.options.failure;
-    if (!this.objects.has(objectKey)) throw new StorageError("Không tìm thấy tệp");
+    const key = normalizeStorageKey(objectKey);
+    if (!this.objects.has(key)) throw new StorageError("Không tìm thấy tệp");
     if (!Number.isInteger(expiresInSeconds) || expiresInSeconds < 1 || expiresInSeconds > 900) throw new StorageError("TTL không hợp lệ");
-    return `fake://private/${encodeURIComponent(objectKey)}?expires=${expiresInSeconds}`;
+    return `fake://private/${encodeURIComponent(key)}?expires=${expiresInSeconds}`;
   }
 }

@@ -53,7 +53,7 @@ describe("FakeStorageAdapter", () => {
 
   test("R2 adapter uses S3-compatible operations without leaking credentials", async () => {
     const requests: Array<{ name: string; input: Record<string, unknown> }> = [];
-    const adapter = new R2StorageAdapter({ accountId: "acct", accessKeyId: "key", secretAccessKey: "secret", bucket: "bucket", publicUrl: "" }, { send: async (command: { input: Record<string, string> }) => { requests.push({ name: command.constructor.name, input: command.input }); return {}; } } as never, async () => "https://signed.test/file?X-Amz-Credential=key&X-Amz-SignedHeaders=host&X-Amz-Expires=60");
+    const adapter = new R2StorageAdapter({ accountId: "acct", accessKeyId: "key", secretAccessKey: "secret", bucket: "bucket", publicUrl: "" }, { send: async (command: { input: Record<string, string> }) => { requests.push({ name: command.constructor.name, input: command.input }); return {}; } } as never, async (...args: unknown[]) => { const command = args[1] as { input: Record<string, unknown> }; expect(command.input).toMatchObject({ Bucket: "bucket", Key: "motel/one/file" }); return "https://signed.test/file?X-Amz-SignedHeaders=host&X-Amz-Expires=60" });
     const input = { objectKey: "/motel//one/file", body: new Uint8Array([0xff, 0xd8, 0xff]), contentType: "image/jpeg" } as const;
     const originalKey = input.objectKey;
     const result = await adapter.put(input);
@@ -66,7 +66,6 @@ describe("FakeStorageAdapter", () => {
     expect(requests.map((request) => request.name)).toEqual(["PutObjectCommand", "DeleteObjectCommand"]);
     expect(JSON.stringify(requests)).not.toContain("secret");
     expect(url).toMatch(/X-Amz-SignedHeaders=/);
-    expect(url).toMatch(/X-Amz-Credential=/);
     expect(url).not.toContain("secret");
   });
 

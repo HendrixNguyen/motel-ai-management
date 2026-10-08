@@ -1,7 +1,7 @@
 import { DeleteObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { env } from "@/config";
-import { validateStorageInput, type StorageAdapter, type StorageObject, type StoragePutInput, StorageError } from "@/shared/storage";
+import { normalizeStorageKey, validateStorageInput, type StorageAdapter, type StorageObject, type StoragePutInput, StorageError } from "@/shared/storage";
 
 const MAX_TTL = 900;
 export class R2StorageAdapter implements StorageAdapter {
@@ -10,9 +10,7 @@ export class R2StorageAdapter implements StorageAdapter {
     this.client = client ?? new S3Client({ region: "auto", endpoint: `https://${credentials.accountId}.r2.cloudflarestorage.com`, credentials: { accessKeyId: credentials.accessKeyId, secretAccessKey: credentials.secretAccessKey } });
   }
   private key(objectKey: string): string {
-    const key = objectKey.replace(/^\/+/, "").replace(/\/+/g, "/");
-    if (!key || key.includes("..") || !/^[-a-zA-Z0-9_./]+$/.test(key)) throw new StorageError("Object key không hợp lệ");
-    return key;
+    return normalizeStorageKey(objectKey);
   }
   async put(input: StoragePutInput): Promise<StorageObject> {
     const objectKey = this.key(input.objectKey);
