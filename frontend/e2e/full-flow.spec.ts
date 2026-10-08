@@ -31,8 +31,9 @@ test("full flow covers capture save, invoice QR, OTP contract, payment state, an
   await page.goto("/portal/tickets");
   await expect(page.getByRole("heading", { name: "Báo sự cố" })).toBeVisible();
   await page.route("**/api/renter/contract", (route) => route.fulfill({ json: { id: "contract", status: "draft", monthlyRent: "3500000", startDate: "2026-10-01", endDate: "2027-09-30", clauses: [{ title: "Điều khoản", content: "Nội dung" }], otpSignedAt: null } }));
+  let verifyPayload: Record<string, unknown> | undefined;
   await page.route("**/api/renter/contracts/*/sign-request", (route) => route.fulfill({ json: { sentAt: "2026-10-01T00:00:00.000Z" } }));
-  await page.route("**/api/renter/contracts/*/verify", (route) => route.fulfill({ json: { otpSignedAt: "2026-10-01T00:01:00.000Z", status: "active" } }));
+  await page.route("**/api/renter/contracts/*/verify", async (route) => { verifyPayload = await route.request().postDataJSON(); await route.fulfill({ json: { otpSignedAt: "2026-10-01T00:01:00.000Z", status: "active" } }); });
   await page.route("**/api/renter/contract", (route) => route.fulfill({ json: { id: "contract", status: "draft", monthlyRent: "3500000", startDate: "2026-10-01", endDate: "2027-09-30", clauses: [{ title: "Điều khoản", content: "Nội dung" }], otpSignedAt: null } }));
   await page.goto("/portal/contract");
   await page.getByLabel(/đồng ý/).check();
@@ -41,6 +42,8 @@ test("full flow covers capture save, invoice QR, OTP contract, payment state, an
   await page.getByLabel("Mã OTP").fill("123456");
   await page.getByRole("button", { name: "Xác nhận ký" }).click();
   await expect(page.getByText("Đã ký hợp đồng.")).toBeVisible();
+  expect(verifyPayload).toEqual({ otp: "123456" });
+  await expect(page.getByRole("button", { name: "Xác nhận ký" })).toBeEnabled();
   await expect(page.getByText("Đã ký hợp đồng.")).toBeVisible();
   await page.route("**/api/renter/tickets", async (route) => { if (route.request().method() === "POST") { ticketPayload = await route.request().postDataJSON(); await route.fulfill({ status: 201, json: { id: "ticket-new", category: "electricity", description: "Điện chập chờn trong phòng", status: "open", createdAt: "2026-10-08T00:00:00.000Z" } }); } else await route.fulfill({ json: [] }); });
   await page.goto("/portal/tickets");
