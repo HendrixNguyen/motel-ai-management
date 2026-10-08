@@ -6,6 +6,7 @@ import { getActiveContractForRenter } from "@/modules/contract/contract.service"
 import { AppError } from "@/shared/errors";
 import { normalisePhone } from "@/shared/phone";
 import { renters } from "./renter.schema";
+import { enqueueNotification } from "@/modules/notification/notification.service";
 import type {
   CreateRenterInput,
   ListRentersFilters,
@@ -229,7 +230,9 @@ export async function createRenterForMotel(
       // accept.
       ...(input.roomId === undefined || input.roomId === null ? {} : { roomId: input.roomId }),
     });
-    return toResponse(row);
+     await enqueueNotification({ eventKey: `renter:${row.id}:welcome`, renterId: row.id, motelId, templateId: "welcome", payload: { name: row.name } }).catch(() => undefined);
+     return toResponse(row);
+
   } catch (error) {
     if (isDuplicatePhone(error)) {
       const stored = normalisePhone(input.phone);

@@ -16,6 +16,7 @@ import { listBillableContractsForMotel } from "@/modules/contract/contract.servi
 import { calculateInvoiceAmounts } from "./billing.calculation";
 import { buildTransferDescription, buildVietQrPayload } from "@/modules/vietqr/vietqr.service";
 import { parseMeterValue, formatMeterValue } from "./billing.calculation";
+import { enqueueNotification } from "@/modules/notification/notification.service";
 
 function periodResponse(row: typeof billingPeriods.$inferSelect): BillingPeriodResponse {
   return { ...row, createdAt: row.createdAt.toISOString() };
@@ -170,16 +171,22 @@ export async function generateInvoices(periodId: string, motelId: string, manage
 
 export async function sendBillingPeriod(periodId: string, motelId: string, managerId: string): Promise<BillingPeriodResponse> {
   await resolveOwnedMotel(motelId, managerId);
-  return db.transaction(async (tx) => {
+  const result = await db.transaction(async (tx) => {
     const period = await tx.query.billingPeriods.findFirst({ where: and(eq(billingPeriods.id, periodId), eq(billingPeriods.motelId, motelId)) });
     if (!period) throw AppError.notFound("Không tìm thấy kỳ hóa đơn");
     if (period.status !== "draft") throw AppError.periodAlreadySent();
     const count = await tx.$count(invoices, eq(invoices.billingPeriodId, periodId));
     if (!count) throw AppError.conflict("Kỳ hóa đơn chưa có hóa đơn");
     const [updated] = await tx.update(billingPeriods).set({ status: "sent" }).where(and(eq(billingPeriods.id, periodId), eq(billingPeriods.status, "draft"))).returning();
-     if (!updated) throw AppError.periodAlreadySent();
-     return periodResponse(updated);
+    if (!updated) throw AppError.periodAlreadySent();
+    const rows = await tx.query.invoices.findMany({ where: eq(invoices.billingPeriodId, periodId) });
+    return { updated, rows };
   });
+  for (const invoice of result.rows) {
+    await enqueueNotification({ eventKey: `billing:${periodId}:sent:${invoice.renterId}`, renterId: invoice.renterId, motelId, templateId: "bill", payload: { invoiceId: invoice.id, totalAmount: invoice.totalAmount } }).catch(() => undefined);
+  }
+  return periodResponse(result.updated);
+
 }
 
 async function transitionInvoice(invoiceId: string, motelId: string, managerId: string, status: "paid" | "overdue"): Promise<InvoiceResponse> {
@@ -190,9 +197,13 @@ async function transitionInvoice(invoiceId: string, motelId: string, managerId: 
     if (status === "overdue" && row[0].invoice.paymentStatus === "paid") throw AppError.conflict("Hóa đơn đã thanh toán");
      if (status === "paid" && row[0].invoice.paymentStatus === "paid") return invoiceResponse(row[0].invoice, row[0].roomName);
      if (status === "overdue" && row[0].invoice.paymentStatus === "overdue") return invoiceResponse(row[0].invoice, row[0].roomName);
-    const [updated] = await tx.update(invoices).set({ paymentStatus: status, paidAt: status === "paid" ? new Date() : null }).where(eq(invoices.id, invoiceId)).returning();
-    return invoiceResponse(updated!, row[0].roomName);
-  });
+      const [updated] = await tx.update(invoices).set({ paymentStatus: status, paidAt: status === "paid" ? new Date() : null }).where(eq(invoices.id, invoiceId)).returning();
+      const response = invoiceResponse(updated!, row[0].roomName);
+      if (status === "paid") await enqueueNotification({ eventKey: `invoice:${invoiceId}:paid`, renterId: updated!.renterId, motelId, templateId: "paymentConfirmed", payload: { invoiceId, totalAmount: updated!.totalAmount } }).catch(() => undefined);
+      return response;
+
+   });
+
 }
 
 export const markInvoicePaid = (invoiceId: string, motelId: string, managerId: string) => transitionInvoice(invoiceId, motelId, managerId, "paid");

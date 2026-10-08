@@ -10,6 +10,7 @@ import { getRoomName } from "@/modules/room/room.service";
 import { parseAmount, type VndString } from "@/shared/money";
 import { AppError } from "@/shared/errors";
 import { contracts, contractTemplates } from "./contract.schema";
+import { enqueueNotification } from "@/modules/notification/notification.service";
 import type {
   ContractResponse,
   ContractTemplateInput,
@@ -336,12 +337,16 @@ export async function requestContractOtp(contractId: string, renterId: string, m
     if (!row) throw AppError.conflict("Hợp đồng không ở trạng thái chờ ký");
     return { row, previous: current };
   });
-  if (!(await sendRenterOtp({ contract: staged.row, otp }))) {
+   const sent = await sendRenterOtp({ contract: staged.row, otp });
+   if (!sent) {
+
     await db.update(contracts).set({ otpHash: staged.previous.otpHash, otpSentAt: staged.previous.otpSentAt, otpExpiresAt: staged.previous.otpExpiresAt, otpAttempts: staged.previous.otpAttempts }).where(and(eq(contracts.id, contractId), eq(contracts.otpHash, hash), eq(contracts.otpSentAt, now), eq(contracts.otpExpiresAt, expires)));
     throw new AppError("EXTERNAL_SERVICE_ERROR", "Không thể gửi mã xác thực");
-  }
-  return { sentAt: now.toISOString() };
+   }
+   await enqueueNotification({ eventKey: `contract:${contractId}:otp:${now.toISOString()}`, renterId, motelId, templateId: "otp", payload: { contractId, expiresAt: expires.toISOString(), otp: "[REDACTED]" }, transientSecret: { otp } }).catch(() => undefined);
+   return { sentAt: now.toISOString() };
 }
+
 
 export async function verifyContractOtp(contractId: string, renterId: string, motelId: string, otp: string) {
   const current = await db.query.contracts.findFirst({ where: and(eq(contracts.id, contractId), eq(contracts.renterId, renterId), eq(contracts.motelId, motelId)) });
@@ -367,6 +372,7 @@ export async function sendContract(
     throw AppError.conflict("Chỉ có thể gửi hợp đồng nháp");
   if (!(await sendContractNotification({ contract: current, otp: "" })))
     throw new AppError("EXTERNAL_SERVICE_ERROR", "Không thể gửi hợp đồng");
+  await enqueueNotification({ eventKey: `contract:${contractId}:sent`, renterId: current.renterId, motelId, templateId: "contract", payload: { contractId } }).catch(() => undefined);
   const [row] = await db
     .update(contracts)
     .set({ managerSentAt: new Date() })

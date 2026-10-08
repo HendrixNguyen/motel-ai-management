@@ -9,6 +9,7 @@ import { issueMagicLink } from "@/shared/magic-link";
 import { AppError } from "@/shared/errors";
 import type { ManagerJwtPayload } from "./auth.types";
 import { getRenter } from "@/modules/renter/renter.service";
+import { enqueueNotification } from "@/modules/notification/notification.service";
 
 const COOKIE_NAME = "manager_session";
 
@@ -90,8 +91,10 @@ export const authRoutes = new Elysia({ name: "auth-routes" })
         if (!renter || renter.motelId !== motel.id) {
           throw AppError.notFound("Không tìm thấy người thuê");
         }
-        const { token, url } = await issueMagicLink(renter.id);
-        set.status = 200;
+         const { token, url } = await issueMagicLink(renter.id);
+         await enqueueNotification({ eventKey: `magic-link:${renter.id}:${token}`, renterId: renter.id, motelId: renter.motelId, templateId: "welcome", payload: { url } }).catch(() => undefined);
+         set.status = 200;
+
         return { token, url };
       },
       {
