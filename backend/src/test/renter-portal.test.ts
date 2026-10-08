@@ -35,10 +35,9 @@ async function seed() {
     { motelId: motelB!.id, name: "P.202", floor: 2, basePrice: "6000000" },
     { motelId: motelA!.id, name: "P.102", floor: 1, basePrice: "5000000" },
   ]).returning();
-  const [renterA, renterB, renterC] = await db.insert(renters).values([
+  const [renterA, renterB] = await db.insert(renters).values([
     { motelId: motelA!.id, roomId: roomA!.id, name: "Renter A", phone: "84901234567" },
     { motelId: motelB!.id, roomId: roomB!.id, name: "Renter B", phone: "84901234568" },
-    { motelId: motelA!.id, roomId: roomC!.id, name: "Renter C", phone: "84901234569" },
   ]).returning();
   const [periodA, periodB] = await db.insert(billingPeriods).values([
     { motelId: motelA!.id, month: 1, year: 2026, status: "sent" },
@@ -76,12 +75,17 @@ describe("renter portal reads", () => {
     const periods = await app.handle(new Request("http://localhost/api/renter/billing/periods", { headers: { cookie } }));
     expect(periods.status).toBe(200);
     const periodBody = asRecords(await periods.json());
+    expect(periodBody).toHaveLength(1);
     expect(periodBody).toEqual([expect.objectContaining({ id: data.periodA.id, month: 1, year: 2026 })]);
     expect(periodBody).not.toContainEqual(expect.objectContaining({ id: data.emptyPeriod.id }));
     const invoicesResponse = await app.handle(new Request(`http://localhost/api/renter/billing/periods/${data.periodA.id}/invoices`, { headers: { cookie } }));
     expect(invoicesResponse.status).toBe(200);
     const body = asRecords(await invoicesResponse.json());
-    expect(body).toEqual([expect.objectContaining({ id: data.invoiceA.id, roomName: "P.101", totalAmount: "5185000", qrCodeData: "PAYLOAD", paymentStatus: "unpaid" })]);
+    expect(body).toHaveLength(2);
+    expect(body).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: data.invoiceA.id, roomName: "P.101", totalAmount: "5185000", qrCodeData: "PAYLOAD", paymentStatus: "unpaid" }),
+      expect.objectContaining({ roomName: "P.102", totalAmount: "5185000", qrCodeData: "PAYLOAD-2", paymentStatus: "unpaid" }),
+    ]));
     expect(body[0]).not.toHaveProperty("motelId");
     expect(body[0]).not.toHaveProperty("managerNote");
   });

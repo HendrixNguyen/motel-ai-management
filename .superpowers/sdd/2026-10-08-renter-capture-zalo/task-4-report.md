@@ -32,6 +32,7 @@ Implemented renter portal read APIs and session-scoped DTOs.
 
 ## Latest fix
 - Billing renter-period projection now deterministically deduplicates repeated period rows caused by multiple renter invoices; regression fixture adds multiple invoices in one period.
+- Regression assertions now require one renter period and two invoices for that period; removed unused renter fixture.
 
 ## Concerns
 - Test database migration state is inconsistent: `0000_motionless_microchip.sql` already creates `otp_sent_at`, while `0001_elite_ozymandias.sql` adds it again. This pre-existing migration issue prevents reliable integration test execution.
