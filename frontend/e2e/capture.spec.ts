@@ -12,7 +12,7 @@ test.describe("offline meter capture", () => {
     await page.getByRole("link", { name: /Mở kỳ/ }).click();
     await expect(page).toHaveURL(/\/capture\/b1c2d3e4-f5a6-4b7c-8d9e-0f1a2b3c4d5e/);
     await expect(page.getByRole("heading", { name: /Nhập chỉ số/ })).toBeVisible();
-    await expect(page.getByText(/P\.101/)).toBeVisible();
+    await expect(page.getByRole("link", { name: /Phòng P\.101/ })).toBeVisible();
   });
 
   test("keeps API and signed URL responses out of Cache Storage", async ({ page }) => {

@@ -5,8 +5,8 @@ test("full flow covers capture save, invoice QR, OTP contract, payment state, an
   await page.goto("/capture?motel=6f1c1a52-0d4e-4a2b-9c3d-8e5f6a7b8c9d");
   await expect(page.getByRole("heading", { name: /Nhập chỉ số/ })).toBeVisible();
   await page.getByRole("link", { name: /Mở kỳ/ }).click();
-  await expect(page.getByText("P.101")).toBeVisible();
-  await page.getByText("P.101").click();
+  await expect(page.getByRole("link", { name: /Phòng P\.101/ })).toBeVisible();
+  await page.getByRole("link", { name: /Phòng P\.101/ }).click();
   await page.getByLabel("Chỉ số hiện tại").fill("15");
   await page.route("**/api/manager/motels/*/billing/periods/*/readings", (route) => route.fulfill({ json: { ok: true } }));
   await page.getByRole("button", { name: "Lưu" }).first().click();
