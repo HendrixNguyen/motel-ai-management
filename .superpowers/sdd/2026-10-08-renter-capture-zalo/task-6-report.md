@@ -1,8 +1,9 @@
 
-## Final SW cache mock fix appended
+## Query-key cache test fix appended
 
-- Normalized Cache Storage mock keys through one URL-path helper in `put` and `match`.
-- Offline navigation assertion now verifies second navigation returns response cached by first online navigation, including status/body.
+- Cache mock now normalizes full same-origin URL, preserving query strings in `put` and `match`.
+- Added query-distinct assertion: `motel=two` does not hit `motel=one` cache entry.
+- Offline repeat uses exact first URL and verifies cached response body/status.
 
 Verification:
 - Typecheck pass.
