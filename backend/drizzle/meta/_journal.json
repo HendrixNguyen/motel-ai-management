@@ -85,6 +85,13 @@
       "when": 1791430950000,
       "tag": "0011_drop_redundant_ticket_fk",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1791431100000,
+      "tag": "0012_restore_contract_otp_sent_at",
+      "breakpoints": true
     }
   ]
 }
