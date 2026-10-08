@@ -189,7 +189,14 @@ the same API the desktop uses, which is why both paths can coexist on one unique
 | `expectedUpdatedAt` stale and value differs | `409 READING_CONFLICT`, `details.server` = current row | Client flags **Cần kiểm tra**; manager re-enters. Last write never silently wins |
 | Period is no longer `draft` | `409 PERIOD_ALREADY_SENT` | Client switches the whole capture session read-only |
 
-The current billing API accepts optional `photoUrl` input for compatibility, but does not expose photo fields in responses. Photo upload and signed URL delivery are deferred until the upload service exists.
+Meter photos use private storage. `photoUrl` remains accepted only as an opaque server-side key during reading updates and is never returned. Upload and signed-read endpoints:
+
+| Method | Path | Request | Response |
+| --- | --- | --- | --- |
+| POST | `/api/manager/motels/:motelId/billing/periods/:periodId/readings/:readingId/photo` | `multipart/form-data`, one `file`; JPEG/PNG, max 10 MB | `201 {id, contentType, size, checksum, createdAt}` |
+| GET | `/api/manager/motels/:motelId/billing/periods/:periodId/readings/:readingId/photo` | none | `200 {url, contentType, size, checksum}`; URL short-lived |
+
+Upload requires manager ownership, matching reading/period, and `draft` period status. Invalid MIME, magic bytes, or size returns `400 VALIDATION_ERROR`; storage/provider failure returns `502 EXTERNAL_SERVICE_ERROR`; cross-tenant or missing resources return `404 NOT_FOUND`. Object keys never cross HTTP.
 
 All billing errors use `{error, code, details?}`. `409 READING_CONFLICT` includes `details.server`; invoice generation may include `details.skippedRooms`. `POST /send` changes period status to `sent` only and sends no notification.
 

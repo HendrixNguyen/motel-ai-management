@@ -7,8 +7,8 @@ import { AppError } from "@/shared/errors";
 import { listRoomsForBilling } from "@/modules/room/room.service";
 import { rooms } from "@/modules/room/room.schema";
 import { type BillingPeriodDetailResponse, type BillingPeriodResponse, type CreateBillingPeriodInput, type InvoiceGenerationResponse, type InvoiceResponse, type MeterReadingResponse, type UpdateReadingsInput, type SignedUploadResponse, type UploadResponse } from "./billing.types";
-import { uploads } from "@/shared/upload.schema";
-import { FakeStorageAdapter, StorageError, type StorageAdapter } from "@/shared/storage";
+import { uploads } from "./upload.schema";
+import { FakeStorageAdapter, StorageError, type StorageAdapter, validateStorageInput } from "@/shared/storage";
 
 let uploadStorage: StorageAdapter = new FakeStorageAdapter();
 export function configureUploadStorage(storage: StorageAdapter): void { uploadStorage = storage; }
@@ -174,15 +174,34 @@ export async function uploadMeterPhoto(motelId: string, periodId: string, readin
   if (!reading || !period) throw AppError.notFound("Không tìm thấy chỉ số công tơ");
   if (period.status !== "draft") throw AppError.periodAlreadySent();
   if (file.type !== "image/jpeg" && file.type !== "image/png") throw AppError.badRequest("Chỉ hỗ trợ ảnh JPEG hoặc PNG");
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  try {
+    await validateStorageInput({ objectKey: "validation/key", body: bytes, contentType: file.type });
+  } catch (error) {
+    if (error instanceof StorageError) throw AppError.badRequest(error.message);
+    throw error;
+  }
   const objectKey = `motels/${motelId}/meter/${readingId}/${crypto.randomUUID()}`;
   try {
-    const stored = await uploadStorage.put({ objectKey, body: new Uint8Array(await file.arrayBuffer()), contentType: file.type as "image/jpeg" | "image/png" });
-    const previous = await db.query.uploads.findFirst({ where: and(eq(uploads.resourceType, "meter_reading"), eq(uploads.resourceId, readingId)) });
-    if (previous) { await uploadStorage.delete(previous.objectKey); await db.delete(uploads).where(eq(uploads.id, previous.id)); }
-    const [row] = await db.insert(uploads).values({ resourceType: "meter_reading", resourceId: readingId, motelId, objectKey: stored.objectKey, contentType: stored.contentType, size: stored.size, checksum: stored.checksum }).returning();
-    await db.update(meterReadings).set({ photoUrl: stored.objectKey }).where(eq(meterReadings.id, readingId));
-    if (!row) throw AppError.externalService();
-    return { id: row.id, objectKey: row.objectKey, contentType: row.contentType, size: row.size, checksum: row.checksum, createdAt: row.createdAt.toISOString() };
+    const stored = await uploadStorage.put({ objectKey, body: bytes, contentType: file.type });
+    let previousKey: string | undefined;
+    try {
+      const row = await db.transaction(async (tx) => {
+        const previous = await tx.query.uploads.findFirst({ where: and(eq(uploads.resourceType, "meter_reading"), eq(uploads.resourceId, readingId)) });
+        previousKey = previous?.objectKey;
+        if (previous) await tx.delete(uploads).where(eq(uploads.id, previous.id));
+        const [created] = await tx.insert(uploads).values({ resourceType: "meter_reading", resourceId: readingId, motelId, objectKey: stored.objectKey, contentType: stored.contentType, size: stored.size, checksum: stored.checksum }).returning();
+        if (!created) throw AppError.externalService();
+        await tx.update(meterReadings).set({ photoUrl: stored.objectKey }).where(eq(meterReadings.id, readingId));
+        return created;
+      });
+      if (previousKey) await uploadStorage.delete(previousKey).catch(() => undefined);
+      return { id: row.id, contentType: row.contentType, size: row.size, checksum: row.checksum, createdAt: row.createdAt.toISOString() };
+    } catch (error) {
+      await uploadStorage.delete(stored.objectKey).catch(() => undefined);
+      if (error instanceof AppError) throw error;
+      throw AppError.externalService();
+    }
   } catch (error) {
     if (error instanceof AppError || error instanceof StorageError) throw error instanceof StorageError ? AppError.externalService() : error;
     throw AppError.externalService();

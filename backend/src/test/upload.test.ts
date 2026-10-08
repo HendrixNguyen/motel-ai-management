@@ -26,18 +26,25 @@ describe("meter photo uploads", () => {
     const data = await seed();
     const uploaded = await uploadMeterPhoto(data.motel.id, data.period.id, data.reading.id, data.manager.id, jpeg());
     expect(uploaded).toMatchObject({ contentType: "image/jpeg", size: 4 });
-    expect(uploaded.objectKey).not.toContain("meter.jpg");
+    expect("objectKey" in uploaded).toBe(false);
     const read = await getMeterPhoto(data.motel.id, data.period.id, data.reading.id, data.manager.id);
     expect(read.url).toContain("fake://private/");
+    expect("objectKey" in read).toBe(false);
   });
 
   test("replaces prior photo and rejects sent periods", async () => {
     const data = await seed();
     const first = await uploadMeterPhoto(data.motel.id, data.period.id, data.reading.id, data.manager.id, jpeg());
     const second = await uploadMeterPhoto(data.motel.id, data.period.id, data.reading.id, data.manager.id, jpeg());
-    expect(second.objectKey).not.toBe(first.objectKey);
+    expect(second.id).not.toBe(first.id);
     const sent = await seed("sent");
     await expect(uploadMeterPhoto(sent.motel.id, sent.period.id, sent.reading.id, sent.manager.id, jpeg())).rejects.toMatchObject({ code: "PERIOD_ALREADY_SENT" });
+  });
+
+  test("rejects bad magic bytes and oversized files before storage", async () => {
+    const data = await seed();
+    await expect(uploadMeterPhoto(data.motel.id, data.period.id, data.reading.id, data.manager.id, new File([new Uint8Array([1, 2, 3])], "bad.jpg", { type: "image/jpeg" }))).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
+    await expect(uploadMeterPhoto(data.motel.id, data.period.id, data.reading.id, data.manager.id, new File([new Uint8Array(10 * 1024 * 1024 + 1)], "big.jpg", { type: "image/jpeg" }))).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
   });
 
   test("hides foreign reading and storage failures", async () => {
