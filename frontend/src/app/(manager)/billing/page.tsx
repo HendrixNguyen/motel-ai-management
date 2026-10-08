@@ -6,7 +6,7 @@ import BillingPeriodEditor from "@/components/manager/billing-period-editor";
 import PageHeader from "@/components/ui/page-header";
 import Badge from "@/components/ui/badge";
 
-const labels = { draft: "Bản nháp", sent: "Đã chốt", closed: "Đã đóng" } as const;
+const labels = { draft: "Bản nháp", sent: "Đã gửi", closed: "Đã đóng" } as const;
 
 export default async function BillingPage({ searchParams }: { searchParams: Promise<MotelSearchParams> }) {
   const motels = await listMotels();

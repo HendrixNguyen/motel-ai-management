@@ -26,6 +26,7 @@ export class CaptureQueue {
   constructor(private readonly managerId: string) {}
 
   async enqueue(input: CaptureQueueInput): Promise<string> {
+    if (input.managerId !== this.managerId) throw new Error("CAPTURE_QUEUE_MANAGER_MISMATCH");
     if (input.periodStatus !== "draft") throw new Error("PERIOD_NOT_DRAFT");
     const id = crypto.randomUUID();
     const row: CaptureQueueItem = { ...input, id, status: "pending", attempts: 0, createdAt: new Date().toISOString() };
@@ -33,6 +34,7 @@ export class CaptureQueue {
   }
 
   async enqueuePhoto(input: Omit<CapturePhotoItem, "id" | "status" | "attempts" | "createdAt">): Promise<string> {
+    if (input.managerId !== this.managerId) throw new Error("CAPTURE_QUEUE_MANAGER_MISMATCH");
     if (input.periodStatus !== "draft") throw new Error("PERIOD_NOT_DRAFT");
     const id = crypto.randomUUID(); const row: CapturePhotoItem = { ...input, id, status: "pending", attempts: 0, createdAt: new Date().toISOString() };
     const db = await database(); await request(db.transaction(PHOTOS, "readwrite").objectStore(PHOTOS).put(row)); return id;
