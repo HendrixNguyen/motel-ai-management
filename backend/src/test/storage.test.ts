@@ -14,7 +14,9 @@ describe("storage validation", () => {
   });
 
   test("rejects mismatched MIME, unsafe keys, and oversized content", async () => {
-    await expect(validateStorageInput({ objectKey: "../secret", body: new Uint8Array([1]), contentType: "image/png" })).rejects.toBeInstanceOf(StorageError);
+    for (const objectKey of ["", "/leading", "motel//empty", "motel/./dot", "motel/../parent", "../secret"]) {
+      await expect(validateStorageInput({ objectKey, body: new Uint8Array([1]), contentType: "image/png" })).rejects.toBeInstanceOf(StorageError);
+    }
     await expect(validateStorageInput({ objectKey: "motel/one/file", body: new Uint8Array([0xff, 0xd8, 0xff]), contentType: "image/png" })).rejects.toThrow("không khớp");
     await expect(validateStorageInput({ objectKey: "motel/one/file", body: new Uint8Array(10 * 1024 * 1024 + 1), contentType: "image/jpeg" })).rejects.toThrow("10 MB");
   });
@@ -42,19 +44,20 @@ describe("FakeStorageAdapter", () => {
     await expect(storage.createSignedDownload(result.objectKey, 900)).resolves.toContain("expires=900");
   });
 
-  test("normalizes keys and hides failure details", async () => {
+  test("rejects unsafe keys and sanitizes failure details", async () => {
     const storage = new FakeStorageAdapter();
-    const result = await storage.put({ objectKey: "/motel//one/file", body: new Uint8Array([0xff, 0xd8, 0xff]), contentType: "image/jpeg" });
-    expect(result.objectKey).toBe("motel/one/file");
+    await expect(storage.put({ objectKey: "/motel//one/file", body: new Uint8Array([0xff, 0xd8, 0xff]), contentType: "image/jpeg" })).rejects.toBeInstanceOf(StorageError);
     const failing = new FakeStorageAdapter({ failure: new Error("bucket=secret accessKey=private") });
-    await expect(failing.delete("motel/one/file")).rejects.toThrow("bucket=secret");
-    await expect(failing.createSignedDownload("motel/one/file", 60)).rejects.toThrow("bucket=secret");
+    await expect(failing.delete("motel/one/file")).rejects.toThrow(StorageError);
+    await expect(failing.delete("motel/one/file")).rejects.not.toThrow("bucket=secret");
+    await expect(failing.createSignedDownload("motel/one/file", 60)).rejects.toThrow(StorageError);
+    await expect(failing.createSignedDownload("motel/one/file", 60)).rejects.not.toThrow("accessKey=private");
   });
 
   test("R2 adapter uses S3-compatible operations without leaking credentials", async () => {
     const requests: Array<{ name: string; input: Record<string, unknown> }> = [];
     const adapter = new R2StorageAdapter({ accountId: "acct", accessKeyId: "key", secretAccessKey: "secret", bucket: "bucket", publicUrl: "" }, { send: async (command: { input: Record<string, string> }) => { requests.push({ name: command.constructor.name, input: command.input }); return {}; } } as never, async (...args: unknown[]) => { const command = args[1] as { input: Record<string, unknown> }; expect(command.input).toMatchObject({ Bucket: "bucket", Key: "motel/one/file" }); return "https://signed.test/file?X-Amz-SignedHeaders=host&X-Amz-Expires=60" });
-    const input = { objectKey: "/motel//one/file", body: new Uint8Array([0xff, 0xd8, 0xff]), contentType: "image/jpeg" } as const;
+    const input = { objectKey: "motel/one/file", body: new Uint8Array([0xff, 0xd8, 0xff]), contentType: "image/jpeg" } as const;
     const originalKey = input.objectKey;
     const result = await adapter.put(input);
     expect(input.objectKey).toBe(originalKey);
@@ -71,6 +74,6 @@ describe("FakeStorageAdapter", () => {
 
   test("can fail operations for failure-path tests", async () => {
     const storage = new FakeStorageAdapter({ failure: new Error("storage down") });
-    await expect(storage.put({ objectKey: "motel/one/file", body: new Uint8Array([0xff, 0xd8, 0xff]), contentType: "image/jpeg" })).rejects.toThrow("storage down");
+    await expect(storage.put({ objectKey: "motel/one/file", body: new Uint8Array([0xff, 0xd8, 0xff]), contentType: "image/jpeg" })).rejects.toThrow("storage failure");
   });
 });

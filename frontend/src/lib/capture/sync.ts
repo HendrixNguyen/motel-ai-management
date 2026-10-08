@@ -12,7 +12,7 @@ export async function syncCaptureQueue(queue: CaptureQueue, send: CaptureSender,
     if (["sent", "conflict", "locked"].includes(item.status)) continue;
     if (item.periodStatus !== "draft") { await queue.update(item.id, "locked"); result.readings.locked += 1; continue; }
     try { await send(item); await queue.update(item.id, "sent"); result.readings.sent += 1; }
-    catch (error) { const conflict = error && typeof error === "object" && "code" in error && error.code === "READING_CONFLICT"; await queue.update(item.id, conflict ? "conflict" : "failed", conflict ? { server: "server" in (error as object) && typeof (error as { server?: unknown }).server === "string" ? (error as unknown as { server: string }).server : null, message: "Chỉ số đã thay đổi trên máy chủ" } : undefined); if (conflict) result.readings.conflicts += 1; else result.readings.failed += 1; }
+    catch (error) { const conflict = error && typeof error === "object" && "code" in error && error.code === "READING_CONFLICT"; const details = error && typeof error === "object" && "details" in error && typeof error.details === "object" && error.details !== null ? error.details as { server?: unknown } : undefined; await queue.update(item.id, conflict ? "conflict" : "failed", conflict ? { server: typeof details?.server === "string" ? details.server : null, message: "Chỉ số đã thay đổi trên máy chủ" } : undefined); if (conflict) result.readings.conflicts += 1; else result.readings.failed += 1; }
   }
   if (!sendPhoto) return result;
   for (const item of await queue.listPhotos()) {

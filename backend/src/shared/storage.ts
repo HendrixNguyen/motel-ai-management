@@ -24,9 +24,10 @@ export interface StorageAdapter {
 }
 
 export function normalizeStorageKey(objectKey: string): string {
-  const key = objectKey.replace(/^\/+/, "").replace(/\/+/g, "/");
-  if (!key || !/^[-a-zA-Z0-9_./]+$/.test(key) || key.includes("..")) throw new StorageError("Object key không hợp lệ");
-  return key;
+  if (!objectKey || objectKey.startsWith("/") || objectKey.includes("//")) throw new StorageError("Object key không hợp lệ");
+  const segments = objectKey.split("/");
+  if (segments.some((segment) => !segment || segment === "." || segment === "..") || !segments.every((segment) => /^[-a-zA-Z0-9_]+$/.test(segment))) throw new StorageError("Object key không hợp lệ");
+  return objectKey;
 }
 
 export class StorageError extends Error {
@@ -73,7 +74,7 @@ export class FakeStorageAdapter implements StorageAdapter {
   private readonly objects = new Map<string, StorageObject>();
   constructor(private readonly options: { failure?: Error } = {}) {}
   async put(input: StoragePutInput): Promise<StorageObject> {
-    if (this.options.failure) throw this.options.failure;
+    if (this.options.failure) throw new StorageError("storage failure");
     const bytes = await validateStorageInput(input);
     const objectKey = normalizeStorageKey(input.objectKey);
     const object = { objectKey, size: bytes.byteLength, checksum: createHash("sha256").update(bytes).digest("hex"), contentType: input.contentType };
@@ -81,11 +82,11 @@ export class FakeStorageAdapter implements StorageAdapter {
     return object;
   }
   async delete(objectKey: string): Promise<void> {
-    if (this.options.failure) throw this.options.failure;
+    if (this.options.failure) throw new StorageError("storage failure");
     this.objects.delete(normalizeStorageKey(objectKey));
   }
   async createSignedDownload(objectKey: string, expiresInSeconds: number): Promise<string> {
-    if (this.options.failure) throw this.options.failure;
+    if (this.options.failure) throw new StorageError("storage failure");
     const key = normalizeStorageKey(objectKey);
     if (!this.objects.has(key)) throw new StorageError("Không tìm thấy tệp");
     if (!Number.isInteger(expiresInSeconds) || expiresInSeconds < 1 || expiresInSeconds > 900) throw new StorageError("TTL không hợp lệ");

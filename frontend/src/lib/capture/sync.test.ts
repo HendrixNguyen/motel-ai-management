@@ -1,7 +1,16 @@
 import { describe, expect, it } from "vitest";
+import { ApiError } from "@/lib/api/client";
 import { syncCaptureQueue } from "@/lib/capture/sync";
 
 describe("capture sync result", () => {
+  it("stores server reading from ApiError details on conflict", async () => {
+    const item = { id: "1", managerId: "m", motelId: "mt", periodId: "p", periodStatus: "draft" as const, readings: [], status: "pending" as const, attempts: 0, createdAt: "1" };
+    let conflict: unknown;
+    const queue = { list: async () => [item], update: async (_id: string, _status: string, details?: unknown) => { conflict = details; }, listPhotos: async () => [], updatePhoto: async () => undefined } as never;
+    await syncCaptureQueue(queue, async () => { throw new ApiError(409, "READING_CONFLICT", "x", { server: "42.00" }); });
+    expect(conflict).toEqual({ server: "42.00", message: "Chỉ số đã thay đổi trên máy chủ" });
+  });
+
   it("reports sent, failure, conflict, and lock counts", async () => {
     const items = [
       { id: "1", managerId: "m", motelId: "mt", periodId: "p", periodStatus: "draft" as const, readings: [], status: "pending" as const, attempts: 0, createdAt: "1" },
