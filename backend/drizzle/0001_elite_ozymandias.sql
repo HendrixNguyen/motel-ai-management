@@ -8,7 +8,7 @@ ALTER TABLE "contracts" ADD COLUMN "manager_sent_at" timestamp with time zone;
 --> statement-breakpoint
 ALTER TABLE "contracts" ADD COLUMN "otp_hash" text;
 --> statement-breakpoint
-ALTER TABLE "contracts" ADD COLUMN IF NOT EXISTS "otp_sent_at" timestamp with time zone;
+ALTER TABLE "contracts" ADD COLUMN "otp_sent_at" timestamp with time zone;
 --> statement-breakpoint
 ALTER TABLE "contracts" ADD COLUMN "otp_expires_at" timestamp with time zone;
 --> statement-breakpoint

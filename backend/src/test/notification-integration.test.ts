@@ -13,6 +13,7 @@ import { markInvoicePaid } from "@/modules/billing/billing.service";
 import { listExpiringContracts } from "@/modules/contract/contract.service";
 import { requestContractOtp } from "@/modules/contract/contract.service";
 import { resetNotificationRecipientResolver, setNotificationRecipientResolver, enqueueNotification } from "@/modules/notification/notification.service";
+import { getRenterNotificationRecipient } from "@/modules/renter/renter.service";
 import { createPostgresAdvisoryLeaseDb, runWithAdvisoryLease, type AdvisoryLeaseDb } from "@/modules/notification/scheduler.service";
 import postgres from "postgres";
 import { eq } from "drizzle-orm";
@@ -61,7 +62,7 @@ describe("domain notification integration", () => {
   test("rejects recipient resolver from another motel", async () => {
     const first = await fixture();
     const second = await fixture();
-    setNotificationRecipientResolver(async (renterId, motelId) => renterId === first.renter.id && motelId === first.motel.id ? { phone: first.renter.phone, zaloOaId: null, isOaFollower: false } : undefined);
+    setNotificationRecipientResolver(getRenterNotificationRecipient);
     await expect(enqueueNotification({ eventKey: `cross-motel:${crypto.randomUUID()}`, renterId: second.renter.id, motelId: first.motel.id, templateId: "expiry", payload: {} })).rejects.toMatchObject({ code: "NOT_FOUND" });
   });
 
