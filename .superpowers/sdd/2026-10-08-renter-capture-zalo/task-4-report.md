@@ -25,5 +25,10 @@ Implemented renter portal read APIs and session-scoped DTOs.
 - Invoice joins enforce motel ownership for room and billing period. Period list now returns only periods containing an invoice for current renter.
 - API contract documents exact portal paths and DTO shapes.
 
+## Final findings fixed
+- Removed portal's direct billing schema dependency; period existence and invoice reads now use exported billing service projections.
+- Period reads deduplicate through renter invoice ownership joins; inconsistent renter/motel/room relations are excluded.
+- Added unknown-based response narrowing helpers in portal tests; no `any` casts remain in renter portal code.
+
 ## Concerns
 - Test database migration state is inconsistent: `0000_motionless_microchip.sql` already creates `otp_sent_at`, while `0001_elite_ozymandias.sql` adds it again. This pre-existing migration issue prevents reliable integration test execution.

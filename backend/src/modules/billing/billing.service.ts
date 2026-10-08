@@ -23,6 +23,11 @@ function periodResponse(row: typeof billingPeriods.$inferSelect): BillingPeriodR
 
 export interface RenterInvoiceProjection { id: string; billingPeriodId: string; month: number; year: number; roomId: string; roomName: string; rentAmount: string; electricityUsage: string; electricityCost: string; waterUsage: string; waterCost: string; otherFees: unknown[]; totalAmount: string; qrCodeData: string | null; paymentStatus: "unpaid" | "paid" | "overdue"; paidAt: string | null; createdAt: string }
 
+export async function hasRenterInvoicePeriod(renterId: string, motelId: string, periodId: string): Promise<boolean> {
+  const row = await db.select({ id: invoices.id }).from(invoices).innerJoin(billingPeriods, and(eq(billingPeriods.id, invoices.billingPeriodId), eq(billingPeriods.motelId, motelId))).where(and(eq(invoices.renterId, renterId), eq(invoices.motelId, motelId), eq(invoices.billingPeriodId, periodId))).limit(1);
+  return row.length > 0;
+}
+
 export async function listRenterInvoicesForPeriod(renterId: string, motelId: string, periodId: string): Promise<RenterInvoiceProjection[]> {
   const rows = await db.select({ invoice: invoices, roomName: rooms.name, month: billingPeriods.month, year: billingPeriods.year }).from(invoices).innerJoin(rooms, and(eq(rooms.id, invoices.roomId), eq(rooms.motelId, motelId))).innerJoin(billingPeriods, and(eq(billingPeriods.id, invoices.billingPeriodId), eq(billingPeriods.motelId, motelId))).where(and(eq(invoices.renterId, renterId), eq(invoices.motelId, motelId), eq(invoices.billingPeriodId, periodId))).orderBy(asc(rooms.name), asc(invoices.id));
   return rows.map(({ invoice, roomName, month, year }) => ({ id: invoice.id, billingPeriodId: invoice.billingPeriodId, month, year, roomId: invoice.roomId, roomName, rentAmount: invoice.rentAmount, electricityUsage: invoice.electricityUsage, electricityCost: invoice.electricityCost, waterUsage: invoice.waterUsage, waterCost: invoice.waterCost, otherFees: invoice.otherFees, totalAmount: invoice.totalAmount, qrCodeData: invoice.qrCodeData, paymentStatus: invoice.paymentStatus, paidAt: invoice.paidAt?.toISOString() ?? null, createdAt: invoice.createdAt.toISOString() }));

@@ -11,6 +11,16 @@ import { renters } from "@/modules/renter/renter.schema";
 import { rooms } from "@/modules/room/room.schema";
 import { issueMagicLink } from "@/shared/magic-link";
 
+function asRecord(value: unknown): Record<string, unknown> {
+  if (typeof value !== "object" || value === null) throw new Error("expected object");
+  return value as Record<string, unknown>;
+}
+
+function asRecords(value: unknown): Record<string, unknown>[] {
+  if (!Array.isArray(value) || !value.every((item) => typeof item === "object" && item !== null)) throw new Error("expected records");
+  return value as Record<string, unknown>[];
+}
+
 setDefaultTimeout(20_000);
 beforeEach(resetDb);
 
@@ -50,7 +60,7 @@ describe("renter portal reads", () => {
     const data = await seed();
     const response = await app.handle(new Request("http://localhost/api/renter/me", { headers: { cookie: await sessionCookie(data.renterA.id) } }));
     expect(response.status).toBe(200);
-    const body = await response.json() as any;
+    const body = asRecord(await response.json());
     expect(body).toMatchObject({ id: data.renterA.id, name: "Renter A", room: { id: data.renterA.roomId, name: "P.101" }, motel: { id: data.renterA.motelId, name: "Nhà A" }, activeContract: { id: data.contract.id, monthlyRent: "5000000" } });
     expect(body).not.toHaveProperty("idNumber");
     expect(body).not.toHaveProperty("motel.managerId");
@@ -62,12 +72,12 @@ describe("renter portal reads", () => {
     const cookie = await sessionCookie(data.renterA.id);
     const periods = await app.handle(new Request("http://localhost/api/renter/billing/periods", { headers: { cookie } }));
     expect(periods.status).toBe(200);
-    const periodBody = await periods.json() as any;
+    const periodBody = asRecords(await periods.json());
     expect(periodBody).toEqual([expect.objectContaining({ id: data.periodA.id, month: 1, year: 2026 })]);
     expect(periodBody).not.toContainEqual(expect.objectContaining({ id: data.emptyPeriod.id }));
     const invoicesResponse = await app.handle(new Request(`http://localhost/api/renter/billing/periods/${data.periodA.id}/invoices`, { headers: { cookie } }));
     expect(invoicesResponse.status).toBe(200);
-    const body = await invoicesResponse.json() as any;
+    const body = asRecords(await invoicesResponse.json());
     expect(body).toEqual([expect.objectContaining({ id: data.invoiceA.id, roomName: "P.101", totalAmount: "5185000", qrCodeData: "PAYLOAD", paymentStatus: "unpaid" })]);
     expect(body[0]).not.toHaveProperty("motelId");
     expect(body[0]).not.toHaveProperty("managerNote");

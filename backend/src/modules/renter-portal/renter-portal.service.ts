@@ -1,7 +1,4 @@
-import { and, asc, eq } from "drizzle-orm";
-import { db } from "@/db";
-import { listRenterInvoicesForPeriod, listBillingPeriodsForRenter } from "@/modules/billing/billing.service";
-import { billingPeriods } from "@/modules/billing/billing.schema";
+import { hasRenterInvoicePeriod, listRenterInvoicesForPeriod, listBillingPeriodsForRenter } from "@/modules/billing/billing.service";
 import { getRoomForRenter } from "@/modules/room/room.service";
 import { getMotelForRenter } from "@/modules/motel/motel.service";
 import { getRenter } from "@/modules/renter/renter.service";
@@ -30,7 +27,6 @@ export async function listRenterPeriods(session: RenterSession): Promise<RenterP
 }
 
 export async function listRenterInvoices(session: RenterSession, periodId: string): Promise<RenterInvoice[]> {
-  const period = await db.query.billingPeriods.findFirst({ where: and(eq(billingPeriods.id, periodId), eq(billingPeriods.motelId, session.motelId)) });
-  if (!period) throw AppError.notFound("Không tìm thấy kỳ hóa đơn");
+  if (!(await hasRenterInvoicePeriod(session.renterId, session.motelId, periodId))) throw AppError.notFound("Không tìm thấy kỳ hóa đơn");
   return listRenterInvoicesForPeriod(session.renterId, session.motelId, periodId);
 }
