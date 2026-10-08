@@ -1,6 +1,12 @@
 # Task 7 report
 
 ## Status
+Final portal loop/UX pass: anonymous exchange retained, session redirect scoped, canonical links repaired, error copy differentiated, exact ticket success copy added.
+
+## Final verification
+Final portal cleanup: anonymous exchange preserved, legacy loop paths removed, canonical redirects/links fixed, and magic-link errors differentiated.
+
+## Final verification
 Final Task 7 cleanup: anonymous `/renter` exchange preserved, authenticated legacy pages removed, canonical `/portal` retained, contract docs reconciled.
 
 ## Latest verification
@@ -22,6 +28,8 @@ Canonical portal/API review pass implemented; backend DB and fixture E2E remain 
 - Backend typecheck passes.
 - Frontend full gates: typecheck/build pass; Vitest 37 files/360 tests pass; lint 0 errors/3 image warnings.
 - Renter E2E: 2/2 pass at 375px.
+- Latest frontend gates: typecheck/build pass; Vitest 37 files/360 tests pass; lint 0 errors/3 image warnings.
+- Legacy authenticated `/renter/home`, `/renter/contract`, `/renter/tickets` removed; `/renter` remains anonymous exchange and redirects only with session.
 - Backend renter DB tests attempted; blocked by unavailable DB (`Failed query`).
 
 ## Latest verification
