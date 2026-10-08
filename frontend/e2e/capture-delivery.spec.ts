@@ -15,8 +15,13 @@ test.describe("capture queue delivery states", () => {
     await openCapture(page);
     await page.route("**/api/manager/motels/*/billing/periods/*/readings", (route) => route.abort());
     await page.getByLabel("Chỉ số hiện tại").fill("15");
+    const writes: string[] = [];
+    await page.route("**/api/manager/motels/*/billing/periods/*/readings", async (route) => { writes.push(await route.request().postDataJSON()); await route.abort(); });
     await page.getByRole("button", { name: "Lưu" }).first().click();
     await expect(page.getByText(/Đã lưu chỉ số|Đã lưu trên thiết bị|Ngoại tuyến/)).toBeVisible();
+    const stored = await page.evaluate(async () => new Promise<unknown>((resolve, reject) => { const request = indexedDB.open("motel-capture"); request.onsuccess = () => { const tx = request.result.transaction("readings", "readonly"); const get = tx.objectStore("readings").getAll(); get.onsuccess = () => resolve(get.result); get.onerror = () => reject(get.error); }; request.onerror = () => reject(request.error); }));
+    expect(stored).toEqual(expect.arrayContaining([expect.objectContaining({ readings: [expect.objectContaining({ currentReading: "15" })], status: expect.stringMatching(/pending|failed/) })]));
+    expect(writes).toEqual([expect.objectContaining({ readings: [expect.objectContaining({ currentReading: "15" })] })]);
     await page.reload();
     await expect(page.getByLabel("Chỉ số hiện tại")).toBeVisible();
     await page.unrouteAll({ behavior: "ignoreErrors" });
@@ -39,7 +44,9 @@ test.describe("capture queue delivery states", () => {
   test("does not retry queued writes for a sent period", async ({ page, context }) => {
     await context.addCookies([{ name: "manager_session", value: "sent-capture", domain: "localhost", path: "/" }]);
     await page.goto(`/capture/${period}?motel=${motel}`);
-    await expect(page.getByRole("heading", { name: /Nhập chỉ số/ })).toBeVisible();
-    await expect(page.getByRole("heading", { name: /Nhập chỉ số/ })).toBeVisible();
+    await expect(page.getByText(/Kỳ đã chốt/)).toBeVisible();
+    await expect(page.getByRole("link", { name: /Phòng P\.101/ })).toHaveAttribute("aria-disabled", "true");
+    await expect(page.getByRole("link", { name: /Phòng P\.101/ })).toHaveClass(/pointer-events-none/);
+    await expect(page).not.toHaveURL(/room/);
   });
 });

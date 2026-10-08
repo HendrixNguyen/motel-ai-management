@@ -30,7 +30,7 @@ export async function issueMagicLink(renterId: string): Promise<{ token: string;
 
   // The landing route is `/r/[token]` (frontend-ui-specs.md R0) — the renter portal's only
   // token-bearing route. A link built for any other path 404s on arrival.
-  const url = `${env.frontendUrl}/r/${token}`;
+  const url = `${env.renterPortalUrl}/r/${token}`;
   return { token, expiresAt, url };
 }
 

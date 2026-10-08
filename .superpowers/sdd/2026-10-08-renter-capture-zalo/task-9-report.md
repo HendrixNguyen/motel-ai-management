@@ -1,5 +1,7 @@
 # Task 9 Findings Report
 
+Final fix commit: `6e52afaa8b7f3734dd87d05ac2918dba974b096d`.
+
 - Date: 2026-10-08
 - Status: frontend coverage added; backend DB integration remains blocked
 

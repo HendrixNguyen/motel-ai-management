@@ -8,6 +8,7 @@ import { rooms } from "@/modules/room/room.schema";
 import { renters } from "@/modules/renter/renter.schema";
 import { magicLinks } from "@/modules/auth/auth.schema";
 import { consumeMagicLink, issueMagicLink } from "@/shared/magic-link";
+import { env } from "@/config";
 
 // `resetDb` drops the schema and re-applies every migration, which takes seconds — past
 // Bun's 5 s default, and worse once a long run has churned the system catalogs.
@@ -95,7 +96,7 @@ describe("Manager-Issued Magic Links", () => {
     expect(body.token).toBeDefined();
     expect(body.url).toBeDefined();
     expect(body.url).toContain(body.token);
-    expect(body.url).toContain("http://localhost:3001/r/");
+    expect(body.url).toContain(`${env.renterPortalUrl}/r/`);
   });
 
   test("issued token works with existing exchange endpoint", async () => {
