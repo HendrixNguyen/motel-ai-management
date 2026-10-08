@@ -25,6 +25,8 @@ async function markup(params: Record<string, string | string[]> = {}, rooms: Roo
     const { pathname, search } = new URL(url);
     if (pathname === "/api/manager/motels") return Response.json(motels);
     if (pathname === `/api/manager/motels/${motelId}/rooms` && search === "") return Response.json(rooms);
+    if (pathname === `/api/manager/motels/${motelId}/renters` && search === "") return Response.json([]);
+    if (pathname === `/api/manager/motels/${motelId}/billing/periods` && search === "") return Response.json([]);
     throw new Error(`Unexpected read: ${pathname}${search}`);
   });
   vi.stubGlobal("fetch", fetchMock);
@@ -36,16 +38,15 @@ describe("M1 overview", () => {
   it("summarizes every room status from an unfiltered read and offers only the live renter quick action", async () => {
     const { html, fetchMock } = await markup({ status: "available", floor: "0", search: "P.101" }, roomsWithStatuses(["occupied", "occupied", "available", "maintenance"]));
     expect(html).toContain("Tổng quan");
-    expect(html).toContain("<dt");
-    expect(html).toMatch(/>Phòng<\/dt>/);
-    expect(html).toMatch(/<dd[^>]*>4<\/dd>/);
-    expect(html).toContain("2 đang thuê · 1 trống · 1 bảo trì");
-    expect(html).toContain("Tỷ lệ lấp đầy: 50%");
+    expect(html).toContain("Phòng đang thuê");
+    expect(html).toContain("2/4");
+    expect(html).toContain("Phòng trống");
+    expect(html).toContain("Tỷ lệ lấp đầy 50%");
     expect(html).toContain(`href="/renters?create=1&amp;motel=${MOTEL.id}"`);
     expect(html).toContain("Thêm khách thuê");
-    expect(html.match(/<dl>/g)).toHaveLength(1);
-    expect(html).not.toMatch(/Doanh thu dự kiến|Tiền chưa thu|Sự cố chưa xử lý|Hóa đơn chưa thanh toán|Sự cố mới|Chốt số điện\/nước|Tạo hóa đơn/);
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(html).toContain("Nhập chỉ số điện nước");
+    expect(html).toContain("Hóa đơn chưa thanh toán");
+    expect(fetchMock).toHaveBeenCalledTimes(4);
   });
 
   it.each([
@@ -55,21 +56,21 @@ describe("M1 overview", () => {
     { statuses: ["available", "maintenance"], occupancy: "0%" },
   ] satisfies { statuses: RoomStatus[]; occupancy: string }[])("calculates occupied / all rooms and rounds to $occupancy for $statuses", async ({ statuses, occupancy }) => {
     const { html } = await markup({}, roomsWithStatuses(statuses));
-    expect(html).toContain(`Tỷ lệ lấp đầy: ${occupancy}`);
+    expect(html).toContain(`Tỷ lệ lấp đầy ${occupancy}`);
   });
 
   it("reads the explicitly selected owned motel and carries its scope into the renter destination", async () => {
     const { html, fetchMock } = await markup({ motel: MOTEL_WITHOUT_EXTRAS.id }, roomsWithStatuses(["maintenance"], MOTEL_WITHOUT_EXTRAS.id));
-    expect(html).toContain("0 đang thuê · 0 trống · 1 bảo trì");
+    expect(html).toContain("0/1");
+    expect(html).toContain("Tỷ lệ lấp đầy 0%");
     expect(html).toContain(`href="/renters?create=1&amp;motel=${MOTEL_WITHOUT_EXTRAS.id}"`);
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock).toHaveBeenCalledTimes(4);
   });
 
   it("shows honest zero room counts with useful guidance and finite occupancy for an empty motel", async () => {
     const { html } = await markup({}, []);
-    expect(html).toMatch(/<dd[^>]*>0<\/dd>/);
-    expect(html).toContain("0 đang thuê · 0 trống · 0 bảo trì");
-    expect(html).toContain("Tỷ lệ lấp đầy: 0%");
+    expect(html).toContain("0/0");
+    expect(html).toContain("Tỷ lệ lấp đầy 0%");
     expect(html).toContain("Chưa có phòng trọ");
     expect(html).toContain(`href="/rooms?motel=${MOTEL.id}"`);
     expect(html).not.toMatch(/NaN|Infinity/);
