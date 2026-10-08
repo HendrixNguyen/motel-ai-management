@@ -8,6 +8,7 @@ import { motelRoutes } from "@/modules/motel/motel.route";
 import { renterRoutes } from "@/modules/renter/renter.route";
 import { roomRoutes } from "@/modules/room/room.route";
 import { billingRoutes } from "@/modules/billing/billing.route";
+import { contractRoutes } from "@/modules/contract/contract.route";
 import { AppError } from "@/shared/errors";
 
 /**
@@ -36,6 +37,7 @@ export function createApp() {
         .use(motelRoutes)
        .use(roomRoutes)
        .use(billingRoutes)
+       .use(contractRoutes)
        .use(renterRoutes),
     )
     .all("*", () => {

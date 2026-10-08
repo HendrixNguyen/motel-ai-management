@@ -80,6 +80,7 @@ destroys the schema it is given.
 | Billing workflows | readings batch is atomic and conflict-safe; sent periods reject mutation; invoice generation is idempotent with snapshots; payment transitions and tenant 404 are covered |
 | Phone normalisation | mobile, landline, each malformed form |
 | Auth | register, login, wrong password, unknown email, replay, expiry — for both roles |
+| Contract signing | renter-only read, hashed OTP, five-minute expiry/cooldown, three-attempt limit, atomic activation, safe error codes |
 | Tenant scoping | both isolation directions, over HTTP |
 | Billing rules | meter's `basePrice` is never read by the calculation |
 | Meter capture | an offline entry survives a reload and syncs on reconnect (browser-level test) |
