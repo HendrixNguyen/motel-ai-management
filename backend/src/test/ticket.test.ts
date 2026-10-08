@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, setDefaultTimeout, test } from "bun:test";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
+import { AppError } from "@/shared/errors";
+import type { StorageAdapter, StorageObject, StoragePutInput } from "@/shared/storage";
 import { app } from "@/app";
 import { db } from "@/db";
 import { resetDb } from "@/db/test-db";
@@ -66,6 +68,22 @@ describe("renter tickets", () => {
     const response = await app.handle(new Request("http://localhost/api/renter/tickets", { method: "POST", headers: { cookie: data.cookie, "content-type": "application/json" }, body: "{" }));
     expect(response.status).toBe(400);
     expect(await response.json()).toEqual({ error: "Dữ liệu gửi lên không hợp lệ", code: "VALIDATION_ERROR" });
+  });
+
+  test("returns 502 while retaining committed ticket and photo metadata when signing fails", async () => {
+    const data = await seed("signed-failure@example.com");
+    const storage: StorageAdapter = {
+      async put(input: StoragePutInput): Promise<StorageObject> { return { objectKey: input.objectKey, size: 3, checksum: "checksum", contentType: input.contentType }; },
+      async delete() {},
+      async createSignedDownload() { throw new Error("signer unavailable"); },
+    };
+    configureTicketStorage(storage);
+    const form = new FormData(); form.set("category", "other"); form.set("description", "Mô tả lỗi có ảnh"); form.append("photos", new File([new Uint8Array([0xff, 0xd8, 0xff])], "x.jpg", { type: "image/jpeg" }));
+    const response = await app.handle(new Request("http://localhost/api/renter/tickets", { method: "POST", headers: { cookie: data.cookie }, body: form }));
+    expect(response.status).toBe(502);
+    const ticket = await db.query.helpTickets.findFirst({ where: and(eq(helpTickets.renterId, data.renter.id), eq(helpTickets.motelId, data.motel.id)) });
+    expect(ticket).toBeDefined();
+    expect(ticket!.photoUrls).toHaveLength(1);
   });
 
   test("ticket remains created when notification provider fails", async () => {
