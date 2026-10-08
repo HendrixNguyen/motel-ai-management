@@ -19,7 +19,9 @@ export const notificationRoutes = new Elysia({ name: "notification-routes" }).po
   const follower = event.user_id ?? event.follower_id;
   if (typeof follower !== "string" || follower.trim() === "") { set.status = 400; return { error: "Dữ liệu webhook không hợp lệ", code: "VALIDATION_ERROR" }; }
   if (event.event_name === "follow" && (typeof event.phone !== "string" || event.phone.trim() === "")) { set.status = 400; return { error: "Dữ liệu webhook không hợp lệ", code: "VALIDATION_ERROR" }; }
-  const eventId = event.event_id ?? createHmac("sha256", env.zalo.webhookSecret).update(raw).digest("hex");
+  if (event.event_id !== undefined && (typeof event.event_id !== "string" || event.event_id.trim() === "")) { set.status = 400; return { error: "Dữ liệu webhook không hợp lệ", code: "VALIDATION_ERROR" }; }
+  if (event.event_name === "follow" && (typeof event.oa_id !== "string" || event.oa_id.trim() === "")) { set.status = 400; return { error: "Dữ liệu webhook không hợp lệ", code: "VALIDATION_ERROR" }; }
+  const eventId = event.event_id?.trim() ?? createHmac("sha256", env.zalo.webhookSecret).update(raw).digest("hex");
   const followerId = follower;
   try {
     await processZaloWebhook(eventId, { event_name: event.event_name, user_id: followerId, phone: event.phone, oa_id: event.oa_id });

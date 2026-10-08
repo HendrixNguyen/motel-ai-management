@@ -1,15 +1,15 @@
 # Task 3 report
 
-## Final fixes
+## Final review fixes
 
-- OA mapping is notification-owned and now resolves `oa_id -> motel_id` before renter mapping; renter service receives motel scope explicitly.
-- Follow mapping failures throw inside transaction, rolling back webhook dedup row for retry.
-- Supplied `event_id` remains accepted only as non-empty value through route validation; absent IDs hash exact raw body.
-- Removed duplicate attempt-count constraint from lease migration; added safe drop/re-add migration for existing duplicate schemas.
+- Supplied `event_id` must be a non-empty string; absent event IDs hash exact raw body.
+- Follow payload must contain non-empty `oa_id`; webhook resolves OA mapping before renter mutation.
+- OA mapping and renter isolation remain transaction-scoped; mapping failure throws and rolls back dedup row for retry.
+- Canonical docs route remains `POST /api/zalo/webhook`.
 
 ## Verification
 
 - `bun run typecheck`: pass.
-- `bun test src/test/zalo.test.ts`: blocked by local PostgreSQL schema/query failure (`notification_webhook_events` missing).
-- `bun test src/test/notification.test.ts`: blocked by local PostgreSQL schema/query failure.
+- `NODE_ENV=test bun test src/test/notification.test.ts src/test/zalo.test.ts`: blocked by local PostgreSQL query/schema failure.
+- `bun run db:migrate`: blocked by local PostgreSQL query failure; migration chain could not be reset here.
 - Unrelated untracked files preserved.
