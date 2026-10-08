@@ -39,12 +39,22 @@ export async function deliverNotification(eventId: string): Promise<Notification
     return event;
   }
   const event = claimed;
-  if (!recipientResolver) throw AppError.externalService("Notification recipient resolver chưa được cấu hình");
-   const recipient = await recipientResolver(event.renterId, event.motelId);
-   if (!recipient) {
-     const [released] = await db.update(notificationEvents).set({ leaseId: null, leaseUntil: null, updatedAt: new Date() }).where(and(eq(notificationEvents.id, event.id), eq(notificationEvents.leaseId, leaseId))).returning();
-     throw AppError.notFound(released ? "Không tìm thấy người thuê" : "Không tìm thấy sự kiện thông báo");
-   }
+  const releaseLease = async (): Promise<boolean> => Boolean((await db.update(notificationEvents).set({ leaseId: null, leaseUntil: null, updatedAt: new Date() }).where(and(eq(notificationEvents.id, event.id), eq(notificationEvents.leaseId, leaseId))).returning())[0]);
+  if (!recipientResolver) {
+    await releaseLease();
+    throw AppError.externalService("Notification recipient resolver chưa được cấu hình");
+  }
+  let recipient: NotificationRecipient | undefined;
+  try {
+    recipient = await recipientResolver(event.renterId, event.motelId);
+  } catch (error) {
+    await releaseLease();
+    throw error;
+  }
+  if (!recipient) {
+    const released = await releaseLease();
+    throw AppError.notFound(released ? "Không tìm thấy người thuê" : "Không tìm thấy sự kiện thông báo");
+  }
   const transientSecret = secrets.get(event.id);
   if (Object.values(event.payload).some((value) => value === "[REDACTED]") && !transientSecret) {
     const [failedSecret] = await db.update(notificationEvents).set({ status: "failed", failureClass: "permanent", failureReason: "secret_unavailable", leaseId: null, leaseUntil: null, updatedAt: new Date() }).where(and(eq(notificationEvents.id, event.id), eq(notificationEvents.leaseId, leaseId))).returning();
