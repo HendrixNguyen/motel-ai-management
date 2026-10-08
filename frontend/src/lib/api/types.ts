@@ -255,6 +255,18 @@ export interface InvoiceGenerationResponse {
   details: { skippedRooms: Array<{ id: string; name: string }> };
 }
 
+export interface UploadResponse {
+  id: string;
+  contentType: string;
+  size: number;
+  checksum: string;
+  createdAt: string;
+}
+
+export interface CaptureUploadResponse extends UploadResponse {
+  url?: string;
+}
+
 /* -------------------------------------------------------------------------- */
 /* Renters — backend/src/modules/renter/renter.types.ts                         */
 /* -------------------------------------------------------------------------- */
