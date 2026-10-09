@@ -65,6 +65,8 @@ describe("payment proof database constraints", () => {
     const [manager] = await db.query.managers.findMany({ limit: 1 });
     const [proof] = await db.insert(paymentProofs).values({ invoiceId: invoice.id, renterId: renter.id, motelId: motel.id, objectKey: "proof/immutable", contentType: "image/jpeg", size: 10, checksum: "a", status: "rejected", reviewedAt: new Date(), reviewedByManagerId: manager!.id, rejectionReason: "Blurry" }).returning();
     await expect(db.update(paymentProofs).set({ objectKey: "proof/changed" }).where(eq(paymentProofs.id, proof!.id)).execute()).rejects.toThrow();
+    const [approved] = await db.insert(paymentProofs).values({ invoiceId: invoice.id, renterId: renter.id, motelId: motel.id, objectKey: "proof/approved-immutable", contentType: "image/png", size: 10, checksum: "b", status: "approved", reviewedAt: new Date(), reviewedByManagerId: manager!.id }).returning();
+    await expect(db.update(paymentProofs).set({ checksum: "changed" }).where(eq(paymentProofs.id, approved!.id)).execute()).rejects.toThrow();
   });
 
   test("enforces foreign keys and content metadata checks", async () => {
