@@ -265,7 +265,9 @@ describe("schema constraints", () => {
     const { renterId } = await seedRenter();
     const [otherMotel] = await db.insert(motels).values({ managerId, name: "Other", electricityPrice: "1", waterPrice: "2" }).returning();
     const [ticket] = await db.insert(helpTickets).values({ renterId, roomId, motelId, category: "facilities", description: "Mô tả sự cố đủ dài" }).returning();
-    await expect(db.execute(sql`INSERT INTO ticket_photo_uploads (ticket_id, motel_id, object_key, content_type, size, checksum) VALUES (${ticket!.id}, ${otherMotel!.id}, 'mismatch', 'image/jpeg', 3, 'checksum')`)).rejects.toThrow();
+    await expect(
+      db.execute(sql`INSERT INTO ticket_photo_uploads (ticket_id, motel_id, object_key, content_type, size, checksum) VALUES (${ticket!.id}, ${otherMotel!.id}, 'mismatch', 'image/jpeg', 3, 'checksum')`).execute(),
+    ).rejects.toThrow();
   });
 
   test("a magic link token is unique", async () => {
