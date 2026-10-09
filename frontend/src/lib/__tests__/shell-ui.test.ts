@@ -6,6 +6,11 @@ import PageHeader from "@/components/ui/page-header";
 import { ToastProvider } from "@/components/ui/toast";
 import Sidebar from "@/components/manager/sidebar";
 import TopBar from "@/components/manager/top-bar";
+import AppShell from "@/components/ui/app-shell";
+import ManagerShell from "@/components/ui/manager-shell";
+import PortalShell from "@/components/ui/portal-shell";
+import MotelSwitcher from "@/components/ui/motel-switcher";
+import BottomNav from "@/components/ui/bottom-nav";
 import LoginPage from "@/app/(auth)/login/page";
 import { MANAGER_ME, MOTEL, MOTEL_WITHOUT_EXTRAS } from "@/lib/api/__tests__/fixtures";
 
@@ -33,6 +38,21 @@ describe("accessible shell controls", () => {
     expect(html).toContain('autoComplete="current-password"');
     expect(html).toContain('type="password"');
     expect(html).toContain("Đăng nhập");
+  });
+  it("composes shell primitives with safe-area content and fixed navigation semantics", () => {
+    const html = renderToStaticMarkup(createElement(AppShell, { sidebar: createElement("aside", null, "side"), bottomNav: createElement("nav", null, "bottom"), children: createElement("main", null, "content") }));
+    expect(html).toContain("side");
+    expect(html).toContain("bottom");
+    expect(html).toContain("content");
+    expect(html).toContain("shell-safe-area");
+  });
+  it("composes manager and portal shells without owning route data", () => {
+    expect(renderToStaticMarkup(createElement(ManagerShell, { sidebar: createElement("aside"), header: createElement("header"), children: createElement("main", null, "manager") }))).toContain("manager");
+    expect(renderToStaticMarkup(createElement(PortalShell, { header: createElement("header"), children: createElement("main", null, "portal") }))).toContain("portal");
+  });
+  it("renders motel switcher and bottom nav as accessible compositions", () => {
+    expect(renderToStaticMarkup(createElement(MotelSwitcher, { motels: [MOTEL], selectedId: MOTEL.id, onChange: () => {} }))).toContain('aria-label="Nhà trọ"');
+    expect(renderToStaticMarkup(createElement(BottomNav, { children: createElement("a", { href: "/" }, "Trang chủ") }))).toContain("Trang chủ");
   });
   it("renders five destinations per navigation and preserves motel scope", () => {
     const html = renderToStaticMarkup(createElement(Sidebar));

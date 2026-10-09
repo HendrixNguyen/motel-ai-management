@@ -8,6 +8,7 @@ import type { ManagerMeResponse, MotelResponse } from "@/lib/api/types";
 import { motelHref } from "@/lib/motel-navigation";
 import Button from "@/components/ui/button";
 import ThemeSelect from "@/components/ui/theme-select";
+import MotelSwitcher from "@/components/ui/motel-switcher";
 
 export default function TopBar({ manager, motels }: { manager: ManagerMeResponse; motels: MotelResponse[] }) {
   const router = useRouter();
@@ -44,12 +45,7 @@ export default function TopBar({ manager, motels }: { manager: ManagerMeResponse
         <div className="hidden min-w-0 flex-1 lg:block"><p className="text-xs font-semibold text-text-muted">KHÔNG GIAN VẬN HÀNH</p><p className="mt-1 truncate font-heading text-lg font-semibold text-text">Theo dõi nhà trọ, hóa đơn và khách thuê</p></div>
         <div className="min-w-0 flex-1 lg:max-w-sm">
           <label htmlFor="motel-selector" className="mb-2 block text-sm font-semibold text-text">Nhà trọ</label>
-          <select id="motel-selector" value={selected ?? ""} disabled={motels.length === 0 || switching}
-            onChange={(event) => { const id = event.target.value; startTransition(() => router.replace(motelHref(pathname, search, id))); }}
-            className="min-h-11 w-full rounded-input border border-border-strong bg-surface px-3 text-base text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:opacity-60">
-            {motels.length === 0 && <option value="">Chưa có nhà trọ</option>}
-            {motels.map((motel) => <option key={motel.id} value={motel.id}>{motel.name}</option>)}
-          </select>
+           <MotelSwitcher motels={motels} selectedId={selected} disabled={switching} onChange={(id) => startTransition(() => router.replace(motelHref(pathname, search, id)))} />
         </div>
         <details className="relative shrink-0 lg:ml-auto">
           <summary aria-label="Menu phụ, Tài khoản" className="flex min-h-11 cursor-pointer items-center rounded-input border border-border-strong px-3 text-sm font-semibold text-text hover:bg-canvas focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">
