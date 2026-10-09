@@ -5,8 +5,9 @@ export function getTablePage<T>({ rows, searchText, query = "", sortValue, direc
   rows: readonly T[]; searchText?: (row: T) => string; query?: string;
   sortValue?: (row: T) => SortValue; direction?: "asc" | "desc"; page?: number; pageSize?: number;
 }) {
-  const term = query.trim().toLocaleLowerCase("vi-VN");
-  const filtered = rows.filter((row) => !term || !searchText || searchText(row).toLocaleLowerCase("vi-VN").includes(term));
+  const fold = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/đ/g, "d").replace(/Đ/g, "D").toLocaleLowerCase("vi-VN");
+  const term = fold(query.trim());
+  const filtered = rows.filter((row) => !term || !searchText || fold(searchText(row)).includes(term));
   if (sortValue) filtered.sort((a, b) => {
     const left = sortValue(a), right = sortValue(b);
     const comparison = typeof left === "string" && typeof right === "string" ? left.localeCompare(right, "vi-VN", { numeric: true }) : left < right ? -1 : left > right ? 1 : 0;
