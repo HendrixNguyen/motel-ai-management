@@ -1,4 +1,4 @@
-import { check, index, integer, pgEnum, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import { check, foreignKey, index, integer, pgEnum, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { invoices } from "@/modules/billing/billing.schema";
 import { managers } from "@/modules/auth/auth.schema";
@@ -11,7 +11,7 @@ export const paymentProofs = pgTable(
   "payment_proofs",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    invoiceId: uuid("invoice_id").notNull().references(() => invoices.id),
+    invoiceId: uuid("invoice_id").notNull(),
     renterId: uuid("renter_id").notNull().references(() => renters.id),
     motelId: uuid("motel_id").notNull().references(() => motels.id),
     objectKey: text("object_key").notNull(),
@@ -25,6 +25,7 @@ export const paymentProofs = pgTable(
     rejectionReason: text("rejection_reason"),
   },
   (t) => [
+    foreignKey({ columns: [t.invoiceId, t.renterId, t.motelId], foreignColumns: [invoices.id, invoices.renterId, invoices.motelId], name: "payment_proofs_invoice_ownership_fk" }),
     index("payment_proofs_invoice_id_idx").on(t.invoiceId),
     index("payment_proofs_renter_id_idx").on(t.renterId),
     index("payment_proofs_motel_id_idx").on(t.motelId),
@@ -33,7 +34,7 @@ export const paymentProofs = pgTable(
     check("payment_proofs_content_type_check", sql`${t.contentType} in ('image/jpeg', 'image/png')`),
     check("payment_proofs_size_check", sql`${t.size} between 1 and 10485760`),
     check("payment_proofs_checksum_check", sql`length(trim(${t.checksum})) > 0`),
-    check("payment_proofs_review_state_check", sql`(${t.status} = 'pending' and ${t.reviewedAt} is null and ${t.reviewedByManagerId} is null) or (${t.status} in ('approved', 'rejected') and ${t.reviewedAt} is not null and ${t.reviewedByManagerId} is not null)`),
+    check("payment_proofs_review_state_check", sql`(${t.status} = 'pending' and ${t.reviewedAt} is null and ${t.reviewedByManagerId} is null and ${t.rejectionReason} is null) or (${t.status} = 'approved' and ${t.reviewedAt} is not null and ${t.reviewedByManagerId} is not null and ${t.rejectionReason} is null) or (${t.status} = 'rejected' and ${t.reviewedAt} is not null and ${t.reviewedByManagerId} is not null and length(trim(${t.rejectionReason})) > 0)`),
   ],
 );
 

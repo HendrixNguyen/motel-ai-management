@@ -115,6 +115,8 @@ export const invoices = pgTable(
     index("invoices_renter_id_idx").on(t.renterId),
     index("invoices_motel_id_idx").on(t.motelId),
     // One invoice per room per period. Regeneration replaces the row.
-    uniqueIndex("invoices_period_room_uq").on(t.billingPeriodId, t.roomId),
+     uniqueIndex("invoices_period_room_uq").on(t.billingPeriodId, t.roomId),
+     uniqueIndex("invoices_id_renter_motel_uq").on(t.id, t.renterId, t.motelId),
+
   ],
 );
