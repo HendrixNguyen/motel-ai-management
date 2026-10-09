@@ -47,9 +47,9 @@ test("missing login fields are described inline before a request is made", async
 test("switching motel preserves the pathname and other search parameters", async ({ page, context }) => {
   await signIn(context);
   await page.goto(`/rooms?motel=${MOTEL.id}&status=available`);
-  await page.getByLabel("Nhà trọ", { exact: true }).selectOption(MOTEL_WITHOUT_EXTRAS.id);
+  await page.getByRole("combobox", { name: "Nhà trọ", exact: true }).selectOption(MOTEL_WITHOUT_EXTRAS.id);
   await expect(page).toHaveURL(`/rooms?motel=${MOTEL_WITHOUT_EXTRAS.id}&status=available`);
-  await expect(page.getByLabel("Nhà trọ", { exact: true })).toHaveValue(MOTEL_WITHOUT_EXTRAS.id);
+  await expect(page.getByRole("combobox", { name: "Nhà trọ", exact: true })).toHaveValue(MOTEL_WITHOUT_EXTRAS.id);
   await page.getByRole("navigation", { name: "Điều hướng chính trên điện thoại" }).getByRole("link", { name: "Khách thuê" }).click();
   await expect(page).toHaveURL(`/renters?motel=${MOTEL_WITHOUT_EXTRAS.id}`);
 });
@@ -78,7 +78,7 @@ test("manager without motels can reach the shell without redirecting in a loop",
   await signIn(context, "no-motels");
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "Tổng quan", exact: true })).toBeVisible();
-  await expect(page.getByLabel("Nhà trọ", { exact: true })).toBeDisabled();
+  await expect(page.getByRole("combobox", { name: "Nhà trọ", exact: true })).toBeDisabled();
   await expect(page).toHaveURL("/");
 });
 
