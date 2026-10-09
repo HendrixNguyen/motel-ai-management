@@ -122,7 +122,7 @@ test("confirm dialog cancels, closes on Escape, and exposes pending confirmation
   await trigger.click();
   const dialog = page.getByRole("dialog", { name: "Xóa phòng" });
   await expect(dialog).toBeVisible();
-  await dialog.getByRole("button", { name: "Hủy", exact: true }).click();
+  await dialog.getByRole("button", { name: "Hủy", exact: true }).press("Enter");
   await expect(dialog).toBeHidden();
   await expect(trigger).toBeFocused();
   await trigger.click();
@@ -130,7 +130,7 @@ test("confirm dialog cancels, closes on Escape, and exposes pending confirmation
   await expect(dialog).toBeHidden();
   await expect(trigger).toBeFocused();
   await trigger.click();
-  await dialog.getByRole("button", { name: "Xác nhận", exact: true }).click();
+  await dialog.getByRole("button", { name: "Xác nhận", exact: true }).press("Enter");
   await expect(dialog.getByRole("button", { name: "Đang xử lý…", exact: true })).toBeDisabled();
   await expect(dialog).toBeVisible();
 });
