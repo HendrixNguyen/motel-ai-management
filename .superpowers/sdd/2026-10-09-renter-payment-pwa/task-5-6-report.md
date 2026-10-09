@@ -11,13 +11,15 @@ Scope: requested local regression reruns and fixes only; no QA or production acc
 
 ## Changes
 
-- `backend/src/shared/magic-link.ts`: reject an issued link when linked renter is missing or inactive. This is backed by failing test and existing renter-auth middleware active-status rule.
+- `backend/src/shared/magic-link.ts`: reject an issued link when linked renter is missing or inactive with generic `MAGIC_LINK_EXPIRED`; inactive renter cannot reach session signing/cookie creation.
+- `backend/src/test/renter-auth.test.ts`: assert inactive renter exchange returns generic `MAGIC_LINK_EXPIRED` and sets no `renter_session` cookie. Removing the inactive-status guard caused test command to fail before restoring the guard.
 - `backend/src/test/renter-portal.test.ts`: use `http://localhost` absolute URLs for invoice own/foreign requests and logout, as planned.
 - `docs/superpowers/plans/2026-10-09-renter-payment-pwa.md`: record Task 5 not executed; record bounded Task 6 status and evidence.
 
 ## Verification
 
-- `cd backend && bun test src/test/renter-auth.test.ts`: 8 pass, 0 fail, 15 expect calls.
+- `cd backend && bun test src/test/renter-auth.test.ts`: 8 pass, 0 fail, 16 expect calls.
+- `cd backend && bun run typecheck`: blocked by existing `src/test/payment-proof-schema.test.ts:82:90` TS2345 (`"approved" | "rejected"` is not assignable to `never`); unrelated to renter auth changes.
 - `cd backend && bun test src/test/renter-portal.test.ts`: 5 pass, 0 fail, 27 expect calls.
 
 Task 5 implementation was not performed or claimed. Task 6's wider proof-read, push-subscription, and expired-link requirements remain unverified; only requested regression scope completed.
