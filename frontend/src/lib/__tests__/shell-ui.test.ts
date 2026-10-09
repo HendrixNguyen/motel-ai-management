@@ -54,12 +54,15 @@ describe("accessible shell controls", () => {
     expect(renderToStaticMarkup(createElement(MotelSwitcher, { motels: [MOTEL], selectedId: MOTEL.id, onChange: () => {} }))).toContain('aria-label="Nhà trọ"');
     expect(renderToStaticMarkup(createElement(BottomNav, { children: createElement("a", { href: "/" }, "Trang chủ") }))).toContain("Trang chủ");
   });
-  it("keeps compact navigation labels short while preserving accessible names and scoped links", () => {
+  it("keeps compact billing navigation scoped and fully labelled while desktop keeps full text", () => {
     const html = renderToStaticMarkup(createElement(Sidebar));
-    expect(html).toContain('aria-label="Tính tiền &amp; Hóa đơn"');
-    expect(html).toContain("Hóa đơn");
+    const compactNav = html.match(/<div aria-label="Điều hướng gọn trên điện thoại"[^>]*>([\s\S]*?)<\/div><\/nav>/)?.[1];
+    expect(compactNav).toBeDefined();
+    expect(compactNav).toContain(`href="/billing?motel=${MOTEL_WITHOUT_EXTRAS.id}"`);
+    expect(compactNav).toContain('aria-label="Tính tiền &amp; Hóa đơn"');
+    expect(compactNav).toContain(">Hóa đơn<");
+    expect(html).toMatch(/<nav aria-label="Điều hướng chính"[\\s\\S]*?Tính tiền &amp; Hóa đơn[\\s\\S]*?<\\/nav>/);
     expect(html).toContain("class=\"fixed inset-x-0 bottom-0");
-    expect(html).toContain(`href="/billing?motel=${MOTEL_WITHOUT_EXTRAS.id}"`);
   });
   it("renders five destinations per navigation and preserves motel scope", () => {
     const html = renderToStaticMarkup(createElement(Sidebar));

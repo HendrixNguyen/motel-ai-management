@@ -28,3 +28,5 @@
 - Exact Playwright blocker: `error while loading shared libraries: libnspr4.so` and ~16 more (`libnss3`, `libatk-1.0`, `libgbm`, `libasound`, the `libX*` set).
 - Viewport verification limitation: 360/375/430 cannot be measured until Playwright browser dependencies are installed. Existing CSS uses responsive/fixed layout and unit coverage confirms required shell classes only.
 - Frontend-only changes; backend files were not modified.
+- Added regression assertion that billing link and full `aria-label` stay inside compact mobile nav subtree; desktop nav keeps `Tính tiền & Hóa đơn`.
+- Focused test command unavailable: `bun: command not found`.
