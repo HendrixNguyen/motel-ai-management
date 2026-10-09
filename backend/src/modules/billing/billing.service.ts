@@ -86,12 +86,12 @@ export async function createBillingPeriod(motelId: string, managerId: string, in
 }
 
 export async function getBillingPeriod(periodId: string, motelId: string, managerId: string): Promise<BillingPeriodDetailResponse> {
-  await resolveOwnedMotel(motelId, managerId);
+  const motel = await resolveOwnedMotel(motelId, managerId);
   const period = await db.query.billingPeriods.findFirst({ where: and(eq(billingPeriods.id, periodId), eq(billingPeriods.motelId, motelId)) });
   if (!period) throw AppError.notFound("Không tìm thấy kỳ hóa đơn");
   const rooms = await listRoomsForBilling(motelId);
   const readings = await db.query.meterReadings.findMany({ where: eq(meterReadings.billingPeriodId, periodId), orderBy: [asc(meterReadings.type), asc(meterReadings.id)] });
-  return { ...periodResponse(period), rooms: rooms.map((room) => ({ ...room, readings: readings.filter((reading) => reading.roomId === room.id).map((reading) => ({ id: reading.id, roomId: reading.roomId, type: reading.type, previousReading: reading.previousReading, currentReading: reading.currentReading, readingDate: reading.readingDate, updatedAt: reading.updatedAt.toISOString() })) })) };
+  return { ...periodResponse(period), electricityPrice: motel.electricityPrice, waterPrice: motel.waterPrice, rooms: rooms.map((room) => ({ ...room, readings: readings.filter((reading) => reading.roomId === room.id).map((reading) => ({ id: reading.id, roomId: reading.roomId, type: reading.type, previousReading: reading.previousReading, currentReading: reading.currentReading, readingDate: reading.readingDate, updatedAt: reading.updatedAt.toISOString() })) })) };
 }
 
 export async function updateMeterReadings(periodId: string, motelId: string, managerId: string, input: UpdateReadingsInput): Promise<MeterReadingResponse[]> {

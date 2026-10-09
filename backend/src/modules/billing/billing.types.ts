@@ -1,6 +1,6 @@
 export type BillingPeriodResponse = { id: string; motelId: string; month: number; year: number; status: "draft" | "sent" | "closed"; createdAt: string };
 export type MeterReadingResponse = { id: string; roomId: string; type: "electric" | "water"; previousReading: string; currentReading: string | null; readingDate: string | null; updatedAt: string };
-export type BillingPeriodDetailResponse = BillingPeriodResponse & { rooms: Array<{ id: string; name: string; readings: MeterReadingResponse[] }> };
+export type BillingPeriodDetailResponse = BillingPeriodResponse & { electricityPrice: string; waterPrice: string; rooms: Array<{ id: string; name: string; readings: MeterReadingResponse[] }> };
 export type CreateBillingPeriodInput = { month: number; year: number };
 export type UpdateReadingInput = { roomId: string; type: "electric" | "water"; currentReading: string; photoUrl?: string | null; expectedUpdatedAt: string };
 export type UpdateReadingsInput = { readings: UpdateReadingInput[] };
