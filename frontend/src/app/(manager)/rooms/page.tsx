@@ -46,7 +46,7 @@ export default async function Rooms({ searchParams }: { searchParams: Promise<Mo
        </Card>
       : <RoomEditor key={motelId} motelId={motelId} empty />
       : <div className="grid min-w-0 gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {rooms.map((room) => <article key={room.id} aria-labelledby={`room-${room.id}`} className="flex min-w-0 flex-col rounded-card border border-border bg-surface p-4 sm:p-6">
+        {rooms.map((room) => <Card as="article" key={room.id} aria-labelledby={`room-${room.id}`} className="flex flex-col p-4 sm:p-6">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <h2 id={`room-${room.id}`} className="min-w-0 font-heading text-lg font-semibold text-text [overflow-wrap:anywhere]">{room.name}</h2>
             <Badge tone={statusTone[room.status]} label={roomStatusLabel(room.status)} />
@@ -64,7 +64,7 @@ export default async function Rooms({ searchParams }: { searchParams: Promise<Mo
             <RoomEditor motelId={motelId} room={room} />
             <Link href={`/renters?${new URLSearchParams({ motel: motelId, roomId: room.id })}`} className="inline-flex min-h-11 items-center rounded-input px-3 font-semibold text-primary underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">Xem khách thuê</Link>
           </div>
-        </article>)}
+         </Card>)}
       </div>}
   </section>;
 }

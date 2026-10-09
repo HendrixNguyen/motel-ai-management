@@ -17,4 +17,8 @@ Added `frontend/src/components/ui/__tests__/migration-states.test.tsx` covering 
 
 ## Notes
 
-Unrelated worktree changes were left untouched. Full portal/capture/contracts migration remains outside this incremental pass because existing screens depend on their current client workflows and fixture contracts.
+Review fixes: empty motel CTA now uses working `MotelEditor empty`; `EmptyState` action is optional; motel and room cards use shared `Card` with semantic `article`; dark-mode migration test asserts CSS semantic tokens.
+
+Payment backend/schema/module and Task 6 report changes were removed from Task 7 scope through dedicated revert commits `604526d`, `924d9ce`, `cd6b569`, and `5f23d90`. Existing unrelated worktree changes remain untouched. Full portal/capture/contracts migration remains outside this incremental pass because existing screens depend on their current client workflows and fixture contracts.
+
+Post-fix verification: 13 targeted tests passed; frontend typecheck and targeted ESLint passed.
