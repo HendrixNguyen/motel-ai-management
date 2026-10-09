@@ -2,6 +2,7 @@ import { Elysia, t } from "elysia";
 import { cookie } from "@elysiajs/cookie";
 import { renterAuth, requireRenterAuth } from "@/middleware/renter-auth";
 import { managerAuth } from "@/middleware/manager-auth";
+import { enforceRateLimit } from "@/shared/rate-limit";
 import { submitPaymentProof, getRenterPaymentProof, getManagerPaymentProof, approvePaymentProof, rejectPaymentProof, confirmCashPayment } from "./payment.service";
 
 const renterParams = t.Object({ invoiceId: t.String({ format: "uuid" }) });
@@ -12,7 +13,7 @@ export const paymentRoutes = new Elysia({ name: "payment-routes" })
   .use(cookie())
   .group("", (group) => group
     .use(renterAuth)
-    .post("/renter/invoices/:invoiceId/payment-proof", async ({ params, body, auth, set }) => { const result = await submitPaymentProof(requireRenterAuth(auth), params.invoiceId, body as File); set.status = 201; return result; }, { params: renterParams, body: t.File({ type: ["image/jpeg", "image/png"], maxSize: "10m" }) })
+    .post("/renter/invoices/:invoiceId/payment-proof", async ({ params, body, auth, set, request }) => { await enforceRateLimit(`payment-upload:ip:${request.headers.get("x-forwarded-for") ?? "unknown"}`, 30); await enforceRateLimit(`payment-upload:invoice:${params.invoiceId}`, 5); const result = await submitPaymentProof(requireRenterAuth(auth), params.invoiceId, body as File); set.status = 201; return result; }, { params: renterParams, body: t.File({ type: ["image/jpeg", "image/png"], maxSize: "10m" }) })
     .get("/renter/invoices/:invoiceId/payment-proof", async ({ params, auth, set }) => { const result = await getRenterPaymentProof(requireRenterAuth(auth), params.invoiceId); if (!result) set.status = 404; return result; }, { params: renterParams })
   )
   .group("", (group) => group

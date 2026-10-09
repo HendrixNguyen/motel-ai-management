@@ -38,9 +38,14 @@ export async function submitPaymentProof(session: RenterAuthPayload, invoiceId: 
   let stored: Awaited<ReturnType<StorageAdapter["put"]>>;
   try { await validateStorageInput({ objectKey, body: bytes, contentType }); stored = await paymentStorage.put({ objectKey, body: bytes, contentType }); } catch (error) { if (error instanceof StorageError) throw AppError.badRequest(error.message); throw AppError.externalService(); }
   try {
-    const [row] = await db.insert(paymentProofs).values({ invoiceId, renterId: session.renterId, motelId: session.motelId, objectKey: stored.objectKey, contentType: stored.contentType, size: stored.size, checksum: stored.checksum }).returning();
-    if (!row) throw AppError.externalService();
-    await enqueueNotification({ eventKey: `invoice:${invoiceId}:proof:${row.id}:submitted`, renterId: row.renterId, motelId: row.motelId, templateId: "paymentProofSubmitted", payload: { invoiceId } }).catch(() => undefined);
+    const row = await db.transaction(async (tx) => {
+      const locked = await tx.execute(sql`select id from invoices where id = ${invoiceId} and motel_id = ${session.motelId} and payment_status <> 'paid' for update`);
+      if (!locked.length) throw AppError.conflict("Hóa đơn đã thanh toán");
+      const [created] = await tx.insert(paymentProofs).values({ invoiceId, renterId: session.renterId, motelId: session.motelId, objectKey: stored.objectKey, contentType: stored.contentType, size: stored.size, checksum: stored.checksum }).returning();
+      if (!created) throw AppError.externalService();
+      await enqueueNotification({ eventKey: `invoice:${invoiceId}:proof:${created.id}:submitted`, renterId: created.renterId, motelId: created.motelId, templateId: "paymentProofSubmitted", payload: { invoiceId } }, tx);
+      return created;
+    });
     return response(row);
   } catch (error) { await paymentStorage.delete(stored.objectKey).catch(() => undefined); if ((error as { code?: string }).code === "23505") throw AppError.conflict("Hóa đơn đã có chứng từ"); throw error; }
 }
@@ -79,7 +84,7 @@ export async function approvePaymentProof(managerId: string, motelId: string, in
   const [updated] = await db.update(paymentProofs).set({ status: "approved", reviewedAt: new Date(), reviewedByManagerId: managerId }).where(and(eq(paymentProofs.id, proof.id), eq(paymentProofs.status, "pending"))).returning();
   if (!updated) throw AppError.conflict("Chứng từ đã được xử lý");
   const invoice = await settleInvoicePayment(invoiceId, motelId, managerId, "bank_transfer", updated.id);
-  await enqueueNotification({ eventKey: `invoice:${invoiceId}:proof:${updated.id}:approved`, renterId: invoice.renterId, motelId, templateId: "paymentConfirmed", payload: { invoiceId, totalAmount: invoice.totalAmount } }).catch(() => undefined);
+  await enqueueNotification({ eventKey: `invoice:${invoiceId}:proof:${updated.id}:approved`, renterId: invoice.renterId, motelId, templateId: "paymentConfirmed", payload: { invoiceId, totalAmount: invoice.totalAmount } });
   return { invoiceId, paymentStatus: invoice.paymentStatus, paidAt: invoice.paidAt, paymentMethod: "bank_transfer" as const };
 }
 
@@ -91,7 +96,7 @@ export async function rejectPaymentProof(managerId: string, motelId: string, inv
   if (!proof) throw AppError.conflict("Không có chứng từ chờ duyệt");
   const [updated] = await db.update(paymentProofs).set({ status: "rejected", reviewedAt: new Date(), reviewedByManagerId: managerId, rejectionReason: clean }).where(and(eq(paymentProofs.id, proof.id), eq(paymentProofs.status, "pending"))).returning();
   if (!updated) throw AppError.conflict("Chứng từ đã được xử lý");
-  await enqueueNotification({ eventKey: `invoice:${invoiceId}:proof:${updated.id}:rejected`, renterId: updated.renterId, motelId, templateId: "paymentProofRejected", payload: { invoiceId, reason: clean } }).catch(() => undefined);
+  await enqueueNotification({ eventKey: `invoice:${invoiceId}:proof:${updated.id}:rejected`, renterId: updated.renterId, motelId, templateId: "paymentProofRejected", payload: { invoiceId, reason: clean } });
   return response(updated);
 }
 
@@ -99,6 +104,6 @@ export async function confirmCashPayment(managerId: string, motelId: string, inv
   await enforceRateLimit(`payment-review:manager:${managerId}`, 30);
   const invoice = await managerInvoice(managerId, motelId, invoiceId);
   const result = await settleInvoicePayment(invoice.id, motelId, managerId, "cash");
-  await enqueueNotification({ eventKey: `invoice:${invoiceId}:cash-confirmed`, renterId: result.renterId, motelId, templateId: "paymentConfirmed", payload: { invoiceId, totalAmount: result.totalAmount } }).catch(() => undefined);
+  await enqueueNotification({ eventKey: `invoice:${invoiceId}:cash-confirmed`, renterId: result.renterId, motelId, templateId: "paymentConfirmed", payload: { invoiceId, totalAmount: result.totalAmount } });
   return { invoiceId, paymentStatus: result.paymentStatus, paidAt: result.paidAt, paymentMethod: "cash" as const };
 }
