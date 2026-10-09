@@ -65,6 +65,13 @@ describe("parseEnv", () => {
     expect(env.zalo.templates.bill).toBe("PLACEHOLDER");
   });
 
+  test("requires complete production database URLs", () => {
+    const production = { ...valid, NODE_ENV: "production", RENTER_PORTAL_URL: "https://renter.example.com", FRONTEND_URL: "https://app.example.com", MANAGER_JWT_SECRET: "a".repeat(48), RENTER_SESSION_SECRET: "b".repeat(48), ZALO_OA_SECRET: "d".repeat(48), ZALO_ACCESS_TOKEN: "e".repeat(48), ZALO_WEBHOOK_SECRET: "c".repeat(48), R2_ACCESS_KEY_ID: "f".repeat(48), R2_SECRET_ACCESS_KEY: "g".repeat(48) };
+    const { DATABASE_URL, ...missing } = production;
+    expect(() => parseEnv(missing)).toThrow(/DATABASE_URL/);
+    expect(parseEnv({ ...production, DATABASE_URL: "postgres://user:p%40ss%23@db/motel", TEST_DATABASE_URL: "postgres://test:p%40ss%23@db/test" }).databaseUrl).toContain("%40");
+  });
+
   test("rejects URL paths consistently", () => {
     expect(() => parseEnv({ ...valid, RENTER_PORTAL_URL: "http://localhost:3000/renter" })).toThrow(/path/);
     expect(() => parseEnv({ ...valid, FRONTEND_URL: "http://localhost:3001?next=login" })).toThrow(/path/);

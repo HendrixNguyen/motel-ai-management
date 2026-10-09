@@ -7,7 +7,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
       POSTGRES_DB: ${POSTGRES_DB:-motel}
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d motel"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -21,8 +21,8 @@ services:
       dockerfile: Dockerfile
     command: ["bun", "run", "start:migration-job"]
     environment:
-      DATABASE_URL: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@postgres:5432/${POSTGRES_DB:-motel}
-      TEST_DATABASE_URL: postgres://unused:unused@127.0.0.1:1/unused
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
+      TEST_DATABASE_URL: ${TEST_DATABASE_URL:?TEST_DATABASE_URL is required}
       NODE_ENV: production
       MANAGER_JWT_SECRET: ${MANAGER_JWT_SECRET:?MANAGER_JWT_SECRET is required}
       RENTER_SESSION_SECRET: ${RENTER_SESSION_SECRET:?RENTER_SESSION_SECRET is required}
@@ -48,8 +48,8 @@ services:
     ports:
       - "3000:3000"
     environment:
-      DATABASE_URL: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@postgres:5432/${POSTGRES_DB:-motel}
-      TEST_DATABASE_URL: postgres://unused:unused@127.0.0.1:1/unused
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
+      TEST_DATABASE_URL: ${TEST_DATABASE_URL:?TEST_DATABASE_URL is required}
       NODE_ENV: production
       MANAGER_JWT_SECRET: ${MANAGER_JWT_SECRET:?MANAGER_JWT_SECRET is required}
       RENTER_SESSION_SECRET: ${RENTER_SESSION_SECRET:?RENTER_SESSION_SECRET is required}

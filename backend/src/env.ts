@@ -85,6 +85,8 @@ function validateProductionSecrets(input: Record<string, string | undefined>, ke
 }
 
 export function validateProductionConfig(input: Record<string, string | undefined>): void {
+  required(input, "DATABASE_URL");
+  required(input, "TEST_DATABASE_URL");
   validateProductionSecrets(input, [
     "MANAGER_JWT_SECRET",
     "RENTER_SESSION_SECRET",
