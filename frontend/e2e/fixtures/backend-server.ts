@@ -9,6 +9,7 @@ export function createFixtureBackend(onMissingFixture: (failure: Error) => void 
 }) {
   const states = new Map<string, { motels: MotelResponse[]; rooms: RoomResponse[]; renters: RenterResponse[] }>();
   const signedRenters = new Map<string, string>();
+  const exchangedTokens = new Set<string>();
   const stateFor = (session: string) => {
     if (!states.has(session)) states.set(session, {
       motels: session.startsWith("no-motels") ? [] : structuredClone([MOTEL, MOTEL_WITHOUT_EXTRAS]),
@@ -42,7 +43,14 @@ export function createFixtureBackend(onMissingFixture: (failure: Error) => void 
       if (method === "POST" && path === "/api/auth/logout") {
         response.writeHead(204, { "set-cookie": "manager_session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0" }); return response.end();
       }
-      if (method === "POST" && path === "/api/renter/magic-links/exchange") { const body = await input<{ token: string }>(); if (body.token === "expired-token") return error(401, "MAGIC_LINK_EXPIRED", "Liên kết đã hết hạn"); response.setHeader("set-cookie", "renter_session=fixture; Path=/; HttpOnly; SameSite=Lax"); return json({ renterId: "renter", motelId: "motel" }); }
+      if (method === "POST" && path === "/api/renter/magic-links/exchange") {
+        const body = await input<{ token: string }>();
+        if (body.token === "expired-token") return error(401, "MAGIC_LINK_EXPIRED", "Liên kết đã hết hạn");
+        if (body.token === "invalid-token") return error(401, "UNAUTHORIZED", "Liên kết không hợp lệ");
+        if (exchangedTokens.has(body.token)) return error(401, "MAGIC_LINK_EXPIRED", "Liên kết đã hết hạn");
+        exchangedTokens.add(body.token);
+        response.setHeader("set-cookie", "renter_session=fixture; Path=/; HttpOnly; SameSite=Lax"); return json({ renterId: "renter", motelId: "motel" });
+      }
       if (path.startsWith("/api/renter/")) {
         if (path === "/api/renter/logout" && method === "POST") { response.writeHead(204, { "set-cookie": "renter_session=; Path=/; Max-Age=0" }); return response.end(); }
         if (path === "/api/renter/me") return json({ id: "renter", name: "An", phone: "84901234567", room: { id: "room", name: "P.101", floor: 1 }, motel: { id: "motel", name: "Nhà trọ Minh Anh" }, activeContract: null });

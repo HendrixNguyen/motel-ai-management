@@ -1,9 +1,9 @@
 # Full-Flow Verification Plan
 
 - **Date:** 2026-10-08
-- **Status:** Task 9 delivery gate
+- **Status:** Task 9 delivery gate; fixture E2E audit update
 - **Owner:** QA/engineering
-- **Scope:** Complete manager, capture, billing, renter payment portal, contract, private upload, and notification fallback flows
+- **Scope:** Implemented manager login → magic-link exchange → renter portal read flow, recovery states, and responsive keyboard checks; remaining payment-proof/provider flows stay blocked until routes exist
 
 ## Exit rule
 
@@ -73,9 +73,9 @@ Release is green only when all required backend files, frontend unit tests, fixt
 3. Reuse token; reject with `MAGIC_LINK_EXPIRED`.
 4. Expired token/session; show safe recovery state.
 5. Renter sees only own profile, room, periods, invoices, itemized amounts, QR, and payment status.
-6. Submit exactly one valid JPEG/PNG proof under 10 MB; reject missing/multiple files, bad bytes/MIME, and oversized files with `VALIDATION_ERROR`.
-7. Pending or approved proof blocks duplicate upload; manager rejection preserves immutable proof history and permits one replacement current proof; approval marks invoice paid with `paymentMethod=bank_transfer`.
-8. Cash confirmation marks invoice paid with `paymentMethod=cash`; renter has no paid mutation.
+6. **Blocked gap:** no implemented payment-proof upload route exists, so no E2E test is added for proof upload, validation, replacement, or approval.
+7. **Blocked gap:** no implemented cash-confirmation route exists, so no E2E test is added for cash payment or renter paid-mutation denial.
+8. Renter portal read remains covered by fixture E2E: profile, billing period, invoice summary/detail, QR payload, and payment status.
 9. Renter B requests Renter A invoice/proof/subscription; response is `404` with no data leak.
 10. Register/revoke own push subscription; test push success, denied permission, permanent failure, bounded retry, and ZNS/ZBS fallback without secret leakage; SMS is not exercised in MVP.
 11. Responsive checks at 360px, 375px, 430px and keyboard-only navigation.
@@ -168,9 +168,10 @@ Use actual filenames after implementation; missing required test file blocks com
 Add:
 
 - `e2e/capture.spec.ts`: offline entry, reload persistence, reconnect sync, conflict.
-- `e2e/renter-portal.spec.ts`: exchange, invoice QR, contract OTP, ticket form, expiry.
+- `e2e/renter-portal.spec.ts`: invoice QR, ticket form, expiry.
 - `e2e/zalo-failure.spec.ts`: disabled/deferred states, retry/error banners, no secret text.
-- `e2e/full-flow.spec.ts`: manager setup → billing → renter portal fixture journey.
+- `e2e/full-flow.spec.ts`: manager login → one-time magic-link exchange → portal read, replay/expired/invalid recovery, 430px overflow, and keyboard submission.
+- Payment-proof upload, approval, and cash-confirmation E2E remain blocked because corresponding product routes are not implemented.
 
 Run:
 

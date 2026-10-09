@@ -1,4 +1,43 @@
 import { expect, test } from "@playwright/test";
+import { MANAGER_ME } from "../src/lib/api/__tests__/fixtures";
+
+test("manager login, magic-link exchange, portal read flow works at 430px", async ({ page, context }) => {
+  await page.setViewportSize({ width: 430, height: 800 });
+  await page.goto("/login");
+  await page.getByLabel("Email", { exact: true }).fill(MANAGER_ME.email);
+  await page.getByLabel("Mật khẩu", { exact: true }).fill("password123");
+  await page.getByRole("button", { name: "Đăng nhập", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Tổng quan", exact: true })).toBeVisible();
+  expect((await context.cookies()).find((cookie) => cookie.name === "manager_session")?.httpOnly).toBe(true);
+
+  await context.clearCookies();
+  await page.goto("/r/flow-token");
+  await expect(page).toHaveURL("/portal");
+  expect((await context.cookies()).find((cookie) => cookie.name === "renter_session")?.httpOnly).toBe(true);
+  await expect(page.getByRole("heading", { name: "Hóa đơn của tôi" })).toBeVisible();
+  await expect(page.getByText("Tháng 10/2026")).toBeVisible();
+  await expect(page.getByText("Nhà trọ Minh Anh · P.101")).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});
+
+test("magic-link exchange supports keyboard submission and rejects replay", async ({ page }) => {
+  await page.goto("/renter");
+  await page.getByLabel("Mã liên kết").fill("keyboard-token");
+  await page.getByLabel("Mã liên kết").press("Tab");
+  await expect(page.getByRole("button", { name: "Đăng nhập", exact: true })).toBeFocused();
+  await page.getByRole("button", { name: "Đăng nhập", exact: true }).press("Enter");
+  await expect(page).toHaveURL("/portal");
+
+  await page.context().clearCookies();
+  await page.goto("/r/keyboard-token");
+  await expect(page.locator('section[role="alert"]')).toContainText("Liên kết đã hết hạn");
+});
+
+test("invalid magic-link shows recovery state without leaking internals", async ({ page }) => {
+  await page.goto("/r/invalid-token");
+  await expect(page.locator('section[role="alert"]')).toContainText("Liên kết không hợp lệ");
+  await expect(page.locator('section[role="alert"]')).not.toContainText(/token|secret|private|host/i);
+});
 
 test("full flow covers capture save, invoice QR, OTP contract, payment state, and ticket", async ({ page }) => {
   await page.context().addCookies([{ name: "manager_session", value: "capture-session", domain: "localhost", path: "/" }]);

@@ -182,8 +182,12 @@ CCCD URL conditions and safe image attributes. Magic-link tests exercise the rea
 bodyless relative POST, returned URL, coalesced requests, retry and safe 401/404/429/5xx/network
 errors. `e2e/renters.spec.ts` covers room-filter navigation/reload, 360px stacked rows,
 keyboard generation/copy, disabled pending actions, focused retryable errors and expired
-sessions. Its RSC fixtures match current null-contract/empty-invoice responses. Browser
-execution is required to verify these interactions and responsive behavior.
+sessions. `e2e/full-flow.spec.ts` covers manager login, one-time exchange, portal profile and
+invoice reads at 430px, keyboard submission, replay rejection, expired-token recovery, and
+invalid-link recovery without internal-error leakage. Its RSC fixtures match current
+null-contract/empty-invoice responses. Browser execution is required to verify these
+interactions and responsive behavior. Payment-proof and cash-confirmation E2E are blocked:
+no corresponding frontend/API routes exist yet.
 
 `e2e/component-kit.spec.ts` bundles `e2e/fixtures/component-kit.tsx` with Bun and serves its HTML
 through a Playwright route interception. There is no component gallery route in the product. Run
