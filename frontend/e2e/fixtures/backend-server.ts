@@ -9,6 +9,11 @@ export function createFixtureBackend(onMissingFixture: (failure: Error) => void 
 }) {
   const states = new Map<string, { motels: MotelResponse[]; rooms: RoomResponse[]; renters: RenterResponse[] }>();
   const signedRenters = new Map<string, string>();
+  const magicLinks = new Map([
+    ["flow-token", { expiresAt: Date.now() + 60 * 60 * 1000 }],
+    ["keyboard-token", { expiresAt: Date.now() + 60 * 60 * 1000 }],
+    ["expired-token", { expiresAt: Date.now() - 60 * 60 * 1000 }],
+  ]);
   const exchangedTokens = new Set<string>();
   const stateFor = (session: string) => {
     if (!states.has(session)) states.set(session, {
@@ -45,9 +50,9 @@ export function createFixtureBackend(onMissingFixture: (failure: Error) => void 
       }
       if (method === "POST" && path === "/api/renter/magic-links/exchange") {
         const body = await input<{ token: string }>();
-        if (body.token === "expired-token") return error(401, "MAGIC_LINK_EXPIRED", "Liên kết đã hết hạn");
-        if (body.token === "invalid-token") return error(401, "UNAUTHORIZED", "Liên kết không hợp lệ");
-        if (exchangedTokens.has(body.token)) return error(401, "MAGIC_LINK_EXPIRED", "Liên kết đã hết hạn");
+        if (typeof body.token !== "string" || !/^[a-z0-9-]{8,64}$/.test(body.token)) return error(401, "UNAUTHORIZED", "Liên kết không hợp lệ");
+        const link = magicLinks.get(body.token);
+        if (!link || link.expiresAt <= Date.now() || exchangedTokens.has(body.token)) return error(401, "MAGIC_LINK_EXPIRED", "Liên kết đã hết hạn");
         exchangedTokens.add(body.token);
         response.setHeader("set-cookie", "renter_session=fixture; Path=/; HttpOnly; SameSite=Lax"); return json({ renterId: "renter", motelId: "motel" });
       }

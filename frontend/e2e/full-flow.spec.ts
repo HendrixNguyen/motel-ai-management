@@ -20,7 +20,7 @@ test("manager login, magic-link exchange, portal read flow works at 430px", asyn
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
 
-test("magic-link exchange supports keyboard submission and rejects replay", async ({ page }) => {
+test("fixture-level magic-link exchange supports keyboard submission and rejects replay", async ({ page }) => {
   await page.goto("/renter");
   await page.getByLabel("Mã liên kết").fill("keyboard-token");
   await page.getByLabel("Mã liên kết").press("Tab");
@@ -33,13 +33,13 @@ test("magic-link exchange supports keyboard submission and rejects replay", asyn
   await expect(page.locator('section[role="alert"]')).toContainText("Liên kết đã hết hạn");
 });
 
-test("invalid magic-link shows recovery state without leaking internals", async ({ page }) => {
-  await page.goto("/r/invalid-token");
+test("fixture-level malformed magic-link shows recovery state without leaking internals", async ({ page }) => {
+  await page.goto("/r/bad!");
   await expect(page.locator('section[role="alert"]')).toContainText("Liên kết không hợp lệ");
   await expect(page.locator('section[role="alert"]')).not.toContainText(/token|secret|private|host/i);
 });
 
-test("full flow covers capture save, invoice QR, OTP contract, payment state, and ticket", async ({ page }) => {
+test("capture save, invoice QR, OTP contract, and ticket journey", async ({ page }) => {
   await page.context().addCookies([{ name: "manager_session", value: "capture-session", domain: "localhost", path: "/" }]);
   await page.goto("/capture?motel=6f1c1a52-0d4e-4a2b-9c3d-8e5f6a7b8c9d");
   await expect(page.getByRole("heading", { name: /Nhập chỉ số/ })).toBeVisible();
@@ -55,8 +55,8 @@ test("full flow covers capture save, invoice QR, OTP contract, payment state, an
   await page.route("**/api/renter/magic-links/exchange", async (route) => { expect(await route.request().postDataJSON()).toEqual({ token: "flow-token" }); await route.fulfill({ json: { renterId: "renter", motelId: "motel" }, headers: { "set-cookie": "renter_session=fixture; Path=/; HttpOnly" } }); });
   await page.route("**/api/renter/me", (route) => route.fulfill({ json: { id: "renter", name: "An", phone: "84901234567", room: { id: "room", name: "P.101", floor: 1 }, motel: { id: "motel", name: "Nhà trọ Minh Anh" }, activeContract: null } }));
   await page.route("**/api/renter/billing/periods", (route) => route.fulfill({ json: [{ id: "period", month: 10, year: 2026, status: "sent", createdAt: "2026-10-01T00:00:00.000Z" }] }));
-  await page.route("**/api/renter/billing/periods/period/invoices", (route) => route.fulfill({ json: [{ id: "invoice", billingPeriodId: "period", month: 10, year: 2026, roomId: "room", roomName: "P.101", rentAmount: "3500000", electricityUsage: "20.00", electricityCost: "70000", waterUsage: "3.00", waterCost: "45000", otherFees: [], totalAmount: "3665000", qrCodeData: "000201010212", paymentStatus: "paid", paidAt: "2026-10-02T00:00:00.000Z", createdAt: "2026-10-01T00:00:00.000Z" }] }));
-  await page.route("**/api/renter/invoices/invoice", (route) => route.fulfill({ json: { id: "invoice", billingPeriodId: "period", month: 10, year: 2026, roomId: "room", roomName: "P.101", rentAmount: "3500000", electricityUsage: "20.00", electricityCost: "70000", waterUsage: "3.00", waterCost: "45000", otherFees: [], totalAmount: "3665000", qrCodeData: "000201010212", paymentStatus: "paid", paidAt: "2026-10-02T00:00:00.000Z", createdAt: "2026-10-01T00:00:00.000Z", bankAccount: null, transferDescription: "Thanh toán tháng 10/2026", meterPhotos: [] } }));
+  await page.route("**/api/renter/billing/periods/period/invoices", (route) => route.fulfill({ json: [{ id: "invoice", billingPeriodId: "period", month: 10, year: 2026, roomId: "room", roomName: "P.101", rentAmount: "3500000", electricityUsage: "20.00", electricityCost: "70000", waterUsage: "3.00", waterCost: "45000", otherFees: [], totalAmount: "3665000", qrCodeData: "000201010212", paymentStatus: "unpaid", paidAt: null, createdAt: "2026-10-01T00:00:00.000Z" }] }));
+  await page.route("**/api/renter/invoices/invoice", (route) => route.fulfill({ json: { id: "invoice", billingPeriodId: "period", month: 10, year: 2026, roomId: "room", roomName: "P.101", rentAmount: "3500000", electricityUsage: "20.00", electricityCost: "70000", waterUsage: "3.00", waterCost: "45000", otherFees: [], totalAmount: "3665000", qrCodeData: "000201010212", paymentStatus: "unpaid", paidAt: null, createdAt: "2026-10-01T00:00:00.000Z", bankAccount: null, transferDescription: "Thanh toán tháng 10/2026", meterPhotos: [] } }));
   await page.goto("/r/flow-token");
   await expect(page).toHaveURL("http://localhost:3001/portal");
   await expect(page.context().cookies()).resolves.toEqual(expect.arrayContaining([expect.objectContaining({ name: "renter_session" })]));
@@ -64,7 +64,7 @@ test("full flow covers capture save, invoice QR, OTP contract, payment state, an
   await page.goto("/portal/bills/invoice");
   await expect(page.getByRole("heading", { name: "Hóa đơn tháng 10/2026" })).toBeVisible();
   await expect(page.getByText("3.665.000 ₫")).toBeVisible();
-  await expect(page.getByText("paid")).toHaveCount(0);
+  await expect(page.getByText("Chưa thanh toán")).toBeVisible();
   await expect(page.locator('canvas[aria-label="Mã QR thanh toán hóa đơn"]')).toBeVisible();
   await expect(page).toHaveURL(/\/portal\/bills\/invoice/);
   await page.goto("/portal/tickets");
@@ -95,7 +95,7 @@ test("full flow covers capture save, invoice QR, OTP contract, payment state, an
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
 
-test("full flow shows expired magic-link recovery and no provider secrets", async ({ page }) => {
+test("fixture-level expired magic-link recovery shows no provider secrets", async ({ page }) => {
   await page.route("**/api/renter/magic-links/exchange", (route) => route.fulfill({ status: 401, contentType: "application/json", body: JSON.stringify({ error: "expired", code: "MAGIC_LINK_EXPIRED" }) }));
   await page.goto("/r/expired-token");
   await expect(page.locator('section[role="alert"]')).toContainText("Liên kết đã hết hạn");
