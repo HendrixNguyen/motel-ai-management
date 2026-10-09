@@ -10,8 +10,8 @@ export function createFixtureBackend(onMissingFixture: (failure: Error) => void 
   const states = new Map<string, { motels: MotelResponse[]; rooms: RoomResponse[]; renters: RenterResponse[] }>();
   const signedRenters = new Map<string, string>();
   const magicLinks = new Map([
-    ["flow-token", { expiresAt: Date.now() + 60 * 60 * 1000 }],
-    ["keyboard-token", { expiresAt: Date.now() + 60 * 60 * 1000 }],
+    ["flow-token", { expiresAt: Date.now() + 24 * 60 * 60 * 1000 }],
+    ["keyboard-token", { expiresAt: Date.now() + 24 * 60 * 60 * 1000 }],
     ["expired-token", { expiresAt: Date.now() - 60 * 60 * 1000 }],
   ]);
   const exchangedTokens = new Set<string>();
@@ -50,7 +50,7 @@ export function createFixtureBackend(onMissingFixture: (failure: Error) => void 
       }
       if (method === "POST" && path === "/api/renter/magic-links/exchange") {
         const body = await input<{ token: string }>();
-        if (typeof body.token !== "string" || !/^[a-z0-9-]{8,64}$/.test(body.token)) return error(401, "UNAUTHORIZED", "Liên kết không hợp lệ");
+        if (typeof body.token !== "string" || !/^[a-z0-9-]{8,64}$/.test(body.token)) return error(400, "VALIDATION_ERROR", "Mã liên kết không hợp lệ");
         const link = magicLinks.get(body.token);
         if (!link || link.expiresAt <= Date.now() || exchangedTokens.has(body.token)) return error(401, "MAGIC_LINK_EXPIRED", "Liên kết đã hết hạn");
         exchangedTokens.add(body.token);
