@@ -17,6 +17,8 @@ export interface Env {
   renterPortalUrl: string;
   frontendUrl: string;
   trustedProxyHeader: string | null;
+  trustedProxyAssertionHeader: string | null;
+  trustedProxyAssertionValue: string | null;
   managerJwtSecret: string;
   renterSessionSecret: string;
   r2: {
@@ -105,7 +107,10 @@ export function validateProductionConfig(input: Record<string, string | undefine
 export function parseEnv(input: Record<string, string | undefined>): Env {
   const nodeEnv = input.NODE_ENV ?? "development";
   const production = nodeEnv === "production";
-  if (production) validateProductionConfig(input);
+  if (production) {
+    validateProductionConfig(input);
+    if (input.TRUSTED_PROXY_HEADER && (!input.TRUSTED_PROXY_ASSERTION_HEADER || !input.TRUSTED_PROXY_ASSERTION_VALUE || input.TRUSTED_PROXY_ASSERTION_VALUE.length < 32)) throw new AppError("VALIDATION_ERROR", "Trusted proxy phải có assertion header và secret tối thiểu 32 ký tự");
+  }
 
   const port = input.PORT === undefined ? 3000 : Number(input.PORT);
   if (!Number.isInteger(port) || port <= 0)
@@ -119,6 +124,8 @@ export function parseEnv(input: Record<string, string | undefined>): Env {
     renterPortalUrl: publicUrl(input, "RENTER_PORTAL_URL", "http://localhost:3000", production),
     frontendUrl: publicUrl(input, "FRONTEND_URL", "http://localhost:3001", production),
     trustedProxyHeader: input.TRUSTED_PROXY_HEADER?.trim() || null,
+    trustedProxyAssertionHeader: input.TRUSTED_PROXY_ASSERTION_HEADER?.trim() || null,
+    trustedProxyAssertionValue: input.TRUSTED_PROXY_ASSERTION_VALUE || null,
     managerJwtSecret: secret(input, "MANAGER_JWT_SECRET"),
     renterSessionSecret: secret(input, "RENTER_SESSION_SECRET"),
     r2: {

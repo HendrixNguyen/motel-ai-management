@@ -77,6 +77,12 @@ describe("parseEnv", () => {
     expect(() => parseEnv({ ...valid, FRONTEND_URL: "http://localhost:3001?next=login" })).toThrow(/path/);
   });
 
+  test("requires a proxy assertion pair in production", () => {
+    const production = { ...valid, NODE_ENV: "production", RENTER_PORTAL_URL: "https://renter.example.com", FRONTEND_URL: "https://app.example.com", MANAGER_JWT_SECRET: "a".repeat(48), RENTER_SESSION_SECRET: "b".repeat(48), ZALO_OA_SECRET: "d".repeat(48), ZALO_ACCESS_TOKEN: "e".repeat(48), ZALO_WEBHOOK_SECRET: "c".repeat(48), R2_ACCESS_KEY_ID: "f".repeat(48), R2_SECRET_ACCESS_KEY: "g".repeat(48) };
+    expect(() => parseEnv({ ...production, TRUSTED_PROXY_HEADER: "x-forwarded-for" })).toThrow(/proxy/i);
+    expect(parseEnv({ ...production, TRUSTED_PROXY_HEADER: "x-forwarded-for", TRUSTED_PROXY_ASSERTION_HEADER: "x-internal-proxy", TRUSTED_PROXY_ASSERTION_VALUE: "h".repeat(32) }).trustedProxyAssertionValue).toBe("h".repeat(32));
+  });
+
   test("reads RENTER_PORTAL_URL and FRONTEND_URL defaults", () => {
     expect(parseEnv(valid).renterPortalUrl).toBe("http://localhost:3000");
     expect(parseEnv(valid).frontendUrl).toBe("http://localhost:3001");

@@ -10,7 +10,7 @@ import { enforceRateLimit } from "@/shared/rate-limit";
 const COOKIE_NAME = "renter_session";
 
 function clientKey(request: Request): string {
-  return env.trustedProxyHeader ? request.headers.get(env.trustedProxyHeader)?.split(",")[0]?.trim() || "unknown" : "unknown";
+  return env.trustedProxyHeader && env.trustedProxyAssertionHeader && env.trustedProxyAssertionValue && request.headers.get(env.trustedProxyAssertionHeader) === env.trustedProxyAssertionValue ? request.headers.get(env.trustedProxyHeader)?.split(",")[0]?.trim() || "unknown" : "unknown";
 }
 
 export const magicLinkRoutes = new Elysia({ name: "magic-link-routes" })
