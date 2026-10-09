@@ -35,7 +35,7 @@ Add `payment_proofs` as the payment-domain source of truth rather than overloadi
 - partial unique `(invoice_id)` for non-rejected proofs, so one invoice has at most one current proof; a rejected proof remains audit history and may be replaced by inserting one new pending proof, while pending/approved proofs cannot be replaced
 - foreign keys and motel/renter ownership checks
 
-Use invoice payment state as the financial truth. Proof approval records evidence and queues manager review; it does not mark the invoice paid. Manager approval action calls billing's exported `markInvoicePaid` service in one transaction or an explicitly idempotent orchestration. Rejection leaves invoice unpaid and preserves immutable proof history; one replacement current proof is allowed only after rejection. Cash confirmation directly invokes manager-only billing payment transition and creates an audit record if existing audit infrastructure supports it.
+Use invoice payment state as the financial truth. Proof submission records evidence and queues manager review; it does not mark the invoice paid. Manager approval locks proof approval and calls billing's exported `markInvoicePaid` service in one transaction or an explicitly idempotent orchestration. Rejection leaves invoice unpaid and preserves immutable proof history; one replacement current proof is allowed only after rejection. Cash confirmation directly invokes manager-only billing payment transition and creates an audit record if existing audit infrastructure supports it.
 
 ### Renter activation
 
@@ -66,7 +66,7 @@ All renter routes derive renter and motel from `renter_session`; all manager rou
 
 - `POST /api/manager/motels/:motelId/renters/:renterId/magic-link` — existing manager-issued link; UI exposes copy/QR fallback.
 - `GET /api/manager/motels/:motelId/billing/invoices/:invoiceId/payment-proof` — review metadata and short-lived signed image URL.
-- `POST /api/manager/motels/:motelId/billing/invoices/:invoiceId/payment-proof/approve` — approve pending proof and mark invoice paid through billing service; retry is idempotent only when the same proof/payment is already settled.
+- `POST /api/manager/motels/:motelId/billing/invoices/:invoiceId/payment-proof/approve` — approve pending proof and mark invoice paid through billing service; retry is idempotent only when the same proof/payment is already settled. Notification enqueue failure aborts approval/payment; later delivery failure leaves approval/payment committed and marks notification failed for retry.
 - `POST /api/manager/motels/:motelId/billing/invoices/:invoiceId/payment-proof/reject` — body `{reason}`; invoice remains unpaid; rejected proof stays history and permits one replacement current proof.
 - `POST /api/manager/motels/:motelId/billing/invoices/:invoiceId/cash-confirmation` — manager-only explicit confirmation; marks invoice paid without proof and records payment method `cash` when supported by the billing response contract.
 
@@ -79,8 +79,9 @@ Exact response/error bodies must be added to `docs/api-contract.md` before imple
 3. Proof submission and metadata insert happen only after validated content is accepted; failed storage leaves no usable proof row.
 4. Approval locks proof state and invoice paid transition atomically. Concurrent approve/reject/cash calls resolve idempotently without double payment timestamps.
 5. Rejection requires manager ownership and preserves audit fields; renter sees safe reason text only.
-5. Cash confirmation never accepts renter identity or payment status from request body.
-6. Notification enqueue is after committed domain state or through an outbox transaction; delivery failure never rolls back proof review or payment state.
+6. Cash confirmation never accepts renter identity or payment status from request body.
+7. Notification enqueue is after committed domain state or through an outbox transaction; delivery failure never rolls back proof review or payment state.
+8. Payment-state mutation succeeds independently of notification delivery. If enqueue fails before commit, the payment transaction rolls back and returns `EXTERNAL_SERVICE_ERROR`; if delivery fails after enqueue, proof/payment state stays committed, notification is `failed`, and the manager can retry without changing payment state.
 
 ## Security and tenancy
 

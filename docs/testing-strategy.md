@@ -9,12 +9,12 @@ change.
 
 ## The standard
 
-| Layer | What it proves | When |
-|-------|----------------|------|
-| Database constraints | The rule holds even when the API is bypassed | Every new constraint |
-| Service unit tests | The calculation or rule is correct | Every service function with a branch |
-| HTTP boundary tests | Tenant scoping holds through a real request | Every route that filters by tenant |
-| Pure-function tests | Money, phone, dates, formatting | Once, then they never change |
+| Layer | What it proves | Explicit assertions | When |
+|-------|----------------|---------------------|------|
+| Database constraints | The rule holds even when the API is bypassed | Invalid insert/update rejects; valid boundary value persists; no partial rows remain | Every new constraint |
+| Service unit tests | The calculation or rule is correct | Each branch returns exact value, status, error code, and side effects; collaborator failure preserves required state | Every service function with a branch |
+| HTTP boundary tests | Tenant scoping holds through a real request | Status, error envelope, response body redaction, and unchanged state match contract for own and foreign resources | Every route that filters by tenant |
+| Pure-function tests | Money, phone, dates, formatting | Exact output for valid boundaries and exact rejection for malformed input | Once, then they never change |
 
 ### Database constraints are tested, not just declared
 

@@ -399,11 +399,11 @@ only by cookie.
 5. Rooms without an active contract are skipped and reported back to the manager; they
    never produce a partial invoice.
 6. Manager reviews drafts, then confirms → period status `sent`.
-7. Zalo delivery is handled by sub-project 8; billing does not create notification rows.
+7. Billing commits period state independently from outbound delivery. Notification enqueue occurs after commit or through an outbox transaction; enqueue failure leaves the period unchanged and returns `EXTERNAL_SERVICE_ERROR`. A later delivery failure leaves the sent period committed, records a failed notification, and exposes **Gửi lại** without reverting billing state.
 8. Renter opens the link, sees the breakdown, scans the VietQR code, pays in their
    banking app.
 9. Manager marks the invoice `paid`, which stamps `paidAt`; payment notification is
-   handled by sub-project 8.
+   handled by sub-project 8. Payment commits independently from delivery: enqueue failure rolls back the payment mutation, while post-enqueue delivery failure leaves `paid` committed and retryable without changing payment state.
 
 ### Contract flow
 
