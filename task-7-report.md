@@ -23,4 +23,6 @@ Payment backend/schema/module and Task 6 report changes were removed from Task 7
 
 Post-fix verification: 13 targeted tests passed; frontend typecheck and targeted ESLint passed.
 
-Final review fixes: notification enqueue executor now uses explicit `NotificationExecutor` type with no `any`, preserving DB behavior. Migration coverage now renders `EmptyState` both without action (no button) and with action (button present). Backend TypeScript check passed through installed `tsc`; Bun command unavailable in environment.
+Final review fixes: notification enqueue executor uses explicit `NotificationExecutor` type with no `any`, preserving DB behavior. Migration coverage renders `EmptyState` both without action (no button) and with action (button present). Backend TypeScript check passed through installed `tsc`; Bun command unavailable in environment.
+
+Final ancestry cleanup: payment feature implementation/schema migration changes introduced after Task 7 were removed with revert commit `a924af7`; pre-existing payment schema/types and unrelated work were preserved. Task 7 frontend diff contains no payment module additions or payment redesign.
