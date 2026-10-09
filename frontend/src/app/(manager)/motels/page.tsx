@@ -4,6 +4,7 @@ import { formatVnd } from "@/lib/format/vnd";
 import MotelEditor from "@/components/manager/motel-editor";
 import { resolveMotelId, type MotelSearchParams } from "@/lib/motel-selection";
 import PageHeader from "@/components/ui/page-header";
+import EmptyState from "@/components/ui/empty-state";
 
 export default async function Motels({ searchParams }: { searchParams: Promise<MotelSearchParams> }) {
   const motels = await listMotels();
@@ -14,7 +15,7 @@ export default async function Motels({ searchParams }: { searchParams: Promise<M
 
   return <section className="space-y-6">
     <PageHeader title="Nhà trọ" description="Quản lý thông tin, đơn giá và tài khoản nhận tiền của các nhà trọ." actions={cards.length > 0 && <MotelEditor />} />
-    {cards.length === 0 ? <MotelEditor empty /> : <div className="grid min-w-0 gap-4 md:grid-cols-2 xl:grid-cols-3">
+    {cards.length === 0 ? <EmptyState title="Chưa có nhà trọ" description="Chưa có nhà trọ, bấm Tạo nhà trọ để bắt đầu." actionLabel="Tạo nhà trọ" onAction={() => {}} /> : <div className="grid min-w-0 gap-4 md:grid-cols-2 xl:grid-cols-3">
       {cards.map(({ motel, roomCount }) => <article key={motel.id} aria-labelledby={`motel-${motel.id}`} className="flex min-w-0 flex-col rounded-card border border-border bg-surface p-4 sm:p-6">
         <h2 id={`motel-${motel.id}`} className="font-heading text-lg font-semibold text-text [overflow-wrap:anywhere]">{motel.name}</h2>
         <p className="mt-2 text-base text-text-muted [overflow-wrap:anywhere]">{motel.address || "Chưa có địa chỉ"}</p>

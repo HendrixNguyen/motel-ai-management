@@ -1,5 +1,7 @@
 import Link from "next/link";
 import PageHeader from "@/components/ui/page-header";
+import Card from "@/components/ui/card";
+import StatCard from "@/components/ui/stat-card";
 import MotelEditor from "@/components/manager/motel-editor";
 import { listBillingPeriods, listInvoices } from "@/lib/api/billing";
 import { listMotels } from "@/lib/api/motels";
@@ -10,7 +12,7 @@ import { motelHref } from "@/lib/motel-navigation";
 import { resolveMotelId, type MotelSearchParams } from "@/lib/motel-selection";
 
 function Metric({ label, value, detail, href }: { label: string; value: string; detail: string; href?: string }) {
-  const content = <div className="rounded-card border border-border bg-surface p-4"><p className="text-sm text-text-muted">{label}</p><p className="mt-1 font-heading text-2xl font-bold tabular-nums text-text">{value}</p><p className="mt-1 text-sm text-text-body">{detail}</p></div>;
+  const content = <StatCard label={label} value={value} description={detail} />;
   return href ? <Link className="block rounded-card focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary" href={href}>{content}</Link> : content;
 }
 
@@ -40,12 +42,12 @@ export default async function Overview({ searchParams }: { searchParams: Promise
     </section>
     <section aria-labelledby="dashboard-tasks" className="space-y-3">
       <h2 id="dashboard-tasks" className="font-heading text-lg font-semibold text-text">Việc cần xử lý</h2>
-      <div className="divide-y divide-border rounded-card border border-border bg-surface">
+      <Card className="divide-y divide-border p-0">
         <Link href={motelHref("/capture", "", motelId)} className="flex min-h-14 items-center justify-between gap-4 p-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"><span><strong className="block text-text">Nhập chỉ số điện nước</strong><span className="text-sm text-text-muted">Mở kỳ nháp để ghi chỉ số theo từng phòng</span></span><span aria-hidden="true" className="text-primary">→</span></Link>
-        <Link href={latest ? motelHref(`/billing/${latest.id}/invoices`, "", motelId) : motelHref("/billing", "", motelId)} className="flex min-h-14 items-center justify-between gap-4 p-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"><span><strong className="block text-text">Hóa đơn chưa thanh toán</strong><span className="text-sm text-text-muted">{latest ? `${unpaid.length} hóa đơn trong kỳ ${String(latest.month).padStart(2, "0")}/${latest.year}` : "Chưa có kỳ hóa đơn"}</span></span><span aria-hidden="true" className="text-primary">→</span></Link>
-      </div>
+<Link href={latest ? motelHref(`/billing/${latest.id}/invoices`, "", motelId) : motelHref("/billing", "", motelId)} className="flex min-h-14 items-center justify-between gap-4 p-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"><span><strong className="block text-text">Hóa đơn chưa thanh toán</strong><span className="text-sm text-text-muted">{latest ? `${unpaid.length} hóa đơn trong kỳ ${String(latest.month).padStart(2, "0")}/${latest.year}` : "Chưa có kỳ hóa đơn"}</span></span><span aria-hidden="true" className="text-primary">→</span></Link>
+       </Card>
     </section>
     <section aria-labelledby="dashboard-actions" className="space-y-3"><h2 id="dashboard-actions" className="font-heading text-lg font-semibold text-text">Thao tác nhanh</h2><div className="flex flex-wrap gap-2"><Link href={motelHref("/renters", "create=1", motelId)} className="inline-flex min-h-11 items-center rounded-input bg-primary px-4 py-2 font-semibold text-surface hover:bg-primary-strong focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">Thêm khách thuê</Link><Link href={latest ? motelHref(`/billing/${latest.id}/invoices`, "create=1", motelId) : motelHref("/billing", "create=1", motelId)} className="inline-flex min-h-11 items-center rounded-input border border-border px-4 py-2 font-semibold text-text hover:bg-surface-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">Tạo hóa đơn</Link></div></section>
-    {rooms.length === 0 && <div className="rounded-card border border-border bg-surface p-5"><p className="font-semibold text-text">Chưa có phòng trọ</p><p className="mt-1 text-text-muted">Thêm phòng để bắt đầu theo dõi tình hình nhà trọ.</p><Link className="mt-3 inline-flex min-h-11 items-center font-semibold text-primary underline" href={motelHref("/rooms", "", motelId)}>Thêm phòng</Link></div>}
+    {rooms.length === 0 && <Card><p className="font-semibold text-text">Chưa có phòng trọ</p><p className="mt-1 text-text-muted">Thêm phòng để bắt đầu theo dõi tình hình nhà trọ.</p><Link className="mt-3 inline-flex min-h-11 items-center font-semibold text-primary underline" href={motelHref("/rooms", "", motelId)}>Thêm phòng</Link></Card>}
   </section>;
 }

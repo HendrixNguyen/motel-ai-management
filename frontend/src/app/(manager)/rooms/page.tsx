@@ -13,6 +13,7 @@ import { roomStatusLabel } from "@/lib/format/status";
 import { parseRoomFilters, roomFiltersHref } from "@/lib/room-query";
 import { resolveMotelId, type MotelSearchParams } from "@/lib/motel-selection";
 import PageHeader from "@/components/ui/page-header";
+import Card from "@/components/ui/card";
 
 const statusTone: Record<RoomStatus, BadgeTone> = { available: "neutral", occupied: "success", maintenance: "warning" };
 
@@ -38,11 +39,11 @@ export default async function Rooms({ searchParams }: { searchParams: Promise<Mo
     <PageHeader title="Phòng trọ" description="Quản lý phòng, giá thuê cơ bản và trạng thái sử dụng." actions={(rooms.length > 0 || filtered) && <RoomEditor key={motelId} motelId={motelId} />} />
     <RoomFilters key={filterKey} motelId={motelId} filters={filters} />
     {rooms.length === 0 ? filtered
-      ? <div className="rounded-card border border-border bg-surface p-6 text-center">
+      ? <Card className="text-center">
         <h2 className="font-heading text-lg font-semibold text-text">Không có phòng phù hợp</h2>
         <p className="mt-2 text-base text-text-body">Thay đổi hoặc xóa bộ lọc để xem các phòng khác.</p>
-        <Link href={roomFiltersHref(motelId, {})} className="mt-4 inline-flex min-h-11 items-center rounded-input px-3 font-semibold text-primary underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">Xóa bộ lọc</Link>
-      </div>
+<Link href={roomFiltersHref(motelId, {})} className="mt-4 inline-flex min-h-11 items-center rounded-input px-3 font-semibold text-primary underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">Xóa bộ lọc</Link>
+       </Card>
       : <RoomEditor key={motelId} motelId={motelId} empty />
       : <div className="grid min-w-0 gap-4 md:grid-cols-2 xl:grid-cols-3">
         {rooms.map((room) => <article key={room.id} aria-labelledby={`room-${room.id}`} className="flex min-w-0 flex-col rounded-card border border-border bg-surface p-4 sm:p-6">
