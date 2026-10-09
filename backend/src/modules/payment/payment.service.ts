@@ -2,15 +2,7 @@ import { and, desc, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { invoices, billingPeriods } from "@/modules/billing/billing.schema";
 import { settleInvoicePayment } from "@/modules/billing/billing.service";
-
-const attempts = new Map<string, { count: number; resetAt: number }>();
-function enforcePaymentRateLimit(key: string, max: number): void {
-  const now = Date.now();
-  const current = attempts.get(key);
-  if (!current || current.resetAt <= now) { attempts.set(key, { count: 1, resetAt: now + 60_000 }); return; }
-  if (current.count >= max) throw AppError.rateLimited("Thao tác quá nhanh", Math.ceil((current.resetAt - now) / 1000));
-  current.count += 1;
-}
+import { enforceRateLimit } from "@/shared/rate-limit";
 import { enqueueNotification } from "@/modules/notification/notification.service";
 import { paymentProofs } from "./payment.schema";
 import { AppError } from "@/shared/errors";
@@ -31,7 +23,7 @@ async function invoiceForRenter(session: RenterAuthPayload, invoiceId: string) {
 }
 
 export async function submitPaymentProof(session: RenterAuthPayload, invoiceId: string, file: File): Promise<PaymentProofResponse> {
-  enforcePaymentRateLimit(`upload:${session.renterId}`, 10);
+  enforceRateLimit(`upload:${session.renterId}`, 10);
   if (file.size > 10 * 1024 * 1024) throw AppError.badRequest("Tệp vượt quá giới hạn 10 MB");
   const owned = await invoiceForRenter(session, invoiceId);
   if (!owned) throw AppError.notFound("Không tìm thấy hóa đơn");
@@ -86,18 +78,20 @@ export async function getManagerPaymentProof(managerId: string, motelId: string,
 }
 
 export async function approvePaymentProof(managerId: string, motelId: string, invoiceId: string) {
-  enforcePaymentRateLimit(`review:${managerId}`, 30);
+  enforceRateLimit(`review:${managerId}`, 30);
   await managerInvoice(managerId, motelId, invoiceId);
-  const proof = await db.query.paymentProofs.findFirst({ where: and(eq(paymentProofs.invoiceId, invoiceId), eq(paymentProofs.motelId, motelId), eq(paymentProofs.status, "pending")) });
-  if (!proof) { const existing = await db.query.paymentProofs.findFirst({ where: and(eq(paymentProofs.invoiceId, invoiceId), eq(paymentProofs.motelId, motelId), eq(paymentProofs.status, "approved")) }); if (!existing) throw AppError.conflict("Không có chứng từ chờ duyệt"); const invoice = await settleInvoicePayment(invoiceId, motelId, managerId, "bank_transfer", existing.id); return { invoiceId, paymentStatus: invoice.paymentStatus, paidAt: invoice.paidAt, paymentMethod: "bank_transfer" as const }; }
   const result = await db.transaction(async (tx) => {
-    const [updated] = await tx.update(paymentProofs).set({ status: "approved", reviewedAt: new Date(), reviewedByManagerId: managerId }).where(and(eq(paymentProofs.id, proof.id), eq(paymentProofs.status, "pending"))).returning();
+    const lockedInvoice = await tx.execute(sql`select * from invoices where id = ${invoiceId} and motel_id = ${motelId} for update`);
+    if (!lockedInvoice.length) throw AppError.notFound("Không tìm thấy hóa đơn");
+    const lockedProofs = await tx.execute(sql`select * from payment_proofs where invoice_id = ${invoiceId} and motel_id = ${motelId} and status in ('pending', 'approved') order by id for update`);
+    const proof = lockedProofs[0] as typeof paymentProofs.$inferSelect | undefined;
+    if (!proof) throw AppError.conflict("Không có chứng từ chờ duyệt");
+    const updated = proof.status === "approved" ? proof : (await tx.update(paymentProofs).set({ status: "approved", reviewedAt: new Date(), reviewedByManagerId: managerId }).where(and(eq(paymentProofs.id, proof.id), eq(paymentProofs.motelId, motelId), eq(paymentProofs.status, "pending"))).returning())[0];
     if (!updated) throw AppError.conflict("Chứng từ đã được xử lý");
-    const locked = await tx.execute(sql`select * from invoices where id = ${invoiceId} and motel_id = ${motelId} for update`);
-    const invoice = locked[0] as typeof invoices.$inferSelect | undefined;
+    const invoice = lockedInvoice[0] as typeof invoices.$inferSelect | undefined;
     if (!invoice) throw AppError.notFound("Không tìm thấy hóa đơn");
     if (invoice.paymentStatus === "paid" && (invoice.paymentMethod !== "bank_transfer" || invoice.paymentProofId !== updated.id)) throw AppError.conflict("Hóa đơn đã thanh toán bằng phương thức khác");
-    const settled = invoice.paymentStatus === "paid" ? invoice : (await tx.update(invoices).set({ paymentStatus: "paid", paymentMethod: "bank_transfer", paymentProofId: updated.id, paidAt: new Date() }).where(eq(invoices.id, invoiceId)).returning())[0];
+    const settled = invoice.paymentStatus === "paid" ? invoice : (await tx.update(invoices).set({ paymentStatus: "paid", paymentMethod: "bank_transfer", paymentProofId: updated.id, paidAt: new Date() }).where(and(eq(invoices.id, invoiceId), eq(invoices.motelId, motelId))).returning())[0];
     if (!settled) throw AppError.externalService();
     await enqueueNotification({ eventKey: `invoice:${invoiceId}:paid`, renterId: settled.renterId, motelId, templateId: "paymentConfirmed", payload: { invoiceId, totalAmount: settled.totalAmount } }, tx);
     return settled;
@@ -106,13 +100,13 @@ export async function approvePaymentProof(managerId: string, motelId: string, in
 }
 
 export async function rejectPaymentProof(managerId: string, motelId: string, invoiceId: string, reason: string) {
-  enforcePaymentRateLimit(`review:${managerId}`, 30);
+  enforceRateLimit(`review:${managerId}`, 30);
   await managerInvoice(managerId, motelId, invoiceId);
   const clean = reason.trim(); if (!clean || clean.length > 500) throw AppError.badRequest("Lý do từ chối phải dài từ 1 đến 500 ký tự");
   const proof = await db.query.paymentProofs.findFirst({ where: and(eq(paymentProofs.invoiceId, invoiceId), eq(paymentProofs.motelId, motelId), eq(paymentProofs.status, "pending")) });
   if (!proof) throw AppError.conflict("Không có chứng từ chờ duyệt");
   const updated = await db.transaction(async (tx) => {
-    const locked = await tx.execute(sql`select * from payment_proofs where id = ${proof.id} and invoice_id = ${invoiceId} for update`);
+    const locked = await tx.execute(sql`select * from payment_proofs where id = ${proof.id} and invoice_id = ${invoiceId} and motel_id = ${motelId} for update`);
     if (!locked.length) throw AppError.conflict("Chứng từ đã được xử lý");
     const [row] = await tx.update(paymentProofs).set({ status: "rejected", reviewedAt: new Date(), reviewedByManagerId: managerId, rejectionReason: clean }).where(and(eq(paymentProofs.id, proof.id), eq(paymentProofs.status, "pending"))).returning();
     if (!row) throw AppError.conflict("Chứng từ đã được xử lý");
@@ -123,7 +117,7 @@ export async function rejectPaymentProof(managerId: string, motelId: string, inv
 }
 
 export async function confirmCashPayment(managerId: string, motelId: string, invoiceId: string) {
-  enforcePaymentRateLimit(`review:${managerId}`, 30);
+  enforceRateLimit(`review:${managerId}`, 30);
   await managerInvoice(managerId, motelId, invoiceId);
   const result = await db.transaction(async (tx) => {
     const locked = await tx.execute(sql`select * from invoices where id = ${invoiceId} and motel_id = ${motelId} for update`);

@@ -35,7 +35,6 @@ export const paymentProofs = pgTable(
     check("payment_proofs_size_check", sql`${t.size} between 1 and 10485760`),
     check("payment_proofs_checksum_check", sql`length(trim(${t.checksum})) > 0`),
      check("payment_proofs_review_state_check", sql`(${t.status} = 'pending' and ${t.reviewedAt} is null and ${t.reviewedByManagerId} is null and ${t.rejectionReason} is null) or (${t.status} = 'approved' and ${t.reviewedAt} is not null and ${t.reviewedByManagerId} is not null and ${t.rejectionReason} is null) or (${t.status} = 'rejected' and ${t.reviewedAt} is not null and ${t.reviewedByManagerId} is not null and ${t.rejectionReason} is not null and length(trim(${t.rejectionReason})) between 1 and 500)`),
-     check("payment_proofs_invoice_payment_method_check", sql`not exists (select 1 from invoices i where i.id = ${t.invoiceId} and i.payment_status = 'paid' and i.payment_method <> 'bank_transfer')`),
 
   ],
 );
