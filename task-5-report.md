@@ -15,3 +15,11 @@ Implemented Core UI v2 form, money/date, select/textarea, upload, preview, error
 - `Field` keeps render-prop contract and now also wires plain child controls.
 - `FileUpload` validates JPEG/PNG and accepts exactly 10 MiB; callbacks receive `File[]`, never storage keys.
 - Full typecheck remains blocked by stale generated `.next/dev/types` errors unrelated to Task 5.
+
+## Review fixes
+
+- Invalid VND input now rejects without arbitrary character stripping.
+- FileUpload exposes `onRetry`, forwards `files`, and renders linked validation errors.
+- DateField accepts only valid `YYYY-MM-DD` calendar dates.
+- Field compatibility mode preserves child classes and existing ARIA values while merging descriptions.
+- Behavior tests expanded from 6 to 10.

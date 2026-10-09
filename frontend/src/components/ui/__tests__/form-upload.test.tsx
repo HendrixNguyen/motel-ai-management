@@ -8,6 +8,8 @@ import TextareaField from "../textarea-field";
 import FileUpload from "../file-upload";
 import ImagePreview from "../image-preview";
 import FormErrorSummary from "../form-error-summary";
+import { normalizeMoneyInput } from "../money-field";
+import { isCalendarDate } from "../date-field";
 
 describe("form and upload primitives", () => {
   test("merges described-by and associates label, hint, error", () => {
@@ -44,6 +46,28 @@ describe("form and upload primitives", () => {
     expect(html).toContain('aria-label="Xóa ảnh"');
     expect(renderToStaticMarkup(<FileUpload id="proof" label="Biên lai" pending retry onFiles={() => {}} />)).toContain("Thử lại");
     expect(html).not.toContain("objectKey");
+  });
+
+  test("rejects invalid money input instead of stripping arbitrary characters", () => {
+    expect(normalizeMoneyInput("1.5")).toBeNull();
+    expect(normalizeMoneyInput("3.500.000")).toBe("3500000");
+  });
+
+  test("validates strict calendar dates", () => {
+    expect(isCalendarDate("2026-02-30")).toBe(false);
+    expect(isCalendarDate("2026-01-02")).toBe(true);
+  });
+
+  test("renders linked upload error and retry callback contract", () => {
+    const html = renderToStaticMarkup(<FileUpload id="proof" label="Biên lai" error="Ảnh không hợp lệ" retry onFiles={() => {}} onRetry={() => {}} />);
+    expect(html).toContain('aria-describedby="proof-error"');
+    expect(html).toContain("Thử lại");
+  });
+
+  test("preserves child class and aria props in compatibility mode", () => {
+    const html = renderToStaticMarkup(<Field id="name" label="Tên"><input className="custom" aria-label="custom" /></Field>);
+    expect(html).toContain("custom");
+    expect(html).toContain('aria-label="custom"');
   });
 
   test("renders error summary as alert", () => {
