@@ -37,7 +37,7 @@ export const CONTRACT_ID = "c4d5e6f7-a8b9-4c0d-8e1f-2a3b4c5d6e7f";
 export const BILLING_PERIOD_ID = "b1c2d3e4-f5a6-4b7c-8d9e-0f1a2b3c4d5e";
 export const CAPTURE_READING_ID = "d1e2f3a4-b5c6-4789-9012-3a4b5c6d7e8f";
 export const CAPTURE_PERIOD: BillingPeriodResponse = { id: BILLING_PERIOD_ID, motelId: MOTEL_ID, month: 10, year: 2026, status: "draft", createdAt: "2026-10-01T00:00:00.000Z" };
-export const CAPTURE_PERIOD_DETAIL: BillingPeriodDetailResponse = { ...CAPTURE_PERIOD, rooms: [{ id: ROOM_ID, name: "P.101", readings: [{ id: CAPTURE_READING_ID, roomId: ROOM_ID, type: "electric", previousReading: "100", currentReading: null, readingDate: null, updatedAt: "2026-10-01T00:00:00.000Z" }, { id: "e2f3a4b5-c6d7-4890-9123-4b5c6d7e8f90", roomId: ROOM_ID, type: "water", previousReading: "2.00", currentReading: null, readingDate: null, updatedAt: "2026-10-01T00:00:00.000Z" }] }] };
+export const CAPTURE_PERIOD_DETAIL: BillingPeriodDetailResponse = { ...CAPTURE_PERIOD, electricityPrice: "3500", waterPrice: "15000", rooms: [{ id: ROOM_ID, name: "P.101", readings: [{ id: CAPTURE_READING_ID, roomId: ROOM_ID, type: "electric", previousReading: "100", currentReading: null, readingDate: null, updatedAt: "2026-10-01T00:00:00.000Z" }, { id: "e2f3a4b5-c6d7-4890-9123-4b5c6d7e8f90", roomId: ROOM_ID, type: "water", previousReading: "2.00", currentReading: null, readingDate: null, updatedAt: "2026-10-01T00:00:00.000Z" }] }] };
 export const INVOICE_ID = "e5f6a7b8-c9d0-4e1f-8a2b-3c4d5e6f7a8b";
 
 /** A manager with one motel, one unit price of each kind, an extra fee and a bank account. */

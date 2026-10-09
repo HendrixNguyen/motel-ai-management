@@ -52,7 +52,16 @@ describe("billing invoices", () => {
     expect(second.invoices[0]!.paymentStatus).toBe("paid");
     expect(second.invoices[0]!.electricityUsage).toBe("10");
     expect(second.invoices[0]!.waterUsage).toBe("3");
-    expect(second.invoices[0]!.totalAmount).toBe(invoice.totalAmount);
+    await db.update(motels).set({ electricityPrice: "3000", waterPrice: "20000", otherFees: [{ name: "Phí mới", amount: "70000" }] }).where(eq(motels.id, motel!.id));
+    await db.update(contracts).set({ monthlyRent: "6000000" }).where(eq(contracts.id, (await db.select({ id: contracts.id }).from(contracts).where(eq(contracts.roomId, room!.id)))[0]!.id));
+    const third = await generateInvoices(period!.id, motel!.id, manager!.id);
+    expect(third.invoices[0]!.id).toBe(invoice.id);
+    expect(third.invoices[0]!.paymentStatus).toBe("paid");
+    expect(third.invoices[0]!.electricityCost).toBe("30000");
+    expect(third.invoices[0]!.waterCost).toBe("60000");
+    expect(third.invoices[0]!.rentAmount).toBe("6000000");
+    expect(third.invoices[0]!.otherFees).toEqual([{ name: "Phí mới", amount: "70000" }]);
+    expect(third.invoices[0]!.totalAmount).toBe("6160000");
     expect(readings).toHaveLength(2);
   });
 });

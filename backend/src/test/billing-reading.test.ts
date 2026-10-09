@@ -5,6 +5,7 @@ import { billingPeriods, meterReadings } from "@/modules/billing/billing.schema"
 import { motels } from "@/modules/motel/motel.schema";
 import { managers } from "@/modules/auth/auth.schema";
 import { rooms } from "@/modules/room/room.schema";
+import { sql } from "drizzle-orm";
 import { updateMeterReadings } from "@/modules/billing/billing.service";
 
 beforeEach(resetDb);
@@ -30,6 +31,14 @@ describe("billing readings", () => {
     expect(updated).toMatchObject({ previousReading: "100.25", currentReading: "101.5" });
   });
 
+  test("database constraint rejects lower reading even outside service", async () => {
+    const [manager] = await db.insert(managers).values({ email: "constraint-reading@example.com", passwordHash: "x", name: "M" }).returning();
+    const [motel] = await db.insert(motels).values({ managerId: manager!.id, name: "M", electricityPrice: "2000", waterPrice: "15000" }).returning();
+    const [room] = await db.insert(rooms).values({ motelId: motel!.id, name: "101" }).returning();
+    const [period] = await db.insert(billingPeriods).values({ motelId: motel!.id, month: 1, year: 2026 }).returning();
+    await expect(db.execute(sql`insert into meter_readings (room_id, billing_period_id, type, previous_reading, current_reading) values (${room!.id}, ${period!.id}, 'electric', '100', '99')`)).rejects.toThrow();
+  });
+
   test("rejects current reading below previous reading", async () => {
     const [manager] = await db.insert(managers).values({ email: "lower-reading@example.com", passwordHash: "x", name: "M" }).returning();
     const [motel] = await db.insert(motels).values({ managerId: manager!.id, name: "M", electricityPrice: "2000", waterPrice: "15000" }).returning();
@@ -37,6 +46,15 @@ describe("billing readings", () => {
     const [period] = await db.insert(billingPeriods).values({ motelId: motel!.id, month: 1, year: 2026 }).returning();
     const [reading] = await db.insert(meterReadings).values({ billingPeriodId: period!.id, roomId: room!.id, type: "electric", previousReading: "100.25" }).returning();
     await expect(updateMeterReadings(period!.id, motel!.id, manager!.id, { readings: [{ roomId: room!.id, type: "electric", currentReading: "100", expectedUpdatedAt: reading!.updatedAt.toISOString() }] })).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
+  });
+
+  test("accepts baseline zero when no prior reading exists", async () => {
+    const [manager] = await db.insert(managers).values({ email: "baseline-reading@example.com", passwordHash: "x", name: "M" }).returning();
+    const [motel] = await db.insert(motels).values({ managerId: manager!.id, name: "M", electricityPrice: "2000", waterPrice: "15000" }).returning();
+    const [room] = await db.insert(rooms).values({ motelId: motel!.id, name: "101" }).returning();
+    const [period] = await db.insert(billingPeriods).values({ motelId: motel!.id, month: 1, year: 2026 }).returning();
+    const [reading] = await db.insert(meterReadings).values({ billingPeriodId: period!.id, roomId: room!.id, type: "electric", previousReading: "0" }).returning();
+    await expect(updateMeterReadings(period!.id, motel!.id, manager!.id, { readings: [{ roomId: room!.id, type: "electric", currentReading: "1", expectedUpdatedAt: reading!.updatedAt.toISOString() }] })).resolves.toHaveLength(1);
   });
 
   test("rejects stale reading update even when value matches latest", async () => {

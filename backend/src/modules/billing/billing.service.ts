@@ -109,7 +109,8 @@ export async function getBillingPeriod(periodId: string, motelId: string, manage
   if (!period) throw AppError.notFound("Không tìm thấy kỳ hóa đơn");
   const rooms = await listRoomsForBilling(motelId);
   const readings = await db.query.meterReadings.findMany({ where: eq(meterReadings.billingPeriodId, periodId), orderBy: [asc(meterReadings.type), asc(meterReadings.id)] });
-  return { ...periodResponse(period), rooms: rooms.map((room) => ({ ...room, readings: readings.filter((reading) => reading.roomId === room.id).map((reading) => ({ id: reading.id, roomId: reading.roomId, type: reading.type, previousReading: reading.previousReading, currentReading: reading.currentReading, readingDate: reading.readingDate, updatedAt: reading.updatedAt.toISOString() })) })) };
+  const motel = await resolveOwnedMotel(motelId, managerId);
+  return { ...periodResponse(period), electricityPrice: motel.electricityPrice, waterPrice: motel.waterPrice, rooms: rooms.map((room) => ({ ...room, readings: readings.filter((reading) => reading.roomId === room.id).map((reading) => ({ id: reading.id, roomId: reading.roomId, type: reading.type, previousReading: reading.previousReading, currentReading: reading.currentReading, readingDate: reading.readingDate, updatedAt: reading.updatedAt.toISOString() })) })) };
 }
 
 export async function updateMeterReadings(periodId: string, motelId: string, managerId: string, input: UpdateReadingsInput): Promise<MeterReadingResponse[]> {

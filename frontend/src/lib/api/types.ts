@@ -221,6 +221,8 @@ export interface MeterReadingResponse {
 }
 
 export interface BillingPeriodDetailResponse extends BillingPeriodResponse {
+  electricityPrice: VndString;
+  waterPrice: VndString;
   rooms: Array<{ id: string; name: string; readings: MeterReadingResponse[] }>;
 }
 
