@@ -16,8 +16,16 @@ const valid = {
 };
 
 describe("parseEnv", () => {
-  test("accepts a complete environment", () => {
-    expect(parseEnv(valid).port).toBe(3000);
+  test("accepts a complete environment with postgres rate limits", () => {
+    expect(parseEnv({ ...valid, NODE_ENV: "production", RATE_LIMIT_STORE: "postgres" }).rateLimitStore).toBe("postgres");
+  });
+
+  test("rejects local rate limits in production", () => {
+    expect(() => parseEnv({ ...valid, NODE_ENV: "production", RATE_LIMIT_STORE: "local" })).toThrow(/RATE_LIMIT_STORE/);
+  });
+
+  test("rejects unsupported rate limit stores", () => {
+    expect(() => parseEnv({ ...valid, RATE_LIMIT_STORE: "memory" })).toThrow(/RATE_LIMIT_STORE/);
   });
 
   test("throws when DATABASE_URL is missing", () => {

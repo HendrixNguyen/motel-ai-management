@@ -9,8 +9,11 @@ type ZnsTemplateKey =
   | "expiry"
   | "ticket";
 
+export type RateLimitStore = "postgres" | "redis";
+
 export interface Env {
   nodeEnv: string;
+  rateLimitStore: RateLimitStore;
   port: number;
   databaseUrl: string;
   testDatabaseUrl: string;
@@ -58,12 +61,17 @@ function secret(input: Record<string, string | undefined>, key: string): string 
 }
 
 export function parseEnv(input: Record<string, string | undefined>): Env {
+  const nodeEnv = input.NODE_ENV ?? "development";
+  const rateLimitStore = input.RATE_LIMIT_STORE ?? "postgres";
+  if (rateLimitStore !== "postgres" && rateLimitStore !== "redis") throw new AppError("VALIDATION_ERROR", `RATE_LIMIT_STORE không hợp lệ: ${rateLimitStore}`);
+  if (nodeEnv === "production" && rateLimitStore !== "postgres" && rateLimitStore !== "redis") throw new AppError("VALIDATION_ERROR", "Production phải dùng PostgreSQL hoặc Redis cho rate limit");
   const port = input.PORT === undefined ? 3000 : Number(input.PORT);
   if (!Number.isInteger(port) || port <= 0)
     throw new AppError("VALIDATION_ERROR", `PORT không hợp lệ: ${input.PORT}`);
 
   return {
-    nodeEnv: input.NODE_ENV ?? "development",
+    nodeEnv,
+    rateLimitStore,
     port,
     databaseUrl: required(input, "DATABASE_URL"),
     testDatabaseUrl: required(input, "TEST_DATABASE_URL"),
