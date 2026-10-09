@@ -99,6 +99,13 @@
       "when": 1791600687000,
       "tag": "0013_payment_proofs",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1791600700000,
+      "tag": "0014_payment_proofs_immutable",
+      "breakpoints": true
     }
   ]
 }

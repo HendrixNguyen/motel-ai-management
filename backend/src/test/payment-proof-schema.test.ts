@@ -1,4 +1,5 @@
 import { describe, expect, test, beforeEach } from "bun:test";
+import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { resetDb } from "@/db/test-db";
 import { managers } from "@/modules/auth/auth.schema";
@@ -57,6 +58,13 @@ describe("payment proof database constraints", () => {
     const history = await db.query.paymentProofs.findMany({ where: (proof, { eq }) => eq(proof.id, rejected!.id) });
     expect(history).toHaveLength(1);
     expect(history[0]!.status).toBe("rejected");
+  });
+
+  test("rejects updates to reviewed proof rows", async () => {
+    const { motel, renter, invoice } = await fixture();
+    const [manager] = await db.query.managers.findMany({ limit: 1 });
+    const [proof] = await db.insert(paymentProofs).values({ invoiceId: invoice.id, renterId: renter.id, motelId: motel.id, objectKey: "proof/immutable", contentType: "image/jpeg", size: 10, checksum: "a", status: "rejected", reviewedAt: new Date(), reviewedByManagerId: manager!.id, rejectionReason: "Blurry" }).returning();
+    await expect(db.update(paymentProofs).set({ objectKey: "proof/changed" }).where(eq(paymentProofs.id, proof!.id)).execute()).rejects.toThrow();
   });
 
   test("enforces foreign keys and content metadata checks", async () => {
