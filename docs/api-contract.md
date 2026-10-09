@@ -158,7 +158,7 @@ Phone is normalized to `84XXXXXXXXX` on write.
 | POST   | `/periods/:periodId/invoices`  | Generates invoices; `details.skippedRooms` lists rooms with no active contract                                                                                                                 |
 | GET    | `/periods/:periodId/invoices`  | Invoice list with statuses                                                                                                                                                                     |
 | POST   | `/periods/:periodId/send`      | Period → `sent`; notification delivery is deferred to sub-project 8                                                                                                                            |
-| PATCH  | `/invoices/:invoiceId/paid`    | Stamps `paidAt`; notification delivery is deferred to sub-project 8                                                                                                                            |
+| PATCH   | `/invoices/:invoiceId/paid`    | `410 GONE`; use payment-proof approval or cash confirmation                                                                                                                            |
 | PATCH  | `/invoices/:invoiceId/overdue` | Manual overdue marking                                                                                                                                                                         |
 
 Invoice generation is idempotent per `(billingPeriodId, roomId)`: re-running updates invoices while preserving invoice identity and payment state. Amounts, fees, rent, utility usage, and QR payload are snapshots. Once the period is `sent`, generation returns `409`; sent-period readings and invoices are immutable.
@@ -320,7 +320,7 @@ A pending or approved proof blocks replacement. A rejected proof remains immutab
 
 **Live contract; payment-proof and cash-confirmation events are emitted by runtime routes.**
 
-Payment events use stable keys `invoice:<id>:proof-submitted`, `invoice:<id>:proof-approved`, `invoice:<id>:proof-rejected`, and `invoice:<id>:cash-confirmed`.
+Payment events use stable keys `invoice:<id>:proof-submitted`, `invoice:<id>:proof:<proofId>:proof-approved`, `invoice:<id>:proof:<proofId>:proof-rejected`, and `invoice:<id>:cash-confirmed`.
 
 ### Notification delivery
 

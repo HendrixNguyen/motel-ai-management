@@ -2,7 +2,7 @@ import { AppError } from "./errors";
 
 const buckets = new Map<string, { count: number; resetAt: number }>();
 
-export function enforceRateLimit(key: string, max: number, windowMs = 60_000): void {
+export async function enforceRateLimit(key: string, max: number, windowMs = 60_000): Promise<void> {
   const now = Date.now();
   const current = buckets.get(key);
   if (!current || current.resetAt <= now) {
