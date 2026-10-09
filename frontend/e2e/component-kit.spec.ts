@@ -65,6 +65,28 @@ test("table searches internally, sorts BigInt money, and paginates", async ({ pa
   await expect(page.getByText("Không có kết quả. Thử thay đổi từ khóa hoặc bộ lọc.")).toBeVisible();
 });
 
+test("tabs use ARIA relationships and roving keyboard navigation", async ({ page }) => {
+  const tabs = page.getByRole("tab");
+  await expect(tabs.nth(0)).toHaveAttribute("aria-controls", "one-panel");
+  await expect(page.getByRole("tabpanel")).toHaveAttribute("aria-labelledby", "one-tab");
+  await tabs.nth(0).focus();
+  await page.keyboard.press("ArrowRight");
+  await expect(tabs.nth(1)).toBeFocused();
+  await page.keyboard.press("End");
+  await expect(tabs.nth(2)).toBeFocused();
+  await page.keyboard.press("Home");
+  await expect(tabs.nth(0)).toBeFocused();
+});
+
+test("accordion keeps closed content relationship and progress exposes normalized semantics", async ({ page }) => {
+  const trigger = page.getByRole("button", { name: "Chi tiết", exact: true });
+  await expect(trigger).toHaveAttribute("aria-controls", "details-content");
+  await expect(page.locator("#details-content")).toBeHidden();
+  await trigger.click();
+  await expect(page.locator("#details-content")).toBeVisible();
+  await expect(page.getByRole("progressbar", { name: "Hoàn tất" })).toHaveAttribute("aria-valuenow", "40");
+});
+
 test("copy success and failure produce truthful visible feedback", async ({ page }) => {
   await page.evaluate(() => { Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: async (value: string) => { (window as unknown as { copied: string }).copied = value; } } }); });
   await page.getByRole("button", { name: "Sao chép", exact: true }).click();

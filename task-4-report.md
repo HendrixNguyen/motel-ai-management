@@ -19,3 +19,11 @@ Implemented Core UI v2 data display and navigation primitives from `task-4-brief
 - Playwright not run; no Task 4 component-kit execution was available in this checkout.
 
 Pre-existing failures remain outside Task 4 scope: theme storage/system CSS tests, generated Next route types, and theme-select lint rule.
+
+## Review fixes
+
+- Tabs now expose stable tab/panel IDs, `aria-controls`, `aria-labelledby`, and roving Arrow/Home/End keyboard behavior.
+- Accordion keeps every controlled panel in the DOM and toggles `hidden` while closed.
+- Progress normalizes non-positive/non-finite max and values, clamps the range, and removes width transitions.
+- Added rendered interaction coverage to the Playwright component-kit for table search/sort/pagination, digit-string money sorting, Tabs, Accordion, and Progress.
+- Review-focused Vitest contract tests: 8 passed.

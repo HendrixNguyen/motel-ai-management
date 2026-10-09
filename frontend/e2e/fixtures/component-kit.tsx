@@ -7,6 +7,9 @@ import Drawer from "../../src/components/ui/drawer";
 import ConfirmDialog from "../../src/components/ui/confirm-dialog";
 import CopyButton from "../../src/components/ui/copy-button";
 import DataTable from "../../src/components/ui/data-table";
+import Tabs from "../../src/components/ui/tabs";
+import Accordion from "../../src/components/ui/accordion";
+import Progress from "../../src/components/ui/progress";
 import Skeleton from "../../src/components/ui/skeleton";
 import TruncatedText from "../../src/components/ui/truncated-text";
 import { ToastProvider, useToast } from "../../src/components/ui/toast";
@@ -37,7 +40,10 @@ function Kit() {
     <CopyButton value="https://example.test/r/token" />
     <TruncatedText value="Một tên nhà trọ rất dài cần hiển thị đủ cho trình đọc màn hình" />
     <Skeleton />
-    <DataTable rows={rows} columns={[
+     <Tabs tabs={[{ id: "one", label: "Một", content: "Nội dung một" }, { id: "two", label: "Hai", content: "Nội dung hai" }, { id: "three", label: "Ba", content: "Nội dung ba" }]} />
+     <Accordion items={[{ id: "details", title: "Chi tiết", content: "Nội dung chi tiết" }]} />
+     <Progress value={40} max={100} label="Hoàn tất" />
+     <DataTable rows={rows} columns={[
       { key: "name", label: "Họ tên", render: (row) => row.name, sortValue: (row) => row.name },
       { key: "rent", label: "Tiền thuê", render: (row) => row.rent, sortValue: (row) => BigInt(row.rent), money: true },
     ]} getRowId={(row) => row.id} searchText={(row) => row.name} pageSize={2} caption="Khách thuê" />
