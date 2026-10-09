@@ -37,7 +37,7 @@ export default function LoginPage() {
   const controlClass = "min-h-11 w-full rounded-input border border-border-strong bg-surface px-3 text-base text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary";
   return (
     <main className="flex min-h-dvh items-center justify-center px-4 py-8">
-      <div className="w-full max-w-md rounded-card border border-border bg-surface p-6 sm:p-8">
+      <div style={{ boxSizing: "border-box", width: "100%", maxWidth: "28rem", borderRadius: "12px", border: "1px solid var(--color-border, #e2e8f0)", background: "var(--color-surface, #fff)", padding: "clamp(1.5rem, 8vw, 2rem)" }}>
         <p className="mb-2 text-sm font-semibold text-primary">Nhà Số Gọn</p><p className="mb-4 text-sm text-text-muted">Quản lý nhà trọ gọn hơn mỗi ngày</p><h1 className="font-heading text-2xl font-bold text-text">Đăng nhập</h1>
         <p className="mt-2 mb-6 text-text-muted">Quản lý nhà trọ của bạn</p>
         <form onSubmit={handleSubmit} noValidate className="space-y-6">

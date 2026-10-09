@@ -8,7 +8,10 @@ async function signIn(context: BrowserContext, session = "valid") {
 test("unauthenticated rooms redirect to login", async ({ page }) => {
   await page.goto("/rooms");
   await expect(page).toHaveURL("/login");
+  const loginCard = page.locator("main > div");
   await expect(page.getByRole("heading", { name: "Đăng nhập" })).toBeVisible();
+  await expect(loginCard).toHaveCSS("width", "343px");
+  expect(await loginCard.getByRole("heading", { name: "Đăng nhập" }).evaluate((heading) => heading.getBoundingClientRect().width)).toBeGreaterThan(0);
 });
 
 test("login stores the proxied session and lands on the overview", async ({ page, context }) => {
