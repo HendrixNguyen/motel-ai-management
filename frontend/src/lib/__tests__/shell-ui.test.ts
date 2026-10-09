@@ -61,7 +61,7 @@ describe("accessible shell controls", () => {
     expect(compactNav).toContain(`href="/billing?motel=${MOTEL_WITHOUT_EXTRAS.id}"`);
     expect(compactNav).toContain('aria-label="Tính tiền &amp; Hóa đơn"');
     expect(compactNav).toContain(">Hóa đơn<");
-    expect(html).toMatch(/<nav aria-label="Điều hướng chính"[\\s\\S]*?Tính tiền &amp; Hóa đơn[\\s\\S]*?<\\/nav>/);
+    expect(html).toMatch(/<nav aria-label="Điều hướng chính"[\s\S]*?Tính tiền &amp; Hóa đơn[\s\S]*?<\/nav>/);
     expect(html).toContain("class=\"fixed inset-x-0 bottom-0");
   });
   it("renders five destinations per navigation and preserves motel scope", () => {
