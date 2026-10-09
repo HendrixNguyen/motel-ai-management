@@ -65,6 +65,8 @@ function publicUrl(input: Record<string, string | undefined>, key: string, fallb
   } catch {
     throw new AppError("VALIDATION_ERROR", `${key} phải là URL hợp lệ`);
   }
+  if (url.pathname !== "/" || url.search || url.hash)
+    throw new AppError("VALIDATION_ERROR", `${key} không được chứa path, query hoặc fragment`);
   if (production && url.protocol !== "https:")
     throw new AppError("VALIDATION_ERROR", `${key} phải dùng HTTPS trong production`);
   return url.origin;

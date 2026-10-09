@@ -65,6 +65,11 @@ describe("parseEnv", () => {
     expect(env.zalo.templates.bill).toBe("PLACEHOLDER");
   });
 
+  test("rejects URL paths consistently", () => {
+    expect(() => parseEnv({ ...valid, RENTER_PORTAL_URL: "http://localhost:3000/renter" })).toThrow(/path/);
+    expect(() => parseEnv({ ...valid, FRONTEND_URL: "http://localhost:3001?next=login" })).toThrow(/path/);
+  });
+
   test("reads RENTER_PORTAL_URL and FRONTEND_URL defaults", () => {
     expect(parseEnv(valid).renterPortalUrl).toBe("http://localhost:3000");
     expect(parseEnv(valid).frontendUrl).toBe("http://localhost:3001");
