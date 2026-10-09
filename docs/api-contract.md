@@ -48,7 +48,7 @@ form-level message; it cannot attribute the failure to a field.
 | `FORBIDDEN`              | 403  | Valid credential, wrong role                                                    |
 | `NOT_FOUND`              | 404  | Row absent or outside the caller's tenant                                       |
 | `CONFLICT`               | 409  | Uniqueness or state violation                                                   |
-| `EXTERNAL_SERVICE_ERROR` | 502  | Zalo or R2 rejected the call; `details.failureReason`                           |
+| `EXTERNAL_SERVICE_ERROR` | 502  | Configured notification or private-storage provider rejected the call; `details.failureReason` is safe and optional |
 | `INTERNAL_ERROR`         | 500  | Unexpected server fault; details stay server-side                               |
 
 ## Manager endpoints
@@ -275,12 +275,38 @@ or motel ID from the client to select tenant ownership. Lists are bare arrays.
 | POST | `/tickets` | JSON `{category,description}` or multipart fields `category`, `description`, repeated `photos`; `201 Ticket`; route rejects malformed/unsupported bodies and invalid category with `400 {error:"Dữ liệu gửi lên không hợp lệ",code:"VALIDATION_ERROR"}`; service enforces description ≥10 chars, max 5 JPEG/PNG files, 10 MB each |
 | GET | `/tickets/:ticketId` | `200 Ticket`; foreign ticket `404`; signed-photo failure returns `502 EXTERNAL_SERVICE_ERROR` while committed ticket/photo metadata remains persisted |
 
-Ticket create provider delivery is best-effort: Zalo enqueue failure does not roll back a committed
-ticket. Storage failure before commit returns `502 EXTERNAL_SERVICE_ERROR` and removes staged
-objects; storage failure while signing a committed read returns the same safe 502.
+Ticket create provider delivery is best-effort: configured notification enqueue failure does not roll back a committed ticket. Storage failure before commit returns `502 EXTERNAL_SERVICE_ERROR` and removes staged objects; storage failure while signing a committed read returns the same safe 502.
 
 `Ticket` is `{id,renterId,motelId,roomId,category,description,photoUrls,status,createdAt,resolvedAt}`.
 Renter responses never permit payment mutation.
+
+### Renter payment — `/api/renter/invoices/:invoiceId/payment-proof`
+
+Payment proof is one private JPEG or PNG image, at most 10 MB. Upload bytes are validated before metadata commit; object keys never cross HTTP. Invoice payment state remains manager-controlled.
+
+| Method | Path | Body | Exact response / errors |
+| --- | --- | --- | --- |
+| POST | `/api/renter/invoices/:invoiceId/payment-proof` | `multipart/form-data`, exactly one `file` | `201 {id,invoiceId,status:"pending",contentType,size,submittedAt}`; no object key or signed URL |
+| GET | `/api/renter/invoices/:invoiceId/payment-proof` | — | `200 {id,invoiceId,status:"pending"|"approved"|"rejected",contentType,size,submittedAt,reviewedAt,rejectionReason,signedUrl}`; `signedUrl` is short-lived (300 seconds) and only returned to the owning renter |
+| POST | `/api/renter/push-subscriptions` | `{endpoint,p256dh,auth}` | `201 {id,createdAt}` or `200 {id,createdAt}` for idempotent upsert; subscription credentials are never echoed |
+| DELETE | `/api/renter/push-subscriptions/:subscriptionId` | — | `204`; only owner may revoke |
+
+Proof upload returns `400 VALIDATION_ERROR` for missing/multiple files, unsupported declared MIME, invalid JPEG/PNG bytes, or size over 10 MB; `401 UNAUTHORIZED` for missing/expired renter session; `404 NOT_FOUND` for foreign/missing invoice; `409 CONFLICT` for paid invoice, inaccessible period, or existing `pending`/`approved` proof; `429 RATE_LIMITED` for mutation rate limits; `502 EXTERNAL_SERVICE_ERROR` for storage or notification-provider failure. Rejected proof may be replaced by a new POST after explicit state validation.
+
+### Manager payment review — `/api/manager/motels/:motelId/billing/invoices/:invoiceId`
+
+| Method | Path | Body | Exact response / errors |
+| --- | --- | --- | --- |
+| GET | `/api/manager/motels/:motelId/billing/invoices/:invoiceId/payment-proof` | — | `200 {id,invoiceId,renterId,status,contentType,size,submittedAt,reviewedAt,reviewedByManagerId,rejectionReason,signedUrl}`; foreign motel/invoice is `404 NOT_FOUND` |
+| POST | `/api/manager/motels/:motelId/billing/invoices/:invoiceId/payment-proof/approve` | — | `200 {invoiceId,paymentStatus:"paid",paidAt,paymentMethod:"bank_transfer"}`; retry is idempotent; only manager may call |
+| POST | `/api/manager/motels/:motelId/billing/invoices/:invoiceId/payment-proof/reject` | `{reason}` | `200 {id,invoiceId,status:"rejected",rejectionReason}`; empty/overlong reason is `400 VALIDATION_ERROR`; invoice stays unpaid |
+| POST | `/api/manager/motels/:motelId/billing/invoices/:invoiceId/cash-confirmation` | — | `200 {invoiceId,paymentStatus:"paid",paidAt,paymentMethod:"cash"}`; retry is idempotent; no renter identity or payment state accepted from body |
+
+Manager review and cash confirmation return `401 UNAUTHORIZED` for missing/expired manager session, `404 NOT_FOUND` for foreign/missing motel or invoice, `409 CONFLICT` for invalid period/payment state or approve/reject/cash race, `429 RATE_LIMITED` when configured, and `502 EXTERNAL_SERVICE_ERROR` only for provider work after committed state. Approval, rejection, and cash confirmation are auditable; no renter endpoint can mark an invoice paid.
+
+### Notification delivery
+
+Payment events use stable keys `invoice:<id>:proof-submitted`, `invoice:<id>:proof-approved`, `invoice:<id>:proof-rejected`, and `invoice:<id>:cash-confirmed`. Web Push is attempted first after activation; permanent push failure deactivates the subscription and queues configured ZNS/SMS fallback. Delivery is idempotent, bounded, and redacted. Activation uses configured ZNS/ZBS or manager-generated manual link/QR fallback; no route promises Zalo-only delivery.
 
 ## Zalo webhook
 

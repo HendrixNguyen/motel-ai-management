@@ -83,6 +83,8 @@ destroys the schema it is given.
 | Contract signing | renter-only read, hashed OTP, five-minute expiry/cooldown, three-attempt limit, atomic activation, safe error codes |
 | Tenant scoping | both isolation directions, over HTTP |
 | Billing rules | meter's `basePrice` is never read by the calculation |
+| Renter payment | one-proof invariant, JPEG/PNG byte and 10 MB limits, proof state transitions, manager-only approval/cash payment, signed URL TTL, renter paid-mutation denial |
+| Notifications | push subscription ownership/deduplication, Web Push-first ordering, bounded retries, permanent-failure fallback, stable event-key idempotency, redacted payloads |
 | Meter capture | an offline entry survives a reload and syncs on reconnect (browser-level test) |
 
 ## What not to test

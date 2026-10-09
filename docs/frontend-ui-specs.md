@@ -436,8 +436,7 @@ When there is no invoice for the current period, the card is replaced by a neutr
 2×2 quick links: **Chi tiết điện nước**, **Lịch sử hóa đơn**, **Hợp đồng thuê**, **Báo
 hỏng / Yêu cầu hỗ trợ**.
 
-When `isOaFollower` is false, a dismissible banner sits above the card: follow the Zalo
-OA to receive bill notifications free of charge, with a **Quan tâm OA ngay** button.
+After activation, a dismissible notification banner offers **Bật thông báo** for Web Push. If permission is denied or unavailable, show **Thông báo vẫn gửi qua kênh dự phòng**; never block invoice access or payment.
 
 ### R2 — Chi tiết hóa đơn `/portal/bills/[id]`
 
@@ -467,6 +466,8 @@ Payment block:
 - Transfer description shown verbatim, with a copy button
 - Instruction: open your banking app and scan, or transfer manually with the exact
   description so the manager can match it
+- Payment proof: one JPEG/PNG image, maximum 10 MB, with states **Đang chờ duyệt**, **Đã duyệt**, and **Bị từ chối**. Rejected proof shows safe manager reason and allows one replacement; pending/approved and paid invoices disable upload.
+- Renter has no **Đã thanh toán** action. Payment becomes paid only after manager bank-proof approval or explicit cash confirmation.
 
 If `motel.bankAccount` is null the payment block is replaced by "Chưa cập nhật thông tin
 ngân hàng — vui lòng liên hệ chủ nhà trọ".

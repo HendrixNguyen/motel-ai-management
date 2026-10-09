@@ -3,7 +3,7 @@
 - **Date:** 2026-10-08
 - **Status:** Task 9 delivery gate
 - **Owner:** QA/engineering
-- **Scope:** Complete manager, capture, billing, renter portal, contract, upload, and Zalo flows
+- **Scope:** Complete manager, capture, billing, renter payment portal, contract, private upload, and notification fallback flows
 
 ## Exit rule
 
@@ -16,7 +16,7 @@ Release is green only when all required backend files, frontend unit tests, fixt
 | Local PostgreSQL | Backend integration and constraints | Disposable `TEST_DATABASE_URL`; reset before each file |
 | Fixture browser | Deterministic UI and mobile flows | Mock API + fixture backend server |
 | Real stack | Deployment smoke and cross-service flow | QA Dokploy, gated by `E2E_REAL=1` |
-| Provider sandbox | Zalo/R2 contract checks | Explicit credentials only; no production sends |
+| Provider sandbox | Private storage and notification adapter checks | Explicit credentials only; no production sends; Web Push primary with configured ZNS/SMS fallback |
 
 ## Seed personas
 
@@ -26,7 +26,7 @@ Release is green only when all required backend files, frontend unit tests, fixt
 - Renter B belongs to Motel B and Room B-101.
 - One draft contract, one active contract, one expired contract.
 - One draft billing period, one sent period, one invoice per payment state.
-- Zalo follower and non-follower renter states.
+- Renter with push permission granted and denied; configured ZNS/SMS fallback state.
 
 ## Required full flow
 
@@ -66,16 +66,19 @@ Release is green only when all required backend files, frontend unit tests, fixt
 10. Chốt kỳ; verify sent period/readings are read-only and no Zalo claim appears.
 11. Mark paid/overdue; verify idempotency and immutable invoice amounts.
 
-### Flow 4 — Renter magic link and portal
+### Flow 4 — Renter activation, payment proof, and portal
 
-1. Manager issues magic link.
+1. Manager issues magic link; manual link/QR fallback works without provider delivery.
 2. Exchange once; verify renter session cookie and token consumption.
 3. Reuse token; reject with `MAGIC_LINK_EXPIRED`.
-4. Expired token/session; show safe recovery and resend state.
-5. Renter sees only own profile, room, contract, periods, invoices, QR, and payment status.
-6. Renter B requests Renter A invoice/contract/ticket; response is `404` or empty scoped result per endpoint contract.
-7. Renter cannot mark invoice paid or access manager notes/object keys.
-8. Responsive checks at 375px and keyboard-only navigation.
+4. Expired token/session; show safe recovery state.
+5. Renter sees only own profile, room, periods, invoices, itemized amounts, QR, and payment status.
+6. Submit exactly one valid JPEG/PNG proof under 10 MB; reject missing/multiple files, bad bytes/MIME, and oversized files with `VALIDATION_ERROR`.
+7. Pending proof blocks duplicate upload; manager rejection exposes safe reason and permits replacement; approval marks invoice paid with `paymentMethod=bank_transfer`.
+8. Cash confirmation marks invoice paid with `paymentMethod=cash`; renter has no paid mutation.
+9. Renter B requests Renter A invoice/proof/subscription; response is `404` with no data leak.
+10. Register/revoke own push subscription; test push success, denied permission, permanent failure, bounded retry, and ZNS/SMS fallback without secret leakage.
+11. Responsive checks at 360px, 375px, 430px and keyboard-only navigation.
 
 ### Flow 5 — OTP signing
 
@@ -97,18 +100,15 @@ Release is green only when all required backend files, frontend unit tests, fixt
 4. Cross-renter read returns `404`/empty scoped result.
 5. Ticket creation remains available when Zalo delivery fails; notification failure is auditable.
 
-### Flow 7 — Zalo integration
+### Flow 7 — Notification delivery
 
-1. Receive valid signed follow webhook; map verified OA ID to renter.
-2. Repeat webhook; verify idempotent state and no duplicate event.
-3. Invalid signature, unknown event, malformed payload; reject safely.
-4. Unfollow; clear follower state without changing renter identity.
-5. Send OA message to follower; persist event/provider ID/status.
-6. Non-follower uses approved ZNS fallback.
-7. Transient provider error retries with bounded attempts/backoff.
-8. Permanent recipient/template error does not retry forever.
-9. Duplicate event key sends once.
-10. Logs and database contain no OTP plaintext, access token, signed URL, or secret.
+1. Deliver activation through configured ZNS/ZBS or manager-generated manual link/QR fallback.
+2. Attempt Web Push first for activated renter payment events; persist event/provider ID/status.
+3. Permission denial or invalid endpoint does not block portal use.
+4. Permanent push failure deactivates subscription and queues configured ZNS/SMS fallback.
+5. Transient provider error retries at most three times with bounded backoff.
+6. Duplicate event key sends once; payloads are redacted.
+7. Logs and database contain no OTP plaintext, access token, push credentials, signed URL, object key, or secret.
 
 ## Backend test matrix
 
@@ -118,11 +118,11 @@ Release is green only when all required backend files, frontend unit tests, fixt
 | Auth | Register/login/logout, wrong password, rate limits, cookie expiry |
 | Tenancy | Manager and renter isolation over `app.handle(new Request(...))` |
 | Billing | Atomic batch, conflicts, sent lock, idempotent invoices, payment transitions |
-| Capture | Upload authorization, private key metadata, signed URL TTL, sync replay |
+| Capture/payment | Meter upload authorization, payment-proof byte validation, private metadata, signed URL TTL, sync replay |
 | Contracts | Template default, draft lifecycle, OTP, paper proof, active-room race |
-| Renter | Magic-link replay/expiry, invoice/contract/ticket scope, response redaction |
-| Zalo | Signature, follower mapping, dedupe, retry classification, audit state |
-| Failure paths | R2 outage, Zalo outage, malformed payload, network retry, partial upload |
+| Renter | Magic-link replay/expiry, invoice/proof/subscription scope, response redaction |
+| Notifications | Push subscription ownership/deduplication, provider ordering, fallback, dedupe, bounded retry, audit state |
+| Failure paths | Private-storage outage, notification-provider outage, malformed payload, network retry, partial upload |
 
 Run each explicit file sequentially:
 
