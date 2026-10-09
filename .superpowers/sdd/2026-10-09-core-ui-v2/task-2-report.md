@@ -1,8 +1,8 @@
 
-## Re-review fixes
-- Theme media listener now follows current selected theme through effect dependencies.
-- Selecting explicit theme removes system listener; selecting system subscribes again.
-- Blocked-storage test now exercises `changeTheme`, including guarded persistence and DOM application, instead of directly testing mock behavior.
+## Final review fixes
+- Restored Vitest globals between tests with `vi.unstubAllGlobals()`.
+- Strengthened blocked-storage coverage: `getStoredTheme()` fallback, guarded `setItem` call assertion, and DOM theme application.
+- Listener lifecycle coverage now creates system and explicit helper cleanups and asserts one subscription plus one removal.
 
 ## Verification
 - `bun test src/components/ui/__tests__/theme.test.tsx`: blocked; `bun` unavailable.

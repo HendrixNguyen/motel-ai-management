@@ -3,6 +3,7 @@ import { app } from "@/app";
 import { db } from "@/db";
 import { managers } from "@/modules/auth/auth.schema";
 import { registerManager, verifyManager } from "@/modules/auth/auth.service";
+import { createApp } from "@/app";
 import { resetDb } from "@/db/test-db";
 
 // `resetDb` drops the schema and re-applies every migration, which takes seconds — past
@@ -56,5 +57,32 @@ describe("manager auth", () => {
     await expect(verifyManager("nobody@example.com", "whatever")).rejects.toMatchObject({
       code: "UNAUTHORIZED",
     });
+  });
+
+  test("authorization bearer header cannot authenticate manager routes", async () => {
+    const response = await createApp().handle(new Request("http://localhost/api/auth/me", { headers: { authorization: "Bearer forged" } }));
+    expect(response.status).toBe(401);
+  });
+
+  test("spoofed X-Forwarded-For does not change untrusted client bucket", async () => {
+    const first = await createApp().handle(new Request("http://localhost/api/auth/login", { method: "POST", headers: { "content-type": "application/json", "x-forwarded-for": "1.1.1.1" }, body: JSON.stringify({ email: "nobody@example.com", password: "bad" }) }));
+    const second = await createApp().handle(new Request("http://localhost/api/auth/login", { method: "POST", headers: { "content-type": "application/json", "x-forwarded-for": "2.2.2.2" }, body: JSON.stringify({ email: "nobody@example.com", password: "bad" }) }));
+    expect(first.status).toBe(401);
+    expect(second.status).toBe(401);
+  });
+
+  test("unknown email performs password verification against a dummy hash", async () => {
+    const original = Bun.password.verify;
+    let calls = 0;
+    Bun.password.verify = (async (...args: Parameters<typeof Bun.password.verify>) => {
+      calls += 1;
+      return original(...args);
+    }) as typeof Bun.password.verify;
+    try {
+      await expect(verifyManager("nobody@example.com", "whatever")).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+      expect(calls).toBe(1);
+    } finally {
+      Bun.password.verify = original;
+    }
   });
 });

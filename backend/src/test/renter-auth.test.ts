@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, setDefaultTimeout, test } from "bun:test";
-import { sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { env } from "@/config";
 import { db } from "@/db";
 import { resetDb } from "@/db/test-db";
@@ -80,6 +80,15 @@ describe("magic links", () => {
     await expect(consumeMagicLink(token)).rejects.toMatchObject({
       code: "MAGIC_LINK_EXPIRED",
     });
+  });
+
+  test("inactive renter session is rejected", async () => {
+    const renter = await seedRenter();
+    const { token } = await issueMagicLink(renter.id);
+    await db.update(renters).set({ status: "inactive" }).where(eq(renters.id, renter.id));
+    const exchange = await app.handle(new Request("http://localhost/api/renter/magic-links/exchange", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token }) }));
+    expect(exchange.status).toBe(401);
+    expect(exchange.headers.get("set-cookie") ?? "").not.toContain("renter_session=");
   });
 
   test("exchange endpoint sets a renter_session cookie", async () => {

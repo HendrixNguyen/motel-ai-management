@@ -9,6 +9,7 @@ const markup = (node: React.ReactElement) => renderToStaticMarkup(node);
 describe("theme foundation", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    vi.unstubAllGlobals();
   });
 
   test("renders system without browser state", () => {
@@ -21,10 +22,13 @@ describe("theme foundation", () => {
   });
 
   test("guards blocked storage during theme change", () => {
-    vi.stubGlobal("localStorage", { getItem: vi.fn(() => { throw new Error("blocked"); }), setItem: vi.fn(() => { throw new Error("blocked"); }) });
+    const storage = { getItem: vi.fn(() => { throw new Error("blocked"); }), setItem: vi.fn(() => { throw new Error("blocked"); }) };
+    vi.stubGlobal("localStorage", storage);
     const root = { dataset: {} as { theme?: string } };
     const media = { matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() };
+    expect(getStoredTheme()).toBe("system");
     expect(() => changeTheme("dark", root, media)).not.toThrow();
+    expect(storage.setItem).not.toHaveBeenCalled();
     expect(root.dataset.theme).toBe("dark");
   });
 
@@ -36,7 +40,7 @@ describe("theme foundation", () => {
     applyTheme("dark", root);
     expect(root.dataset.theme).toBe("dark");
     applyTheme("system", root);
-    expect(root.dataset.theme).toBe("");
+    expect(root.dataset.theme).toBe("light");
   });
 
   test("syncs system media changes only for system theme", () => {
@@ -52,10 +56,11 @@ describe("theme foundation", () => {
   test("replaces media listener when theme changes", () => {
     const root = { dataset: {} as { theme?: string } };
     const media = { matches: true, addEventListener: vi.fn(), removeEventListener: vi.fn() };
-    const cleanup = syncSystemTheme("system", root, media);
-    changeTheme("dark", root, media);
-    cleanup();
-    expect(media.removeEventListener).toHaveBeenCalled();
+    const systemCleanup = syncSystemTheme("system", root, media);
+    const explicitCleanup = syncSystemTheme("dark", root, media);
+    explicitCleanup();
+    systemCleanup();
+    expect(media.removeEventListener).toHaveBeenCalledTimes(1);
     expect(media.addEventListener).toHaveBeenCalledTimes(1);
   });
 
@@ -68,7 +73,8 @@ describe("theme foundation", () => {
   test("foundation CSS scopes scroll margin and includes safe area", async () => {
     const css = await readFile(new URL("../../../app/globals.css", import.meta.url), "utf8");
     expect(css).toContain("main [id]");
-    expect(css).toContain("env(safe-area-inset-bottom)");
+    expect(css).toMatch(/\.shell-safe-area\s*\{\s*padding-bottom:\s*env\(safe-area-inset-bottom\);\s*\}/);
+    expect(css).toMatch(/:focus-visible\s*\{\s*outline:\s*var\(--focus-ring-width\) solid var\(--color-focus\);/);
     expect(css).toContain("-webkit-tap-highlight-color");
     expect(css).toContain("prefers-reduced-motion");
   });

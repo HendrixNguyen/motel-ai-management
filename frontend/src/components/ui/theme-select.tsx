@@ -37,7 +37,7 @@ export function getStoredTheme(): Theme {
 export default function ThemeSelect() {
   const [theme, setTheme] = useState<Theme>("system");
   useEffect(() => {
-    setTheme(getStoredTheme());
+    queueMicrotask(() => setTheme(getStoredTheme()));
   }, []);
   useEffect(() => {
     const media = window.matchMedia("(prefers-color-scheme: dark)");

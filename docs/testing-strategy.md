@@ -7,6 +7,12 @@
 Tests are a deliverable, not a follow-up. A behaviour change without a test is an unfinished
 change.
 
+Frontend Core UI and portal changes require `cd frontend && bun run typecheck`, `bun run lint`,
+`bun run build`, and `bun run test`. Vitest covers API path contracts and shell composition;
+Playwright covers renter and manager flows at `360`, `375`, `430`, and `1280` when Chromium
+dependencies are available. Missing Chromium OS libraries remain an environment blocker, not a
+product test failure.
+
 ## The standard
 
 | Layer | What it proves | Explicit assertions | When |

@@ -27,8 +27,10 @@ test("creates period and seeds electric/water readings for every room", async ()
   await db.insert(rooms).values([{ motelId: motel!.id, name: "P.102" }, { motelId: motel!.id, name: "P.101" }]);
   const response = await app.handle(new Request(`http://localhost/api/manager/motels/${motel!.id}/billing/periods`, { method: "POST", headers: { Cookie: cookie, "Content-Type": "application/json" }, body: JSON.stringify({ month: 10, year: 2026 }) }));
   expect(response.status).toBe(201);
-  const body = await response.json() as { status: string; rooms: Array<{ name: string; readings: Array<{ type: string; previousReading: string; currentReading: string | null }> }> };
+  const body = await response.json() as { status: string; electricityPrice: string; waterPrice: string; rooms: Array<{ name: string; readings: Array<{ type: string; previousReading: string; currentReading: string | null }> }> };
   expect(body.status).toBe("draft");
+  expect((body as { electricityPrice: string }).electricityPrice).toBe("2000");
+  expect((body as { waterPrice: string }).waterPrice).toBe("15000");
   expect(body.rooms.map((room) => room.name)).toEqual(["P.101", "P.102"]);
   expect(body.rooms.every((room) => room.readings.length === 2 && room.readings.every((reading) => reading.previousReading === "0.00" && reading.currentReading === null))).toBe(true);
 });

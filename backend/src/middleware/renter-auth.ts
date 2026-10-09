@@ -38,7 +38,7 @@ export const renterAuth = new Elysia({ name: "renter-auth" })
     }
 
     const renterRow = await db.query.renters.findFirst({
-      where: and(eq(renters.id, payload.renterId), eq(renters.motelId, payload.motelId)),
+      where: and(eq(renters.id, payload.renterId), eq(renters.motelId, payload.motelId), eq(renters.status, "active")),
     });
 
     if (!renterRow) {

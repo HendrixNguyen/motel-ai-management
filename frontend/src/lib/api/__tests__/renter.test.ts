@@ -30,6 +30,13 @@ describe("renter API", () => {
     ]);
   });
 
+  it("loads one renter ticket by scoped id", async () => {
+    fetchMock.mockResolvedValue(response({ id: "ticket", description: "Nước rò rỉ" }));
+    const { getRenterTicket } = await import("@/lib/api/renter");
+    await getRenterTicket("ticket");
+    expect(fetchMock.mock.calls[0]?.[0]).toBe("/api/renter/tickets/ticket");
+  });
+
   it("sends OTP and ticket bodies without payment mutation", async () => {
     fetchMock.mockImplementation(() => Promise.resolve(response({ otpSignedAt: null })));
     await requestRenterContractOtp("contract");

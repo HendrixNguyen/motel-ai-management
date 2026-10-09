@@ -406,6 +406,10 @@ There is no submit-at-the-end step — each room is committed the moment it is s
 
 ---
 
+## Core UI v2 delivery
+
+Shared UI primitives live under `frontend/src/components/ui/` and preserve existing public props. New renter surfaces compose `PortalShell`, `Field`, `Button`, and semantic tokens. Portal billing uses period selectors and explicit empty states; ticket lists link to scoped detail routes and never expose manager notes or storage keys. Brand assets and metadata use Nhà Số Gọn (`frontend/public/brand/`).
+
 ## 3. Renter Portal
 
 Sticky header: motel name + room badge (`Nhà Trọ An Khang · P.202`), renter name, and a
