@@ -8,11 +8,32 @@ import { AppError } from "@/shared/errors";
  * written in Vietnamese for the user. Anything else is logged in full and reported as a
  * generic failure, because a database URL or a driver message must never reach a client.
  */
+const REDACTED = "[REDACTED]";
+const SENSITIVE_QUERY_KEYS = new Set(["token", "access_token", "magic_link_token", "code", "secret", "key", "password"]);
+
+function redactUrl(raw: string): string {
+  try {
+    const url = new URL(raw);
+    const path = url.pathname.replace(/(^|\/)r\/[^/]+(?=\/|$)/gi, `$1r/${REDACTED}`);
+    for (const key of url.searchParams.keys()) {
+      const normalized = decodeURIComponent(key).toLowerCase().replace(/[-.]/g, "_");
+      if (SENSITIVE_QUERY_KEYS.has(normalized)) url.searchParams.set(key, REDACTED);
+    }
+    url.pathname = path;
+    return url.toString();
+  } catch {
+    return raw.replace(/(^|\/)r\/[^/\s?#]+/gi, `$1r/${REDACTED}`)
+      .replace(/([?&](?:token|access_token|magic[_-]link[_-]token|code|secret|key|password)=)[^&#\s]*/gi, `$1${REDACTED}`);
+  }
+}
+
 function redactSecrets(value: unknown): unknown {
   if (typeof value === "string") {
     return value
-      .replace(/((?:[?&]|\b)(?:token|magic[_-]?link|code|secret|key|password)=)[^&#\s]*/gi, "$1[REDACTED]")
-      .replace(/(Bearer\s+)[^\s]+/gi, "$1[REDACTED]");
+      .replace(/https?:\/\/[^\s]+/gi, (url) => redactUrl(url))
+      .replace(/(^|\/)r\/[^/\s?#]+/gi, `$1r/${REDACTED}`)
+      .replace(/((?:^|\s)(?:token|access_token|magic[_-]?link[_-]?token|code|secret|key|password)=)[^\s&#]*/gi, `$1${REDACTED}`)
+      .replace(/(Bearer\s+)[^\s]+/gi, `$1${REDACTED}`);
   }
   if (value instanceof Error) return { name: value.name, message: redactSecrets(value.message), stack: redactSecrets(value.stack) };
   return value;

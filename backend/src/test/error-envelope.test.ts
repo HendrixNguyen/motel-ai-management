@@ -43,10 +43,10 @@ describe("error envelope", () => {
     console.error = (...args: unknown[]) => logs.push(args);
     try {
       const res = await createApp()
-        .get("/boom", () => {
+        .get("/r/:token", () => {
           throw new Error("connect ECONNREFUSED 10.0.0.5:5432 password=hunter2");
         })
-        .handle(new Request("http://localhost/boom?token=magic-secret&safe=1"));
+        .handle(new Request("http://localhost/r/magic-secret?access%5Ftoken=access-secret&magic%5Flink%5Ftoken=link-secret&safe=1"));
 
       expect(res.status).toBe(500);
       const body = await res.text();
@@ -56,9 +56,12 @@ describe("error envelope", () => {
       });
       expect(body).not.toContain("hunter2");
       expect(body).not.toContain("ECONNREFUSED");
-      expect(JSON.stringify(logs)).not.toContain("magic-secret");
-      expect(JSON.stringify(logs)).not.toContain("hunter2");
-      expect(JSON.stringify(logs)).toContain("[REDACTED]");
+      const serializedLogs = JSON.stringify(logs);
+      expect(serializedLogs).not.toContain("magic-secret");
+      expect(serializedLogs).not.toContain("access-secret");
+      expect(serializedLogs).not.toContain("link-secret");
+      expect(serializedLogs).not.toContain("hunter2");
+      expect(serializedLogs).toContain("[REDACTED]");
     } finally {
       console.error = originalError;
     }
