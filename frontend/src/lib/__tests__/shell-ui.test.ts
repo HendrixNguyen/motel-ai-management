@@ -4,7 +4,6 @@ import { describe, expect, it, vi } from "vitest";
 import Field from "@/components/ui/field";
 import PageHeader from "@/components/ui/page-header";
 import { ToastProvider } from "@/components/ui/toast";
-import { Toaster } from "sonner";
 import Sidebar from "@/components/manager/sidebar";
 import TopBar from "@/components/manager/top-bar";
 import LoginPage from "@/app/(auth)/login/page";
@@ -58,7 +57,7 @@ describe("accessible shell controls", () => {
     expect(html).toContain("Tổng quan");
     expect(html).toContain("Hôm nay");
     expect(html).toContain("Tạo");
-    expect(renderToStaticMarkup(createElement(Toaster))).toContain('aria-label="Notifications alt+T"');
+    expect(html).toContain('aria-live="polite"');
   });
   it("disables the motel selector when no motel exists", () => {
     const html = renderToStaticMarkup(createElement(TopBar, { manager: MANAGER_ME, motels: [] }));

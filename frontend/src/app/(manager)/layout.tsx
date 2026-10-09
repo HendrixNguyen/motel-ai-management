@@ -21,7 +21,7 @@ export default async function ManagerLayout({ children }: { children: React.Reac
         <Suspense fallback={<div className="h-24 border-b border-border bg-surface" role="status">Đang tải điều hướng…</div>}>
           <TopBar manager={manager} motels={motels} />
         </Suspense>
-        <main id="main-content" tabIndex={-1} className="mx-auto max-w-6xl px-4 pt-6 pb-[calc(6rem+env(safe-area-inset-bottom))] lg:px-8 lg:pb-8">{children}</main>
+        <main id="main-content" tabIndex={-1} className="mx-auto max-w-6xl px-4 pt-6 pb-[calc(8rem+env(safe-area-inset-bottom))] lg:px-8 lg:pb-8">{children}</main>
       </div>
     </div>
     </ToastProvider>

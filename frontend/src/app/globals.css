@@ -33,6 +33,10 @@
   --color-surface: #FFFFFF;
   --color-canvas: #F8FAFC;
   --color-surface-raised: #F1F5F9;
+  --color-primary-fixed: #DBEAFE;
+  --color-on-primary-fixed: #082F49;
+  --color-on-primary: #FFFFFF;
+  --color-on-surface: #0F172A;
 
   --font-heading: var(--font-be-vietnam-pro);
   --font-sans: var(--font-noto-sans);
@@ -43,7 +47,7 @@
 
 /* Keep keyboard focus paint clear of viewport edges and the fixed mobile navigation. */
 :where(a, button, input, select, textarea, summary):focus-visible {
-  scroll-margin: 6rem 1rem;
+  scroll-margin: 9rem 1rem;
 }
 
 html {
@@ -52,6 +56,78 @@ html {
 
 body {
   min-width: 320px;
+  color: var(--color-text-body);
+  background: var(--color-canvas);
+  color-scheme: light;
+  font-family: var(--font-sans), sans-serif;
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  color: var(--color-surface);
+  background: var(--color-primary);
+}
+
+button, a, input, select, textarea, summary {
+  -webkit-tap-highlight-color: transparent;
+}
+
+html[data-theme="dark"] {
+  --color-primary: #38BDF8;
+  --color-primary-strong: #7DD3FC;
+  --color-success: #4ADE80;
+  --color-success-bg: #14532D;
+  --color-warning: #FBBF24;
+  --color-warning-bg: #451A03;
+  --color-danger: #F87171;
+  --color-danger-bg: #450A0A;
+  --color-text: #F8FAFC;
+  --color-text-body: #E2E8F0;
+  --color-text-muted: #CBD5E1;
+  --color-border: #334155;
+  --color-border-strong: #94A3B8;
+  --color-surface: #111827;
+  --color-canvas: #0F172A;
+  --color-surface-raised: #1E293B;
+  --color-primary-fixed: #0C4A6E;
+  --color-on-primary-fixed: #E0F2FE;
+  --color-on-primary: #082F49;
+  --color-on-surface: #F8FAFC;
+}
+
+html[data-theme="dark"] body {
+  color-scheme: dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  html:not([data-theme="light"]) {
+    --color-primary: #38BDF8;
+    --color-primary-strong: #7DD3FC;
+    --color-success: #4ADE80;
+    --color-success-bg: #14532D;
+    --color-warning: #FBBF24;
+    --color-warning-bg: #451A03;
+    --color-danger: #F87171;
+    --color-danger-bg: #450A0A;
+    --color-text: #F8FAFC;
+    --color-text-body: #E2E8F0;
+    --color-text-muted: #CBD5E1;
+    --color-border: #334155;
+    --color-border-strong: #94A3B8;
+    --color-surface: #111827;
+    --color-canvas: #0F172A;
+    --color-surface-raised: #1E293B;
+    --color-primary-fixed: #0C4A6E;
+    --color-on-primary-fixed: #E0F2FE;
+    --color-on-primary: #082F49;
+    --color-on-surface: #F8FAFC;
+  }
+}
+
+@media (min-width: 1024px) {
+  body {
+    background: linear-gradient(90deg, var(--color-surface) 0 240px, var(--color-canvas) 240px);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

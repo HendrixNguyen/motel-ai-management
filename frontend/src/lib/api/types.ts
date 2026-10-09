@@ -434,6 +434,15 @@ export interface CreateRenterTicketInput {
   photos?: File[];
 }
 
+export type ContractStatus = "draft" | "active" | "expired" | "terminated";
+export interface ContractClause { title: string; content: string; }
+export interface ContractTemplateResponse { id: string; motelId: string; name: string; clauses: ContractClause[]; isDefault: boolean; createdAt: string; }
+export interface CreateContractTemplateInput { name: string; clauses: ContractClause[]; isDefault?: boolean; }
+export interface UpdateContractTemplateInput { name?: string; clauses?: ContractClause[]; isDefault?: boolean; }
+export interface CreateContractInput { renterId: string; roomId: string; templateId?: string; startDate: string; endDate: string; monthlyRent?: VndString; deposit?: VndString; clauses?: ContractClause[]; }
+export interface UpdateContractInput { templateId?: string; startDate?: string; endDate?: string; monthlyRent?: VndString; deposit?: VndString; clauses?: ContractClause[]; }
+export interface ContractResponse { id: string; motelId: string; renterId: string; roomId: string; startDate: string; endDate: string; monthlyRent: VndString; deposit: VndString; clauses: ContractClause[]; otpSentAt: string | null; otpSignedAt: string | null; status: ContractStatus; createdAt: string; }
+
 export interface RenterContract {
   id: string;
   motelId: string;

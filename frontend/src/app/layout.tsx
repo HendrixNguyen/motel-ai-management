@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Be_Vietnam_Pro, Noto_Sans } from "next/font/google";
 import "./globals.css";
+import ThemeInit from "@/components/ui/theme-init";
 
 /**
  * `subsets` picks which of the family's own subset files are *preloaded*. The Vietnamese
@@ -40,6 +41,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       className={`${headingFont.variable} ${bodyFont.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col bg-canvas text-text-body font-sans">
+        <ThemeInit />
         {children}
       </body>
     </html>
