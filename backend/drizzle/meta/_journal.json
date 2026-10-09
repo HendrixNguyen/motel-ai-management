@@ -113,6 +113,13 @@
       "when": 1791600800000,
       "tag": "0015_payment_settlement",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1791600900000,
+      "tag": "0016_rate_limit_buckets",
+      "breakpoints": true
     }
   ]
 }
