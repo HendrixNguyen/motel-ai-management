@@ -51,13 +51,13 @@ describe("parseEnv", () => {
   });
 
   test("rejects insecure production defaults and non-HTTPS public URLs", () => {
-    const production = { ...valid, NODE_ENV: "production", RENTER_PORTAL_URL: "https://renter.example.com", FRONTEND_URL: "https://app.example.com", MANAGER_JWT_SECRET: "a".repeat(48), RENTER_SESSION_SECRET: "b".repeat(48), ZALO_WEBHOOK_SECRET: "c".repeat(48) };
+    const production = { ...valid, NODE_ENV: "production", RENTER_PORTAL_URL: "https://renter.example.com", FRONTEND_URL: "https://app.example.com", MANAGER_JWT_SECRET: "a".repeat(48), RENTER_SESSION_SECRET: "b".repeat(48), ZALO_OA_SECRET: "d".repeat(48), ZALO_ACCESS_TOKEN: "e".repeat(48), ZALO_WEBHOOK_SECRET: "c".repeat(48), R2_ACCESS_KEY_ID: "f".repeat(48), R2_SECRET_ACCESS_KEY: "g".repeat(48) };
     expect(() => parseEnv({ ...production, RENTER_PORTAL_URL: "http://renter.example.com" })).toThrow(/HTTPS/);
     expect(() => parseEnv({ ...production, ZALO_WEBHOOK_SECRET: "mock_webhook_secret" })).toThrow(/secret production/);
   });
 
   test("rejects duplicate production secrets", () => {
-    expect(() => parseEnv({ ...valid, NODE_ENV: "production", RENTER_PORTAL_URL: "https://renter.example.com", FRONTEND_URL: "https://app.example.com", MANAGER_JWT_SECRET: "a".repeat(48), RENTER_SESSION_SECRET: "a".repeat(48), ZALO_WEBHOOK_SECRET: "c".repeat(48) })).toThrow(/trùng/);
+    expect(() => parseEnv({ ...valid, NODE_ENV: "production", RENTER_PORTAL_URL: "https://renter.example.com", FRONTEND_URL: "https://app.example.com", MANAGER_JWT_SECRET: "a".repeat(48), RENTER_SESSION_SECRET: "a".repeat(48), ZALO_OA_SECRET: "d".repeat(48), ZALO_ACCESS_TOKEN: "e".repeat(48), ZALO_WEBHOOK_SECRET: "c".repeat(48), R2_ACCESS_KEY_ID: "f".repeat(48), R2_SECRET_ACCESS_KEY: "g".repeat(48) })).toThrow(/trùng/);
   });
 
   test("exposes ZNS template ids and flags placeholders", () => {
