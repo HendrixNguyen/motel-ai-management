@@ -330,7 +330,7 @@ A notification is an outbound event; a channel is its transport. Payment events 
 
 | Method | Path | Body | Response |
 | --- | --- | --- | --- |
-| POST | `/api/zalo/webhook` | `{event_id?,event_name:"follow"|"unfollow",user_id?|follower_id?,phone?,oa_id?}` | `200 {ok:true}` |
+| POST | `/api/webhooks/zalo` | `{event_id?,event_name:"follow"|"unfollow",user_id?|follower_id?,phone?,oa_id?}` | `200 {ok:true}` |
 
 Unauthenticated by definition; `x-zalo-signature` must equal HMAC-SHA256 of raw body using
 `ZALO_WEBHOOK_SECRET`. Invalid signature returns `401 {error,code:UNAUTHORIZED}`. Malformed or

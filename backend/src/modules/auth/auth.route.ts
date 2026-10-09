@@ -9,6 +9,7 @@ import { issueMagicLink } from "@/shared/magic-link";
 import { AppError } from "@/shared/errors";
 import type { ManagerJwtPayload } from "./auth.types";
 import { getRenter } from "@/modules/renter/renter.service";
+import { enforceRateLimit } from "@/shared/rate-limit";
 
 const COOKIE_NAME = "manager_session";
 
@@ -42,7 +43,10 @@ export const authRoutes = new Elysia({ name: "auth-routes" })
   )
   .post(
     "/auth/login",
-    async ({ body, manager, cookie, set }) => {
+    async ({ body, manager, cookie, set, request }) => {
+      const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+      enforceRateLimit(`login:ip:${ip}`, 10);
+      enforceRateLimit(`login:email:${body.email.trim().toLowerCase()}`, 5);
       const managerRow = await verifyManager(body.email, body.password);
       const token = await manager.sign({ userId: managerRow.id, email: managerRow.email });
       cookie[COOKIE_NAME]?.set({

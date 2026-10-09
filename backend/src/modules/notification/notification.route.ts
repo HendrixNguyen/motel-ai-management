@@ -6,7 +6,7 @@ import { processZaloWebhook } from "./notification.webhook";
 
 function validSignature(raw: Uint8Array, signature: string | undefined): boolean { if (!signature) return false; const expected = createHmac("sha256", env.zalo.webhookSecret).update(raw).digest("hex"); const actual = Buffer.from(signature); const wanted = Buffer.from(expected); return actual.length === wanted.length && timingSafeEqual(actual, wanted); }
 
-export const notificationRoutes = new Elysia({ name: "notification-routes" }).post("/zalo/webhook", async ({ request, headers, set }) => {
+export const notificationRoutes = new Elysia({ name: "notification-routes" }).post("/webhooks/zalo", async ({ request, headers, set }) => {
   const raw = new Uint8Array(await request.arrayBuffer());
   if (!validSignature(raw, headers["x-zalo-signature"])) { set.status = 401; return { error: "Chữ ký không hợp lệ", code: "UNAUTHORIZED" }; }
   let event: { event_id?: string; event_name?: string; user_id?: string; follower_id?: string; phone?: string; oa_id?: string };
@@ -15,7 +15,8 @@ export const notificationRoutes = new Elysia({ name: "notification-routes" }).po
     if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("invalid object");
     event = parsed as typeof event;
   } catch { set.status = 400; return { error: "Dữ liệu webhook không hợp lệ", code: "VALIDATION_ERROR" }; }
-  if (!(typeof event.event_name === "string" && (event.event_name === "follow" || event.event_name === "unfollow"))) { set.status = 400; return { error: "Dữ liệu webhook không hợp lệ", code: "VALIDATION_ERROR" }; }
+  if (typeof event.event_name !== "string") { set.status = 400; return { error: "Dữ liệu webhook không hợp lệ", code: "VALIDATION_ERROR" }; }
+  if (event.event_name !== "follow" && event.event_name !== "unfollow") return { ok: true };
   const follower = event.user_id ?? event.follower_id;
   if (typeof follower !== "string" || follower.trim() === "") { set.status = 400; return { error: "Dữ liệu webhook không hợp lệ", code: "VALIDATION_ERROR" }; }
   if (event.event_name === "follow" && (typeof event.phone !== "string" || event.phone.trim() === "")) { set.status = 400; return { error: "Dữ liệu webhook không hợp lệ", code: "VALIDATION_ERROR" }; }

@@ -57,4 +57,19 @@ describe("manager auth", () => {
       code: "UNAUTHORIZED",
     });
   });
+
+  test("unknown email performs password verification against a dummy hash", async () => {
+    const original = Bun.password.verify;
+    let calls = 0;
+    Bun.password.verify = (async (...args: Parameters<typeof Bun.password.verify>) => {
+      calls += 1;
+      return original(...args);
+    }) as typeof Bun.password.verify;
+    try {
+      await expect(verifyManager("nobody@example.com", "whatever")).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+      expect(calls).toBe(1);
+    } finally {
+      Bun.password.verify = original;
+    }
+  });
 });

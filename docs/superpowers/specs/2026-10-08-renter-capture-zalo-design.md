@@ -94,7 +94,7 @@ Document and implement exact request/response/error shapes before frontend work:
 - `POST /api/renter/tickets`
 - `POST /api/manager/motels/:motelId/billing/periods/:periodId/readings/:readingId/photo`
 - `GET /api/manager/motels/:motelId/billing/periods/:periodId/readings/:readingId/photo`
-- `POST /api/zalo/webhook`
+- `POST /api/webhooks/zalo`
 - Internal manager-triggered notification operations remain behind domain services, not browser-callable provider endpoints.
 
 Existing billing and contract routes remain canonical where their current shapes already satisfy these needs. Add only missing renter and upload routes.
