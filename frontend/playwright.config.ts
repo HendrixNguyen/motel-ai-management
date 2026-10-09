@@ -59,7 +59,7 @@ export default defineConfig({
     {
       // The port lives in the `dev` script; `BASE_URL` above has to agree with it. Readiness is
       // checked on the port, so the harness does not depend on a particular application route.
-      command: "bun run build && node .next/standalone/server.js",
+      command: "BACKEND_URL=http://127.0.0.1:3002 bun run build && cp -R .next/static .next/standalone/.next/static && cp -R public .next/standalone/public && PORT=3001 BACKEND_URL=http://127.0.0.1:3002 node .next/standalone/server.js",
       url: `${BASE_URL}/login`,
       // A reused dev server may have a different BACKEND_URL and bypass our hermetic RSC fixture.
       reuseExistingServer: REAL_STACK && !process.env.CI,
