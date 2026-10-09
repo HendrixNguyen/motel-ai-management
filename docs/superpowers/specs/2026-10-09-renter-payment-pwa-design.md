@@ -62,6 +62,8 @@ All renter routes derive renter and motel from `renter_session`; all manager rou
 - `POST /api/renter/push-subscriptions` — planned route: validate endpoint and Web Push keys; upsert own subscription.
 - `DELETE /api/renter/push-subscriptions/:subscriptionId` — planned route: revoke own subscription.
 
+These push-subscription routes are planned only; they are not part of the currently implemented API surface.
+
 ### Manager
 
 - `POST /api/manager/motels/:motelId/renters/:renterId/magic-link` — existing manager-issued link; UI exposes copy/QR fallback.
@@ -81,7 +83,7 @@ Exact response/error bodies must be added to `docs/api-contract.md` before imple
 5. Rejection requires manager ownership and preserves audit fields; renter sees safe reason text only.
 6. Cash confirmation never accepts renter identity or payment status from request body.
 7. Notification enqueue is after committed domain state or through an outbox transaction; delivery failure never rolls back proof review or payment state.
-8. Payment-state mutation succeeds independently of notification delivery. If enqueue fails before commit, the payment transaction rolls back and returns `EXTERNAL_SERVICE_ERROR`; if delivery fails after enqueue, proof/payment state stays committed, notification is `failed`, and the manager can retry without changing payment state.
+8. Payment-state mutation succeeds independently of post-commit delivery. If enqueue fails before commit, the payment transaction rolls back and returns `EXTERNAL_SERVICE_ERROR`; if delivery fails after enqueue, proof/payment state stays committed, notification is `failed`, and the manager can retry without changing payment state. Enqueue failure and post-commit delivery failure are distinct outcomes.
 
 ## Security and tenancy
 

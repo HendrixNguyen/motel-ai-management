@@ -25,8 +25,9 @@ first contact is unavoidably a paid ZNS message.
 
 Route by follow status, with an explicit cold-start exception.
 
-1. **First contact** — when a renter is created, send a paid ZNS welcome carrying the
-   magic link and a prompt to follow the OA.
+1. **First contact** — when activation notification is requested, use configured ZNS/ZBS
+   delivery or the manager-generated manual link/QR fallback. Renter creation itself does
+   not promise ZNS-only delivery.
 2. **Follow webhook** — when the OA follow event arrives, set `isOaFollower = true` and
    store `zaloOaId`.
 3. **Every message thereafter** — check `isOaFollower`:
@@ -36,8 +37,9 @@ Route by follow status, with an explicit cold-start exception.
 Triggers that route this way: bill ready, payment confirmed, contract sent for signing, OTP
 delivery, contract expiry reminder, ticket created, ticket status change.
 
-Every attempt writes a `zalo_notifications` row so the manager UI can show what was sent,
-what failed, and offer **Gửi lại**.
+Every attempt writes a `zalo_notifications` row so the manager UI can show what was sent
+and what failed. Retry belongs to notification delivery state, not generic Zalo actions on
+unrelated renter or invoice screens.
 
 ## Consequences
 

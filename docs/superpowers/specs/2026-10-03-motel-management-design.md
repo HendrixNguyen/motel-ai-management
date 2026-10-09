@@ -431,8 +431,8 @@ A notification is an outbound event; a channel is its transport. Web Push is pri
 Channel routing keeps Zalo costs low — see
 [ADR-0003](../../../adr/0003-zalo-oa-vs-zns-routing.md):
 
-1. On renter creation, send a paid ZNS welcome containing the magic link and the OA
-   follow prompt. Followers cannot exist before first contact.
+1. On activation notification request, use configured ZNS/ZBS delivery or manager-generated
+   manual link/QR fallback. Renter creation itself does not promise ZNS-only delivery.
 2. The OA follow webhook sets `isOaFollower = true` and `zaloOaId` when OA transport is configured.
 3. For configured Zalo transport, later notification delivery may use the follower state to select OA message or ZNS/ZBS fallback. This is one provider path under the notification strategy, not the only post-activation channel.
 

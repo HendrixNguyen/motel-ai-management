@@ -140,7 +140,7 @@ is made from a Server Component with the cookie forwarded.
 | Method | Path         | Notes                                                                  |
 | ------ | ------------ | ---------------------------------------------------------------------- |
 | GET    | `/`          | Supports `?status=&roomId=&search=`                                    |
-| POST   | `/`          | `409` on duplicate `(motelId, phone)`; triggers the ZNS welcome        |
+| POST   | `/`          | `409` on duplicate `(motelId, phone)`; creates renter and manager-issued magic-link fallback remains available |
 | GET    | `/:renterId` | Includes contract summary and invoice history                          |
 | PATCH  | `/:renterId` | Name, phone, CCCD, `idCardFrontUrl`, `idCardBackUrl`, `roomId`, status |
 | DELETE | `/:renterId` | Soft-delete: sets `status = inactive`, keeps financial history         |
@@ -288,8 +288,8 @@ Payment proof is one private JPEG or PNG image, at most 10 MB. Upload bytes are 
 | --- | --- | --- | --- |
 | POST | `/api/renter/invoices/:invoiceId/payment-proof` | `multipart/form-data`, exactly one `file` | `201 {id,invoiceId,status:"pending",contentType,size,submittedAt}`; no object key or signed URL |
 | GET | `/api/renter/invoices/:invoiceId/payment-proof` | — | `200 {id,invoiceId,status:"pending"|"approved"|"rejected",contentType,size,submittedAt,reviewedAt,rejectionReason,signedUrl}`; `signedUrl` is short-lived (300 seconds) and only returned to the owning renter |
-| POST | `/api/renter/push-subscriptions` | `{endpoint,p256dh,auth}` | `201 {id,createdAt}` or `200 {id,createdAt}` for idempotent upsert; subscription credentials are never echoed |
-| DELETE | `/api/renter/push-subscriptions/:subscriptionId` | — | `204`; only owner may revoke |
+| POST | `/api/renter/push-subscriptions` | `{endpoint,p256dh,auth}` | **Planned route.** `201 {id,createdAt}` or `200 {id,createdAt}` for idempotent upsert; subscription credentials are never echoed |
+| DELETE | `/api/renter/push-subscriptions/:subscriptionId` | — | **Planned route.** `204`; only owner may revoke |
 
 Proof upload returns `400 VALIDATION_ERROR` for missing/multiple files, unsupported declared MIME, invalid JPEG/PNG bytes, or size over 10 MB; `401 UNAUTHORIZED` for missing/expired renter session; `404 NOT_FOUND` for foreign/missing invoice; `409 CONFLICT` for paid invoice, inaccessible period, or existing `pending`/`approved` proof; `429 RATE_LIMITED` for mutation rate limits; `502 EXTERNAL_SERVICE_ERROR` for storage failure. A rejected proof remains immutable history and may be replaced by one new POST after explicit state validation; the database allows only one non-rejected proof per invoice.
 

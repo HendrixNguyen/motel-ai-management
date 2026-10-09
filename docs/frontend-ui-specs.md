@@ -145,7 +145,7 @@ a "Doanh thu dự kiến 0 ₫" tile is a false claim about data that does not e
 | Sidebar | **Tổng quan**, **Nhà trọ**, **Phòng trọ**, **Khách thuê**, **Tính tiền & Hóa đơn** (M5, M6) | **Hợp đồng** (M7, M7a), **Sự cố & Yêu cầu** (M8), **Cài đặt** (M9) |
 | M1 Overview | **Phòng** card, live quick actions | **Doanh thu dự kiến**, **Tiền chưa thu**, **Sự cố chưa xử lý** cards, and both widgets |
 | M3 Phòng trọ | filters, cards, add/edit, change status | overdue indicator, meter history |
-| M4 Khách thuê | list, detail, **Tạo magic link** | **Gửi Zalo** |
+| M4 Khách thuê | list, detail, **Tạo magic link** | provider-specific send/retry actions |
 | M9 Cài đặt | prices, `otherFees`, and bank account — carried by the M2 edit modal | the Zalo OA status panel |
 
 Each section below still describes the full intended screen. Read the table as what is
@@ -177,9 +177,8 @@ create-renter form immediately.
 Quick actions: **Chốt số điện/nước**, **Tạo hóa đơn**, **Thêm khách thuê**. Keep the next
 operational action prominent on mobile without hiding alerts or unpaid balance.
 
-Two widgets below: _Hóa đơn chưa thanh toán_ (top overdue invoices, each with a **Gửi
-lại Zalo** action) and _Sự cố mới_ (latest tickets with room, category, snippet,
-timestamp).
+Two widgets below: _Hóa đơn chưa thanh toán_ (top overdue invoices, each with a link to
+invoice detail) and _Sự cố mới_ (latest tickets with room, category, snippet, timestamp).
 
 ### M2 — Nhà trọ `/motels`
 
@@ -244,7 +243,7 @@ the room: a renter can be `Đang thuê` with no room assigned.
 
 Renter detail page: personal info with front/back CCCD images (or an "chưa cập nhật"
 placeholder), active contract summary with end date and deposit, invoice history with
-payment status, and **Tạo magic link / Gửi Zalo**.
+payment status, and **Tạo magic link**.
 
 Delivered M4 behavior: list and detail reads use the selected `?motel=` and validate motel
 ownership first. A `roomId` filter from M3 is sent to the list endpoint and retained in the
@@ -272,7 +271,8 @@ text, no referrer and no server image optimization; absent/unsafe URLs or storag
 a resolvable URL show **Chưa cập nhật**. The magic-link action posts from the browser through
 relative `/api/...`, disables itself while pending and exposes the returned `/r/[token]` URL
 with a read-only field and copy action. A 401 returns to login; other failures show a focused
-error and allow retry. **Gửi Zalo** remains deferred as listed above. The renter portal receives notification state only
+error and allow retry. Provider-specific send/retry actions remain deferred; generic **Gửi Zalo**
+actions are not rendered. The renter portal receives notification state only
 through the server-rendered profile; it never receives OA IDs, access tokens, template IDs, or
 provider failure details. The magic-link exchange accepts `{token}` once, sets the 24-hour
 httpOnly `renter_session`, then redirects to `/portal`; `MAGIC_LINK_EXPIRED` renders **Liên kết đã
@@ -295,13 +295,13 @@ Batch-entry table on wider screens, one row per room. On phones, edit one room a
 - Rooms with no active contract show a muted "Không có hợp đồng" row and are excluded
   from totals.
 
-Actions: **Lưu nháp**, **Tạo hóa đơn**, **Gửi Zalo cho tất cả phòng**.
+Actions: **Lưu nháp**, **Tạo hóa đơn**. Notification delivery is deferred to the notification state surface; no generic Zalo send action appears here.
 
 ### M6 — Hóa đơn `/billing/[periodId]/invoices`
 
 Table: Mã HĐ, Phòng, Khách, Tổng tiền, Trạng thái (`Chưa thanh toán` / `Đã thanh toán` /
 `Quá hạn`), Ngày gửi. Row actions: view detail with QR, **Xác nhận đã chuyển khoản**,
-**Gửi lại Zalo**, copy magic link.
+copy magic link.
 
 Confirming payment asks for confirmation and stamps `paidAt`. Zalo payment notification is
 handled by sub-project 8. This records
