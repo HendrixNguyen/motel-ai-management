@@ -1,9 +1,10 @@
 import { defineConfig, devices } from "@playwright/test";
 
-const PORT = 3001;
+const PORT = Number(process.env.E2E_PORT ?? 3001);
 const BASE_URL = `http://localhost:${PORT}`;
 const REAL_STACK = process.env.E2E_REAL === "1";
-const FIXTURE_BACKEND_URL = "http://127.0.0.1:3002";
+const FIXTURE_BACKEND_PORT = Number(process.env.E2E_FIXTURE_PORT ?? 3002);
+const FIXTURE_BACKEND_URL = `http://127.0.0.1:${FIXTURE_BACKEND_PORT}`;
 
 // Two projects, two jobs.
 //
@@ -59,7 +60,7 @@ export default defineConfig({
     {
       // The port lives in the `dev` script; `BASE_URL` above has to agree with it. Readiness is
       // checked on the port, so the harness does not depend on a particular application route.
-      command: "bun run dev",
+      command: `bunx next dev -p ${PORT}`,
       port: PORT,
       // A reused dev server may have a different BACKEND_URL and bypass our hermetic RSC fixture.
       reuseExistingServer: REAL_STACK && !process.env.CI,
