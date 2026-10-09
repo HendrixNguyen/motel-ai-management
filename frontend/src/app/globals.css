@@ -66,6 +66,24 @@
 
 html {
   background: var(--color-canvas);
+  scroll-behavior: smooth;
+}
+
+html[data-theme="light"] {
+  color-scheme: light;
+}
+
+:focus-visible {
+  outline: var(--focus-ring-width) solid var(--color-focus);
+  outline-offset: var(--focus-ring-offset);
+}
+
+main, [id] {
+  scroll-margin-top: 6rem;
+}
+
+body {
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
 body {
