@@ -137,7 +137,7 @@ export async function updateMeterReadings(periodId: string, motelId: string, man
       if (row.updatedAt.getTime() !== expected.getTime()) {
         throw AppError.readingConflict({ id: row.id, roomId: row.roomId, type: row.type, previousReading: row.previousReading, currentReading: row.currentReading, readingDate: row.readingDate, updatedAt: row.updatedAt.toISOString() });
       }
-      const [updated] = await tx.update(meterReadings).set({ currentReading: formatMeterValue(current), photoUrl: item.photoUrl ?? null, readingDate: new Date().toISOString().slice(0, 10), updatedAt: new Date() }).where(eq(meterReadings.id, row.id)).returning();
+      const [updated] = await tx.update(meterReadings).set({ currentReading: formatMeterValue(current), photoUrl: item.photoUrl ?? null, readingDate: new Date().toISOString().slice(0, 10), updatedAt: new Date() }).where(and(eq(meterReadings.id, row.id), eq(meterReadings.updatedAt, row.updatedAt))).returning();
       if (!updated) {
         const latest = await tx.query.meterReadings.findFirst({ where: eq(meterReadings.id, row.id) });
         if (!latest) throw AppError.notFound("Không tìm thấy chỉ số công tơ");

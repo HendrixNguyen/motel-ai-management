@@ -57,6 +57,17 @@ describe("billing readings", () => {
     await expect(updateMeterReadings(period!.id, motel!.id, manager!.id, { readings: [{ roomId: room!.id, type: "electric", currentReading: "1", expectedUpdatedAt: reading!.updatedAt.toISOString() }] })).resolves.toHaveLength(1);
   });
 
+  test("rejects concurrent writer with same expected timestamp", async () => {
+    const [manager] = await db.insert(managers).values({ email: "concurrent@example.com", passwordHash: "x", name: "M" }).returning();
+    const [motel] = await db.insert(motels).values({ managerId: manager!.id, name: "M", electricityPrice: "2000", waterPrice: "15000" }).returning();
+    const [room] = await db.insert(rooms).values({ motelId: motel!.id, name: "101" }).returning();
+    const [period] = await db.insert(billingPeriods).values({ motelId: motel!.id, month: 1, year: 2026 }).returning();
+    const [reading] = await db.insert(meterReadings).values({ billingPeriodId: period!.id, roomId: room!.id, type: "electric", previousReading: "0" }).returning();
+    const expectedUpdatedAt = reading!.updatedAt.toISOString();
+    await updateMeterReadings(period!.id, motel!.id, manager!.id, { readings: [{ roomId: room!.id, type: "electric", currentReading: "10", expectedUpdatedAt }] });
+    await expect(updateMeterReadings(period!.id, motel!.id, manager!.id, { readings: [{ roomId: room!.id, type: "electric", currentReading: "20", expectedUpdatedAt }] })).rejects.toMatchObject({ code: "READING_CONFLICT" });
+  });
+
   test("rejects stale reading update even when value matches latest", async () => {
     const [manager] = await db.insert(managers).values({ email: "stale@example.com", passwordHash: "x", name: "M" }).returning();
     const [motel] = await db.insert(motels).values({ managerId: manager!.id, name: "M", electricityPrice: "2000", waterPrice: "15000" }).returning();
