@@ -106,6 +106,13 @@
       "when": 1791600700000,
       "tag": "0014_payment_proofs_immutable",
       "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1791600800000,
+      "tag": "0015_payment_settlement",
+      "breakpoints": true
     }
   ]
 }

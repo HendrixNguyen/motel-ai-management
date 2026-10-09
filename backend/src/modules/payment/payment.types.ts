@@ -6,7 +6,7 @@ export interface PaymentProofResponse {
   status: PaymentProofStatus;
   contentType: "image/jpeg" | "image/png";
   size: number;
-  submittedAt: Date;
-  reviewedAt: Date | null;
+  submittedAt: string;
+  reviewedAt: string | null;
   rejectionReason: string | null;
 }

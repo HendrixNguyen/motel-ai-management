@@ -2,6 +2,15 @@ import { and, desc, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { invoices, billingPeriods } from "@/modules/billing/billing.schema";
 import { settleInvoicePayment } from "@/modules/billing/billing.service";
+
+const attempts = new Map<string, { count: number; resetAt: number }>();
+function enforcePaymentRateLimit(key: string, max: number): void {
+  const now = Date.now();
+  const current = attempts.get(key);
+  if (!current || current.resetAt <= now) { attempts.set(key, { count: 1, resetAt: now + 60_000 }); return; }
+  if (current.count >= max) throw AppError.rateLimited("Thao tác quá nhanh", Math.ceil((current.resetAt - now) / 1000));
+  current.count += 1;
+}
 import { enqueueNotification } from "@/modules/notification/notification.service";
 import { paymentProofs } from "./payment.schema";
 import { AppError } from "@/shared/errors";
@@ -13,7 +22,7 @@ let paymentStorage: StorageAdapter = new FakeStorageAdapter();
 export function configurePaymentStorage(storage: StorageAdapter): void { paymentStorage = storage; }
 
 function response(row: typeof paymentProofs.$inferSelect): PaymentProofResponse {
-  return { id: row.id, invoiceId: row.invoiceId, status: row.status, contentType: row.contentType as "image/jpeg" | "image/png", size: row.size, submittedAt: row.submittedAt, reviewedAt: row.reviewedAt, rejectionReason: row.rejectionReason };
+  return { id: row.id, invoiceId: row.invoiceId, status: row.status, contentType: row.contentType as "image/jpeg" | "image/png", size: row.size, submittedAt: row.submittedAt.toISOString(), reviewedAt: row.reviewedAt?.toISOString() ?? null, rejectionReason: row.rejectionReason };
 }
 
 async function invoiceForRenter(session: RenterAuthPayload, invoiceId: string) {
@@ -22,6 +31,8 @@ async function invoiceForRenter(session: RenterAuthPayload, invoiceId: string) {
 }
 
 export async function submitPaymentProof(session: RenterAuthPayload, invoiceId: string, file: File): Promise<PaymentProofResponse> {
+  enforcePaymentRateLimit(`upload:${session.renterId}`, 10);
+  if (file.size > 10 * 1024 * 1024) throw AppError.badRequest("Tệp vượt quá giới hạn 10 MB");
   const owned = await invoiceForRenter(session, invoiceId);
   if (!owned) throw AppError.notFound("Không tìm thấy hóa đơn");
   if (owned.invoice.paymentStatus === "paid") throw AppError.conflict("Hóa đơn đã thanh toán");
@@ -75,6 +86,7 @@ export async function getManagerPaymentProof(managerId: string, motelId: string,
 }
 
 export async function approvePaymentProof(managerId: string, motelId: string, invoiceId: string) {
+  enforcePaymentRateLimit(`review:${managerId}`, 30);
   await managerInvoice(managerId, motelId, invoiceId);
   const proof = await db.query.paymentProofs.findFirst({ where: and(eq(paymentProofs.invoiceId, invoiceId), eq(paymentProofs.motelId, motelId), eq(paymentProofs.status, "pending")) });
   if (!proof) { const existing = await db.query.paymentProofs.findFirst({ where: and(eq(paymentProofs.invoiceId, invoiceId), eq(paymentProofs.motelId, motelId), eq(paymentProofs.status, "approved")) }); if (!existing) throw AppError.conflict("Không có chứng từ chờ duyệt"); const invoice = await settleInvoicePayment(invoiceId, motelId, managerId, "bank_transfer", existing.id); return { invoiceId, paymentStatus: invoice.paymentStatus, paidAt: invoice.paidAt, paymentMethod: "bank_transfer" as const }; }
@@ -94,17 +106,24 @@ export async function approvePaymentProof(managerId: string, motelId: string, in
 }
 
 export async function rejectPaymentProof(managerId: string, motelId: string, invoiceId: string, reason: string) {
+  enforcePaymentRateLimit(`review:${managerId}`, 30);
   await managerInvoice(managerId, motelId, invoiceId);
   const clean = reason.trim(); if (!clean || clean.length > 500) throw AppError.badRequest("Lý do từ chối phải dài từ 1 đến 500 ký tự");
   const proof = await db.query.paymentProofs.findFirst({ where: and(eq(paymentProofs.invoiceId, invoiceId), eq(paymentProofs.motelId, motelId), eq(paymentProofs.status, "pending")) });
   if (!proof) throw AppError.conflict("Không có chứng từ chờ duyệt");
-  const [updated] = await db.update(paymentProofs).set({ status: "rejected", reviewedAt: new Date(), reviewedByManagerId: managerId, rejectionReason: clean }).where(and(eq(paymentProofs.id, proof.id), eq(paymentProofs.status, "pending"))).returning();
-  if (!updated) throw AppError.conflict("Chứng từ đã được xử lý");
-  await enqueueNotification({ eventKey: `invoice:${invoiceId}:proof:${updated.id}:rejected`, renterId: updated.renterId, motelId, templateId: "paymentProofRejected", payload: { invoiceId, reason: clean } });
+  const updated = await db.transaction(async (tx) => {
+    const locked = await tx.execute(sql`select * from payment_proofs where id = ${proof.id} and invoice_id = ${invoiceId} for update`);
+    if (!locked.length) throw AppError.conflict("Chứng từ đã được xử lý");
+    const [row] = await tx.update(paymentProofs).set({ status: "rejected", reviewedAt: new Date(), reviewedByManagerId: managerId, rejectionReason: clean }).where(and(eq(paymentProofs.id, proof.id), eq(paymentProofs.status, "pending"))).returning();
+    if (!row) throw AppError.conflict("Chứng từ đã được xử lý");
+    await enqueueNotification({ eventKey: `invoice:${invoiceId}:proof-rejected`, renterId: row.renterId, motelId, templateId: "paymentProofRejected", payload: { invoiceId, reason: clean } }, tx);
+    return row;
+  });
   return response(updated);
 }
 
 export async function confirmCashPayment(managerId: string, motelId: string, invoiceId: string) {
+  enforcePaymentRateLimit(`review:${managerId}`, 30);
   await managerInvoice(managerId, motelId, invoiceId);
   const result = await db.transaction(async (tx) => {
     const locked = await tx.execute(sql`select * from invoices where id = ${invoiceId} and motel_id = ${motelId} for update`);
