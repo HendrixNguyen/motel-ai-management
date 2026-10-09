@@ -86,14 +86,16 @@ export async function approvePaymentProof(managerId: string, motelId: string, in
     const lockedProofs = await tx.execute(sql`select * from payment_proofs where invoice_id = ${invoiceId} and motel_id = ${motelId} and status in ('pending', 'approved') order by id for update`);
     const proof = lockedProofs[0] as typeof paymentProofs.$inferSelect | undefined;
     if (!proof) throw AppError.conflict("Không có chứng từ chờ duyệt");
-    const updated = proof.status === "approved" ? proof : (await tx.update(paymentProofs).set({ status: "approved", reviewedAt: new Date(), reviewedByManagerId: managerId }).where(and(eq(paymentProofs.id, proof.id), eq(paymentProofs.motelId, motelId), eq(paymentProofs.status, "pending"))).returning())[0];
+    const wasApproved = proof.status === "approved";
+    const updated = wasApproved ? proof : (await tx.update(paymentProofs).set({ status: "approved", reviewedAt: new Date(), reviewedByManagerId: managerId }).where(and(eq(paymentProofs.id, proof.id), eq(paymentProofs.motelId, motelId), eq(paymentProofs.status, "pending"))).returning())[0];
     if (!updated) throw AppError.conflict("Chứng từ đã được xử lý");
     const invoice = lockedInvoice[0] as typeof invoices.$inferSelect | undefined;
     if (!invoice) throw AppError.notFound("Không tìm thấy hóa đơn");
     if (invoice.paymentStatus === "paid" && (invoice.paymentMethod !== "bank_transfer" || invoice.paymentProofId !== updated.id)) throw AppError.conflict("Hóa đơn đã thanh toán bằng phương thức khác");
-    const settled = invoice.paymentStatus === "paid" ? invoice : (await tx.update(invoices).set({ paymentStatus: "paid", paymentMethod: "bank_transfer", paymentProofId: updated.id, paidAt: new Date() }).where(and(eq(invoices.id, invoiceId), eq(invoices.motelId, motelId))).returning())[0];
+    const settled = invoice.paymentStatus === "paid" ? invoice : (await tx.update(invoices).set({ paymentStatus: "paid", paymentMethod: "bank_transfer", paymentProofId: updated.id, paidAt: new Date() }).where(and(eq(invoices.id, invoiceId), eq(invoices.motelId, motelId), sql`${invoices.paymentStatus} in ('unpaid', 'overdue')`)).returning())[0];
+    if (invoice.paymentStatus === "paid") return invoice;
     if (!settled) throw AppError.externalService();
-    await enqueueNotification({ eventKey: `invoice:${invoiceId}:proof-approved`, renterId: settled.renterId, motelId, templateId: "paymentConfirmed", payload: { invoiceId, totalAmount: settled.totalAmount } }, tx);
+    if (!wasApproved) await enqueueNotification({ eventKey: `invoice:${invoiceId}:proof-approved`, renterId: settled.renterId, motelId, templateId: "paymentConfirmed", payload: { invoiceId, totalAmount: settled.totalAmount } }, tx);
     return settled;
   });
   return { invoiceId, paymentStatus: result.paymentStatus, paidAt: result.paidAt, paymentMethod: "bank_transfer" as const };
@@ -124,7 +126,7 @@ export async function confirmCashPayment(managerId: string, motelId: string, inv
     const invoice = locked[0] as typeof invoices.$inferSelect | undefined;
     if (!invoice) throw AppError.notFound("Không tìm thấy hóa đơn");
     if (invoice.paymentStatus === "paid" && invoice.paymentMethod !== "cash") throw AppError.conflict("Hóa đơn đã thanh toán bằng phương thức khác");
-    const settled = invoice.paymentStatus === "paid" ? invoice : (await tx.update(invoices).set({ paymentStatus: "paid", paymentMethod: "cash", paymentProofId: null, paidAt: new Date() }).where(and(eq(invoices.id, invoiceId), eq(invoices.motelId, motelId), eq(invoices.paymentStatus, "unpaid"))).returning())[0];
+    const settled = invoice.paymentStatus === "paid" ? invoice : (await tx.update(invoices).set({ paymentStatus: "paid", paymentMethod: "cash", paymentProofId: null, paidAt: new Date() }).where(and(eq(invoices.id, invoiceId), eq(invoices.motelId, motelId), sql`${invoices.paymentStatus} in ('unpaid', 'overdue')`)).returning())[0];
     if (!settled) throw AppError.externalService();
     await enqueueNotification({ eventKey: `invoice:${invoiceId}:cash-confirmed`, renterId: settled.renterId, motelId, templateId: "paymentConfirmed", payload: { invoiceId, totalAmount: settled.totalAmount } }, tx);
     return settled;
