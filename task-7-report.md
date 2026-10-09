@@ -26,3 +26,13 @@ Post-fix verification: 13 targeted tests passed; frontend typecheck and targeted
 Final review fixes: notification enqueue executor uses explicit `NotificationExecutor` type with no `any`, preserving DB behavior. Migration coverage renders `EmptyState` both without action (no button) and with action (button present). Backend TypeScript check passed through installed `tsc`; Bun command unavailable in environment.
 
 Final ancestry cleanup: payment route and service introduced after Task 7 were removed with revert commits `a924af7` and `76b5439`; payment schema/types remain exported truthfully through `backend/src/db/schemas.ts`. Pre-existing `payment-proof-schema.test.ts` was restored from parent history. Payment route/service are out of Task 7 scope; no payment redesign was attempted. Backend typecheck is historical/unverified in this environment because Bun is unavailable; no current Bun verification claim is made. Task 7 frontend diff contains no payment module additions.
+
+## Rate-limit migration reconciliation
+
+- Added `backend/drizzle/0019_reconcile_rate_limit_buckets.sql` and journal idx17; kept historical migration SQL and prior journal entries unchanged.
+- Local `motel_test` ledger records 0016; its table had `key/window_started_at/count`. The table was only inspected; schema remained unchanged by verification. Earlier `bun run db:migrate` ignored environment override via config and connected to local `motel`; read-only inspection found no rate-limit table there.
+- Used dedicated disposable local DBs with explicit `DATABASE_URL` and isolated migrator runner. Empty install succeeded: 18 migration ledger rows; table has `(bucket_key, window_start)` PK, `request_count integer NOT NULL DEFAULT 0`, and window index.
+- Upgrade fixture through 0016 with legacy schema/data migrated successfully; representative key/count 7 survived under renamed columns. Separate composite-schema fixture also migrated successfully and retained count 4.
+- Re-running migrations on scratch DBs succeeded without duplicate-object failures.
+- No project migration regression test added: repository has no migration test harness; verification was performed against actual PostgreSQL scratch DBs.
+- `git diff --check` passed. No QA/prod access, deploy, or push.
