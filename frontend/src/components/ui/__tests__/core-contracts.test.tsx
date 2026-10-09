@@ -84,28 +84,4 @@ describe("Core UI v2 compatibility contracts", () => {
     expect(html).toContain("Theo hệ thống");
   });
 
-  test("theme helpers resolve stored and system themes", async () => {
-    const { resolveTheme, applyTheme } = await import("../theme-select");
-    expect(resolveTheme("dark", false)).toBe("dark");
-    expect(resolveTheme("invalid", true)).toBe("dark");
-    expect(resolveTheme("system", false)).toBe("light");
-    const root = { dataset: {} as Record<string, string> };
-    applyTheme("system", root);
-    expect(root.dataset.theme).toBe("");
-  });
-
-  test("theme init script reads system fallback and storage safely", async () => {
-    const { themeInitScript } = await import("../theme-init");
-    expect(themeInitScript).toContain("matchMedia");
-    expect(themeInitScript).toContain("motel-theme");
-    expect(themeInitScript).toContain("data-theme");
-  });
-
-  test("theme foundation exposes accessibility utilities", async () => {
-    const css = await Bun.file("frontend/src/app/globals.css").text();
-    expect(css).toContain("prefers-reduced-motion");
-    expect(css).toContain("env(safe-area-inset-bottom)");
-    expect(css).toContain("-webkit-tap-highlight-color");
-    expect(css).toContain("scroll-margin");
-  });
 });

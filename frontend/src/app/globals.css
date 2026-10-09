@@ -78,12 +78,8 @@ html[data-theme="light"] {
   outline-offset: var(--focus-ring-offset);
 }
 
-main, [id] {
+main [id], main :where(a, button, input, select, textarea, summary) {
   scroll-margin-top: 6rem;
-}
-
-body {
-  padding-bottom: env(safe-area-inset-bottom);
 }
 
 body {
