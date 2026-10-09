@@ -27,7 +27,9 @@ export function createFixtureBackend(onMissingFixture: (failure: Error) => void 
     const url = new URL(request.url ?? "/", "http://127.0.0.1:3002");
     const path = url.pathname;
     const method = request.method;
-    const session = /(?:^|;\s*)(?:manager_session|renter_session)=([^;]+)/.exec(request.headers.cookie ?? "")?.[1] ?? "anonymous";
+    const cookieValue = (name: string) => new RegExp(`(?:^|;\\s*)${name}=([^;]*)`).exec(request.headers.cookie ?? "")?.[1] ?? "";
+    const managerSession = cookieValue("manager_session");
+    const renterSession = cookieValue("renter_session");
     const json = (body: unknown, status = 200) => {
       response.writeHead(status, { "content-type": "application/json" }); response.end(JSON.stringify(body));
     };
@@ -58,7 +60,7 @@ export function createFixtureBackend(onMissingFixture: (failure: Error) => void 
         response.setHeader("set-cookie", "renter_session=fixture; Path=/; HttpOnly; SameSite=Lax"); return json({ renterId: "renter", motelId: "motel" });
       }
       if (path.startsWith("/api/renter/")) {
-        if (session !== "fixture") return unauthorized();
+        if (renterSession !== "fixture") return unauthorized();
         if (path === "/api/renter/logout" && method === "POST") { response.writeHead(204, { "set-cookie": "renter_session=; Path=/; Max-Age=0" }); return response.end(); }
         if (path === "/api/renter/me") return json({ id: "renter", name: "An", phone: "84901234567", room: { id: "room", name: "P.101", floor: 1 }, motel: { id: "motel", name: "Nhà trọ Minh Anh" }, activeContract: null });
         if (method === "GET" && path === "/api/renter/billing/periods") return json([{ id: "period", month: 10, year: 2026, status: "sent", createdAt: "2026-10-01T00:00:00.000Z" }]);
@@ -67,24 +69,24 @@ export function createFixtureBackend(onMissingFixture: (failure: Error) => void 
         if (path === "/api/renter/contracts/contract/sign-request" && method === "POST") return json({ sentAt: new Date().toISOString() });
         if (path === "/api/renter/contracts/contract/verify" && method === "POST") {
           const body = await input<{ otp: string }>();
-          const attempts = otpAttempts.get(session) ?? 0;
+          const attempts = otpAttempts.get(renterSession) ?? 0;
           if (attempts >= 3) return error(401, "OTP_INVALID", "Mã OTP không đúng hoặc đã hết lượt thử");
-          if (body.otp !== "123456") { otpAttempts.set(session, attempts + 1); return error(401, "OTP_INVALID", "Mã OTP không đúng hoặc đã hết lượt thử"); }
-          const otpSignedAt = new Date().toISOString(); signedRenters.set(session, otpSignedAt); return json({ otpSignedAt, status: "active" });
+          if (body.otp !== "123456") { otpAttempts.set(renterSession, attempts + 1); return error(401, "OTP_INVALID", "Mã OTP không đúng hoặc đã hết lượt thử"); }
+          const otpSignedAt = new Date().toISOString(); signedRenters.set(renterSession, otpSignedAt); return json({ otpSignedAt, status: "active" });
         }
-        if (path === "/api/renter/contract" && method === "GET") { const otpSignedAt = signedRenters.get(session) ?? null; return json({ id: "contract", status: otpSignedAt ? "active" : "draft", monthlyRent: "3500000", deposit: "3500000", startDate: "2026-10-01", endDate: "2027-09-30", clauses: [{ title: "Điều khoản", content: "Nội dung" }], otpSignedAt }); }
+        if (path === "/api/renter/contract" && method === "GET") { const otpSignedAt = signedRenters.get(renterSession) ?? null; return json({ id: "contract", status: otpSignedAt ? "active" : "draft", monthlyRent: "3500000", deposit: "3500000", startDate: "2026-10-01", endDate: "2027-09-30", clauses: [{ title: "Điều khoản", content: "Nội dung" }], otpSignedAt }); }
         if (path === "/api/renter/tickets" && method === "GET") return json([]);
         if (path === "/api/renter/tickets" && method === "POST") { const body = await input<{ category: string; description: string }>(); return json({ id: "ticket", category: body.category, description: body.description, status: "open", createdAt: new Date().toISOString() }, 201); }
       }
-      if (!session) return unauthorized();
-      if (method === "GET" && path === "/api/auth/me") return session === "me-expired" ? unauthorized() : json(MANAGER_ME);
-      const state = stateFor(session);
+      if (!managerSession) return unauthorized();
+      if (method === "GET" && path === "/api/auth/me") return managerSession === "me-expired" ? unauthorized() : json(MANAGER_ME);
+      const state = stateFor(managerSession);
       if (method === "GET" && path.match(/^\/api\/manager\/motels\/[^/]+\/billing\/periods$/)) return json([CAPTURE_PERIOD]);
-      if (method === "GET" && path.match(/^\/api\/manager\/motels\/[^/]+\/billing\/periods\/[^/]+$/)) return json(session === "sent-capture" ? { ...CAPTURE_PERIOD_DETAIL, status: "sent" } : CAPTURE_PERIOD_DETAIL);
+      if (method === "GET" && path.match(/^\/api\/manager\/motels\/[^/]+\/billing\/periods\/[^/]+$/)) return json(managerSession === "sent-capture" ? { ...CAPTURE_PERIOD_DETAIL, status: "sent" } : CAPTURE_PERIOD_DETAIL);
       if (method === "GET" && path.match(/^\/api\/manager\/motels\/[^/]+\/billing\/periods\/[^/]+\/invoices$/)) return json([]);
       if (method === "PUT" && path.match(/^\/api\/manager\/motels\/[^/]+\/billing\/periods\/[^/]+\/readings$/)) return json({ ok: true });
       if (path === "/api/manager/motels") {
-        if (method === "GET") return session === "motels-expired" ? unauthorized() : json(state.motels);
+        if (method === "GET") return managerSession === "motels-expired" ? unauthorized() : json(state.motels);
         if (method === "POST") {
           const body = await input<CreateMotelInput>();
           const motel: MotelResponse = { id: crypto.randomUUID(), managerId: MANAGER_ME.id, name: body.name, address: body.address ?? null,
@@ -102,7 +104,7 @@ export function createFixtureBackend(onMissingFixture: (failure: Error) => void 
         if (collection === "rooms") {
           const rooms = state.rooms.filter((room) => room.motelId === motelId);
           if (method === "GET" && !id) {
-            if (session.startsWith("rooms-error")) return error(500, "INTERNAL_ERROR", "private database host");
+            if (managerSession.startsWith("rooms-error")) return error(500, "INTERNAL_ERROR", "private database host");
             return json(rooms.filter((room) =>
               (!url.searchParams.has("floor") || room.floor === Number(url.searchParams.get("floor"))) &&
               (!url.searchParams.has("status") || room.status === url.searchParams.get("status")) &&

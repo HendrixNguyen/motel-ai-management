@@ -9,6 +9,17 @@ test("unauthenticated and expired renter sessions cannot read portal data", asyn
   expect(expired.status()).toBe(401);
 });
 
+test("manager and renter sessions route independently at 430px", async ({ page, context }) => {
+  await context.addCookies([
+    { name: "manager_session", value: "valid", url: "http://localhost:3001" },
+    { name: "renter_session", value: "fixture", url: "http://localhost:3001" },
+  ]);
+  const manager = await page.request.get("/api/auth/me");
+  expect(manager.status()).toBe(200);
+  const renter = await page.request.get("/api/renter/me");
+  expect(renter.status()).toBe(200);
+});
+
 test("manager login, magic-link exchange, portal read flow works at 430px", async ({ page, context }) => {
   await page.setViewportSize({ width: 430, height: 800 });
   await page.goto("/login");
