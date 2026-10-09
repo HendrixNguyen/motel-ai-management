@@ -9,5 +9,6 @@ export default async function CaptureReadingPage({ params, searchParams }: { par
   const motelId = resolveMotelId(motels, query); if (!motelId) notFound();
   const period = await getBillingPeriod(motelId, route.periodId);
   const room = period.rooms.find((item) => item.readings.some((reading) => reading.id === route.readingId)); const reading = room?.readings.find((item) => item.id === route.readingId); if (!room || !reading) notFound();
-  return <CaptureReadingClient motelId={motelId} period={period} reading={reading} roomName={room.name} roomReadings={room.readings} />;
+  const roomIndex = period.rooms.findIndex((item) => item.id === room.id); const nextRoom = period.rooms.slice(roomIndex + 1).find((item) => item.readings.some((item) => item.currentReading === null)); const nextUrl = nextRoom ? `/capture/${period.id}/room/${nextRoom.readings[0]?.id ?? ""}?motel=${encodeURIComponent(motelId)}&room=${encodeURIComponent(nextRoom.id)}` : undefined;
+  return <CaptureReadingClient motelId={motelId} period={period} reading={reading} roomName={room.name} roomReadings={room.readings} nextUrl={nextUrl} />;
 }

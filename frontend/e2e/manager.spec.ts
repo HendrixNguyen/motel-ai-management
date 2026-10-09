@@ -26,8 +26,8 @@ test("login through the proxy opens M1–M4 at 375px and logout protects the she
   await page.getByLabel("Mật khẩu", { exact: true }).fill("password123");
   await keyboardActivate(page, page.getByRole("button", { name: "Đăng nhập", exact: true }));
   await expect(page.getByRole("heading", { name: "Tổng quan", exact: true })).toBeVisible();
-  await expect(page.getByText("1 đang thuê · 1 trống · 0 bảo trì", { exact: true })).toBeVisible();
-  await expect(page.getByText("Tỷ lệ lấp đầy: 50%", { exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Tình hình phòng", exact: true })).toBeVisible();
+  await expect(page.getByText("Tỷ lệ lấp đầy 50%", { exact: true })).toBeVisible();
   expect((await context.cookies()).find((cookie) => cookie.name === "manager_session")?.httpOnly).toBe(true);
   const nav = page.getByRole("navigation", { name: "Điều hướng chính trên điện thoại" });
   await noPageOverflow(page);
@@ -161,9 +161,9 @@ test("a Server Component 500 renders retry guidance without showing private back
 test("empty room and renter screens keep scoped creation reachable", async ({ page, context }) => {
   await signIn(context);
   await page.goto(`/?motel=${MOTEL_WITHOUT_EXTRAS.id}`);
-  await expect(page.getByText("Tỷ lệ lấp đầy: 0%", { exact: true })).toBeVisible();
-  await page.getByRole("link", { name: "Xem phòng trọ", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Chưa có phòng trọ", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Tình hình phòng", exact: true })).toBeVisible();
+  await page.getByRole("link", { name: /Phòng đang thuê|Phòng trống/ }).first().click();
+  await expect(page.getByRole("button", { name: "Thêm phòng", exact: true })).toBeVisible();
   await page.goto(`/renters?motel=${MOTEL_WITHOUT_EXTRAS.id}`);
   await expect(page.getByRole("heading", { name: "Chưa có khách thuê", exact: true })).toBeVisible();
   await keyboardActivate(page, page.getByRole("button", { name: "Thêm khách thuê", exact: true }));

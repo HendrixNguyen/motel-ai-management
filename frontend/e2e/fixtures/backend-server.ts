@@ -59,6 +59,7 @@ export function createFixtureBackend(onMissingFixture: (failure: Error) => void 
       const state = stateFor(session);
       if (method === "GET" && path.match(/^\/api\/manager\/motels\/[^/]+\/billing\/periods$/)) return json([CAPTURE_PERIOD]);
       if (method === "GET" && path.match(/^\/api\/manager\/motels\/[^/]+\/billing\/periods\/[^/]+$/)) return json(session === "sent-capture" ? { ...CAPTURE_PERIOD_DETAIL, status: "sent" } : CAPTURE_PERIOD_DETAIL);
+      if (method === "GET" && path.match(/^\/api\/manager\/motels\/[^/]+\/billing\/periods\/[^/]+\/invoices$/)) return json([]);
       if (method === "PUT" && path.match(/^\/api\/manager\/motels\/[^/]+\/billing\/periods\/[^/]+\/readings$/)) return json({ ok: true });
       if (path === "/api/manager/motels") {
         if (method === "GET") return session === "motels-expired" ? unauthorized() : json(state.motels);
@@ -74,6 +75,7 @@ export function createFixtureBackend(onMissingFixture: (failure: Error) => void 
         const [, motelId, collection, id] = scope;
         const motel = state.motels.find((row) => row.id === motelId);
         if (!motel) return error(404, "NOT_FOUND", "Không tìm thấy nhà trọ");
+        if (!collection && method === "GET") return json(motel);
         if (!collection && method === "PATCH") { Object.assign(motel, await input<UpdateMotelInput>()); return json(motel); }
         if (collection === "rooms") {
           const rooms = state.rooms.filter((room) => room.motelId === motelId);

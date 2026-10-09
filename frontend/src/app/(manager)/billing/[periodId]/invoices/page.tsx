@@ -9,7 +9,7 @@ import Badge from "@/components/ui/badge";
 import { formatVnd } from "@/lib/format/vnd";
 import PageHeader from "@/components/ui/page-header";
 
-const labels = { unpaid: "Chưa thanh toán", paid: "Đã thanh toán", overdue: "Quá hạn" } as const;
+const labels = { unpaid: "Chưa thanh toán", paid: "Đã gửi", overdue: "Quá hạn" } as const;
 export default async function InvoicesPage({ params, searchParams }: { params: Promise<{ periodId: string }>; searchParams: Promise<MotelSearchParams> }) {
   const [route, query, motels] = await Promise.all([params, searchParams, listMotels()]); const motelId = resolveMotelId(motels, query); if (!motelId) return <p>Chưa có nhà trọ.</p>; const motel = motels.find((item) => item.id === motelId);
   const [periods, renters, invoices] = await Promise.all([listBillingPeriods(motelId), listRenters(motelId), listInvoices(motelId, route.periodId)]); const period = periods.find((item) => item.id === route.periodId); if (!period) notFound(); const renterNames = new Map(renters.map((renter) => [renter.id, renter.name]));
