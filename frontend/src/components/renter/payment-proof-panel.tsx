@@ -15,8 +15,8 @@ export default function PaymentProofPanel({ invoiceId, paymentStatus, paymentMet
   const [loading, setLoading] = useState(true);
   const [loadFailed, setLoadFailed] = useState(false);
 
-  async function refreshProof() { setLoading(true); setLoadFailed(false); try { setProof(await getRenterPaymentProof(invoiceId)); } catch { setLoadFailed(true); setError("Không thể tải trạng thái chứng từ"); } finally { setLoading(false); } }
-  useEffect(() => { void refreshProof(); }, [invoiceId]);
+  async function refreshProof(signal?: AbortSignal) { setLoading(true); setLoadFailed(false); try { const value = await getRenterPaymentProof(invoiceId); if (!signal?.aborted) setProof(value); } catch { if (!signal?.aborted) { setLoadFailed(true); setError("Không thể tải trạng thái chứng từ"); } } finally { if (!signal?.aborted) setLoading(false); } }
+  useEffect(() => { const controller = new AbortController(); void refreshProof(controller.signal); return () => controller.abort(); }, [invoiceId]);
   useEffect(() => () => { if (preview) URL.revokeObjectURL(preview); }, [preview]);
 
   if (loading || loadFailed) return <section aria-labelledby="payment-proof-title" className="space-y-3 rounded-card border border-border bg-surface p-5"><h2 id="payment-proof-title" className="font-heading text-lg font-semibold text-text">Chứng từ thanh toán</h2>{loading ? <p role="status" className="text-sm text-text-muted">Đang tải trạng thái chứng từ…</p> : <><p role="alert" className="text-sm text-danger">Không thể tải trạng thái chứng từ</p><button type="button" onClick={() => void refreshProof()} className="min-h-11 rounded-input border border-border px-4 py-2 font-semibold text-primary">Thử lại</button></>}</section>;

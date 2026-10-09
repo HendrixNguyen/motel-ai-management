@@ -21,6 +21,24 @@ function periodResponse(row: typeof billingPeriods.$inferSelect): BillingPeriodR
   return { ...row, createdAt: row.createdAt.toISOString() };
 }
 
+export type BillingTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+export async function findRenterInvoiceForPayment(tx: BillingTransaction | typeof db, renterId: string, motelId: string, invoiceId: string) {
+  return (await tx.select({ invoice: invoices, period: billingPeriods }).from(invoices).innerJoin(billingPeriods, eq(billingPeriods.id, invoices.billingPeriodId)).where(and(eq(invoices.id, invoiceId), eq(invoices.renterId, renterId), eq(invoices.motelId, motelId))).limit(1))[0];
+}
+
+export async function findInvoiceForManagerPayment(tx: BillingTransaction | typeof db, motelId: string, invoiceId: string) {
+  return (await tx.select().from(invoices).where(and(eq(invoices.id, invoiceId), eq(invoices.motelId, motelId))).limit(1))[0];
+}
+
+export async function lockInvoiceForPayment(tx: BillingTransaction, motelId: string, invoiceId: string) {
+  return (await tx.execute(sql`select * from invoices where id = ${invoiceId} and motel_id = ${motelId} for update`))[0] as typeof invoices.$inferSelect | undefined;
+}
+
+export async function settleInvoiceForPayment(tx: BillingTransaction, invoiceId: string, motelId: string, method: "bank_transfer" | "cash", paymentProofId: string | null) {
+  return (await tx.update(invoices).set({ paymentStatus: "paid", paymentMethod: method, paymentProofId, paidAt: new Date() }).where(and(eq(invoices.id, invoiceId), eq(invoices.motelId, motelId), sql`${invoices.paymentStatus} in ('unpaid', 'overdue')`)).returning())[0];
+}
+
 export interface RenterInvoiceProjection { id: string; billingPeriodId: string; month: number; year: number; roomId: string; roomName: string; rentAmount: string; electricityUsage: string; electricityCost: string; waterUsage: string; waterCost: string; otherFees: unknown[]; totalAmount: string; qrCodeData: string | null; paymentStatus: "unpaid" | "paid" | "overdue"; paymentMethod: "bank_transfer" | "cash" | null; paidAt: string | null; createdAt: string }
 export interface RenterInvoiceDetailProjection extends RenterInvoiceProjection { bankAccount: { bankCode: string; accountNumber: string; accountName: string } | null; transferDescription: string; meterPhotos: Array<{ type: "electric" | "water"; signedUrl: string; capturedAt: string | null }> }
 

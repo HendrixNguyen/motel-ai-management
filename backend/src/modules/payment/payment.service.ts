@@ -1,7 +1,6 @@
 import { and, desc, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { getRenterInvoiceDetail } from "@/modules/billing/billing.service";
-import { invoices, billingPeriods } from "@/modules/billing/billing.schema";
+import { findInvoiceForManagerPayment, findRenterInvoiceForPayment, lockInvoiceForPayment, settleInvoiceForPayment } from "@/modules/billing/billing.service";
 import { enforceRateLimit } from "@/shared/rate-limit";
 import { enqueueNotification } from "@/modules/notification/notification.service";
 import { paymentProofs } from "./payment.schema";
@@ -18,8 +17,7 @@ function response(row: typeof paymentProofs.$inferSelect): PaymentProofResponse 
 }
 
 async function invoiceForRenter(session: RenterAuthPayload, invoiceId: string) {
-  const row = await db.select({ invoice: invoices, period: billingPeriods }).from(invoices).innerJoin(billingPeriods, eq(billingPeriods.id, invoices.billingPeriodId)).where(and(eq(invoices.id, invoiceId), eq(invoices.renterId, session.renterId), eq(invoices.motelId, session.motelId))).limit(1);
-  return row[0];
+  return findRenterInvoiceForPayment(db, session.renterId, session.motelId, invoiceId);
 }
 
 export async function submitPaymentProof(session: RenterAuthPayload, invoiceId: string, file: File): Promise<PaymentProofResponse> {
@@ -62,7 +60,7 @@ export async function getRenterPaymentProof(session: RenterAuthPayload, invoiceI
 function ownedKey(objectKey: string, motelId: string, renterId: string): boolean { return objectKey.startsWith(`motels/${motelId}/renters/${renterId}/payment-proofs/`); }
 
 async function managerInvoice(managerId: string, motelId: string, invoiceId: string) {
-  const row = await db.query.invoices.findFirst({ where: and(eq(invoices.id, invoiceId), eq(invoices.motelId, motelId)) });
+  const row = await findInvoiceForManagerPayment(db, motelId, invoiceId);
   if (!row) throw AppError.notFound("Không tìm thấy hóa đơn");
   const motel = await db.query.motels.findFirst({ where: (m, { and, eq }) => and(eq(m.id, motelId), eq(m.managerId, managerId)) });
   if (!motel) throw AppError.notFound("Không tìm thấy hóa đơn");
@@ -81,18 +79,16 @@ export async function approvePaymentProof(managerId: string, motelId: string, in
   await enforceRateLimit(`review:${managerId}`, 30);
   await managerInvoice(managerId, motelId, invoiceId);
   const result = await db.transaction(async (tx) => {
-    const lockedInvoice = await tx.execute(sql`select * from invoices where id = ${invoiceId} and motel_id = ${motelId} for update`);
-    if (!lockedInvoice.length) throw AppError.notFound("Không tìm thấy hóa đơn");
+    const invoice = await lockInvoiceForPayment(tx, motelId, invoiceId);
+    if (!invoice) throw AppError.notFound("Không tìm thấy hóa đơn");
     const lockedProofs = await tx.execute(sql`select * from payment_proofs where invoice_id = ${invoiceId} and motel_id = ${motelId} and status in ('pending', 'approved') order by id for update`);
     const proof = lockedProofs[0] as typeof paymentProofs.$inferSelect | undefined;
     if (!proof) throw AppError.conflict("Không có chứng từ chờ duyệt");
     const wasApproved = proof.status === "approved";
     const updated = wasApproved ? proof : (await tx.update(paymentProofs).set({ status: "approved", reviewedAt: new Date(), reviewedByManagerId: managerId }).where(and(eq(paymentProofs.id, proof.id), eq(paymentProofs.motelId, motelId), eq(paymentProofs.status, "pending"))).returning())[0];
     if (!updated) throw AppError.conflict("Chứng từ đã được xử lý");
-    const invoice = lockedInvoice[0] as typeof invoices.$inferSelect | undefined;
-    if (!invoice) throw AppError.notFound("Không tìm thấy hóa đơn");
     if (invoice.paymentStatus === "paid" && (invoice.paymentMethod !== "bank_transfer" || invoice.paymentProofId !== updated.id)) throw AppError.conflict("Hóa đơn đã thanh toán bằng phương thức khác");
-    const settled = invoice.paymentStatus === "paid" ? invoice : (await tx.update(invoices).set({ paymentStatus: "paid", paymentMethod: "bank_transfer", paymentProofId: updated.id, paidAt: new Date() }).where(and(eq(invoices.id, invoiceId), eq(invoices.motelId, motelId), sql`${invoices.paymentStatus} in ('unpaid', 'overdue')`)).returning())[0];
+    const settled = invoice.paymentStatus === "paid" ? invoice : await settleInvoiceForPayment(tx, invoiceId, motelId, "bank_transfer", updated.id);
     if (invoice.paymentStatus === "paid") return invoice;
     if (!settled) throw AppError.externalService();
     if (!wasApproved) await enqueueNotification({ eventKey: `invoice:${invoiceId}:proof-approved`, renterId: settled.renterId, motelId, templateId: "paymentConfirmed", payload: { invoiceId, totalAmount: settled.totalAmount } }, tx);
@@ -122,11 +118,10 @@ export async function confirmCashPayment(managerId: string, motelId: string, inv
   await enforceRateLimit(`review:${managerId}`, 30);
   await managerInvoice(managerId, motelId, invoiceId);
   const result = await db.transaction(async (tx) => {
-    const locked = await tx.execute(sql`select * from invoices where id = ${invoiceId} and motel_id = ${motelId} for update`);
-    const invoice = locked[0] as typeof invoices.$inferSelect | undefined;
+    const invoice = await lockInvoiceForPayment(tx, motelId, invoiceId);
     if (!invoice) throw AppError.notFound("Không tìm thấy hóa đơn");
     if (invoice.paymentStatus === "paid" && invoice.paymentMethod !== "cash") throw AppError.conflict("Hóa đơn đã thanh toán bằng phương thức khác");
-    const settled = invoice.paymentStatus === "paid" ? invoice : (await tx.update(invoices).set({ paymentStatus: "paid", paymentMethod: "cash", paymentProofId: null, paidAt: new Date() }).where(and(eq(invoices.id, invoiceId), eq(invoices.motelId, motelId), sql`${invoices.paymentStatus} in ('unpaid', 'overdue')`)).returning())[0];
+    const settled = invoice.paymentStatus === "paid" ? invoice : await settleInvoiceForPayment(tx, invoiceId, motelId, "cash", null);
     if (!settled) throw AppError.externalService();
     await enqueueNotification({ eventKey: `invoice:${invoiceId}:cash-confirmed`, renterId: settled.renterId, motelId, templateId: "paymentConfirmed", payload: { invoiceId, totalAmount: settled.totalAmount } }, tx);
     return settled;
