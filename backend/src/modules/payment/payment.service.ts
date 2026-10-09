@@ -1,11 +1,12 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { invoices, billingPeriods } from "@/modules/billing/billing.schema";
-import { markInvoicePaid } from "@/modules/billing/billing.service";
+import { settleInvoicePayment } from "@/modules/billing/billing.service";
 import { enqueueNotification } from "@/modules/notification/notification.service";
 import { paymentProofs } from "./payment.schema";
 import { AppError } from "@/shared/errors";
 import { FakeStorageAdapter, StorageError, type StorageAdapter, validateStorageInput } from "@/shared/storage";
+import { enforceRateLimit } from "@/shared/rate-limit";
 import type { PaymentProofResponse } from "./payment.types";
 import type { RenterAuthPayload } from "@/middleware/renter-auth";
 
@@ -22,6 +23,7 @@ async function invoiceForRenter(session: RenterAuthPayload, invoiceId: string) {
 }
 
 export async function submitPaymentProof(session: RenterAuthPayload, invoiceId: string, file: File): Promise<PaymentProofResponse> {
+  await enforceRateLimit(`payment-upload:renter:${session.renterId}`, 10);
   const owned = await invoiceForRenter(session, invoiceId);
   if (!owned) throw AppError.notFound("Không tìm thấy hóa đơn");
   if (owned.invoice.paymentStatus === "paid") throw AppError.conflict("Hóa đơn đã thanh toán");
@@ -32,13 +34,13 @@ export async function submitPaymentProof(session: RenterAuthPayload, invoiceId: 
   if (approved) throw AppError.conflict("Hóa đơn đã có chứng từ được duyệt");
   const contentType = file.type as "image/jpeg" | "image/png";
   const bytes = new Uint8Array(await file.arrayBuffer());
-  const objectKey = `motels/${session.motelId}/payment-proofs/${crypto.randomUUID()}`;
+  const objectKey = `motels/${session.motelId}/renters/${session.renterId}/payment-proofs/${crypto.randomUUID()}`;
   let stored: Awaited<ReturnType<StorageAdapter["put"]>>;
   try { await validateStorageInput({ objectKey, body: bytes, contentType }); stored = await paymentStorage.put({ objectKey, body: bytes, contentType }); } catch (error) { if (error instanceof StorageError) throw AppError.badRequest(error.message); throw AppError.externalService(); }
   try {
     const [row] = await db.insert(paymentProofs).values({ invoiceId, renterId: session.renterId, motelId: session.motelId, objectKey: stored.objectKey, contentType: stored.contentType, size: stored.size, checksum: stored.checksum }).returning();
     if (!row) throw AppError.externalService();
-    await enqueueNotification({ eventKey: `invoice:${invoiceId}:proof-submitted`, renterId: row.renterId, motelId: row.motelId, templateId: "paymentProofSubmitted", payload: { invoiceId } }).catch(() => undefined);
+    await enqueueNotification({ eventKey: `invoice:${invoiceId}:proof:${row.id}:submitted`, renterId: row.renterId, motelId: row.motelId, templateId: "paymentProofSubmitted", payload: { invoiceId } }).catch(() => undefined);
     return response(row);
   } catch (error) { await paymentStorage.delete(stored.objectKey).catch(() => undefined); if ((error as { code?: string }).code === "23505") throw AppError.conflict("Hóa đơn đã có chứng từ"); throw error; }
 }
@@ -47,8 +49,11 @@ export async function getRenterPaymentProof(session: RenterAuthPayload, invoiceI
   if (!(await invoiceForRenter(session, invoiceId))) throw AppError.notFound("Không tìm thấy hóa đơn");
   const row = await db.query.paymentProofs.findFirst({ where: and(eq(paymentProofs.invoiceId, invoiceId), eq(paymentProofs.renterId, session.renterId), eq(paymentProofs.motelId, session.motelId)), orderBy: (p, { desc }) => [desc(p.submittedAt)] });
   if (!row) return null;
+  if (!ownedKey(row.objectKey, session.motelId, session.renterId)) throw AppError.notFound("Không tìm thấy chứng từ");
   try { return { ...response(row), signedUrl: await paymentStorage.createSignedDownload(row.objectKey, 300) }; } catch { throw AppError.externalService(); }
 }
+
+function ownedKey(objectKey: string, motelId: string, renterId: string): boolean { return objectKey.startsWith(`motels/${motelId}/renters/${renterId}/payment-proofs/`); }
 
 async function managerInvoice(managerId: string, motelId: string, invoiceId: string) {
   const row = await db.query.invoices.findFirst({ where: and(eq(invoices.id, invoiceId), eq(invoices.motelId, motelId)) });
@@ -62,34 +67,38 @@ export async function getManagerPaymentProof(managerId: string, motelId: string,
   await managerInvoice(managerId, motelId, invoiceId);
   const row = await db.query.paymentProofs.findFirst({ where: and(eq(paymentProofs.invoiceId, invoiceId), eq(paymentProofs.motelId, motelId)), orderBy: (p, { desc }) => [desc(p.submittedAt)] });
   if (!row) throw AppError.notFound("Không tìm thấy chứng từ");
+  if (!ownedKey(row.objectKey, motelId, row.renterId)) throw AppError.notFound("Không tìm thấy chứng từ");
   try { return { ...response(row), renterId: row.renterId, reviewedByManagerId: row.reviewedByManagerId, signedUrl: await paymentStorage.createSignedDownload(row.objectKey, 300) }; } catch { throw AppError.externalService(); }
 }
 
 export async function approvePaymentProof(managerId: string, motelId: string, invoiceId: string) {
+  await enforceRateLimit(`payment-review:manager:${managerId}`, 30);
   await managerInvoice(managerId, motelId, invoiceId);
   const proof = await db.query.paymentProofs.findFirst({ where: and(eq(paymentProofs.invoiceId, invoiceId), eq(paymentProofs.motelId, motelId), eq(paymentProofs.status, "pending")) });
-  if (!proof) { const existing = await db.query.paymentProofs.findFirst({ where: and(eq(paymentProofs.invoiceId, invoiceId), eq(paymentProofs.motelId, motelId), eq(paymentProofs.status, "approved")) }); if (!existing) throw AppError.conflict("Không có chứng từ chờ duyệt"); return markInvoicePaid(invoiceId, motelId, managerId).then((invoice) => ({ invoiceId, paymentStatus: invoice.paymentStatus, paidAt: invoice.paidAt, paymentMethod: "bank_transfer" as const })); }
+  if (!proof) { const existing = await db.query.paymentProofs.findFirst({ where: and(eq(paymentProofs.invoiceId, invoiceId), eq(paymentProofs.motelId, motelId), eq(paymentProofs.status, "approved")) }); if (!existing) throw AppError.conflict("Không có chứng từ chờ duyệt"); const invoice = await settleInvoicePayment(invoiceId, motelId, managerId, "bank_transfer", existing.id); return { invoiceId, paymentStatus: invoice.paymentStatus, paidAt: invoice.paidAt, paymentMethod: "bank_transfer" as const }; }
   const [updated] = await db.update(paymentProofs).set({ status: "approved", reviewedAt: new Date(), reviewedByManagerId: managerId }).where(and(eq(paymentProofs.id, proof.id), eq(paymentProofs.status, "pending"))).returning();
-  if (!updated) return approvePaymentProof(managerId, motelId, invoiceId);
-  const invoice = await markInvoicePaid(invoiceId, motelId, managerId);
-  await enqueueNotification({ eventKey: `invoice:${invoiceId}:proof-approved`, renterId: invoice.renterId, motelId, templateId: "paymentConfirmed", payload: { invoiceId, totalAmount: invoice.totalAmount } }).catch(() => undefined);
+  if (!updated) throw AppError.conflict("Chứng từ đã được xử lý");
+  const invoice = await settleInvoicePayment(invoiceId, motelId, managerId, "bank_transfer", updated.id);
+  await enqueueNotification({ eventKey: `invoice:${invoiceId}:proof:${updated.id}:approved`, renterId: invoice.renterId, motelId, templateId: "paymentConfirmed", payload: { invoiceId, totalAmount: invoice.totalAmount } }).catch(() => undefined);
   return { invoiceId, paymentStatus: invoice.paymentStatus, paidAt: invoice.paidAt, paymentMethod: "bank_transfer" as const };
 }
 
 export async function rejectPaymentProof(managerId: string, motelId: string, invoiceId: string, reason: string) {
+  await enforceRateLimit(`payment-review:manager:${managerId}`, 30);
   await managerInvoice(managerId, motelId, invoiceId);
   const clean = reason.trim(); if (!clean || clean.length > 500) throw AppError.badRequest("Lý do từ chối phải dài từ 1 đến 500 ký tự");
   const proof = await db.query.paymentProofs.findFirst({ where: and(eq(paymentProofs.invoiceId, invoiceId), eq(paymentProofs.motelId, motelId), eq(paymentProofs.status, "pending")) });
   if (!proof) throw AppError.conflict("Không có chứng từ chờ duyệt");
   const [updated] = await db.update(paymentProofs).set({ status: "rejected", reviewedAt: new Date(), reviewedByManagerId: managerId, rejectionReason: clean }).where(and(eq(paymentProofs.id, proof.id), eq(paymentProofs.status, "pending"))).returning();
-  if (!updated) return rejectPaymentProof(managerId, motelId, invoiceId, clean);
-  await enqueueNotification({ eventKey: `invoice:${invoiceId}:proof-rejected`, renterId: updated.renterId, motelId, templateId: "paymentProofRejected", payload: { invoiceId, reason: clean } }).catch(() => undefined);
+  if (!updated) throw AppError.conflict("Chứng từ đã được xử lý");
+  await enqueueNotification({ eventKey: `invoice:${invoiceId}:proof:${updated.id}:rejected`, renterId: updated.renterId, motelId, templateId: "paymentProofRejected", payload: { invoiceId, reason: clean } }).catch(() => undefined);
   return response(updated);
 }
 
 export async function confirmCashPayment(managerId: string, motelId: string, invoiceId: string) {
+  await enforceRateLimit(`payment-review:manager:${managerId}`, 30);
   const invoice = await managerInvoice(managerId, motelId, invoiceId);
-  const result = await markInvoicePaid(invoice.id, motelId, managerId);
+  const result = await settleInvoicePayment(invoice.id, motelId, managerId, "cash");
   await enqueueNotification({ eventKey: `invoice:${invoiceId}:cash-confirmed`, renterId: result.renterId, motelId, templateId: "paymentConfirmed", payload: { invoiceId, totalAmount: result.totalAmount } }).catch(() => undefined);
   return { invoiceId, paymentStatus: result.paymentStatus, paidAt: result.paidAt, paymentMethod: "cash" as const };
 }

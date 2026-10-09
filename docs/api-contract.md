@@ -320,11 +320,11 @@ A pending or approved proof blocks replacement. A rejected proof remains immutab
 
 Payment-proof approval, rejection, and cash-confirmation runtime routes emit idempotent outbox events after committed state. Push-subscription routes remain planned.
 
-Payment events use stable keys `invoice:<id>:proof-submitted`, `invoice:<id>:proof-approved`, `invoice:<id>:proof-rejected`, and `invoice:<id>:cash-confirmed`.
+Payment events use stable keys `invoice:<id>:proof:<proofId>:submitted`, `invoice:<id>:proof:<proofId>:approved`, `invoice:<id>:proof:<proofId>:rejected`, and `invoice:<id>:cash-confirmed`. Invoice settlement stores `paymentMethod` and optional `paymentProofId`; same-method retries are idempotent, mismatched methods return `409 CONFLICT`.
 
 ### Notification delivery
 
-A notification is an outbound event; a channel is its transport. Payment events use stable keys `invoice:<id>:proof-submitted`, `invoice:<id>:proof-approved`, `invoice:<id>:proof-rejected`, and `invoice:<id>:cash-confirmed`. Web Push is attempted first after activation; permanent push failure deactivates the subscription and queues configured ZNS/ZBS fallback. SMS is not an MVP channel and may appear only after an explicit documented scope change. Delivery states are `pending`, `sent`, and `failed`; no route promises delivery. Delivery is idempotent, bounded, and redacted. Activation uses configured ZNS/ZBS or manager-generated manual link/QR fallback; no route promises Zalo-only delivery.
+A notification is an outbound event; a channel is its transport. Payment events use stable keys `invoice:<id>:proof:<proofId>:submitted`, `invoice:<id>:proof:<proofId>:approved`, `invoice:<id>:proof:<proofId>:rejected`, and `invoice:<id>:cash-confirmed`. Invoice settlement stores `paymentMethod` and optional `paymentProofId`; same-method retries are idempotent, mismatched methods return `409 CONFLICT`. Web Push is attempted first after activation; permanent push failure deactivates the subscription and queues configured ZNS/ZBS fallback. SMS is not an MVP channel and may appear only after an explicit documented scope change. Delivery states are `pending`, `sent`, and `failed`; no route promises delivery. Delivery is idempotent, bounded, and redacted. Activation uses configured ZNS/ZBS or manager-generated manual link/QR fallback; no route promises Zalo-only delivery.
 
 ## Zalo webhook
 
