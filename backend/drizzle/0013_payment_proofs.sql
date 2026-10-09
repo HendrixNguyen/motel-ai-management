@@ -17,7 +17,7 @@ CREATE TABLE "payment_proofs" (
   CONSTRAINT "payment_proofs_content_type_check" CHECK ("content_type" in ('image/jpeg', 'image/png')),
   CONSTRAINT "payment_proofs_size_check" CHECK ("size" between 1 and 10485760),
   CONSTRAINT "payment_proofs_checksum_check" CHECK (length(trim("checksum")) > 0),
-  CONSTRAINT "payment_proofs_review_state_check" CHECK (("status" = 'pending' and "reviewed_at" is null and "reviewed_by_manager_id" is null and "rejection_reason" is null) or ("status" = 'approved' and "reviewed_at" is not null and "reviewed_by_manager_id" is not null and "rejection_reason" is null) or ("status" = 'rejected' and "reviewed_at" is not null and "reviewed_by_manager_id" is not null and length(trim("rejection_reason")) between 1 and 500))
+  CONSTRAINT "payment_proofs_review_state_check" CHECK (("status" = 'pending' and "reviewed_at" is null and "reviewed_by_manager_id" is null and "rejection_reason" is null) or ("status" = 'approved' and "reviewed_at" is not null and "reviewed_by_manager_id" is not null and "rejection_reason" is null) or ("status" = 'rejected' and "reviewed_at" is not null and "reviewed_by_manager_id" is not null and "rejection_reason" is not null and length(trim("rejection_reason")) between 1 and 500))
 );
 
 CREATE UNIQUE INDEX "invoices_id_renter_motel_uq" ON "invoices" USING btree ("id", "renter_id", "motel_id");
