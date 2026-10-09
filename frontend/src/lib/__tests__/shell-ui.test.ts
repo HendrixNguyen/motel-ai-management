@@ -69,7 +69,7 @@ describe("accessible shell controls", () => {
     for (const path of ["/", "/motels", "/rooms", "/renters", "/billing"]) {
       expect(html).toContain(`href="${path}?motel=${MOTEL_WITHOUT_EXTRAS.id}"`);
     }
-    expect(html.match(/href=/g)).toHaveLength(10);
+    expect((html.match(/href="[^"]+\?motel=/g) ?? [])).toHaveLength(10);
     expect(html).toContain('aria-current="page"');
     expect(html).toContain('aria-label="Điều hướng chính trên điện thoại"');
   });

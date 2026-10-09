@@ -1,0 +1,184 @@
+# Product Requirements Document (PRD) & Project Brief: SmartMotel
+
+**Project Name:** SmartMotel — Nền tảng Vận hành & Quản lý Nhà trọ / Căn hộ Dịch vụ Toàn diện  
+**Document Version:** 1.0.0  
+**Target Market:** Việt Nam (Hà Nội, TP.HCM, Đà Nẵng và các đô thị lớn)  
+**Primary Users:** Chủ nhà trọ / Ban quản lý (Desktop Admin & Mobile PWA) và Khách thuê trọ (Mobile Renter Portal)  
+**Design System Reference:** Vietnamese Property Operations & Tenant Platform (Light Theme, Sky Blue `#0284c7`, Font: Inter, Radius: 8px/12px)
+
+---
+
+## 1. Executive Summary & Product Vision (Tầm nhìn Sản phẩm)
+
+### 1.1. Bối cảnh thị trường
+Thị trường kinh doanh nhà trọ và căn hộ mini tại Việt Nam đang gặp nhiều điểm nghẽn trong vận hành thủ công:
+- **Ghi số điện nước thủ công:** Dễ sai sót, mất thời gian đi từng phòng đối chiếu, dễ phát sinh tranh chấp số đo công tơ.
+- **Tính toán hóa đơn phức tạp:** Khó khăn khi tính bậc thang điện, bù trừ cọc, phụ phí (rác, wifi, xe) vào cuối tháng.
+- **Thu tiền & Gạch nợ phân mảnh:** Khách trả tiền mặt, chuyển khoản lẻ tẻ; chủ nhà mất nhiều công sức rà soát sao kê ngân hàng và nhắn tin đòi nợ từng người.
+- **Báo hỏng & Bảo dưỡng thiếu minh bạch:** Giao tiếp lộn xộn qua Zalo/gọi điện, không theo dõi được tiến độ thợ sửa và lịch sử bảo dưỡng thiết bị trong phòng.
+
+### 1.2. Mục tiêu sản phẩm (Product Goals)
+SmartMotel giải quyết triệt để bài toán vận hành 2 chiều:
+1. **Dành cho Chủ trọ / Quản lý:** Tự động hóa 90% quy trình tính toán, xuất hóa đơn hàng loạt, hỗ trợ gạch nợ tự động qua VietQR/Napas247 hoặc 1-click gạch nợ tiền mặt, quản lý sổ quỹ thu chi minh bạch và ứng dụng PWA ghi số điện nước có đối soát ảnh thực tế.
+2. **Dành cho Khách thuê:** Trải nghiệm số hóa tiện lợi: xem hóa đơn minh bạch kèm ảnh công tơ gốc, thanh toán tức thì qua VietQR, ký hợp đồng điện tử bằng OTP, và gửi yêu cầu sửa chữa đính kèm hình ảnh hiện trường.
+
+---
+
+## 2. Target Personas (Đối tượng Người dùng)
+
+### Persona 1: Chủ trọ / Quản lý tòa nhà (Property Manager - Mr. Hùng)
+- **Độ tuổi:** 35 - 55 tuổi.
+- **Hành vi:** Quản lý từ 1 đến nhiều khu trọ (tổng 20 - 150 phòng). Ban ngày đi lại kiểm tra phòng, tối sử dụng máy tính làm sổ sách hoặc dùng điện thoại chụp số công tơ.
+- **Nhu cầu chính:** 
+  - Xem nhanh tỷ lệ lấp đầy phòng, doanh thu thực tế và công nợ tồn đọng.
+  - Ghi số điện nước nhanh trên điện thoại không cần sổ tay.
+  - Tự động sinh hóa đơn và xuất file gửi Zalo hàng loạt.
+  - Kiểm soát sổ quỹ thu chi (tiền mặt và tài khoản ngân hàng) chống thất thoát.
+
+### Persona 2: Khách thuê trọ (Tenant / Renter - Bạn Mai Anh / Văn Hùng)
+- **Độ tuổi:** 18 - 32 tuổi (Sinh viên, nhân viên văn phòng, gia đình trẻ).
+- **Hành vi:** 100% sử dụng smartphone, quen thuộc với ứng dụng ngân hàng di động, quét mã VietQR và Zalo.
+- **Nhu cầu chính:**
+  - Nhận hóa đơn rõ ràng, xem được bằng chứng chỉ số điện nước công khai để yên tâm.
+  - Thanh toán nhanh 1-chạm không cần nhập tay số tài khoản hay nội dung chuyển khoản.
+  - Ký hợp đồng thuê và gia hạn nhanh qua điện thoại bằng mã xác thực SMS/Zalo OTP.
+  - Báo hỏng thiết bị và theo dõi thời gian thợ đến sửa chữa chính xác.
+
+---
+
+## 3. Product Architecture & Modules (Kiến trúc & Phân hệ)
+
+SmartMotel được xây dựng theo kiến trúc phân tách 2 nền tảng kết nối qua API tập trung:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    SMARTMOTEL ECOSYSTEM                     │
+├──────────────────────────────┬──────────────────────────────┤
+│      QUẢN TRỊ VIÊN & CHỦ TRỌ  │         CỔNG KHÁCH THUÊ      │
+│  (Desktop Admin Web & PWA)   │     (Mobile Renter Portal)   │
+├──────────────────────────────┼──────────────────────────────┤
+│ • M1: Dashboard Tổng quan    │ • R1: Trang chủ Khách thuê   │
+│ • M2: Sơ đồ phòng & Tầng     │ • R2: Chi tiết hóa đơn & QR  │
+│ • M2b/c: Drawer & Gạch nợ    │ • R3: Lịch sử hóa đơn        │
+│ • M3: Xuất hóa đơn hàng loạt │ • R4: Hợp đồng & Ký OTP      │
+│ • M4: Báo cáo thu chi/Sổ quỹ │ • R5/b: Báo hỏng & Gửi ảnh   │
+│ • M5a: Ghi chỉ số Điện Nước  │                              │
+└──────────────────────────────┴──────────────────────────────┘
+```
+
+---
+
+## 4. Detailed Feature Specifications (Đặc tả Tính năng Chi tiết)
+
+### 4.1. Phân hệ Chủ trọ / Quản trị viên (Desktop & Admin PWA)
+
+#### M1 — Tổng quan (Executive Overview Dashboard)
+- **Thẻ KPI thời gian thực:**
+  - Tỷ lệ lấp đầy phòng (Occupancy Rate): Số phòng đang thuê / Tổng số phòng, số phòng trống, số sắp trả phòng.
+  - Doanh thu dự kiến vs Doanh thu thực thu trong tháng.
+  - Tổng công nợ quá hạn và danh sách nhắc nợ cấp bách.
+- **Lối tắt nghiệp vụ:** Tạo phiếu thu chi nhanh, xuất hóa đơn kỳ mới, gửi tin nhắn thông báo toàn nhà.
+- **Biểu đồ xu hướng:** Doanh thu 6 tháng gần nhất và cơ cấu dòng tiền.
+
+#### M2 — Sơ đồ phòng trực quan & Trạng thái phòng (Room Grid & Floor Plan)
+- **Hiển thị trực quan theo tầng:** Nhóm theo Tầng 1, Tầng 2, Tầng 3 với mã màu trạng thái chuẩn:
+  - *Xanh lá:* Đang thuê (Đã đóng hoặc chờ thanh toán).
+  - *Xám:* Phòng trống sẵn sàng dọn vào.
+  - *Vàng:* Đang bảo trì / Có sự cố kỹ thuật.
+  - *Đỏ:* Nợ tiền quá hạn.
+- **Bộ lọc & Tìm kiếm:** Lọc theo tầng, khoảng giá, tình trạng thanh toán, tìm nhanh theo tên khách hoặc số phòng (P.201, P.202,...).
+
+#### M2b & M2c — Chi tiết phòng (Drawer Sheet) & Xác nhận thu tiền mặt (Modal Gạch nợ)
+- **Flyout Drawer đa chức năng (4 Tabs):**
+  1. *Tổng quan & Khách thuê:* Thông tin đại diện thuê, CCCD, số người ở, phương tiện xe cộ.
+  2. *Hóa đơn & Điện nước:* Chi tiết tiền phòng, điện (kWh), nước (m³), ảnh chụp đồng hồ đối soát, nút "Thu tiền mặt / Gạch nợ ngay".
+  3. *Hợp đồng & Cọc:* Thời hạn hợp đồng, số tiền cọc bảo lưu, điều khoản bàn giao trang thiết bị nội thất.
+  4. *Sự cố & Bảo trì:* Danh sách vé yêu cầu của phòng, chỉ định thợ xử lý, lịch hẹn và chi phí dự toán.
+- **Modal Gạch nợ nhanh (M2c):**
+  - Nhập số tiền thực nhận (Hỗ trợ phím tắt: "Thu đủ 100%", "Thu một phần", "Khách trả dư").
+  - Kênh thu: Tiền mặt, Chuyển khoản ngoài, hoặc Trừ vào cọc (khi thanh lý).
+  - Ghi nhận nhân sự thu và tự động gửi biên lai xác nhận qua Zalo cho khách.
+
+#### M3 — Tính tiền & Xuất hóa đơn hàng loạt (Batch Billing Engine)
+- **Tính toán tự động:** Tự động lấy chênh lệch chỉ số điện/nước nhân đơn giá quy định, cộng tiền phòng cố định và các phụ phí dịch vụ.
+- **Kiểm soát ngoại lệ:** Cảnh báo các phòng có mức tiêu thụ điện/nước bất thường (>150% so với tháng trước).
+- **Hành động hàng loạt (Bulk Actions):**
+  - Phát hành toàn bộ hóa đơn kỳ chỉ với 1 click.
+  - Gửi thông báo kèm mã VietQR tới từng khách thuê qua Zalo OA / SMS.
+  - Xuất bảng kê đối soát Excel cho kế toán.
+
+#### M4 — Báo cáo Thu chi, Sổ quỹ tiền mặt & Báo cáo P&L (Financial Ledger)
+- **Sổ quỹ tiền mặt & Tài khoản Ngân hàng:** Quản lý dòng tiền phân tách giữa tiền mặt tại khu trọ và tài khoản MBBank/Vietcombank.
+- **Nhật ký chứng từ (Receipts & Vouchers):**
+  - Tự động sinh phiếu thu (`PT-...`) khi hóa đơn được thanh toán.
+  - Tạo phiếu chi (`PC-...`) cho chi phí vận hành: Điện EVN tổng, Nước thủy cục, Thợ sửa ống nước, Internet, Rác sinh hoạt.
+- **Báo cáo Lợi nhuận (P&L):** Bóc tách doanh thu thực nhận trừ chi phí vận hành để tính lợi nhuận ròng (Net Operating Income) và tỷ suất sinh lời thực tế.
+
+#### M5a — Ghi chỉ số Điện Nước di động (Mobile Meter Capture PWA)
+- **Giao diện tối ưu thao tác 1 tay trên điện thoại:** Bàn phím số lớn, hiển thị số cũ làm mốc tham chiếu.
+- **Chụp ảnh đính kèm minh chứng:** Tích hợp camera chụp công tơ trực tiếp lưu trữ làm bằng chứng đối soát minh bạch.
+- **Cảnh báo lỗi nhập liệu thông minh:** Báo động đỏ khi số mới nhỏ hơn số cũ hoặc tiêu thụ đột biến.
+
+---
+
+### 4.2. Phân hệ Cổng thông tin Khách thuê (Mobile Renter Portal)
+
+#### R1 — Trang chủ Khách thuê (Renter Dashboard)
+- **Thẻ trạng thái phòng:** Số phòng (ví dụ: `P.202`), địa chỉ cơ sở, hạn hợp đồng.
+- **Thẻ Hóa đơn cần thanh toán nổi bật:** Hiển thị số tiền kỳ hiện tại, hạn nộp, nút CTA hành động "Thanh toán ngay bằng VietQR".
+- **Lối tắt tiện ích nhanh:** Báo hỏng thiết bị, Đăng ký tạm trú, Xem nội quy nhà trọ, Gọi quản lý.
+
+#### R2 — Chi tiết Hóa đơn & Thanh toán VietQR Động
+- **Bóc tách biểu phí minh bạch:**
+  - Tiền thuê phòng.
+  - Tiền điện (Số cũ, số mới, kWh tiêu thụ, đơn giá, ảnh công tơ đính kèm).
+  - Tiền nước (Số cũ, số mới, khối tiêu thụ, ảnh đồng hồ đối soát).
+  - Phí dịch vụ (Wifi, thang máy, vệ sinh, phí giữ xe).
+- **Mã VietQR động Napas247:** Mã QR tích hợp sẵn chính xác số tiền và cú pháp chuyển khoản nội bộ (`P202 T10`), hỗ trợ nút "Lưu ảnh QR" và mở app ngân hàng tự động.
+
+#### R3 — Lịch sử Hóa đơn các tháng (Billing History)
+- Danh sách hóa đơn quá khứ sắp xếp theo dòng thời gian (Tháng 9, Tháng 8, Tháng 7,...).
+- Xem lại biên nhận đã đóng và tải hóa đơn điện tử về điện thoại.
+
+#### R4 — Hợp đồng thuê & Ký hợp đồng số bằng OTP (Digital Lease & OTP Signing)
+- **Xem toàn văn hợp đồng:** Thông tin bên cho thuê, bên thuê, tiền cọc bàn giao, danh mục tài sản đi kèm.
+- **Ký số bằng mã OTP:** Khách xác thực số điện thoại và nhập mã OTP 6 số để hoàn tất việc ký hợp đồng hợp pháp mà không cần in giấy.
+
+#### R5 & R5b — Báo hỏng thiết bị & Gửi ảnh sự cố (Maintenance Ticket System)
+- **Tạo yêu cầu sửa chữa (R5b):**
+  - Chọn danh mục: Điện, Nước, Khóa cửa, Điều hòa, Thấm dột.
+  - Mức độ khẩn cấp (Bình thường / Cần gấp).
+  - Chụp ảnh hoặc quay video hiện trường sự cố thực tế.
+  - Ghi chú khung giờ có người ở nhà hoặc ủy quyền mở cửa cho thợ.
+- **Theo dõi tiến độ xử lý (R5):** Hiển thị trạng thái: *Đã tiếp nhận → Đã phân công thợ → Đang xử lý → Hoàn thành & Nghiệm thu*.
+
+---
+
+## 5. Non-Functional Requirements & Design Principles (Yêu cầu Phi chức năng)
+
+| Tiêu chí | Đặc tả kỹ thuật |
+| :--- | :--- |
+| **Giao diện & Trải nghiệm (UI/UX)** | Phù hợp văn hóa vận hành nhà trọ tại Việt Nam. Sử dụng font Inter dễ đọc, hệ màu xanh thương hiệu tạo cảm giác an tâm, tin cậy. Định dạng số tiền `tabular-nums` với dấu chấm phân cách hàng nghìn (`3.850.000 ₫`). |
+| **Tính khả dụng trên Di động (Responsive & PWA)** | Màn hình PWA cho chủ trọ và Cổng khách thuê tải nhanh dưới 1.5s, hỗ trợ chụp ảnh tối ưu dung lượng (nén dưới 500KB) để tải ảnh công tơ mượt mà qua 4G. |
+| **Bảo mật & Pháp lý (Security & Compliance)** | Ký hợp đồng bằng OTP qua SMS/Zalo ZNS; xác thực 2 lớp cho các thao tác gạch nợ và sửa đổi sổ quỹ tài chính; bảo vệ thông tin CCCD và hợp đồng thuê phòng theo Nghị định 13/2023/NĐ-CP. |
+| **Tích hợp bên thứ ba (Integrations)** | Cổng thanh toán VietQR / Vietcombank / MBBank Napas247 (nhận webhook biến động số dư để tự động gạch nợ), Zalo Official Account (ZNS thông báo hóa đơn và nhắc nợ). |
+
+---
+
+## 6. Implementation Roadmap & Screen Matrix (Ma trận Màn hình)
+
+| Mã màn hình | Tên màn hình | Phân hệ | Nền tảng | Trạng thái thiết kế |
+| :--- | :--- | :--- | :--- | :--- |
+| **M1** | Tổng quan (Overview Dashboard) | Quản lý | Desktop | ✅ Hoàn thành |
+| **M2** | Quản lý phòng & Sơ đồ tầng (Room Grid) | Quản lý | Desktop | ✅ Hoàn thành |
+| **M2b** | Chi tiết phòng P.202 (Drawer 4 Tabs) | Quản lý | Desktop | ✅ Hoàn thành (Tabs: Hóa đơn, Sự cố, Hợp đồng) |
+| **M2c** | Modal Xác nhận thu tiền mặt & Gạch nợ | Quản lý | Desktop | ✅ Hoàn thành |
+| **M3** | Tính tiền & Xuất hóa đơn hàng loạt | Quản lý | Desktop | ✅ Hoàn thành |
+| **M4** | Báo cáo thu chi & Sổ quỹ tiền mặt | Quản lý | Desktop | ✅ Hoàn thành |
+| **M5a** | Ghi chỉ số Điện Nước di động | Quản lý | Mobile PWA | ✅ Hoàn thành |
+| **R1** | Trang chủ Khách thuê (Tenant Portal) | Khách thuê | Mobile | ✅ Hoàn thành |
+| **R2** | Chi tiết hóa đơn & Thanh toán VietQR | Khách thuê | Mobile | ✅ Hoàn thành |
+| **R3** | Lịch sử hóa đơn các tháng | Khách thuê | Mobile | ✅ Hoàn thành |
+| **R4** | Hợp đồng thuê & Ký hợp đồng OTP | Khách thuê | Mobile | ✅ Hoàn thành |
+| **R5** | Báo hỏng & Yêu cầu hỗ trợ | Khách thuê | Mobile | ✅ Hoàn thành |
+| **R5b** | Form tạo yêu cầu & Gửi ảnh sự cố | Khách thuê | Mobile | ✅ Hoàn thành |
