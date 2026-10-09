@@ -87,7 +87,7 @@ test("capture save, invoice QR, and UI-only OTP contract and ticket journey", as
   await page.goto("/portal/bills/invoice");
   await expect(page.getByRole("heading", { name: "Hóa đơn tháng 10/2026" })).toBeVisible();
   await expect(page.getByText("3.665.000 ₫")).toBeVisible();
-  await expect(page.getByText("Chưa thanh toán")).toBeVisible();
+  await expect(page.getByText("Chưa thanh toán", { exact: true })).toBeVisible();
   await expect(page.locator('canvas[aria-label="Mã QR thanh toán hóa đơn"]')).toBeVisible();
   await expect(page).toHaveURL(/\/portal\/bills\/invoice/);
   await page.goto("/portal/tickets");

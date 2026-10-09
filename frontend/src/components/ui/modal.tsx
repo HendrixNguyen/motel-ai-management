@@ -38,7 +38,7 @@ export function Dialog({ open, onClose, title, description, children, footer, dr
         }
       }}
       onClose={() => { if (!ref.current?.open) onClose(); }}
-      className={`max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain border border-border bg-surface p-0 text-text-body shadow-xl backdrop:bg-text/40 ${drawer ? "fixed inset-y-0 right-0 left-auto m-0 h-dvh w-[min(100vw,32rem)] max-w-none rounded-none" : "m-auto w-[calc(100%_-_2rem)] max-w-lg rounded-card"}`}>
+      className={`pointer-events-auto relative max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain border border-border bg-surface p-0 text-text-body shadow-xl backdrop:bg-text/40 ${drawer ? "fixed inset-y-0 right-0 left-auto m-0 h-dvh w-[min(100vw,32rem)] max-w-none rounded-none" : "m-auto w-[calc(100%_-_2rem)] max-w-lg rounded-card"}`}>
       <div className="flex items-start justify-between gap-3 border-b border-border p-4">
         <div className="min-w-0"><h2 id={`${id}-title`} className="font-heading text-lg font-semibold text-text break-words">{title}</h2>
           {description && <p id={`${id}-description`} className="mt-2 text-base leading-normal">{description}</p>}
