@@ -76,13 +76,38 @@ test("copy success and failure produce truthful visible feedback", async ({ page
   await expect(page.getByText("Đã sao chép", { exact: true })).not.toBeVisible();
 });
 
-test("toast can be announced and dismissed with a keyboard", async ({ page }) => {
+test("toast auto-dismisses normal messages and preserves critical errors", async ({ page }) => {
   await page.getByRole("button", { name: "Thông báo", exact: true }).click();
-  await expect(page.locator('[aria-live="polite"]')).toContainText("Đã lưu phòng");
-  const dismiss = page.getByRole("button", { name: "Đóng thông báo: Đã lưu phòng", exact: true });
-  await dismiss.focus();
-  await page.keyboard.press("Enter");
-  await expect(page.getByText("Đã lưu phòng", { exact: true })).not.toBeVisible();
+  const normal = page.getByRole("status", { name: "Đã lưu phòng" });
+  await expect(normal).toBeVisible();
+  await expect(normal).toHaveAttribute("aria-atomic", "true");
+  await expect(normal).toBeHidden({ timeout: 3500 });
+  await page.getByRole("button", { name: "Thông báo lỗi", exact: true }).click();
+  const critical = page.getByRole("alert", { name: "Lỗi nghiêm trọng" });
+  await expect(critical).toBeVisible();
+  await expect(critical).toHaveAttribute("aria-atomic", "true");
+  await page.waitForTimeout(3500);
+  await expect(critical).toBeVisible();
+  await critical.getByRole("button", { name: "Đóng thông báo: Lỗi nghiêm trọng" }).click();
+  await expect(critical).toBeHidden();
+});
+
+test("confirm dialog cancels, closes on Escape, and exposes pending confirmation", async ({ page }) => {
+  const trigger = page.getByRole("button", { name: "Xác nhận xóa", exact: true });
+  await trigger.click();
+  const dialog = page.getByRole("dialog", { name: "Xóa phòng" });
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole("button", { name: "Hủy", exact: true }).click();
+  await expect(dialog).toBeHidden();
+  await expect(trigger).toBeFocused();
+  await trigger.click();
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
+  await expect(trigger).toBeFocused();
+  await trigger.click();
+  await dialog.getByRole("button", { name: "Xác nhận", exact: true }).click();
+  await expect(dialog.getByRole("button", { name: "Đang xử lý…", exact: true })).toBeDisabled();
+  await expect(dialog).toBeVisible();
 });
 
 test("mobile table rows and reduced motion stay usable without overflow", async ({ page }) => {

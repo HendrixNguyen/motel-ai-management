@@ -4,6 +4,7 @@ import { createRoot } from "react-dom/client";
 import Button from "../../src/components/ui/button";
 import Modal from "../../src/components/ui/modal";
 import Drawer from "../../src/components/ui/drawer";
+import ConfirmDialog from "../../src/components/ui/confirm-dialog";
 import CopyButton from "../../src/components/ui/copy-button";
 import DataTable from "../../src/components/ui/data-table";
 import Skeleton from "../../src/components/ui/skeleton";
@@ -13,6 +14,8 @@ import { ToastProvider, useToast } from "../../src/components/ui/toast";
 function Kit() {
   const [modal, setModal] = useState(false);
   const [drawer, setDrawer] = useState(false);
+  const [confirm, setConfirm] = useState(false);
+  const [pending, setPending] = useState(false);
   const toast = useToast();
   const rows = [{ id: "a", name: "Ánh", rent: "10000000000000" }, { id: "b", name: "Bình", rent: "900000000000" }, { id: "c", name: "Chi", rent: "2500000" }];
   return <main className="min-w-0 space-y-4 p-4">
@@ -20,6 +23,8 @@ function Kit() {
       <Button onClick={() => setModal(true)}>Mở modal</Button>
       <Button onClick={() => setDrawer(true)}>Mở drawer</Button>
       <Button onClick={() => toast({ message: "Đã lưu phòng" })}>Thông báo</Button>
+      <Button onClick={() => toast({ message: "Lỗi nghiêm trọng", tone: "danger", critical: true })}>Thông báo lỗi</Button>
+      <Button onClick={() => setConfirm(true)}>Xác nhận xóa</Button>
       <Button pending>Đang lưu</Button>
     </div>
     <Modal open={modal} onClose={() => setModal(false)} title="Sửa phòng" description="Kiểm tra thông tin trước khi lưu">
@@ -28,6 +33,7 @@ function Kit() {
       <fieldset disabled><Button>Không khả dụng</Button></fieldset>
     </Modal>
     <Drawer open={drawer} onClose={() => setDrawer(false)} title="Chi tiết khách thuê"><p>Nguyễn Thị Ánh Hồng</p></Drawer>
+    <ConfirmDialog open={confirm} onClose={() => setConfirm(false)} onConfirm={() => { setPending(true); setTimeout(() => { setPending(false); setConfirm(false); }, 500); }} title="Xóa phòng" description="Không thể hoàn tác" destructive pending={pending} />
     <CopyButton value="https://example.test/r/token" />
     <TruncatedText value="Một tên nhà trọ rất dài cần hiển thị đủ cho trình đọc màn hình" />
     <Skeleton />

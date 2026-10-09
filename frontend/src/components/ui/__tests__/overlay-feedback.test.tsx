@@ -35,6 +35,6 @@ describe("overlay and feedback primitives", () => {
   test("ToastProvider keeps critical errors until dismissed", () => {
     const html = renderToStaticMarkup(<ToastProvider>children</ToastProvider>);
     expect(html).toContain('aria-live="polite"');
-    expect(html).toContain("aria-atomic");
+    expect(html).toContain('aria-relevant="additions"');
   });
 });
