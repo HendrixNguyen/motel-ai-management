@@ -39,6 +39,7 @@ describe("payment proof database constraints", () => {
     const [manager] = await db.query.managers.findMany({ limit: 1 });
     await expect(db.insert(paymentProofs).values({ invoiceId: invoice.id, renterId: renter.id, motelId: motel.id, objectKey: "proof/missing-reason", contentType: "image/jpeg", size: 10, checksum: "a", status: "rejected", reviewedAt: new Date(), reviewedByManagerId: manager!.id })).rejects.toThrow();
     await expect(db.insert(paymentProofs).values({ invoiceId: invoice.id, renterId: renter.id, motelId: motel.id, objectKey: "proof/approved-reason", contentType: "image/jpeg", size: 10, checksum: "b", status: "approved", reviewedAt: new Date(), reviewedByManagerId: manager!.id, rejectionReason: "wrong" })).rejects.toThrow();
+    await expect(db.insert(paymentProofs).values({ invoiceId: invoice.id, renterId: renter.id, motelId: motel.id, objectKey: "proof/long-reason", contentType: "image/jpeg", size: 10, checksum: "c", status: "rejected", reviewedAt: new Date(), reviewedByManagerId: manager!.id, rejectionReason: "x".repeat(501) })).rejects.toThrow();
   });
 
   test("rejects mismatched invoice renter and motel ownership", async () => {
@@ -46,6 +47,16 @@ describe("payment proof database constraints", () => {
     const [otherRenter] = await db.insert(renters).values({ motelId: motel.id, name: "Other", phone: "84123456788" }).returning();
     await expect(db.insert(paymentProofs).values({ invoiceId: invoice.id, renterId: otherRenter!.id, motelId: motel.id, objectKey: "proof/mismatch", contentType: "image/jpeg", size: 10, checksum: "a", status: "pending" })).rejects.toThrow();
     expect(renter.id).not.toBe(otherRenter!.id);
+  });
+
+  test("preserves rejected proof history after replacement", async () => {
+    const { motel, renter, invoice } = await fixture();
+    const [manager] = await db.query.managers.findMany({ limit: 1 });
+    const [rejected] = await db.insert(paymentProofs).values({ invoiceId: invoice.id, renterId: renter.id, motelId: motel.id, objectKey: "proof/history", contentType: "image/jpeg", size: 10, checksum: "a", status: "rejected", reviewedAt: new Date(), reviewedByManagerId: manager!.id, rejectionReason: "Blurry" }).returning();
+    await db.insert(paymentProofs).values({ invoiceId: invoice.id, renterId: renter.id, motelId: motel.id, objectKey: "proof/current", contentType: "image/png", size: 10, checksum: "b", status: "pending" });
+    const history = await db.query.paymentProofs.findMany({ where: (proof, { eq }) => eq(proof.id, rejected!.id) });
+    expect(history).toHaveLength(1);
+    expect(history[0]!.status).toBe("rejected");
   });
 
   test("enforces foreign keys and content metadata checks", async () => {
