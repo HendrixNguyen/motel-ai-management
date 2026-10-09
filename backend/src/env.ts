@@ -55,8 +55,17 @@ function required(input: Record<string, string | undefined>, key: string): strin
 
 function secret(input: Record<string, string | undefined>, key: string): string {
   const value = required(input, key);
-  if (value.length < 32)
-    throw new AppError("VALIDATION_ERROR", `${key} phải dài tối thiểu 32 ký tự`);
+  if (value.length < 32 || value === "PLACEHOLDER") throw new AppError("VALIDATION_ERROR", `${key} không hợp lệ`);
+  return value;
+}
+
+function publicHttpsUrl(input: Record<string, string | undefined>, key: string, nodeEnv: string, fallback: string): string {
+  const value = input[key] ?? fallback;
+  if (nodeEnv === "production") {
+    let url: URL;
+    try { url = new URL(value); } catch { throw new AppError("VALIDATION_ERROR", `${key} phải là URL HTTPS`); }
+    if (url.protocol !== "https:" || url.hostname === "localhost" || url.hostname === "127.0.0.1") throw new AppError("VALIDATION_ERROR", `${key} phải là URL HTTPS public`);
+  }
   return value;
 }
 
@@ -65,6 +74,8 @@ export function parseEnv(input: Record<string, string | undefined>): Env {
   const rateLimitStore = input.RATE_LIMIT_STORE ?? "postgres";
   if (rateLimitStore !== "postgres" && rateLimitStore !== "redis") throw new AppError("VALIDATION_ERROR", `RATE_LIMIT_STORE không hợp lệ: ${rateLimitStore}`);
   if (nodeEnv === "production" && rateLimitStore !== "postgres" && rateLimitStore !== "redis") throw new AppError("VALIDATION_ERROR", "Production phải dùng PostgreSQL hoặc Redis cho rate limit");
+  if (nodeEnv === "production" && (input.DATABASE_URL?.includes("localhost") || input.DATABASE_URL?.includes("127.0.0.1"))) throw new AppError("VALIDATION_ERROR", "DATABASE_URL production không được dùng localhost");
+  if (nodeEnv === "production" && input.MANAGER_JWT_SECRET === input.RENTER_SESSION_SECRET) throw new AppError("VALIDATION_ERROR", "Production secrets phải khác nhau");
   const port = input.PORT === undefined ? 3000 : Number(input.PORT);
   if (!Number.isInteger(port) || port <= 0)
     throw new AppError("VALIDATION_ERROR", `PORT không hợp lệ: ${input.PORT}`);
@@ -75,8 +86,8 @@ export function parseEnv(input: Record<string, string | undefined>): Env {
     port,
     databaseUrl: required(input, "DATABASE_URL"),
     testDatabaseUrl: required(input, "TEST_DATABASE_URL"),
-    renterPortalUrl: input.RENTER_PORTAL_URL ?? "http://localhost:3000",
-    frontendUrl: input.FRONTEND_URL ?? "http://localhost:3001",
+    renterPortalUrl: publicHttpsUrl(input, "RENTER_PORTAL_URL", nodeEnv, "http://localhost:3000"),
+    frontendUrl: publicHttpsUrl(input, "FRONTEND_URL", nodeEnv, "http://localhost:3001"),
     managerJwtSecret: secret(input, "MANAGER_JWT_SECRET"),
     renterSessionSecret: secret(input, "RENTER_SESSION_SECRET"),
     r2: {

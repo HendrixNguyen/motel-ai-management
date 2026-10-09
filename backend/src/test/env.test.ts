@@ -17,7 +17,7 @@ const valid = {
 
 describe("parseEnv", () => {
   test("accepts a complete environment with postgres rate limits", () => {
-    expect(parseEnv({ ...valid, NODE_ENV: "production", RATE_LIMIT_STORE: "postgres" }).rateLimitStore).toBe("postgres");
+    expect(parseEnv({ ...valid, NODE_ENV: "production", RATE_LIMIT_STORE: "postgres", DATABASE_URL: "postgres://u:p@db.internal:5432/motel", RENTER_PORTAL_URL: "https://renter.example.com", FRONTEND_URL: "https://app.example.com" }).rateLimitStore).toBe("postgres");
   });
 
   test("rejects local rate limits in production", () => {
@@ -26,6 +26,15 @@ describe("parseEnv", () => {
 
   test("rejects unsupported rate limit stores", () => {
     expect(() => parseEnv({ ...valid, RATE_LIMIT_STORE: "memory" })).toThrow(/RATE_LIMIT_STORE/);
+  });
+
+  test("rejects insecure production URLs and localhost database", () => {
+    expect(() => parseEnv({ ...valid, NODE_ENV: "production", DATABASE_URL: "postgres://u:p@localhost:5432/motel", RENTER_PORTAL_URL: "http://portal.example.com", FRONTEND_URL: "https://app.example.com" })).toThrow(/DATABASE_URL|HTTPS/);
+  });
+
+  test("rejects placeholder or duplicate production secrets", () => {
+    expect(() => parseEnv({ ...valid, NODE_ENV: "production", DATABASE_URL: "postgres://u:p@db.internal:5432/motel", RENTER_PORTAL_URL: "https://renter.example.com", FRONTEND_URL: "https://app.example.com", MANAGER_JWT_SECRET: "PLACEHOLDER" })).toThrow(/MANAGER_JWT_SECRET/);
+    expect(() => parseEnv({ ...valid, NODE_ENV: "production", DATABASE_URL: "postgres://u:p@db.internal:5432/motel", RENTER_PORTAL_URL: "https://renter.example.com", FRONTEND_URL: "https://app.example.com", RENTER_SESSION_SECRET: valid.MANAGER_JWT_SECRET })).toThrow(/secret/);
   });
 
   test("throws when DATABASE_URL is missing", () => {
