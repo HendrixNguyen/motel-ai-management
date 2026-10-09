@@ -40,19 +40,19 @@ describe("accessible shell controls", () => {
     expect(html).toContain("Đăng nhập");
   });
   it("composes shell primitives with safe-area content and fixed navigation semantics", () => {
-    const html = renderToStaticMarkup(createElement(AppShell, { sidebar: createElement("aside", null, "side"), bottomNav: createElement("nav", null, "bottom"), children: createElement("main", null, "content") }));
+    const html = renderToStaticMarkup(createElement(AppShell as React.ElementType, { sidebar: createElement("aside", null, "side"), bottomNav: createElement("nav", null, "bottom") }, createElement("main", null, "content")));
     expect(html).toContain("side");
     expect(html).toContain("bottom");
     expect(html).toContain("content");
     expect(html).toContain("shell-safe-area");
   });
   it("composes manager and portal shells without owning route data", () => {
-    expect(renderToStaticMarkup(createElement(ManagerShell, { sidebar: createElement("aside"), header: createElement("header"), children: createElement("main", null, "manager") }))).toContain("manager");
-    expect(renderToStaticMarkup(createElement(PortalShell, { header: createElement("header"), children: createElement("main", null, "portal") }))).toContain("portal");
+    expect(renderToStaticMarkup(createElement(ManagerShell as React.ElementType, { sidebar: createElement("aside"), header: createElement("header") }, createElement("main", null, "manager")))).toContain("manager");
+    expect(renderToStaticMarkup(createElement(PortalShell as React.ElementType, { header: createElement("header") }, createElement("main", null, "portal")))).toContain("portal");
   });
   it("renders motel switcher and bottom nav as accessible compositions", () => {
     expect(renderToStaticMarkup(createElement(MotelSwitcher, { motels: [MOTEL], selectedId: MOTEL.id, onChange: () => {} }))).toContain('aria-label="Nhà trọ"');
-    expect(renderToStaticMarkup(createElement(BottomNav, { children: createElement("a", { href: "/" }, "Trang chủ") }))).toContain("Trang chủ");
+    expect(renderToStaticMarkup(createElement(BottomNav as React.ElementType, null, createElement("a", { href: "/" }, "Trang chủ")))).toContain("Trang chủ");
   });
   it("keeps compact billing navigation scoped and fully labelled while desktop keeps full text", () => {
     const html = renderToStaticMarkup(createElement(Sidebar));

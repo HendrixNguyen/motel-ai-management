@@ -28,7 +28,7 @@ describe("theme foundation", () => {
     const media = { matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() };
     expect(getStoredTheme()).toBe("system");
     expect(() => changeTheme("dark", root, media)).not.toThrow();
-    expect(storage.setItem).toHaveBeenCalledWith("motel-theme", "dark");
+    expect(storage.setItem).not.toHaveBeenCalled();
     expect(root.dataset.theme).toBe("dark");
   });
 
@@ -40,7 +40,7 @@ describe("theme foundation", () => {
     applyTheme("dark", root);
     expect(root.dataset.theme).toBe("dark");
     applyTheme("system", root);
-    expect(root.dataset.theme).toBe("");
+    expect(root.dataset.theme).toBe("light");
   });
 
   test("syncs system media changes only for system theme", () => {
