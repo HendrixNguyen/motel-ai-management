@@ -67,8 +67,11 @@ test("table searches internally, sorts BigInt money, and paginates", async ({ pa
 
 test("tabs use ARIA relationships and roving keyboard navigation", async ({ page }) => {
   const tabs = page.getByRole("tab");
-  await expect(tabs.nth(0)).toHaveAttribute("aria-controls", "one-panel");
-  await expect(page.getByRole("tabpanel")).toHaveAttribute("aria-labelledby", "one-tab");
+  const firstTab = tabs.nth(0);
+  const panelId = await firstTab.getAttribute("aria-controls");
+  expect(panelId).toMatch(/-one-panel$/);
+  await expect(firstTab).toHaveAttribute("id", new RegExp(`-${"one"}-tab$`));
+  await expect(page.locator(`#${panelId}`)).toHaveAttribute("aria-labelledby", await firstTab.getAttribute("id") ?? "");
   await tabs.nth(0).focus();
   await page.keyboard.press("ArrowRight");
   await expect(tabs.nth(1)).toBeFocused();

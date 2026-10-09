@@ -28,3 +28,4 @@ Pre-existing failures remain outside Task 4 scope: theme storage/system CSS test
 - Added rendered interaction coverage to the Playwright component-kit for table search/sort/pagination, digit-string money sorting, Tabs, Accordion, and Progress.
 - Review-focused Vitest contract tests: 8 passed.
 - Added duplicate-instance regression: two Tabs instances now receive unique `useId`-prefixed tab/panel IDs and scoped focus lookup; focused suite now 9 tests passed.
+- Updated Playwright component-kit Tabs assertions to derive dynamic IDs from rendered ARIA relationships instead of assuming fixed IDs.
