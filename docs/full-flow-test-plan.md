@@ -198,8 +198,10 @@ E2E_REAL=1 bun run test:e2e
 
 ## Deployment smoke
 
+Local Compose starts PostgreSQL first, waits for its `pg_isready` healthcheck, then starts the backend. Backend startup runs `bun run db:migrate` before `bun run start`; `restart: unless-stopped` retries transient startup failures. This single-container flow is valid for one backend replica only. Multi-replica production deployments must run migrations in a separate, one-shot migration job before rolling out backend replicas; never let every replica migrate concurrently.
+
 1. Verify Dokploy health and QA services.
-2. Apply migrations and inspect migration status.
+2. Apply migrations and inspect migration status. For one backend replica, startup auto-migration is sufficient; for multiple replicas, verify the migration job completed before rollout.
 3. Confirm private R2 access with fake/public URL negative test.
 4. Confirm webhook endpoint rejects unsigned requests.
 5. Run manager → billing → renter portal smoke with QA fixtures.

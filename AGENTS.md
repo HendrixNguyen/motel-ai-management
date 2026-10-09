@@ -89,7 +89,7 @@ Verify in this order: backend `typecheck` → `test`; frontend `typecheck` → `
   is therefore required for *any* `bun test` run, not just integration tests — without it you
   get `connect ECONNREFUSED 127.0.0.1:5432` plus one bogus failure. Pass an explicit file path
   (`bun test src/test/money.test.ts`) to run a pure test cleanly.
-- `docker-compose.yml` provides postgres 16 and `scripts/init-db.sql` creates `motel_test`.
+- `docker-compose.yml` provides postgres 16 and `scripts/init-db.sql` creates `motel_test`. PostgreSQL healthchecks with `pg_isready` before backend startup; backend startup runs `bun run db:migrate` before `bun run start` and restarts unless stopped. This auto-migration flow is for one backend replica only; production multi-replica rollouts require a separate one-shot migration job before replicas start.
   **Its credentials disagree with `.env.example`**: compose sets `POSTGRES_PASSWORD=password`
   while `.env.example` uses `postgres:postgres`. Align them or authentication fails.
   A postgres 16 container is running on this machine (`motel-postgres`, reachable on

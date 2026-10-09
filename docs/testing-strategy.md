@@ -94,6 +94,12 @@ destroys the schema it is given.
 - Implementation details that a refactor would change without changing behaviour. Test the
   interface a caller uses.
 
+## Deployment startup and migration verification
+
+The local `docker-compose.yml` waits for PostgreSQL health before starting the backend. Backend startup runs `bun run db:migrate` before `bun run start`, and the backend restarts after transient failures. This auto-migration pattern is safe only with one backend replica. Production deployments with multiple replicas must run one migration job to completion before starting or rolling out replicas; replicas must not migrate concurrently.
+
+Full-flow and deployment smoke checks must verify migration completion and backend health. Test migration startup against production-like data without `db:push` or database reset.
+
 ## Review gate
 
 `security-reviewer` and `code-reviewer` (`.kilo/agent/`) both treat a missing test as a
