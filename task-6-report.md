@@ -31,3 +31,4 @@
 - Added regression assertion that billing link and full `aria-label` stay inside compact mobile nav subtree; desktop nav keeps `Tính tiền & Hóa đơn`.
 - Focused test command unavailable: `bun: command not found`.
 - Fixed Task 6 shell test regex single-escape bug; no backend changes.
+- Backend history correction: reverted only `backend/src/shared/magic-link.ts` behavior from unrelated commit `8e8221d`; Task 6 scope is frontend-only.
