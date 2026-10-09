@@ -1,15 +1,17 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 type Theme = "light" | "dark" | "system";
 
+function getStoredTheme(): Theme {
+  if (typeof window === "undefined") return "system";
+  const stored = window.localStorage.getItem("motel-theme");
+  return stored === "light" || stored === "dark" || stored === "system" ? stored : "system";
+}
+
 export default function ThemeSelect() {
-  const [theme, setTheme] = useState<Theme>("system");
-  useEffect(() => {
-    const stored = window.localStorage.getItem("motel-theme");
-    if (stored === "light" || stored === "dark" || stored === "system") setTheme(stored);
-  }, []);
+  const [theme, setTheme] = useState<Theme>(getStoredTheme);
   function change(next: Theme) {
     setTheme(next);
     window.localStorage.setItem("motel-theme", next);

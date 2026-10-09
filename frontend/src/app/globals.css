@@ -37,12 +37,25 @@
   --color-on-primary-fixed: #082F49;
   --color-on-primary: #FFFFFF;
   --color-on-surface: #0F172A;
+  --color-focus: var(--color-primary);
+  --color-status-success: var(--color-success);
+  --color-status-warning: var(--color-warning);
+  --color-status-danger: var(--color-danger);
+  --color-status-neutral: var(--color-text-muted);
 
   --font-heading: var(--font-be-vietnam-pro);
   --font-sans: var(--font-noto-sans);
 
   --radius-input: 8px;
   --radius-card: 12px;
+  --radius-full: 9999px;
+  --spacing-xs: 0.25rem;
+  --spacing-sm: 0.5rem;
+  --spacing-md: 1rem;
+  --spacing-lg: 1.5rem;
+  --spacing-xl: 2rem;
+  --focus-ring-width: 2px;
+  --focus-ring-offset: 2px;
 }
 
 /* Keep keyboard focus paint clear of viewport edges and the fixed mobile navigation. */

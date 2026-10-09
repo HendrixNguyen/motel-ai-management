@@ -22,7 +22,7 @@ export default defineConfig({
     tsconfigPaths: true,
   },
   test: {
-    include: ["src/**/*.test.ts"],
+    include: ["src/**/*.test.ts", "src/**/*.test.tsx"],
     exclude: [...configDefaults.exclude, "e2e/**"],
   },
 });
