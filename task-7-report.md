@@ -34,5 +34,9 @@ Final ancestry cleanup: payment route and service introduced after Task 7 were r
 - Used dedicated disposable local DBs with explicit `DATABASE_URL` and isolated migrator runner. Empty install succeeded: 18 migration ledger rows; table has `(bucket_key, window_start)` PK, `request_count integer NOT NULL DEFAULT 0`, and window index.
 - Upgrade fixture through 0016 with legacy schema/data migrated successfully; representative key/count 7 survived under renamed columns. Separate composite-schema fixture also migrated successfully and retained count 4.
 - Re-running migrations on scratch DBs succeeded without duplicate-object failures.
-- No project migration regression test added: repository has no migration test harness; verification was performed against actual PostgreSQL scratch DBs.
-- `git diff --check` passed. No QA/prod access, deploy, or push.
+- Added `backend/src/test/rate-limit-migration.test.ts`; it creates uniquely named disposable local PostgreSQL databases, then drops them after each test run.
+- Migration explicitly accepts only the exact current composite PK `(bucket_key, window_start)` and verified legacy PK `(key)`. Other shapes fail with an actionable exception before constraint/table changes; no deduplication occurs.
+- Regression tests cover fresh install, legacy key-PK upgrade preserving count, current composite-PK no-op, and alternate composite-PK with duplicate `(bucket_key, window_start)` values. Alternate shape abort preserves both rows and its original PK.
+- `MIGRATION_TEST_ADMIN_URL='postgres://postgres:password@127.0.0.1:5432/postgres' bun test src/test/rate-limit-migration.test.ts` — 4 passed, 16 assertions; only randomly named disposable databases used.
+- Backend typecheck reaches a pre-existing unrelated failure at `backend/src/test/payment-proof-schema.test.ts:82`: the `approved | rejected` value is not assignable to `never`.
+- No QA/prod access or deploy.
