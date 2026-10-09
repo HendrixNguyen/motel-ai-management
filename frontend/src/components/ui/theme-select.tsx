@@ -20,6 +20,11 @@ export function syncSystemTheme(theme: Theme, root: { dataset: { theme?: string 
   return () => media.removeEventListener("change", update);
 }
 
+export function changeTheme(theme: Theme, root: { dataset: { theme?: string } }, media: Pick<MediaQueryList, "matches" | "addEventListener" | "removeEventListener">) {
+  try { window.localStorage.setItem("motel-theme", theme); } catch {}
+  applyTheme(theme, root, media.matches);
+}
+
 export function getStoredTheme(): Theme {
   try {
     const stored = window.localStorage.getItem("motel-theme");
@@ -32,17 +37,16 @@ export function getStoredTheme(): Theme {
 export default function ThemeSelect() {
   const [theme, setTheme] = useState<Theme>("system");
   useEffect(() => {
-    const stored = getStoredTheme();
-    setTheme(stored);
-    const media = window.matchMedia("(prefers-color-scheme: dark)");
-    const cleanup = syncSystemTheme(stored, document.documentElement, media);
-    return cleanup;
+    setTheme(getStoredTheme());
   }, []);
+  useEffect(() => {
+    const media = window.matchMedia("(prefers-color-scheme: dark)");
+    return syncSystemTheme(theme, document.documentElement, media);
+  }, [theme]);
   function change(next: Theme) {
     setTheme(next);
-    try { window.localStorage.setItem("motel-theme", next); } catch {}
     const media = window.matchMedia("(prefers-color-scheme: dark)");
-    applyTheme(next, document.documentElement, media.matches);
+    changeTheme(next, document.documentElement, media);
   }
   return <label className="block text-sm text-text"><span className="mb-1 block font-semibold">Giao diện</span><select aria-label="Giao diện" value={theme} onChange={(event) => change(event.target.value as Theme)} className="min-h-11 w-full rounded-input border border-border-strong bg-surface px-3 text-text"><option value="system">Theo hệ thống</option><option value="light">Sáng</option><option value="dark">Tối</option></select></label>;
 }
