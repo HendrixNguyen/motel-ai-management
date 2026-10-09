@@ -25,28 +25,28 @@ describe("payment proof database constraints", () => {
   test("allows one current proof but rejects a second non-rejected proof", async () => {
     const { motel, renter, invoice } = await fixture();
     await db.insert(paymentProofs).values({ invoiceId: invoice.id, renterId: renter.id, motelId: motel.id, objectKey: "proof/one", contentType: "image/jpeg", size: 10, checksum: "a", status: "pending" });
-    await expect(db.insert(paymentProofs).values({ invoiceId: invoice.id, renterId: renter.id, motelId: motel.id, objectKey: "proof/two", contentType: "image/png", size: 10, checksum: "b", status: "approved" })).rejects.toThrow();
+    await expect(db.insert(paymentProofs).values({ invoiceId: invoice.id, renterId: renter.id, motelId: motel.id, objectKey: "proof/two", contentType: "image/png", size: 10, checksum: "b", status: "approved" }).execute()).rejects.toThrow();
   });
 
   test("permits rejected history and replacement current proof", async () => {
     const { motel, renter, invoice } = await fixture();
     const [manager] = await db.query.managers.findMany({ limit: 1 });
     await db.insert(paymentProofs).values({ invoiceId: invoice.id, renterId: renter.id, motelId: motel.id, objectKey: "proof/rejected", contentType: "image/jpeg", size: 10, checksum: "a", status: "rejected", reviewedAt: new Date(), reviewedByManagerId: manager!.id, rejectionReason: "Blurry" });
-    await expect(db.insert(paymentProofs).values({ invoiceId: invoice.id, renterId: renter.id, motelId: motel.id, objectKey: "proof/replacement", contentType: "image/png", size: 10, checksum: "b", status: "pending" })).resolves.toBeDefined();
+    await expect(db.insert(paymentProofs).values({ invoiceId: invoice.id, renterId: renter.id, motelId: motel.id, objectKey: "proof/replacement", contentType: "image/png", size: 10, checksum: "b", status: "pending" }).execute()).resolves.toBeDefined();
   });
 
   test("requires rejection reason only for rejected proofs", async () => {
     const { motel, renter, invoice } = await fixture();
     const [manager] = await db.query.managers.findMany({ limit: 1 });
-    await expect(db.insert(paymentProofs).values({ invoiceId: invoice.id, renterId: renter.id, motelId: motel.id, objectKey: "proof/missing-reason", contentType: "image/jpeg", size: 10, checksum: "a", status: "rejected", reviewedAt: new Date(), reviewedByManagerId: manager!.id })).rejects.toThrow();
-    await expect(db.insert(paymentProofs).values({ invoiceId: invoice.id, renterId: renter.id, motelId: motel.id, objectKey: "proof/approved-reason", contentType: "image/jpeg", size: 10, checksum: "b", status: "approved", reviewedAt: new Date(), reviewedByManagerId: manager!.id, rejectionReason: "wrong" })).rejects.toThrow();
-    await expect(db.insert(paymentProofs).values({ invoiceId: invoice.id, renterId: renter.id, motelId: motel.id, objectKey: "proof/long-reason", contentType: "image/jpeg", size: 10, checksum: "c", status: "rejected", reviewedAt: new Date(), reviewedByManagerId: manager!.id, rejectionReason: "x".repeat(501) })).rejects.toThrow();
+    await expect(db.insert(paymentProofs).values({ invoiceId: invoice.id, renterId: renter.id, motelId: motel.id, objectKey: "proof/missing-reason", contentType: "image/jpeg", size: 10, checksum: "a", status: "rejected", reviewedAt: new Date(), reviewedByManagerId: manager!.id }).execute()).rejects.toThrow();
+    await expect(db.insert(paymentProofs).values({ invoiceId: invoice.id, renterId: renter.id, motelId: motel.id, objectKey: "proof/approved-reason", contentType: "image/jpeg", size: 10, checksum: "b", status: "approved", reviewedAt: new Date(), reviewedByManagerId: manager!.id, rejectionReason: "wrong" }).execute()).rejects.toThrow();
+    await expect(db.insert(paymentProofs).values({ invoiceId: invoice.id, renterId: renter.id, motelId: motel.id, objectKey: "proof/long-reason", contentType: "image/jpeg", size: 10, checksum: "c", status: "rejected", reviewedAt: new Date(), reviewedByManagerId: manager!.id, rejectionReason: "x".repeat(501) }).execute()).rejects.toThrow();
   });
 
   test("rejects mismatched invoice renter and motel ownership", async () => {
     const { motel, renter, invoice } = await fixture();
     const [otherRenter] = await db.insert(renters).values({ motelId: motel.id, name: "Other", phone: "84123456788" }).returning();
-    await expect(db.insert(paymentProofs).values({ invoiceId: invoice.id, renterId: otherRenter!.id, motelId: motel.id, objectKey: "proof/mismatch", contentType: "image/jpeg", size: 10, checksum: "a", status: "pending" })).rejects.toThrow();
+    await expect(db.insert(paymentProofs).values({ invoiceId: invoice.id, renterId: otherRenter!.id, motelId: motel.id, objectKey: "proof/mismatch", contentType: "image/jpeg", size: 10, checksum: "a", status: "pending" }).execute()).rejects.toThrow();
     expect(renter.id).not.toBe(otherRenter!.id);
   });
 
@@ -67,21 +67,22 @@ describe("payment proof database constraints", () => {
       { name: "status", patch: { status: "pending" as const } },
       { name: "reviewer", patch: { reviewedByManagerId: null } },
       { name: "review timestamp", patch: { reviewedAt: null } },
-      { name: "reason", patch: { rejectionReason: null } },
+      { name: "reason", patch: { rejectionReason: "changed" } },
       { name: "ownership", patch: { renterId: crypto.randomUUID() } },
       { name: "submitted timestamp", patch: { submittedAt: new Date(0) } },
     ];
     for (const status of ["approved", "rejected"] as const) {
       const [proof] = await db.insert(paymentProofs).values({ invoiceId: invoice.id, renterId: renter.id, motelId: motel.id, objectKey: `proof/immutable-${status}`, contentType: "image/jpeg", size: 10, checksum: status, status, reviewedAt: new Date(), reviewedByManagerId: manager!.id, rejectionReason: status === "rejected" ? "Blurry" : null }).returning();
       for (const mutation of mutations) {
-        await expect(db.update(paymentProofs).set(mutation.patch).where(eq(paymentProofs.id, proof!.id)).execute(), `${status} ${mutation.name}`).rejects.toThrow();
+        const patch = mutation.name === "reason" && status === "approved" ? { rejectionReason: "changed" } : mutation.patch;
+        await expect(db.update(paymentProofs).set(patch).where(eq(paymentProofs.id, proof!.id)).execute(), `${status} ${mutation.name}`).rejects.toThrow();
       }
     }
   });
 
   test("enforces foreign keys and content metadata checks", async () => {
     const { motel, renter, invoice } = await fixture();
-    await expect(db.insert(paymentProofs).values({ invoiceId: crypto.randomUUID(), renterId: renter.id, motelId: motel.id, objectKey: "proof/missing", contentType: "image/jpeg", size: 10, checksum: "a", status: "pending" })).rejects.toThrow();
-    await expect(db.insert(paymentProofs).values({ invoiceId: invoice.id, renterId: renter.id, motelId: motel.id, objectKey: "proof/bad", contentType: "image/gif", size: 0, checksum: "", status: "pending" })).rejects.toThrow();
+    await expect(db.insert(paymentProofs).values({ invoiceId: crypto.randomUUID(), renterId: renter.id, motelId: motel.id, objectKey: "proof/missing", contentType: "image/jpeg", size: 10, checksum: "a", status: "pending" }).execute()).rejects.toThrow();
+    await expect(db.insert(paymentProofs).values({ invoiceId: invoice.id, renterId: renter.id, motelId: motel.id, objectKey: "proof/bad", contentType: "image/gif", size: 0, checksum: "", status: "pending" }).execute()).rejects.toThrow();
   });
 });
