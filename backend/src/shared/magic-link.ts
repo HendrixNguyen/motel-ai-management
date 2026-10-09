@@ -1,4 +1,4 @@
-import { and, eq, isNull, sql } from "drizzle-orm";
+import { and, eq, gt, isNull } from "drizzle-orm";
 import { randomBytes } from "crypto";
 import { env } from "@/config";
 import { db } from "@/db";
@@ -39,7 +39,7 @@ export async function consumeMagicLink(token: string): Promise<RenterRow> {
   const [claimed] = await db
     .update(magicLinks)
     .set({ consumedAt: now })
-    .where(and(eq(magicLinks.token, token), isNull(magicLinks.consumedAt), sql`${magicLinks.expiresAt} > ${now}`))
+    .where(and(eq(magicLinks.token, token), isNull(magicLinks.consumedAt), gt(magicLinks.expiresAt, now)))
     .returning({ renterId: magicLinks.renterId });
 
   if (!claimed) throw new AppError("MAGIC_LINK_EXPIRED", "Liên kết không hợp lệ hoặc đã hết hạn");

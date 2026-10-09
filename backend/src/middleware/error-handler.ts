@@ -8,7 +8,17 @@ import { AppError } from "@/shared/errors";
  * written in Vietnamese for the user. Anything else is logged in full and reported as a
  * generic failure, because a database URL or a driver message must never reach a client.
  */
-export function errorHandler({ error, set }: { error: unknown; set: any }) {
+function redactSecrets(value: unknown): unknown {
+  if (typeof value === "string") {
+    return value
+      .replace(/((?:[?&]|\b)(?:token|magic[_-]?link|code|secret|key|password)=)[^&#\s]*/gi, "$1[REDACTED]")
+      .replace(/(Bearer\s+)[^\s]+/gi, "$1[REDACTED]");
+  }
+  if (value instanceof Error) return { name: value.name, message: redactSecrets(value.message), stack: redactSecrets(value.stack) };
+  return value;
+}
+
+export function errorHandler({ error, request, set }: { error: unknown; request?: Request; set: any }) {
   if (error instanceof AppError) {
     set.status = error.status;
     return error.details
@@ -25,7 +35,7 @@ export function errorHandler({ error, set }: { error: unknown; set: any }) {
     return { error: "Dữ liệu gửi lên không hợp lệ", code: "VALIDATION_ERROR" };
   }
 
-  console.error("Unhandled error:", error);
+  console.error("Unhandled error:", redactSecrets(error), request ? redactSecrets(request.url) : undefined);
   set.status = 500;
   return {
     error: "Đã xảy ra lỗi hệ thống",

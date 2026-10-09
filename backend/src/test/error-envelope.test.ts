@@ -37,15 +37,16 @@ describe("error envelope", () => {
     });
   });
 
-  test("an unexpected error is logged but never leaks internals to the client", async () => {
+  test("an unexpected error is logged without secrets from error or URL", async () => {
     const originalError = console.error;
-    console.error = () => {};
+    const logs: unknown[][] = [];
+    console.error = (...args: unknown[]) => logs.push(args);
     try {
       const res = await createApp()
         .get("/boom", () => {
           throw new Error("connect ECONNREFUSED 10.0.0.5:5432 password=hunter2");
         })
-        .handle(new Request("http://localhost/boom"));
+        .handle(new Request("http://localhost/boom?token=magic-secret&safe=1"));
 
       expect(res.status).toBe(500);
       const body = await res.text();
@@ -55,6 +56,9 @@ describe("error envelope", () => {
       });
       expect(body).not.toContain("hunter2");
       expect(body).not.toContain("ECONNREFUSED");
+      expect(JSON.stringify(logs)).not.toContain("magic-secret");
+      expect(JSON.stringify(logs)).not.toContain("hunter2");
+      expect(JSON.stringify(logs)).toContain("[REDACTED]");
     } finally {
       console.error = originalError;
     }
