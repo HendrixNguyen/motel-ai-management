@@ -188,7 +188,7 @@ Read Next 16.3.8 docs under `frontend/node_modules/next/dist/docs/` before chang
 ## Completion criteria
 
 - Every route and state documented with exact response/error shape.
-- DB enforces one current proof per invoice and all tenant/FK/check constraints.
+- DB enforces one non-rejected current proof per invoice, preserves rejected history, and enforces all tenant/FK/check constraints.
 - Renter cannot mark invoice paid or access foreign invoice/proof/subscription.
 - Manager approval/cash confirmation are the only paid transitions and are race-safe/idempotent.
 - Uploads are private, byte-validated, size-limited, and never expose object keys.
