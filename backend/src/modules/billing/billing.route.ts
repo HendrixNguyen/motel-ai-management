@@ -6,7 +6,7 @@ import { createBillingPeriod, generateInvoices, getBillingPeriod, getMeterPhoto,
 const params = t.Object({ motelId: t.String({ format: "uuid" }) });
 const detailParams = t.Object({ motelId: t.String({ format: "uuid" }), periodId: t.String({ format: "uuid" }) });
 const createBody = t.Object({ month: t.Integer({ minimum: 1, maximum: 12 }), year: t.Integer() });
-const readingBody = t.Object({ readings: t.Array(t.Object({ roomId: t.String({ format: "uuid" }), type: t.Union([t.Literal("electric"), t.Literal("water")]), currentReading: t.String(), photoUrl: t.Optional(t.Nullable(t.String())), expectedUpdatedAt: t.String({ format: "date-time" }) }), { minItems: 1 }) });
+const readingBody = t.Object({ readings: t.Array(t.Object({ roomId: t.String({ format: "uuid" }), type: t.Union([t.Literal("electric"), t.Literal("water")]), currentReading: t.String(), photoUrl: t.Optional(t.Nullable(t.String())), expectedUpdatedAt: t.String({ pattern: "^\\d+$" }) }), { minItems: 1 }) });
 
 export const billingRoutes = new Elysia({ name: "billing-routes" })
   .use(cookie())

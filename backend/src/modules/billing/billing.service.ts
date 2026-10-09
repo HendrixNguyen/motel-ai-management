@@ -108,7 +108,8 @@ export async function getBillingPeriod(periodId: string, motelId: string, manage
   if (!period) throw AppError.notFound("Không tìm thấy kỳ hóa đơn");
   const rooms = await listRoomsForBilling(motelId);
   const readings = await db.query.meterReadings.findMany({ where: eq(meterReadings.billingPeriodId, periodId), orderBy: [asc(meterReadings.type), asc(meterReadings.id)] });
-  return { ...periodResponse(period), electricityPrice: motel.electricityPrice, waterPrice: motel.waterPrice, rooms: rooms.map((room) => ({ ...room, readings: readings.filter((reading) => reading.roomId === room.id).map((reading) => ({ id: reading.id, roomId: reading.roomId, type: reading.type, previousReading: reading.previousReading, currentReading: reading.currentReading, readingDate: reading.readingDate, updatedAt: reading.updatedAt.toISOString() })) })) };
+  const preciseVersions = await db.execute(sql`select id, floor(extract(epoch from updated_at) * 1000000)::bigint::text as version from meter_readings where billing_period_id = ${periodId}`) as { id: string; version: string }[];
+  return { ...periodResponse(period), electricityPrice: motel.electricityPrice, waterPrice: motel.waterPrice, rooms: rooms.map((room) => ({ ...room, readings: readings.filter((reading) => reading.roomId === room.id).map((reading) => ({ id: reading.id, roomId: reading.roomId, type: reading.type, previousReading: reading.previousReading, currentReading: reading.currentReading, readingDate: reading.readingDate, updatedAt: preciseVersions.find((version) => version.id === reading.id)?.version ?? reading.updatedAt.toISOString() })) })) };
 }
 
 export async function updateMeterReadings(periodId: string, motelId: string, managerId: string, input: UpdateReadingsInput): Promise<MeterReadingResponse[]> {
@@ -118,30 +119,27 @@ export async function updateMeterReadings(periodId: string, motelId: string, man
     const period = await tx.query.billingPeriods.findFirst({ where: and(eq(billingPeriods.id, periodId), eq(billingPeriods.motelId, motelId)) });
     if (!period) throw AppError.notFound("Không tìm thấy kỳ hóa đơn");
     if (period.status !== "draft") throw AppError.periodAlreadySent();
-    const rows = await tx.query.meterReadings.findMany({ where: eq(meterReadings.billingPeriodId, periodId) });
     const seen = new Set<string>();
     const updates: MeterReadingResponse[] = [];
     for (const item of input.readings) {
       const key = `${item.roomId}:${item.type}`;
       if (seen.has(key)) throw AppError.badRequest("Không được gửi trùng chỉ số công tơ");
       seen.add(key);
-      const row = rows.find((candidate) => candidate.roomId === item.roomId && candidate.type === item.type);
+      const row = await tx.query.meterReadings.findFirst({ where: and(eq(meterReadings.billingPeriodId, periodId), eq(meterReadings.roomId, item.roomId), eq(meterReadings.type, item.type)) });
       if (!row) throw AppError.notFound("Không tìm thấy chỉ số công tơ");
       const current = parseMeterValue(item.currentReading);
       const previous = parseMeterValue(row.previousReading);
       if (current < previous) throw AppError.badRequest("Chỉ số mới không được nhỏ hơn chỉ số cũ");
-      const expected = new Date(item.expectedUpdatedAt);
-      if (Number.isNaN(expected.getTime())) throw AppError.badRequest("Thời điểm cập nhật không hợp lệ");
-      if (row.updatedAt.getTime() !== expected.getTime()) {
-        throw AppError.readingConflict({ id: row.id, roomId: row.roomId, type: row.type, previousReading: row.previousReading, currentReading: row.currentReading, readingDate: row.readingDate, updatedAt: row.updatedAt.toISOString() });
-      }
-      const [updated] = await tx.update(meterReadings).set({ currentReading: formatMeterValue(current), photoUrl: item.photoUrl ?? null, readingDate: new Date().toISOString().slice(0, 10), updatedAt: new Date() }).where(and(eq(meterReadings.id, row.id), eq(meterReadings.updatedAt, row.updatedAt))).returning();
+      if (!/^\d+$/.test(item.expectedUpdatedAt)) throw AppError.badRequest("Thời điểm cập nhật không hợp lệ");
+      const [updated] = await tx.update(meterReadings).set({ currentReading: formatMeterValue(current), photoUrl: item.photoUrl ?? null, readingDate: new Date().toISOString().slice(0, 10), updatedAt: new Date() }).where(and(eq(meterReadings.id, row.id), sql`floor(extract(epoch from ${meterReadings.updatedAt}) * 1000000)::bigint::text = ${item.expectedUpdatedAt}`)).returning();
       if (!updated) {
         const latest = await tx.query.meterReadings.findFirst({ where: eq(meterReadings.id, row.id) });
         if (!latest) throw AppError.notFound("Không tìm thấy chỉ số công tơ");
-        throw AppError.readingConflict({ id: latest.id, roomId: latest.roomId, type: latest.type, previousReading: latest.previousReading, currentReading: latest.currentReading, readingDate: latest.readingDate, updatedAt: latest.updatedAt.toISOString() });
+        const [version] = await tx.execute(sql`select floor(extract(epoch from updated_at) * 1000000)::bigint::text as version from meter_readings where id = ${latest.id}`) as { version: string }[];
+        throw AppError.readingConflict({ id: latest.id, roomId: latest.roomId, type: latest.type, previousReading: latest.previousReading, currentReading: latest.currentReading, readingDate: latest.readingDate, updatedAt: version!.version });
       }
-      updates.push({ id: updated.id, roomId: updated.roomId, type: updated.type, previousReading: updated.previousReading, currentReading: updated.currentReading, readingDate: updated.readingDate, updatedAt: updated.updatedAt.toISOString() });
+      const [version] = await tx.execute(sql`select floor(extract(epoch from updated_at) * 1000000)::bigint::text as version from meter_readings where id = ${updated.id}`) as { version: string }[];
+      updates.push({ id: updated.id, roomId: updated.roomId, type: updated.type, previousReading: updated.previousReading, currentReading: updated.currentReading, readingDate: updated.readingDate, updatedAt: version!.version });
     }
     return updates;
   });

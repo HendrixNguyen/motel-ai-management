@@ -180,18 +180,19 @@ the same API the desktop uses, which is why both paths can coexist on one unique
       "type": "electric",
       "currentReading": "1450",
       "photoUrl": "uploads/motels/<motelId>/meters/2026-10/<uuid>.jpg",
-      "expectedUpdatedAt": "2026-10-03T09:14:22.000Z"
+      "expectedUpdatedAt": "1791018862000000"
     }
   ]
 }
 ```
 
-`expectedUpdatedAt` is the `updatedAt` the client read. Per-row outcomes:
+`expectedUpdatedAt` is the exact PostgreSQL `updated_at` epoch-microseconds version string returned as each reading's `updatedAt`. Keep it opaque; never parse through JavaScript `Date`. Per-row outcomes:
 
 | Server state | Response | Notes |
 |--------------|----------|-------|
-| `expectedUpdatedAt` matches | row accepted, `updatedAt` bumped | Any stale timestamp conflicts, including equal values; client must refresh and re-enter |
+| `expectedUpdatedAt` matches | row accepted, `updatedAt` bumped | Atomic compare-and-swap; any stale version conflicts, including equal values; client must refresh and re-enter |
 | `expectedUpdatedAt` stale and value differs | `409 READING_CONFLICT`, `details.server` = current row | Client flags **Cần kiểm tra**; manager re-enters. Last write never silently wins |
+| Reading row is missing | `404 NOT_FOUND` | Missing row takes precedence over stale version; whole batch rolls back |
 | Period is no longer `draft` | `409 PERIOD_ALREADY_SENT` | Client switches the whole capture session read-only |
 
 Meter photos use private storage. `photoUrl` remains accepted only as an opaque server-side key during reading updates and is never returned. Upload and signed-read endpoints:
