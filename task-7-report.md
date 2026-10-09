@@ -22,3 +22,5 @@ Review fixes: empty motel CTA now uses working `MotelEditor empty`; `EmptyState`
 Payment backend/schema/module and Task 6 report changes were removed from Task 7 scope through dedicated revert commits `604526d`, `924d9ce`, `cd6b569`, and `5f23d90`. Existing unrelated worktree changes remain untouched. Full portal/capture/contracts migration remains outside this incremental pass because existing screens depend on their current client workflows and fixture contracts.
 
 Post-fix verification: 13 targeted tests passed; frontend typecheck and targeted ESLint passed.
+
+Final review fixes: notification enqueue executor now uses explicit `NotificationExecutor` type with no `any`, preserving DB behavior. Migration coverage now renders `EmptyState` both without action (no button) and with action (button present). Backend TypeScript check passed through installed `tsc`; Bun command unavailable in environment.

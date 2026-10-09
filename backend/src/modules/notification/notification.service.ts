@@ -4,6 +4,7 @@ export type NotificationRecipient = { phone: string; zaloOaId: string | null; is
 import { AppError } from "@/shared/errors";
 import { notificationEvents } from "./notification.schema";
 import type { NotificationEvent, NotificationInput, RetryFailureKind, ZaloProvider } from "./notification.types";
+import type { Db } from "@/db";
 
 const MAX_ATTEMPTS = 3;
 let provider: ZaloProvider | undefined;
@@ -16,7 +17,9 @@ export function setZaloProvider(next: ZaloProvider | undefined): void { provider
 function redactPayload(payload: Record<string, unknown>) { return Object.fromEntries(Object.entries(payload).map(([key, value]) => [/otp|password|token|secret/i.test(key) ? [key, "[REDACTED]"] : [key, value]])); }
 function failureKind(error: unknown): { transient: boolean; reason: RetryFailureKind } { const kind = (error as { kind?: unknown }).kind; if (kind === "rate_limited" || kind === "provider_unavailable" || kind === "timeout") return { transient: true, reason: kind }; if (kind === "invalid_recipient" || kind === "invalid_template" || kind === "unauthorized") return { transient: false, reason: kind }; return { transient: false, reason: "provider_error" }; }
 
-export async function enqueueNotification(input: NotificationInput, executor: typeof db | any = db): Promise<NotificationEvent> {
+type NotificationExecutor = Pick<Db, "insert" | "query">;
+
+export async function enqueueNotification(input: NotificationInput, executor: NotificationExecutor = db): Promise<NotificationEvent> {
   if (!recipientResolver) throw AppError.externalService("Notification recipient resolver chưa được cấu hình");
   const recipient = await recipientResolver(input.renterId, input.motelId);
   if (!recipient) throw AppError.notFound("Không tìm thấy người thuê");
