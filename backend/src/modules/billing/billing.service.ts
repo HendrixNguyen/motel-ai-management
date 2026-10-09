@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, or, lt } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, or, lt, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { type VndString } from "@/shared/money";
 import { billingPeriods, meterReadings, invoices } from "./billing.schema";
@@ -211,6 +211,22 @@ async function transitionInvoice(invoiceId: string, motelId: string, managerId: 
 
 export const markInvoicePaid = (invoiceId: string, motelId: string, managerId: string) => transitionInvoice(invoiceId, motelId, managerId, "paid");
 export const markInvoiceOverdue = (invoiceId: string, motelId: string, managerId: string) => transitionInvoice(invoiceId, motelId, managerId, "overdue");
+
+export async function settleInvoicePayment(invoiceId: string, motelId: string, managerId: string, method: "bank_transfer" | "cash", paymentProofId?: string) {
+  await resolveOwnedMotel(motelId, managerId);
+  return db.transaction(async (tx) => {
+    const locked = await tx.execute(sql`select * from invoices where id = ${invoiceId} and motel_id = ${motelId} for update`);
+    const row = locked[0] as typeof invoices.$inferSelect | undefined;
+    if (!row) throw AppError.notFound("Không tìm thấy hóa đơn");
+    if (row.paymentStatus === "paid") {
+      if (row.paymentMethod !== method || (method === "bank_transfer" && row.paymentProofId !== paymentProofId)) throw AppError.conflict("Hóa đơn đã thanh toán bằng phương thức khác");
+      return row;
+    }
+    const [updated] = await tx.update(invoices).set({ paymentStatus: "paid", paymentMethod: method, paymentProofId: paymentProofId ?? null, paidAt: new Date() }).where(eq(invoices.id, invoiceId)).returning();
+    if (!updated) throw AppError.externalService();
+    return updated;
+  });
+}
 
 export async function uploadMeterPhoto(motelId: string, periodId: string, readingId: string, managerId: string, file: File): Promise<UploadResponse> {
   await resolveOwnedMotel(motelId, managerId);

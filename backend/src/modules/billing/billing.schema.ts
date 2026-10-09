@@ -22,6 +22,7 @@ export const billingPeriodStatus = pgEnum("billing_period_status", ["draft", "se
 export const meterType = pgEnum("meter_type", ["electric", "water"]);
 
 export const paymentStatus = pgEnum("payment_status", ["unpaid", "paid", "overdue"]);
+export const paymentMethod = pgEnum("payment_method", ["bank_transfer", "cash"]);
 
 export const billingPeriods = pgTable(
   "billing_periods",
@@ -107,6 +108,8 @@ export const invoices = pgTable(
     /** VietQR payload string. */
     qrCodeData: text("qr_code_data"),
     paymentStatus: paymentStatus("payment_status").notNull().default("unpaid"),
+    paymentMethod: paymentMethod("payment_method"),
+    paymentProofId: uuid("payment_proof_id"),
     paidAt: timestamp("paid_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },

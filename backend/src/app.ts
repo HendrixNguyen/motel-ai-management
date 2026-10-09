@@ -13,6 +13,7 @@ import { AppError } from "@/shared/errors";
 import { notificationRoutes } from "@/modules/notification/notification.route";
 import { renterPortalRoutes } from "@/modules/renter-portal/renter-portal.route";
 import { ticketRoutes } from "@/modules/ticket/ticket.route";
+import { paymentRoutes } from "@/modules/payment/payment.route";
 import { getRenterNotificationRecipient } from "@/modules/renter/renter.service";
 import { setNotificationRecipientResolver } from "@/modules/notification/notification.service";
 
@@ -48,7 +49,9 @@ export function createApp() {
        .use(renterRoutes)
         .use(notificationRoutes)
         .use(renterPortalRoutes)
-         .use(ticketRoutes),
+          .use(ticketRoutes)
+          .use(paymentRoutes),
+
     )
     .all("*", () => {
       throw AppError.notFound("Không tìm thấy");
