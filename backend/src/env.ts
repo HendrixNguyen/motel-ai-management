@@ -19,6 +19,9 @@ export interface Env {
   testDatabaseUrl: string;
   renterPortalUrl: string;
   frontendUrl: string;
+  trustedProxyHeader: string | null;
+  trustedProxyAssertionHeader: string | null;
+  trustedProxyAssertionValue: string | null;
   managerJwtSecret: string;
   renterSessionSecret: string;
   r2: {
@@ -69,13 +72,61 @@ function publicHttpsUrl(input: Record<string, string | undefined>, key: string, 
   return value;
 }
 
+function publicUrl(input: Record<string, string | undefined>, key: string, fallback: string, production: boolean): string {
+  const value = input[key] ?? fallback;
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    throw new AppError("VALIDATION_ERROR", `${key} phải là URL hợp lệ`);
+  }
+  if (url.pathname !== "/" || url.search || url.hash)
+    throw new AppError("VALIDATION_ERROR", `${key} không được chứa path, query hoặc fragment`);
+  if (production && url.protocol !== "https:")
+    throw new AppError("VALIDATION_ERROR", `${key} phải dùng HTTPS trong production`);
+  return url.origin;
+}
+
+function validateProductionSecrets(input: Record<string, string | undefined>, keys: string[]): void {
+  const placeholders = /^(placeholder|change[-_ ]?me|secret|mock|test|dev|development|password|super_secret)/i;
+  const values = keys.map((key) => {
+    const value = required(input, key);
+    if (placeholders.test(value) || value.length < 32)
+      throw new AppError("VALIDATION_ERROR", `${key} phải là secret production thực`);
+    return value;
+  });
+  if (new Set(values).size !== values.length)
+    throw new AppError("VALIDATION_ERROR", "Secret production không được trùng nhau");
+}
+
+export function validateProductionConfig(input: Record<string, string | undefined>): void {
+  required(input, "DATABASE_URL");
+  required(input, "TEST_DATABASE_URL");
+  validateProductionSecrets(input, [
+    "MANAGER_JWT_SECRET",
+    "RENTER_SESSION_SECRET",
+    "ZALO_OA_SECRET",
+    "ZALO_ACCESS_TOKEN",
+    "ZALO_WEBHOOK_SECRET",
+    "R2_ACCESS_KEY_ID",
+    "R2_SECRET_ACCESS_KEY",
+  ]);
+  publicUrl(input, "RENTER_PORTAL_URL", "", true);
+  publicUrl(input, "FRONTEND_URL", "", true);
+  if (input.R2_PUBLIC_URL) publicUrl(input, "R2_PUBLIC_URL", "", true);
+}
+
 export function parseEnv(input: Record<string, string | undefined>): Env {
   const nodeEnv = input.NODE_ENV ?? "development";
   const rateLimitStore = input.RATE_LIMIT_STORE ?? "postgres";
   if (rateLimitStore !== "postgres" && rateLimitStore !== "redis") throw new AppError("VALIDATION_ERROR", `RATE_LIMIT_STORE không hợp lệ: ${rateLimitStore}`);
-  if (nodeEnv === "production" && rateLimitStore !== "postgres" && rateLimitStore !== "redis") throw new AppError("VALIDATION_ERROR", "Production phải dùng PostgreSQL hoặc Redis cho rate limit");
-  if (nodeEnv === "production" && (input.DATABASE_URL?.includes("localhost") || input.DATABASE_URL?.includes("127.0.0.1"))) throw new AppError("VALIDATION_ERROR", "DATABASE_URL production không được dùng localhost");
-  if (nodeEnv === "production" && input.MANAGER_JWT_SECRET === input.RENTER_SESSION_SECRET) throw new AppError("VALIDATION_ERROR", "Production secrets phải khác nhau");
+  const production = nodeEnv === "production";
+  if (production) {
+    validateProductionConfig(input);
+    if (input.DATABASE_URL?.includes("localhost") || input.DATABASE_URL?.includes("127.0.0.1")) throw new AppError("VALIDATION_ERROR", "DATABASE_URL production không được dùng localhost");
+    if (input.MANAGER_JWT_SECRET === input.RENTER_SESSION_SECRET) throw new AppError("VALIDATION_ERROR", "Production secrets phải khác nhau");
+    if (input.TRUSTED_PROXY_HEADER && (!input.TRUSTED_PROXY_ASSERTION_HEADER || !input.TRUSTED_PROXY_ASSERTION_VALUE || input.TRUSTED_PROXY_ASSERTION_VALUE.length < 32)) throw new AppError("VALIDATION_ERROR", "Trusted proxy phải có assertion header và secret tối thiểu 32 ký tự");
+  }
   const port = input.PORT === undefined ? 3000 : Number(input.PORT);
   if (!Number.isInteger(port) || port <= 0)
     throw new AppError("VALIDATION_ERROR", `PORT không hợp lệ: ${input.PORT}`);
@@ -86,8 +137,11 @@ export function parseEnv(input: Record<string, string | undefined>): Env {
     port,
     databaseUrl: required(input, "DATABASE_URL"),
     testDatabaseUrl: required(input, "TEST_DATABASE_URL"),
-    renterPortalUrl: publicHttpsUrl(input, "RENTER_PORTAL_URL", nodeEnv, "http://localhost:3000"),
-    frontendUrl: publicHttpsUrl(input, "FRONTEND_URL", nodeEnv, "http://localhost:3001"),
+    renterPortalUrl: publicUrl(input, "RENTER_PORTAL_URL", "http://localhost:3000", production),
+    frontendUrl: publicUrl(input, "FRONTEND_URL", "http://localhost:3001", production),
+    trustedProxyHeader: input.TRUSTED_PROXY_HEADER?.trim() || null,
+    trustedProxyAssertionHeader: input.TRUSTED_PROXY_ASSERTION_HEADER?.trim() || null,
+    trustedProxyAssertionValue: input.TRUSTED_PROXY_ASSERTION_VALUE || null,
     managerJwtSecret: secret(input, "MANAGER_JWT_SECRET"),
     renterSessionSecret: secret(input, "RENTER_SESSION_SECRET"),
     r2: {

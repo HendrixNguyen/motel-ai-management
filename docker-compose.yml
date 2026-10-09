@@ -3,19 +3,43 @@ services:
     image: postgres:16-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: motel
-    ports:
-      - "5432:5432"
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB is required}
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d motel"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
       timeout: 5s
       retries: 5
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init.sql:ro
+
+  migration:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    command: ["bun", "run", "start:migration-job"]
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
+      TEST_DATABASE_URL: ${TEST_DATABASE_URL:?TEST_DATABASE_URL is required}
+      NODE_ENV: production
+      MANAGER_JWT_SECRET: ${MANAGER_JWT_SECRET:?MANAGER_JWT_SECRET is required}
+      RENTER_SESSION_SECRET: ${RENTER_SESSION_SECRET:?RENTER_SESSION_SECRET is required}
+      R2_ACCOUNT_ID: ${R2_ACCOUNT_ID:?R2_ACCOUNT_ID is required}
+      R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID:?R2_ACCESS_KEY_ID is required}
+      R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY:?R2_SECRET_ACCESS_KEY is required}
+      R2_BUCKET: ${R2_BUCKET:-motel-uploads}
+      ZALO_OA_ID: ${ZALO_OA_ID:?ZALO_OA_ID is required}
+      ZALO_OA_SECRET: ${ZALO_OA_SECRET:?ZALO_OA_SECRET is required}
+      ZALO_ACCESS_TOKEN: ${ZALO_ACCESS_TOKEN:?ZALO_ACCESS_TOKEN is required}
+      ZALO_WEBHOOK_SECRET: ${ZALO_WEBHOOK_SECRET:?ZALO_WEBHOOK_SECRET is required}
+      RENTER_PORTAL_URL: ${RENTER_PORTAL_URL:?RENTER_PORTAL_URL is required}
+      FRONTEND_URL: ${FRONTEND_URL:?FRONTEND_URL is required}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
 
   backend:
     build:
@@ -24,20 +48,20 @@ services:
     ports:
       - "3000:3000"
     environment:
-      DATABASE_URL: postgres://postgres:password@postgres:5432/motel
-      TEST_DATABASE_URL: postgres://postgres:password@postgres:5432/motel_test
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
+      TEST_DATABASE_URL: ${TEST_DATABASE_URL:?TEST_DATABASE_URL is required}
       NODE_ENV: production
-      MANAGER_JWT_SECRET: ${MANAGER_JWT_SECRET:-super_secret_jwt_key_that_is_at_least_32_chars_long}
-      RENTER_SESSION_SECRET: ${RENTER_SESSION_SECRET:-super_secret_renter_session_key_at_least_32_chars_long}
-      R2_ACCOUNT_ID: ${R2_ACCOUNT_ID:-mock_account}
-      R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID:-mock_key}
-      R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY:-mock_secret}
+      MANAGER_JWT_SECRET: ${MANAGER_JWT_SECRET:?MANAGER_JWT_SECRET is required}
+      RENTER_SESSION_SECRET: ${RENTER_SESSION_SECRET:?RENTER_SESSION_SECRET is required}
+      R2_ACCOUNT_ID: ${R2_ACCOUNT_ID:?R2_ACCOUNT_ID is required}
+      R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID:?R2_ACCESS_KEY_ID is required}
+      R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY:?R2_SECRET_ACCESS_KEY is required}
       R2_BUCKET: ${R2_BUCKET:-motel-uploads}
-      R2_PUBLIC_URL: ${R2_PUBLIC_URL:-http://localhost:3000/uploads}
-      ZALO_OA_ID: ${ZALO_OA_ID:-mock_oa}
-      ZALO_OA_SECRET: ${ZALO_OA_SECRET:-mock_secret}
-      ZALO_ACCESS_TOKEN: ${ZALO_ACCESS_TOKEN:-mock_token}
-      ZALO_WEBHOOK_SECRET: ${ZALO_WEBHOOK_SECRET:-mock_webhook_secret}
+      R2_PUBLIC_URL: ${R2_PUBLIC_URL:-}
+      ZALO_OA_ID: ${ZALO_OA_ID:?ZALO_OA_ID is required}
+      ZALO_OA_SECRET: ${ZALO_OA_SECRET:?ZALO_OA_SECRET is required}
+      ZALO_ACCESS_TOKEN: ${ZALO_ACCESS_TOKEN:?ZALO_ACCESS_TOKEN is required}
+      ZALO_WEBHOOK_SECRET: ${ZALO_WEBHOOK_SECRET:?ZALO_WEBHOOK_SECRET is required}
       ZNS_TEMPLATE_WELCOME: ${ZNS_TEMPLATE_WELCOME:-PLACEHOLDER}
       ZNS_TEMPLATE_BILL: ${ZNS_TEMPLATE_BILL:-PLACEHOLDER}
       ZNS_TEMPLATE_PAYMENT_CONFIRMED: ${ZNS_TEMPLATE_PAYMENT_CONFIRMED:-PLACEHOLDER}
@@ -45,12 +69,12 @@ services:
       ZNS_TEMPLATE_OTP: ${ZNS_TEMPLATE_OTP:-PLACEHOLDER}
       ZNS_TEMPLATE_EXPIRY: ${ZNS_TEMPLATE_EXPIRY:-PLACEHOLDER}
       ZNS_TEMPLATE_TICKET: ${ZNS_TEMPLATE_TICKET:-PLACEHOLDER}
-      RENTER_PORTAL_URL: ${RENTER_PORTAL_URL:-http://localhost:3000}
-      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3001}
+      RENTER_PORTAL_URL: ${RENTER_PORTAL_URL:?RENTER_PORTAL_URL is required}
+      FRONTEND_URL: ${FRONTEND_URL:?FRONTEND_URL is required}
     restart: unless-stopped
     depends_on:
-      postgres:
-        condition: service_healthy
+      migration:
+        condition: service_completed_successfully
     volumes:
       - backend_data:/app/data
 

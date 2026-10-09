@@ -30,8 +30,12 @@ const bodyFont = Noto_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "Quản lý nhà trọ",
-  description: "Ghi chỉ số điện nước, xuất hóa đơn và quản lý hợp đồng thuê.",
+  title: {
+    default: "Nhà Số Gọn",
+    template: "%s · Nhà Số Gọn",
+  },
+  description: "Quản lý nhà trọ gọn hơn mỗi ngày.",
+  icons: { icon: "/brand/favicon.svg" },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

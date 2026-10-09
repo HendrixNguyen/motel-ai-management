@@ -25,7 +25,7 @@
 - Payment proof: `payment_proofs`, status `pending | approved | rejected`, partial unique current-proof index per invoice.
 - Payment routes: `/api/renter/invoices/:invoiceId/payment-proof`, manager approve/reject, and `cash-confirmation` routes documented in `docs/api-contract.md`.
 - Notifications: `notification_events` outbox, `eventKey` uniqueness, bounded retry, lease fields, `notification.service.ts`, `scheduler.service.ts`, and `notification.webhook.ts`.
-- Webhook: `POST /api/zalo/webhook`, HMAC-SHA256 over raw body using `ZALO_WEBHOOK_SECRET`, idempotent event storage.
+- Webhook: `POST /api/webhooks/zalo`, HMAC-SHA256 over raw body using `ZALO_WEBHOOK_SECRET`, idempotent event storage.
 
 ## 3. Production topology
 
@@ -116,7 +116,7 @@ A pending or approved proof blocks replacement. A rejected proof remains immutab
 
 ## 6. Webhook and notification delivery
 
-`POST /api/zalo/webhook` is unauthenticated only because provider callbacks cannot hold app sessions. It must:
+`POST /api/webhooks/zalo` is unauthenticated only because provider callbacks cannot hold app sessions. It must:
 
 1. Read raw body before JSON parsing.
 2. Verify `x-zalo-signature` with HMAC-SHA256 and constant-time comparison.

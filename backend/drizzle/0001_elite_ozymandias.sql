@@ -8,7 +8,15 @@ ALTER TABLE "contracts" ADD COLUMN "manager_sent_at" timestamp with time zone;
 --> statement-breakpoint
 ALTER TABLE "contracts" ADD COLUMN "otp_hash" text;
 --> statement-breakpoint
-ALTER TABLE "contracts" ADD COLUMN "otp_sent_at" timestamp with time zone;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'contracts' AND column_name = 'otp_sent_at'
+  ) THEN
+    ALTER TABLE "contracts" ADD COLUMN "otp_sent_at" timestamp with time zone;
+  END IF;
+END $$;
 --> statement-breakpoint
 ALTER TABLE "contracts" ADD COLUMN "otp_expires_at" timestamp with time zone;
 --> statement-breakpoint

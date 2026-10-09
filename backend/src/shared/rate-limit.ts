@@ -1,23 +1,36 @@
-import { sql } from "drizzle-orm";
+import { AppError } from "@/shared/errors";
 import { db } from "@/db";
-import { AppError } from "./errors";
+import { sql } from "drizzle-orm";
 
-export async function enforceRateLimit(key: string, max: number, windowMs = 60_000): Promise<void> {
-  const rows = await db.execute(sql`
-    INSERT INTO rate_limit_buckets (key, window_started_at, count)
-    VALUES (${key}, now(), 1)
-    ON CONFLICT (key) DO UPDATE
-    SET count = CASE
-      WHEN rate_limit_buckets.window_started_at + (${windowMs} * interval '1 millisecond') <= now() THEN 1
-      ELSE rate_limit_buckets.count + 1
-    END,
-    window_started_at = CASE
-      WHEN rate_limit_buckets.window_started_at + (${windowMs} * interval '1 millisecond') <= now() THEN now()
-      ELSE rate_limit_buckets.window_started_at
-    END
-    RETURNING count, window_started_at
+type Bucket = { count: number; resetAt: number };
+const localBuckets = new Map<string, Bucket>();
+const WINDOW_MS = 60_000;
+const MAX_BUCKETS = 10_000;
+const sharedStore = process.env.RATE_LIMIT_STORE ?? (process.env.NODE_ENV === "production" ? "postgres" : "local");
+
+export async function enforceRateLimit(key: string, limit: number, now = Date.now()): Promise<void> {
+  if (sharedStore === "local") return enforceLocalRateLimit(key, limit, now);
+  const windowStart = Math.floor(now / WINDOW_MS) * WINDOW_MS;
+  const [row] = await db.execute<{ count: number }>(sql`
+    INSERT INTO rate_limit_buckets (bucket_key, window_start, request_count)
+    VALUES (${key}, to_timestamp(${windowStart / 1000}), 1)
+    ON CONFLICT (bucket_key, window_start)
+    DO UPDATE SET request_count = rate_limit_buckets.request_count + 1
+    RETURNING request_count AS count
   `);
-  const row = rows[0] as { count: number; window_started_at: Date } | undefined;
-  if (!row) throw AppError.externalService("Rate limit store không khả dụng");
-  if (row.count > max) throw AppError.rateLimited("Thao tác quá nhanh", Math.ceil((new Date(row.window_started_at).getTime() + windowMs - Date.now()) / 1000));
+  const count = Number(row?.count ?? 0);
+  if (count > limit) throw AppError.rateLimited("Vui lòng thử lại sau", Math.max(1, Math.ceil((windowStart + WINDOW_MS - now) / 1000)));
 }
+
+function enforceLocalRateLimit(key: string, limit: number, now: number): void {
+  const current = localBuckets.get(key);
+  if (!current || current.resetAt <= now) {
+    if (localBuckets.size >= MAX_BUCKETS) localBuckets.delete(localBuckets.keys().next().value!);
+    localBuckets.set(key, { count: 1, resetAt: now + WINDOW_MS });
+    return;
+  }
+  if (current.count >= limit) throw AppError.rateLimited("Vui lòng thử lại sau", Math.max(1, Math.ceil((current.resetAt - now) / 1000)));
+  current.count += 1;
+}
+
+export function resetRateLimits(): void { localBuckets.clear(); }

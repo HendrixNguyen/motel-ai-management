@@ -79,8 +79,12 @@ html[data-theme="light"] {
 }
 
 main [id], main :where(a, button, input, select, textarea, summary) {
-  scroll-margin-top: 6rem;
-}
+   scroll-margin-top: 6rem;
+ }
+
+ .shell-safe-area {
+   padding-bottom: env(safe-area-inset-bottom);
+ }
 
 body {
   min-width: 320px;

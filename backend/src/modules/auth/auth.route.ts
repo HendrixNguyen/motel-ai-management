@@ -9,8 +9,13 @@ import { issueMagicLink } from "@/shared/magic-link";
 import { AppError } from "@/shared/errors";
 import type { ManagerJwtPayload } from "./auth.types";
 import { getRenter } from "@/modules/renter/renter.service";
+import { enforceRateLimit } from "@/shared/rate-limit";
 
 const COOKIE_NAME = "manager_session";
+
+function clientKey(request: Request): string {
+  return env.trustedProxyHeader && env.trustedProxyAssertionHeader && env.trustedProxyAssertionValue && request.headers.get(env.trustedProxyAssertionHeader) === env.trustedProxyAssertionValue ? request.headers.get(env.trustedProxyHeader)?.split(",")[0]?.trim() || "unknown" : "unknown";
+}
 
 export const authRoutes = new Elysia({ name: "auth-routes" })
   .use(cookie())
@@ -42,7 +47,10 @@ export const authRoutes = new Elysia({ name: "auth-routes" })
   )
   .post(
     "/auth/login",
-    async ({ body, manager, cookie, set }) => {
+    async ({ body, manager, cookie, set, request }) => {
+      const ip = clientKey(request);
+      await enforceRateLimit(`login:ip:${ip}`, 10);
+      await enforceRateLimit(`login:email:${body.email.trim().toLowerCase()}`, 5);
       const managerRow = await verifyManager(body.email, body.password);
       const token = await manager.sign({ userId: managerRow.id, email: managerRow.email });
       cookie[COOKIE_NAME]?.set({

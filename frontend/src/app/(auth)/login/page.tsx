@@ -38,7 +38,7 @@ export default function LoginPage() {
   return (
     <main className="flex min-h-dvh items-center justify-center px-4 py-8">
       <div className="w-full max-w-md rounded-card border border-border bg-surface p-6 sm:p-8">
-        <h1 className="font-heading text-2xl font-bold text-text">Đăng nhập</h1>
+        <p className="mb-2 text-sm font-semibold text-primary">Nhà Số Gọn</p><p className="mb-4 text-sm text-text-muted">Quản lý nhà trọ gọn hơn mỗi ngày</p><h1 className="font-heading text-2xl font-bold text-text">Đăng nhập</h1>
         <p className="mt-2 mb-6 text-text-muted">Quản lý nhà trọ của bạn</p>
         <form onSubmit={handleSubmit} noValidate className="space-y-6">
           <Field id="email" label="Email" error={fields.email}>{(props) => <input {...props} ref={emailRef} name="email" type="email" autoComplete="username" required className={controlClass} />}</Field>
