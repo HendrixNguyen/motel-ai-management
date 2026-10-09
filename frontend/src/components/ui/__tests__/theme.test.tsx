@@ -73,7 +73,8 @@ describe("theme foundation", () => {
   test("foundation CSS scopes scroll margin and includes safe area", async () => {
     const css = await readFile(new URL("../../../app/globals.css", import.meta.url), "utf8");
     expect(css).toContain("main [id]");
-    expect(css).toContain("env(safe-area-inset-bottom)");
+    expect(css).toMatch(/\.shell-safe-area\s*\{\s*padding-bottom:\s*env\(safe-area-inset-bottom\);\s*\}/);
+    expect(css).toMatch(/:focus-visible\s*\{\s*outline:\s*var\(--focus-ring-width\) solid var\(--color-focus\);/);
     expect(css).toContain("-webkit-tap-highlight-color");
     expect(css).toContain("prefers-reduced-motion");
   });

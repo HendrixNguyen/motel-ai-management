@@ -22,11 +22,13 @@ describe("Core UI v2 compatibility contracts", () => {
     expect([tone, theme, spacing]).toEqual(["success", "system", "md"]);
   });
 
-  test("Button keeps default action semantics", () => {
+  test("Button keeps default action semantics and visible keyboard focus", () => {
     const html = markup(<Button>Save</Button>);
     expect(html).toContain("Save");
     expect(html).toContain('type="button"');
     expect(html).toContain("min-h-11");
+    expect(html).toContain("focus-visible:ring-2");
+    expect(html).toContain("focus-visible:ring-offset-2");
   });
 
   test("Field keeps label and error association", () => {
@@ -76,6 +78,14 @@ describe("Core UI v2 compatibility contracts", () => {
     const html = markup(<ToastProvider>Toast children</ToastProvider>);
     expect(html).toContain('aria-live="polite"');
     expect(html).toContain("Toast children");
+  });
+
+  test("mobile billing label stays scoped to compact navigation subtree", async () => {
+    const { default: Sidebar } = await import("@/components/manager/sidebar");
+    const html = markup(<Sidebar />);
+    expect(html).toContain('aria-label="Điều hướng gọn trên điện thoại"');
+    expect(html).toContain('aria-label="Tính tiền &amp; Hóa đơn"');
+    expect(html).toContain(">Hóa đơn</span>");
   });
 
   test("ThemeSelect renders system theme on server", () => {

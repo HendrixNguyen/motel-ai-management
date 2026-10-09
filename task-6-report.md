@@ -20,8 +20,11 @@
 
 ## Review follow-up
 - Compact mobile billing label now renders `Hóa đơn`; full accessible name remains `Tính tiền & Hóa đơn`.
+- Mobile compact label and billing accessible name are scoped under `Điều hướng gọn trên điện thoại`; desktop navigation remains unchanged.
 - Navigation links expose explicit accessible labels and retain `?motel=` scope.
-- Added unit assertions for compact label, scoped billing href, fixed-nav class, and shell safe-area class.
-- Playwright shell command attempted for `chromium-mobile`; all 13 tests failed during browser launch because Debian Chromium dependencies are unavailable (`libnspr4.so` and related libraries). No browser assertions executed.
+- Focus-visible regression coverage now asserts button ring utilities and global `:focus-visible` outline declaration.
+- Safe-area regression coverage now asserts exact `.shell-safe-area { padding-bottom: env(safe-area-inset-bottom); }` declaration.
+- Playwright command attempted: `cd frontend && bun run test:e2e --project=chromium-mobile`.
+- Exact Playwright blocker: `error while loading shared libraries: libnspr4.so` and ~16 more (`libnss3`, `libatk-1.0`, `libgbm`, `libasound`, the `libX*` set).
 - Viewport verification limitation: 360/375/430 cannot be measured until Playwright browser dependencies are installed. Existing CSS uses responsive/fixed layout and unit coverage confirms required shell classes only.
-- Backend files were not modified.
+- Frontend-only changes; backend files were not modified.
