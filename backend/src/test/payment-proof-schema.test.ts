@@ -79,7 +79,7 @@ describe("payment proof database constraints", () => {
     ];
     for (const status of ["approved", "rejected"] as const) {
       const [proof] = await db.insert(paymentProofs).values({ invoiceId: invoice.id, renterId: renter.id, motelId: motel.id, objectKey: `proof/immutable-${status}`, contentType: "image/jpeg", size: 10, checksum: status, status, reviewedAt: new Date(), reviewedByManagerId: manager!.id, rejectionReason: status === "rejected" ? "Blurry" : null }).returning();
-      for (const mutation of mutations.filter((candidate) => candidate.statuses.includes(status))) {
+      for (const mutation of mutations.filter((candidate) => candidate.statuses.some((candidateStatus) => candidateStatus === status))) {
         const column = Object.keys(mutation.patch)[0]!.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`);
         const update = db.update(paymentProofs).set(mutation.patch).where(eq(paymentProofs.id, proof!.id)).execute();
         if (mutation.changes) {
