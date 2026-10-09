@@ -50,6 +50,8 @@ describe("billing invoices", () => {
     const second = await generateInvoices(period!.id, motel!.id, manager!.id);
     expect(second.invoices[0]!.id).toBe(invoice.id);
     expect(second.invoices[0]!.paymentStatus).toBe("paid");
+    expect(second.invoices[0]!.electricityUsage).toBe("10");
+    expect(second.invoices[0]!.waterUsage).toBe("3");
     expect(second.invoices[0]!.totalAmount).toBe(invoice.totalAmount);
     expect(readings).toHaveLength(2);
   });

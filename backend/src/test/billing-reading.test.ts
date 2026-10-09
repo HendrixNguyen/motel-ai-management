@@ -20,6 +20,25 @@ describe("billing readings", () => {
     expect((await db.query.meterReadings.findMany({ where: (r, { eq }) => eq(r.billingPeriodId, period!.id) })).every((r) => r.currentReading === null)).toBe(true);
   });
 
+  test("stores manager current reading and derives usage from previous reading", async () => {
+    const [manager] = await db.insert(managers).values({ email: "current-reading@example.com", passwordHash: "x", name: "M" }).returning();
+    const [motel] = await db.insert(motels).values({ managerId: manager!.id, name: "M", electricityPrice: "2000", waterPrice: "15000" }).returning();
+    const [room] = await db.insert(rooms).values({ motelId: motel!.id, name: "101" }).returning();
+    const [period] = await db.insert(billingPeriods).values({ motelId: motel!.id, month: 1, year: 2026 }).returning();
+    const [reading] = await db.insert(meterReadings).values({ billingPeriodId: period!.id, roomId: room!.id, type: "electric", previousReading: "100.25" }).returning();
+    const [updated] = await updateMeterReadings(period!.id, motel!.id, manager!.id, { readings: [{ roomId: room!.id, type: "electric", currentReading: "101.50", expectedUpdatedAt: reading!.updatedAt.toISOString() }] });
+    expect(updated).toMatchObject({ previousReading: "100.25", currentReading: "101.5" });
+  });
+
+  test("rejects current reading below previous reading", async () => {
+    const [manager] = await db.insert(managers).values({ email: "lower-reading@example.com", passwordHash: "x", name: "M" }).returning();
+    const [motel] = await db.insert(motels).values({ managerId: manager!.id, name: "M", electricityPrice: "2000", waterPrice: "15000" }).returning();
+    const [room] = await db.insert(rooms).values({ motelId: motel!.id, name: "101" }).returning();
+    const [period] = await db.insert(billingPeriods).values({ motelId: motel!.id, month: 1, year: 2026 }).returning();
+    const [reading] = await db.insert(meterReadings).values({ billingPeriodId: period!.id, roomId: room!.id, type: "electric", previousReading: "100.25" }).returning();
+    await expect(updateMeterReadings(period!.id, motel!.id, manager!.id, { readings: [{ roomId: room!.id, type: "electric", currentReading: "100", expectedUpdatedAt: reading!.updatedAt.toISOString() }] })).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
+  });
+
   test("rejects stale reading update even when value matches latest", async () => {
     const [manager] = await db.insert(managers).values({ email: "stale@example.com", passwordHash: "x", name: "M" }).returning();
     const [motel] = await db.insert(motels).values({ managerId: manager!.id, name: "M", electricityPrice: "2000", waterPrice: "15000" }).returning();
