@@ -92,6 +92,13 @@
       "when": 1791431100000,
       "tag": "0012_restore_contract_otp_sent_at",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1791600687000,
+      "tag": "0013_payment_proofs",
+      "breakpoints": true
     }
   ]
 }

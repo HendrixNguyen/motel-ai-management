@@ -9,6 +9,7 @@ import { connectionString, isTestRun } from "./index";
 const migrationsFolder = path.join(import.meta.dir, "../../drizzle");
 
 const TABLES = [
+  "payment_proofs",
   "uploads",
   "zalo_oa_motel_mappings",
   "notification_webhook_events",

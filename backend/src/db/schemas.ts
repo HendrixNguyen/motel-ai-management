@@ -8,3 +8,4 @@ export * from "@/modules/ticket/ticket.schema";
 export * from "@/modules/ticket/ticket-upload.schema";
 export * from "@/modules/billing/upload.schema";
 export * from "@/modules/notification/notification.schema";
+export * from "@/modules/payment/payment.schema";
