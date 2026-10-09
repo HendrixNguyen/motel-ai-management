@@ -8,6 +8,7 @@ async function signIn(context: BrowserContext, session = "valid") {
 test("unauthenticated rooms redirect to login", async ({ page }) => {
   await page.goto("/rooms");
   await expect(page).toHaveURL("/login");
+  await page.goto("/login", { waitUntil: "networkidle" });
   await expect(page.getByRole("heading", { name: "Đăng nhập" })).toBeVisible();
 });
 
@@ -69,8 +70,8 @@ test("foreign motel selections render the Vietnamese not-found state", async ({ 
 for (const session of ["me-expired", "motels-expired"]) {
   test(`${session} redirects to login when a server read returns 401`, async ({ page, context }) => {
     await signIn(context, session);
-    await page.goto("/rooms");
-    await expect(page).toHaveURL("/login");
+  await page.goto("/rooms");
+  await expect(page).toHaveURL("/login");
   });
 }
 
