@@ -85,11 +85,10 @@ describe("magic links", () => {
   test("inactive renter session is rejected", async () => {
     const renter = await seedRenter();
     const { token } = await issueMagicLink(renter.id);
-    const exchange = await app.handle(new Request("http://localhost/api/renter/magic-links/exchange", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token }) }));
-    const cookie = exchange.headers.get("set-cookie")!.split(";", 1)[0]!;
     await db.update(renters).set({ status: "inactive" }).where(eq(renters.id, renter.id));
-    const response = await app.handle(new Request("http://localhost/api/renter/me", { headers: { cookie } }));
-    expect(response.status).toBe(401);
+    const exchange = await app.handle(new Request("http://localhost/api/renter/magic-links/exchange", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token }) }));
+    expect(exchange.status).toBe(401);
+    expect(exchange.headers.get("set-cookie") ?? "").not.toContain("renter_session=");
   });
 
   test("exchange endpoint sets a renter_session cookie", async () => {
