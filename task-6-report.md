@@ -27,9 +27,9 @@
 - Playwright command attempted: `cd frontend && bun run test:e2e --project=chromium-mobile`.
 - Exact Playwright blocker: `error while loading shared libraries: libnspr4.so` and ~16 more (`libnss3`, `libatk-1.0`, `libgbm`, `libasound`, the `libX*` set).
 - Viewport verification limitation: 360/375/430 cannot be measured until Playwright browser dependencies are installed. Existing CSS uses responsive/fixed layout and unit coverage confirms required shell classes only.
+- Frontend-only changes; backend files were not modified.
 - Added regression assertion that billing link and full `aria-label` stay inside compact mobile nav subtree; desktop nav keeps `Tính tiền & Hóa đơn`.
 - Focused test command unavailable: `bun: command not found`.
-- Task 6 implementation is frontend-only: shell code and frontend tests; no backend behavior belongs to this task.
-- Parent history contains unrelated backend revert: `backend/src/shared/magic-link.ts` behavior reverted from commit `8e8221d`; this is history context, not Task 6 implementation.
-- Backend inactive-renter behavior is outside Task 6 and remains with the owning auth task.
-- Current change is report-only: this commit updates `task-6-report.md`; backend and test files remain unchanged.
+- Fixed Task 6 shell test regex single-escape bug; no backend changes.
+- Backend history correction: reverted only `backend/src/shared/magic-link.ts` behavior from unrelated commit `8e8221d`; this history is unrelated to Task 6 and does not represent Task 6 frontend work.
+- Backend inactive-renter behavior is outside Task 6 and remains with the owning auth task; no backend or test files are part of this report change.
