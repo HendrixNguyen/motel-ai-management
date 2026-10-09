@@ -108,6 +108,8 @@ export const invoices = pgTable(
     qrCodeData: text("qr_code_data"),
     paymentStatus: paymentStatus("payment_status").notNull().default("unpaid"),
     paidAt: timestamp("paid_at", { withTimezone: true }),
+    paymentMethod: text("payment_method"),
+    paymentProofId: uuid("payment_proof_id"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
