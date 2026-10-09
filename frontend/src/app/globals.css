@@ -61,6 +61,7 @@
 /* Keep keyboard focus paint clear of viewport edges and the fixed mobile navigation. */
 :where(a, button, input, select, textarea, summary):focus-visible {
   scroll-margin: 9rem 1rem;
+  outline-color: var(--color-focus);
 }
 
 html {

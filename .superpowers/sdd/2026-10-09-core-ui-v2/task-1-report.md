@@ -33,3 +33,23 @@ Verification:
 - Full browser and build suites were not run for this foundation task.
 - Existing unrelated worktree changes were preserved.
 - ESLint warnings remain in existing portal/manager/renter image usage.
+
+## Review fixes — 2026-10-09
+
+Status: complete
+
+- Fixed `ThemeSelect` hydration safety: server and first client render always use `system`; stored theme loads after mount.
+- Expanded compatibility coverage from broad aggregate assertions to focused assertions for each required primitive and theme server markup.
+- Consumed `--color-focus` through global focus-visible outline styling.
+
+Verification:
+
+```sh
+cd frontend
+PATH="$HOME/.bun/bin:$PATH" bunx vitest run src/components/ui/__tests__/core-contracts.test.tsx
+PATH="$HOME/.bun/bin:$PATH" bunx tsc --noEmit
+```
+
+Result: 1 test file passed, 10 tests passed; typecheck passed.
+
+Concern: full frontend lint/build/browser suites remain outside this focused review fix.
