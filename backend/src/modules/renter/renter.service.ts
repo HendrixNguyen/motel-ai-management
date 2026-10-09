@@ -1,10 +1,11 @@
-import { and, asc, eq, ilike, or } from "drizzle-orm";
+import { and, asc, eq, ilike, or, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { resolveOwnedMotel, resolveRoomInMotel } from "@/middleware/tenancy";
 import { listRecentInvoicesForRenter } from "@/modules/billing/billing.service";
 import { getActiveContractForRenter } from "@/modules/contract/contract.service";
 import { AppError } from "@/shared/errors";
 import { normalisePhone } from "@/shared/phone";
+import { rooms } from "@/modules/room/room.schema";
 import { renters } from "./renter.schema";
 import { enqueueNotification } from "@/modules/notification/notification.service";
 import type {
@@ -75,6 +76,13 @@ export async function getRenterForNotification(renterId: string, motelId: string
 }
 
 type RenterWriter = Pick<typeof db, "query" | "update">;
+
+async function syncRoomStatus(tx: any, roomId: string): Promise<void> {
+  const [room] = await tx.select({ id: rooms.id, status: rooms.status }).from(rooms).where(eq(rooms.id, roomId));
+  if (!room || room.status === "maintenance") return;
+  const [count] = await tx.select({ count: sql<number>`count(*)` }).from(renters).where(and(eq(renters.roomId, roomId), eq(renters.status, "active")));
+  await tx.update(rooms).set({ status: Number(count?.count ?? 0) > 0 ? "occupied" : "available" }).where(eq(rooms.id, roomId));
+}
 
 export async function mapZaloFollowerByPhone(motelId: string, phone: string, followerId: string, writer: RenterWriter = db): Promise<boolean> {
   const normalizedPhone = normalisePhone(phone);
@@ -222,20 +230,22 @@ export async function createRenterForMotel(
   }
 
   try {
-    const row = await createRenter({
-      motelId,
-      name: input.name,
-      phone: input.phone,
-      idNumber: input.idNumber,
-      idCardFrontUrl: input.idCardFrontUrl,
-      idCardBackUrl: input.idCardBackUrl,
-      // `roomId: null` on a create is the same request as leaving it out — the column is simply
-      // nullable — so it is dropped here rather than passed on as a `null` the parameter does not
-      // accept.
-      ...(input.roomId === undefined || input.roomId === null ? {} : { roomId: input.roomId }),
+    const row = await db.transaction(async (tx) => {
+      const [created] = await tx.insert(renters).values({
+        motelId,
+        name: input.name,
+        phone: normalisePhone(input.phone),
+        idNumber: input.idNumber,
+        idCardFrontUrl: input.idCardFrontUrl,
+        idCardBackUrl: input.idCardBackUrl,
+        ...(input.roomId === undefined || input.roomId === null ? {} : { roomId: input.roomId }),
+      }).returning();
+      if (!created) throw AppError.externalService();
+      if (created.roomId) await syncRoomStatus(tx, created.roomId);
+      return created;
     });
-     await enqueueNotification({ eventKey: `renter:${row.id}:welcome`, renterId: row.id, motelId, templateId: "welcome", payload: { name: row.name } }).catch(() => undefined);
-     return toResponse(row);
+    await enqueueNotification({ eventKey: `renter:${row.id}:welcome`, renterId: row.id, motelId, templateId: "welcome", payload: { name: row.name } }).catch(() => undefined);
+    return toResponse(row);
 
   } catch (error) {
     if (isDuplicatePhone(error)) {
@@ -306,8 +316,14 @@ export async function updateRenter(
   if (Object.keys(patch).length === 0) return toResponse(owned);
 
   try {
-    const [row] = await db.update(renters).set(patch).where(eq(renters.id, renterId)).returning();
-    return toResponse(row!);
+    const row = await db.transaction(async (tx) => {
+      const [updated] = await tx.update(renters).set(patch).where(eq(renters.id, renterId)).returning();
+      if (!updated) throw AppError.notFound("Không tìm thấy người thuê");
+      const roomIds = new Set([owned.roomId, updated.roomId].filter((id): id is string => id !== null));
+      for (const roomId of roomIds) await syncRoomStatus(tx, roomId);
+      return updated;
+    });
+    return toResponse(row);
   } catch (error) {
     // Re-saving a renter's own phone is not a violation: the index compares distinct rows, so
     // PostgreSQL lets it through and only a genuinely taken phone reaches here.
@@ -336,5 +352,8 @@ export async function deleteRenter(
 ): Promise<void> {
   await resolveOwnedRenter(renterId, motelId, managerId);
 
-  await db.update(renters).set({ status: "inactive" }).where(eq(renters.id, renterId));
+  await db.transaction(async (tx) => {
+    const [updated] = await tx.update(renters).set({ status: "inactive" }).where(eq(renters.id, renterId)).returning({ roomId: renters.roomId });
+    if (updated?.roomId) await syncRoomStatus(tx, updated.roomId);
+  });
 }
