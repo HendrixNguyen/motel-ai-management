@@ -23,3 +23,4 @@ Implemented Core UI v2 form, money/date, select/textarea, upload, preview, error
 - DateField accepts only valid `YYYY-MM-DD` calendar dates.
 - Field compatibility mode preserves child classes and existing ARIA values while merging descriptions.
 - Behavior tests expanded from 6 to 10.
+- MoneyField now emits empty string when cleared while continuing to reject malformed input.

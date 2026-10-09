@@ -50,6 +50,7 @@ describe("form and upload primitives", () => {
 
   test("rejects invalid money input instead of stripping arbitrary characters", () => {
     expect(normalizeMoneyInput("1.5")).toBeNull();
+    expect(normalizeMoneyInput("")).toBe("");
     expect(normalizeMoneyInput("3.500.000")).toBe("3500000");
   });
 
