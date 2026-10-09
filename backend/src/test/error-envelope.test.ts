@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { createApp } from "@/app";
 import { AppError } from "@/shared/errors";
+import { redactSecrets } from "@/middleware/error-handler";
 
 describe("error envelope", () => {
   test("health check responds without a database round trip", async () => {
@@ -62,6 +63,13 @@ describe("error envelope", () => {
       expect(serializedLogs).not.toContain("link-secret");
       expect(serializedLogs).not.toContain("hunter2");
       expect(serializedLogs).toContain("[REDACTED]");
+
+      const nested = redactSecrets({ Authorization: "Bearer auth-secret", nested: [{ password: "object-secret" }], url: "/relative?access%5Ftoken=query-secret" });
+      const nestedSerialized = JSON.stringify(nested);
+      expect(nestedSerialized).not.toContain("query-secret");
+      expect(nestedSerialized).not.toContain("object-secret");
+      expect(nestedSerialized).not.toContain("auth-secret");
+      expect(nestedSerialized).toContain("[REDACTED]");
     } finally {
       console.error = originalError;
     }

@@ -10,32 +10,41 @@ import { AppError } from "@/shared/errors";
  */
 const REDACTED = "[REDACTED]";
 const SENSITIVE_QUERY_KEYS = new Set(["token", "access_token", "magic_link_token", "code", "secret", "key", "password"]);
+const SENSITIVE_KEYS = new Set(["authorization", "token", "access_token", "magic_link_token", "code", "secret", "key", "password"]);
+
+function normalizeKey(key: string): string {
+  try { return decodeURIComponent(key).toLowerCase().replace(/[-.]/g, "_"); } catch { return key.toLowerCase().replace(/[-.]/g, "_"); }
+}
 
 function redactUrl(raw: string): string {
   try {
-    const url = new URL(raw);
+    const relative = raw.startsWith("/");
+    const url = new URL(raw, "http://redact.invalid");
     const path = url.pathname.replace(/(^|\/)r\/[^/]+(?=\/|$)/gi, `$1r/${REDACTED}`);
     for (const key of url.searchParams.keys()) {
-      const normalized = decodeURIComponent(key).toLowerCase().replace(/[-.]/g, "_");
-      if (SENSITIVE_QUERY_KEYS.has(normalized)) url.searchParams.set(key, REDACTED);
+      if (SENSITIVE_QUERY_KEYS.has(normalizeKey(key))) url.searchParams.set(key, REDACTED);
     }
     url.pathname = path;
-    return url.toString();
+    return relative ? `${url.pathname}${url.search}${url.hash}` : url.toString();
   } catch {
     return raw.replace(/(^|\/)r\/[^/\s?#]+/gi, `$1r/${REDACTED}`)
       .replace(/([?&](?:token|access_token|magic[_-]link[_-]token|code|secret|key|password)=)[^&#\s]*/gi, `$1${REDACTED}`);
   }
 }
 
-function redactSecrets(value: unknown): unknown {
+export function redactSecrets(value: unknown, key?: string): unknown {
+  if (key && SENSITIVE_KEYS.has(normalizeKey(key))) return REDACTED;
   if (typeof value === "string") {
     return value
       .replace(/https?:\/\/[^\s]+/gi, (url) => redactUrl(url))
       .replace(/(^|\/)r\/[^/\s?#]+/gi, `$1r/${REDACTED}`)
+      .replace(/\/[^\s?#]*\?[^\s#]*/g, (url) => redactUrl(url))
       .replace(/((?:^|\s)(?:token|access_token|magic[_-]?link[_-]?token|code|secret|key|password)=)[^\s&#]*/gi, `$1${REDACTED}`)
       .replace(/(Bearer\s+)[^\s]+/gi, `$1${REDACTED}`);
   }
   if (value instanceof Error) return { name: value.name, message: redactSecrets(value.message), stack: redactSecrets(value.stack) };
+  if (Array.isArray(value)) return value.map((item) => redactSecrets(item));
+  if (value && typeof value === "object") return Object.fromEntries(Object.entries(value).map(([entryKey, entryValue]) => [entryKey, redactSecrets(entryValue, entryKey)]));
   return value;
 }
 
