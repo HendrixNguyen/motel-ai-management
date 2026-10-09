@@ -57,11 +57,11 @@ test("motel and room create/edit persist through refresh and scope the renter fo
   await keyboardActivate(page, motelDialog.getByRole("button", { name: "Tạo nhà trọ", exact: true }));
   await expect(motelDialog).not.toBeVisible();
   await expect(page.getByRole("heading", { name: "Nhà trọ mới", exact: true })).toBeVisible();
-  const motelId = await page.getByLabel("Nhà trọ", { exact: true }).inputValue();
+  const motelId = await page.getByRole("combobox", { name: "Nhà trọ", exact: true }).inputValue();
   await page.getByRole("button", { name: "Chỉnh sửa Nhà trọ mới", exact: true }).click();
   const editMotel = page.getByRole("dialog", { name: "Chỉnh sửa nhà trọ", exact: true });
   await editMotel.getByLabel("Tên nhà trọ", { exact: true }).fill("Nhà trọ đã lưu");
-  await editMotel.getByRole("button", { name: "Lưu thay đổi", exact: true }).click();
+  await keyboardActivate(page, editMotel.getByRole("button", { name: "Lưu thay đổi", exact: true }));
   await expect(page.getByRole("heading", { name: "Nhà trọ đã lưu", exact: true })).toBeVisible();
   await page.goto(`/rooms?motel=${motelId}`);
   await expect(page.getByRole("heading", { name: "Chưa có phòng trọ", exact: true })).toBeVisible();
@@ -70,12 +70,12 @@ test("motel and room create/edit persist through refresh and scope the renter fo
   await roomDialog.getByLabel("Tên phòng", { exact: true }).fill("P.001 mới");
   await roomDialog.getByLabel("Tầng (không bắt buộc)", { exact: true }).fill("0");
   await roomDialog.getByLabel("Giá thuê cơ bản (₫/tháng)", { exact: true }).fill("99999999999999");
-  await roomDialog.getByRole("button", { name: "Thêm phòng", exact: true }).click();
+  await keyboardActivate(page, roomDialog.getByRole("button", { name: "Thêm phòng", exact: true }));
   await expect(page.getByRole("heading", { name: "P.001 mới", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Chỉnh sửa P.001 mới", exact: true }).click();
   const editRoom = page.getByRole("dialog", { name: "Chỉnh sửa phòng trọ", exact: true });
   await editRoom.getByLabel("Tên phòng", { exact: true }).fill("P.001 đã lưu");
-  await editRoom.getByRole("button", { name: "Lưu thay đổi", exact: true }).click();
+  await keyboardActivate(page, editRoom.getByRole("button", { name: "Lưu thay đổi", exact: true }));
   await expect(page.getByRole("heading", { name: "P.001 đã lưu", exact: true })).toBeVisible();
   await page.reload();
   const amount = page.getByText("99.999.999.999.999 ₫", { exact: true });
@@ -95,8 +95,8 @@ test("renter create/edit validates locally, preserves CCCD zeros, unassigns and 
   const trigger = page.getByRole("button", { name: "Thêm khách thuê", exact: true });
   await keyboardActivate(page, trigger);
   const dialog = page.getByRole("dialog", { name: "Thêm khách thuê", exact: true });
-  await dialog.getByRole("button", { name: "Thêm khách thuê", exact: true }).click();
-  await expect(dialog.getByRole("alert")).toBeFocused();
+  await keyboardActivate(page, dialog.getByRole("button", { name: "Thêm khách thuê", exact: true }));
+  await expect(dialog.locator('[role="alert"][tabindex="-1"]')).toBeFocused();
   await expect(dialog.getByLabel("Họ tên", { exact: true })).toHaveAccessibleDescription("Nhập họ tên");
   await dialog.getByRole("link", { name: "Nhập họ tên", exact: true }).click();
   await expect(dialog.getByLabel("Họ tên", { exact: true })).toBeFocused();
@@ -123,7 +123,7 @@ test("renter create/edit validates locally, preserves CCCD zeros, unassigns and 
   await editDialog.getByLabel("Họ tên", { exact: true }).fill("Nguyễn Thị An đã lưu");
   await editDialog.getByLabel("Số CCCD (không bắt buộc)", { exact: true }).fill("");
   await editDialog.getByLabel("Phòng (không bắt buộc)", { exact: true }).selectOption("");
-  await editDialog.getByRole("button", { name: "Lưu thay đổi", exact: true }).click();
+  await keyboardActivate(page, editDialog.getByRole("button", { name: "Lưu thay đổi", exact: true }));
   await expect(editDialog).not.toBeVisible();
   await page.reload();
   const saved = page.getByRole("row").filter({ hasText: "Nguyễn Thị An đã lưu" });
@@ -141,8 +141,8 @@ test("renter duplicate 409 retains the draft with a focused banner", async ({ pa
   const dialog = page.getByRole("dialog", { name: "Thêm khách thuê", exact: true });
   await dialog.getByLabel("Họ tên", { exact: true }).fill("Tên mới");
   await dialog.getByLabel("Số điện thoại", { exact: true }).fill(RENTER.phone);
-  await dialog.getByRole("button", { name: "Thêm khách thuê", exact: true }).click();
-  await expect(dialog.getByRole("alert")).toBeFocused();
+  await keyboardActivate(page, dialog.getByRole("button", { name: "Thêm khách thuê", exact: true }));
+  await expect(dialog.locator('[role="alert"][tabindex="-1"]')).toBeFocused();
   await expect(dialog.getByRole("alert")).toContainText("Số điện thoại đã tồn tại");
   await expect(dialog.getByLabel("Họ tên", { exact: true })).toHaveValue("Tên mới");
   await expect(dialog.getByLabel("Họ tên", { exact: true })).not.toHaveAttribute("aria-invalid", "true");
@@ -183,7 +183,7 @@ for (const [title, path] of [["Tổng quan", "/"], ["Nhà trọ", "/motels"], ["
       const collapsed = closedDetails && element !== closedDetails.querySelector("summary");
       return element.getClientRects().length && getComputedStyle(element).visibility !== "hidden"
         && !collapsed && !element.closest("nextjs-portal")
-        && element.getAttribute("aria-label") !== "Open Next.js Dev Tools" ? [index] : [];
+        && !["Open Next.js Dev Tools", "Open issues overlay", "Collapse issues badge", "Mark as helpful", "Mark as not helpful"].includes(element.getAttribute("aria-label") ?? "") ? [index] : [];
     }));
     const remaining = new Set(indices);
     for (let step = 0; step < indices.length * 3 && remaining.size; step += 1) {

@@ -43,7 +43,7 @@ export function Dialog({ open, onClose, title, description, children, footer, dr
         <div className="min-w-0"><h2 id={`${id}-title`} className="font-heading text-lg font-semibold text-text break-words">{title}</h2>
           {description && <p id={`${id}-description`} className="mt-2 text-base leading-normal">{description}</p>}
         </div>
-        <Button variant="ghost" className="shrink-0" onClick={() => ref.current?.close()}>Đóng</Button>
+        <Button variant="ghost" className="shrink-0" onClick={() => { ref.current?.close(); onClose(); }}>Đóng</Button>
       </div>
       <div className="min-w-0 p-4">{children}</div>
       {footer && <div className="flex flex-wrap justify-end gap-2 border-t border-border p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">{footer}</div>}
