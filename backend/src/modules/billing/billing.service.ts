@@ -209,6 +209,19 @@ async function transitionInvoice(invoiceId: string, motelId: string, managerId: 
  }
 
 
+export async function settleInvoicePayment(invoiceId: string, motelId: string, managerId: string, paymentMethod: "bank_transfer" | "cash", paymentProofId: string | null = null, tx = db): Promise<InvoiceResponse> {
+  await resolveOwnedMotel(motelId, managerId);
+  const row = await tx.query.invoices.findFirst({ where: and(eq(invoices.id, invoiceId), eq(invoices.motelId, motelId)) });
+  if (!row) throw AppError.notFound("Không tìm thấy hóa đơn");
+  if (row.paymentStatus === "paid") {
+    if (row.paymentMethod !== paymentMethod || (paymentProofId && row.paymentProofId !== paymentProofId)) throw AppError.conflict("Hóa đơn đã thanh toán bằng phương thức khác");
+    return invoiceResponse(row, "");
+  }
+  const [updated] = await tx.update(invoices).set({ paymentStatus: "paid", paidAt: new Date(), paymentMethod, paymentProofId }).where(and(eq(invoices.id, invoiceId), eq(invoices.motelId, motelId), eq(invoices.paymentStatus, "unpaid"))).returning();
+  if (!updated) throw AppError.conflict("Trạng thái hóa đơn đã thay đổi");
+  return invoiceResponse(updated, "");
+}
+
 export const markInvoicePaid = (invoiceId: string, motelId: string, managerId: string) => transitionInvoice(invoiceId, motelId, managerId, "paid");
 export const markInvoiceOverdue = (invoiceId: string, motelId: string, managerId: string) => transitionInvoice(invoiceId, motelId, managerId, "overdue");
 
