@@ -183,8 +183,11 @@ bodyless relative POST, returned URL, coalesced requests, retry and safe 401/404
 errors. `e2e/renters.spec.ts` covers room-filter navigation/reload, 360px stacked rows,
 keyboard generation/copy, disabled pending actions, focused retryable errors and expired
 sessions. `e2e/full-flow.spec.ts` covers manager login, one-time exchange, portal profile and
-read-only unpaid invoice display at 430px, keyboard submission, and fixture-level replay,
-expired-token, and malformed-link recovery without internal-error leakage. Browser fixtures do
+read-only unpaid invoice display at 430px, keyboard submission, fixture-level replay,
+unknown-token and expired-token recovery, unauthenticated/expired session read rejection,
+and UI-only OTP/ticket submission. OTP error semantics remain covered by
+`backend/src/test/contract-signing.test.ts`; fixtures validate known code `123456`, but browser
+coverage does not claim backend OTP expiry/attempt behavior. Browser fixtures do
 not prove DB atomicity; `backend/src/test/renter-auth.test.ts` proves consumed replay,
 unknown-token rejection, concurrent single-consume behavior, and expired-row rejection against
 PostgreSQL, while `backend/src/test/isolation.test.ts` proves route-level replay. Its RSC

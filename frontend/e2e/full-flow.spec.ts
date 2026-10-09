@@ -1,6 +1,14 @@
 import { expect, test } from "@playwright/test";
 import { MANAGER_ME } from "../src/lib/api/__tests__/fixtures";
 
+test("unauthenticated and expired renter sessions cannot read portal data", async ({ page, context }) => {
+  const unauthenticated = await page.request.get("/api/renter/me");
+  expect(unauthenticated.status()).toBe(401);
+  await context.addCookies([{ name: "renter_session", value: "expired", url: "http://localhost:3001" }]);
+  const expired = await page.request.get("/api/renter/billing/periods");
+  expect(expired.status()).toBe(401);
+});
+
 test("manager login, magic-link exchange, portal read flow works at 430px", async ({ page, context }) => {
   await page.setViewportSize({ width: 430, height: 800 });
   await page.goto("/login");
@@ -42,7 +50,7 @@ test("fixture-level unknown magic-link shows expired recovery without leaking in
   await expect(page.locator('section[role="alert"]')).not.toContainText(/token|secret|private|host/i);
 });
 
-test("capture save, invoice QR, OTP contract, and ticket journey", async ({ page }) => {
+test("capture save, invoice QR, and UI-only OTP contract and ticket journey", async ({ page }) => {
   await page.context().addCookies([{ name: "manager_session", value: "capture-session", domain: "localhost", path: "/" }]);
   await page.goto("/capture?motel=6f1c1a52-0d4e-4a2b-9c3d-8e5f6a7b8c9d");
   await expect(page.getByRole("heading", { name: /Nhập chỉ số/ })).toBeVisible();
@@ -55,6 +63,7 @@ test("capture save, invoice QR, OTP contract, and ticket journey", async ({ page
   await expect(page.getByText("Đã đồng bộ")).toBeVisible();
   await page.context().addCookies([{ name: "renter_session", value: "fixture", domain: "localhost", path: "/" }]);
   let ticketPayload: Record<string, unknown> | undefined;
+  let ticketResponse: Record<string, unknown> | undefined;
   await page.route("**/api/renter/magic-links/exchange", async (route) => { expect(await route.request().postDataJSON()).toEqual({ token: "flow-token" }); await route.fulfill({ json: { renterId: "renter", motelId: "motel" }, headers: { "set-cookie": "renter_session=fixture; Path=/; HttpOnly" } }); });
   await page.route("**/api/renter/me", (route) => route.fulfill({ json: { id: "renter", name: "An", phone: "84901234567", room: { id: "room", name: "P.101", floor: 1 }, motel: { id: "motel", name: "Nhà trọ Minh Anh" }, activeContract: null } }));
   await page.route("**/api/renter/billing/periods", (route) => route.fulfill({ json: [{ id: "period", month: 10, year: 2026, status: "sent", createdAt: "2026-10-01T00:00:00.000Z" }] }));
@@ -88,12 +97,13 @@ test("capture save, invoice QR, OTP contract, and ticket journey", async ({ page
   await page.waitForTimeout(500);
   await expect(page.getByText("Đang hiệu lực")).toBeVisible({ timeout: 10000 });
   await expect(page.getByRole("button", { name: "Xác nhận ký" })).toHaveCount(0);
-  await page.route("**/api/renter/tickets", async (route) => { if (route.request().method() === "POST") { ticketPayload = await route.request().postDataJSON(); await route.fulfill({ status: 201, json: { id: "ticket-new", category: "electricity", description: "Điện chập chờn trong phòng", status: "open", createdAt: "2026-10-08T00:00:00.000Z" } }); } else await route.fulfill({ json: [] }); });
+  await page.route("**/api/renter/tickets", async (route) => { if (route.request().method() === "POST") { ticketPayload = await route.request().postDataJSON(); ticketResponse = { id: "ticket-new", category: String(ticketPayload?.category), description: String(ticketPayload?.description), status: "open", createdAt: "2026-10-08T00:00:00.000Z" }; await route.fulfill({ status: 201, json: ticketResponse }); } else await route.fulfill({ json: [] }); });
   await page.goto("/portal/tickets");
   await page.getByLabel("Mô tả").fill("Điện chập chờn trong phòng");
   await page.getByRole("button", { name: "Gửi yêu cầu" }).click();
   await expect(page.getByText("Chủ nhà trọ sẽ phản hồi qua Zalo")).toBeVisible();
   expect(ticketPayload).toEqual({ category: "facilities", description: "Điện chập chờn trong phòng" });
+  expect(ticketResponse).toEqual({ id: "ticket-new", category: "facilities", description: "Điện chập chờn trong phòng", status: "open", createdAt: "2026-10-08T00:00:00.000Z" });
   await expect(page.getByRole("button", { name: "Gửi yêu cầu" })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });

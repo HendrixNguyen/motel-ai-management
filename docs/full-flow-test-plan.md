@@ -170,7 +170,7 @@ Add:
 - `e2e/capture.spec.ts`: offline entry, reload persistence, reconnect sync, conflict.
 - `e2e/renter-portal.spec.ts`: invoice QR, ticket form, expiry.
 - `e2e/zalo-failure.spec.ts`: disabled/deferred states, retry/error banners, no secret text.
-- `e2e/full-flow.spec.ts`: manager login → one-time magic-link exchange → portal read, plus fixture-level replay/expired/malformed recovery, 430px overflow, and keyboard submission. These browser checks do not prove DB atomicity.
+- `e2e/full-flow.spec.ts`: manager login → one-time magic-link exchange → portal read, fixture-level replay/unknown-token/expired recovery, renter session rejection, 430px overflow, keyboard submission, and UI-only OTP/ticket journeys. These browser checks do not prove DB atomicity or backend OTP attempt/expiry semantics.
 - Backend atomic replay/expiry proof: `backend/src/test/renter-auth.test.ts` covers consumed replay, unknown token, concurrent exchanges, and expired rows; `backend/src/test/isolation.test.ts` covers route-level replay. Run these against PostgreSQL separately.
 - Payment-proof upload, approval, and cash-confirmation E2E remain blocked because corresponding product routes are not implemented.
 
