@@ -277,8 +277,7 @@ through the server-rendered profile; it never receives OA IDs, access tokens, te
 provider failure details. The magic-link exchange accepts `{token}` once, sets the 24-hour
 httpOnly `renter_session`, then redirects to `/portal`; `MAGIC_LINK_EXPIRED` renders **Liên kết đã
 hết hạn** with a Zalo recovery instruction. Portal invoice responses use exact VND digit strings,
-render QR from `qrCodeData`, and never offer a paid-status mutation. Ticket submit supports JSON
-without photos or multipart repeated `photos` fields (0–5 private JPEG/PNG files, 10 MB each).
+render QR from `qrCodeData`, and never offer a paid-status mutation. Ticket submit supports JSON without photos or multipart repeated `photos` fields (0–5 private JPEG/PNG files, 10 MB each; the global default is 5 MB, overridden here by the ticket limit).
 
 ### M5 — Nhập số & tính tiền `/billing/[periodId]`
 

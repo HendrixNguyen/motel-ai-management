@@ -82,15 +82,15 @@ Exact response/error bodies must be added to `docs/api-contract.md` before imple
 4. Approval locks proof state and invoice paid transition atomically. Concurrent approve/reject/cash calls resolve idempotently without double payment timestamps.
 5. Rejection requires manager ownership and preserves audit fields; renter sees safe reason text only.
 6. Cash confirmation never accepts renter identity or payment status from request body.
-7. Notification enqueue is after committed domain state or through an outbox transaction; delivery failure never rolls back proof review or payment state.
-8. Payment-state mutation succeeds independently of post-commit delivery. If enqueue fails before commit, the payment transaction rolls back and returns `EXTERNAL_SERVICE_ERROR`; if delivery fails after enqueue, proof/payment state stays committed, notification is `failed`, and the manager can retry without changing payment state. Enqueue failure and post-commit delivery failure are distinct outcomes.
+7. Payment mutation and generic notification outbox insert commit atomically in one transaction; provider delivery starts only after commit and never rolls back proof review or payment state.
+8. If the outbox insert fails before commit, the payment transaction rolls back and returns `EXTERNAL_SERVICE_ERROR`; if provider delivery fails after commit, proof/payment state stays committed, notification is `failed`, and the manager can retry without changing payment state. Outbox failure and post-commit delivery failure are distinct outcomes.
 
 ## Security and tenancy
 
 - Separate renter and manager auth middleware/plugins and cookies.
 - Every query scopes by session-derived renter/motel or manager-owned motel; never trust `renterId`, `motelId`, or `managerId` from body.
 - Cross-tenant invoice, proof, subscription, and signed-image requests return `404`.
-- Validate upload bytes, not only filename/declaration; stream-limit before buffering; JPEG/PNG only; max 10 MB; opaque server keys; private bucket; short signed URL TTL.
+- Validate upload bytes, not only filename/declaration; stream-limit before buffering; apply 5 MB default per-file limit with payment-proof override of 10 MB; JPEG/PNG only; opaque server keys; private bucket; short signed URL TTL.
 - Never log or return magic tokens, push private keys, object keys, signed URLs beyond intended response, provider credentials, or raw notification payload secrets.
 - Rate-limit magic-link issue/exchange, proof submission, and push subscription mutation.
 - CSP/service-worker scope limited to renter PWA; never cache authenticated API responses, invoice data, or signed URLs.

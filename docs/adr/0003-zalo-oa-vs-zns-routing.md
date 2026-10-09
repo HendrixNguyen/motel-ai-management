@@ -37,9 +37,7 @@ Route by follow status, with an explicit cold-start exception.
 Triggers that route this way: bill ready, payment confirmed, contract sent for signing, OTP
 delivery, contract expiry reminder, ticket created, ticket status change.
 
-Every attempt writes a `zalo_notifications` row so the manager UI can show what was sent
-and what failed. Retry belongs to notification delivery state, not generic Zalo actions on
-unrelated renter or invoice screens.
+Each notification first creates a generic outbox event in the same transaction as its domain mutation. Zalo delivery may write a linked `zalo_notifications` audit row so the manager UI can show what was sent and what failed. Retry belongs to notification delivery state, not generic Zalo actions on unrelated renter or invoice screens; provider delivery starts only after commit.
 
 ## Consequences
 

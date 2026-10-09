@@ -32,7 +32,7 @@ Excluded:
 - Manager scope comes from manager session; renter scope comes from renter session. Client IDs never select tenant ownership.
 - Cross-tenant resources return `404`.
 - Money crosses HTTP as digit strings. Meter values remain decimal strings.
-- Uploads pass through backend, with MIME declaration, magic-byte validation, byte limits, count limits, private object keys, and short-lived signed reads.
+- Uploads pass through backend, with MIME declaration, magic-byte validation, a 5 MB default per-file limit, explicit resource overrides, count limits, private object keys, and short-lived signed reads.
 - Notification attempts never make a billing period, invoice, or contract appear sent unless the owning transaction says so.
 - External delivery is idempotent by event key. Retries are bounded and auditable.
 - Zalo and R2 outages return `EXTERNAL_SERVICE_ERROR` where the operation depends on them; reads and draft management remain available where possible.
@@ -41,7 +41,7 @@ Excluded:
 
 Add a storage adapter owned by shared infrastructure with a fake implementation for tests and an R2 implementation for deployment. Object keys are opaque server-generated keys scoped by motel and resource. Credentials stay server-side. The API returns metadata and signed download URLs only after authorization; it never returns raw credentials or reusable public URLs.
 
-Meter photos: one image per reading, JPEG/PNG, max 10 MB. Contract proof rules remain owned by Contract Management: 1–3 PDF/JPEG/PNG files, max 10 MB each, immutable after paper activation. Help tickets allow up to five JPEG/PNG files, max 10 MB each.
+Default upload limit is 5 MB per file. Resource overrides: meter photos allow one JPEG/PNG up to 10 MB; Contract Management allows 1–3 PDF/JPEG/PNG files up to 10 MB each, immutable after paper activation; help tickets allow up to five JPEG/PNG files up to 10 MB each.
 
 ## Manager capture
 
@@ -71,12 +71,12 @@ Implement provider boundaries before wiring routes:
 - Store follower identity against the correct renter only after verified provider payload and tenant mapping.
 - Send free OA messages to followers.
 - Use ZNS fallback only for approved templates and configured recipients.
-- Persist notification event, channel, provider request ID, status, failure reason classification, attempt count, and timestamps.
+- Persist generic notification outbox events with unique event keys, channel, provider request ID, status, failure reason classification, attempt count, and timestamps; retain `zalo_notifications` only as a linked legacy Zalo audit/read model.
 - Retry transient provider failures with bounded backoff; do not retry invalid recipient/template failures.
 - Deduplicate by stable event key, such as `invoice:<id>:sent`, `contract:<id>:otp:<request timestamp>`, or `magic-link:<id>`.
 - Keep OTP plaintext out of database, logs, responses, and notification audit payloads.
 
-Billing period send, invoice payment confirmation, renter welcome, contract delivery, OTP, and expiry reminders call the notification service. The owning domain decides whether delivery is required for state transition; failed delivery leaves the domain state unchanged unless its contract explicitly permits queued notification.
+Billing period send, invoice payment confirmation, renter welcome, contract delivery, OTP, and expiry reminders call the notification service. Each domain mutation and its generic notification outbox insert commit atomically. Provider delivery runs post-commit; delivery failure never rolls back domain state. Outbox failure rolls back the domain mutation when notification enqueue is required.
 
 ## API surface
 

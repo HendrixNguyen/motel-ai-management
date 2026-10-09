@@ -275,7 +275,7 @@ or motel ID from the client to select tenant ownership. Lists are bare arrays.
 | POST | `/tickets` | JSON `{category,description}` or multipart fields `category`, `description`, repeated `photos`; `201 Ticket`; route rejects malformed/unsupported bodies and invalid category with `400 {error:"Dữ liệu gửi lên không hợp lệ",code:"VALIDATION_ERROR"}`; service enforces description ≥10 chars, max 5 JPEG/PNG files, 10 MB each |
 | GET | `/tickets/:ticketId` | `200 Ticket`; foreign ticket `404`; signed-photo failure returns `502 EXTERNAL_SERVICE_ERROR` while committed ticket/photo metadata remains persisted |
 
-Ticket create provider delivery is best-effort: configured notification enqueue failure does not roll back a committed ticket. Storage failure before commit returns `502 EXTERNAL_SERVICE_ERROR` and removes staged objects; storage failure while signing a committed read returns the same safe 502.
+Ticket creation inserts its notification outbox row in the same transaction as the ticket. Provider delivery is post-commit and best-effort: delivery failure never rolls back a committed ticket. Outbox insert failure rolls back ticket creation and returns `502 EXTERNAL_SERVICE_ERROR`. Storage failure before commit returns `502 EXTERNAL_SERVICE_ERROR` and removes staged objects; storage failure while signing a committed read returns the same safe 502.
 
 `Ticket` is `{id,renterId,motelId,roomId,category,description,photoUrls,status,createdAt,resolvedAt}`.
 Renter responses never permit payment mutation.
@@ -348,7 +348,8 @@ not an application feature flag.
 - List endpoints return a **bare JSON array** of rows — no envelope, no `total`, no `page`, and
   no server-side pagination. A list is bounded by the motel's rooms or renters.
 - `PATCH` endpoints are partial and idempotent.
-- All mutations that trigger a Zalo message do so **after** the transaction commits, and
-  write a `zalo_notifications` row regardless of outcome.
+- Mutations that emit notifications insert a generic `notification_events` outbox row atomically
+  with the domain mutation. Provider delivery starts only after commit; Zalo delivery may add a
+  linked `zalo_notifications` audit row. Provider failure never rolls back committed domain state.
 - Nothing deleted is ever physically removed if it appears on an invoice — status columns
   carry that state instead.

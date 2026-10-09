@@ -83,8 +83,10 @@ Money is `NUMERIC(14,0)` (VND has no practical subunit). Meter values are `NUMER
 - `payment_status`: `unpaid` | `paid` | `overdue`
 - `ticket_category`: `electricity` | `water` | `facilities` | `other`
 - `ticket_status`: `open` | `in_progress` | `resolved`
-- `notification_channel`: `oa_message` | `zns` | `zbs` | `web_push`
-- `notification_status`: `pending` | `sent` | `failed`
+- `notification_channel`: `web_push` | `oa_message` | `zns` | `zbs`
+- `notification_status`: `pending` | `sent` | `failed` | `permanently_failed`
+
+`notification_channel` names transport only. Outbound domain events are stored in the generic `notification_events` outbox with a unique `eventKey`; legacy `zalo_notifications` rows remain a Zalo delivery audit/read model and reference their source event when present. Domain mutation and outbox insert commit in one database transaction. Provider delivery runs only after commit; provider failure changes delivery state and never rolls back the domain mutation.
 
 ### managers
 
@@ -272,20 +274,42 @@ motel's prices or fees never retroactively change a sent invoice.
 | consumedAt | TIMESTAMPTZ | nullable — set on first exchange |
 | createdAt | TIMESTAMPTZ | DEFAULT now() |
 
-### zalo_notifications
+### notification_events
 
 | Field | Type | Notes |
 |-------|------|-------|
 | id | UUID | PK |
+| eventKey | TEXT | UNIQUE stable domain-event key |
 | renterId | UUID | FK → renters, NOT NULL, indexed |
 | motelId | UUID | FK → motels, NOT NULL, indexed |
-| channel | notification_channel | NOT NULL — `oa_message` or `zns` |
-| templateId | TEXT | ZNS template id, nullable for OA messages |
-| payload | JSONB | Rendered message content |
+| channel | notification_channel | Transport only |
+| payload | JSONB | Redacted, provider-neutral payload |
 | status | notification_status | DEFAULT `pending` |
-| failureReason | TEXT | nullable |
+| attemptCount | INTEGER | Bounded retry count |
+| nextAttemptAt | TIMESTAMPTZ | nullable |
+| providerRequestId | TEXT | nullable |
+| failureReason | TEXT | nullable, classified |
 | sentAt | TIMESTAMPTZ | nullable |
 | createdAt | TIMESTAMPTZ | DEFAULT now() |
+
+### zalo_notifications (legacy Zalo audit)
+
+| Field | Type | Notes |
+|-------|------|-------|
+| id | UUID | PK |
+| notificationEventId | UUID | FK → notification_events, nullable for legacy rows |
+| renterId | UUID | FK → renters, NOT NULL, indexed |
+| motelId | UUID | FK → motels, NOT NULL, indexed |
+| channel | notification_channel | NOT NULL — `oa_message`, `zns`, or `zbs` |
+| templateId | TEXT | ZNS/ZBS template id, nullable for OA messages |
+| payload | JSONB | Redacted rendered Zalo payload |
+| status | notification_status | DEFAULT `pending` |
+| failureReason | TEXT | nullable |
+| providerRequestId | TEXT | nullable |
+| sentAt | TIMESTAMPTZ | nullable |
+| createdAt | TIMESTAMPTZ | DEFAULT now() |
+
+New generic events are authoritative for idempotency and delivery state; legacy Zalo rows remain for backward-compatible audit queries.
 
 ## Backend Architecture (Modular)
 
@@ -399,11 +423,10 @@ only by cookie.
 5. Rooms without an active contract are skipped and reported back to the manager; they
    never produce a partial invoice.
 6. Manager reviews drafts, then confirms → period status `sent`.
-7. Billing commits period state independently from outbound delivery. Notification enqueue occurs after commit or through an outbox transaction; enqueue failure leaves the period unchanged and returns `EXTERNAL_SERVICE_ERROR`. A later delivery failure leaves the sent period committed, records a failed notification, and exposes **Gửi lại** without reverting billing state.
+7. Billing period mutation and generic notification outbox insert commit atomically. If outbox insertion fails, the period remains unchanged and returns `EXTERNAL_SERVICE_ERROR`. Provider delivery starts after commit; later delivery failure leaves the sent period committed, records failed notification state, and exposes **Gửi lại** without reverting billing state.
 8. Renter opens the link, sees the breakdown, scans the VietQR code, pays in their
    banking app.
-9. Manager marks the invoice `paid`, which stamps `paidAt`; payment notification is
-   handled by sub-project 8. Payment commits independently from delivery: enqueue failure rolls back the payment mutation, while post-enqueue delivery failure leaves `paid` committed and retryable without changing payment state.
+9. Manager marks the invoice `paid`, which stamps `paidAt`; payment mutation and generic notification outbox insert commit atomically. Outbox failure rolls back payment mutation, while post-commit provider failure leaves `paid` committed and retryable without changing payment state.
 
 ### Contract flow
 
@@ -439,9 +462,7 @@ Channel routing keeps Zalo costs low — see
 Triggers: bill ready, payment confirmed, contract sent for signing, OTP delivery,
 contract expiry reminder (30 days), ticket status change, ticket created.
 
-Every attempt writes a `zalo_notifications` row. On API failure the row is stored with
-`status = 'failed'` and `failureReason`, and the manager UI surfaces a **Gửi lại**
-action. There is no background retry queue in the MVP.
+Every notification creates one generic `notification_events` outbox row in the same transaction as its domain mutation. Zalo delivery may additionally write a `zalo_notifications` audit row linked to that event. Provider delivery starts only after commit; failures update delivery state and expose **Gửi lại** without reverting domain state. Retry uses bounded attempts and stable `eventKey`.
 
 ### Help ticket flow
 
@@ -512,7 +533,7 @@ OTP delivery uses configured notification channels; Zalo transport may be used, 
 
 Cloudflare R2 via its S3-compatible API. Buckets: `motel-uploads`, private, served through
 short-lived signed URLs so CCCD scans and ticket photos are never publicly listable.
-Constraints: image MIME types only, 5 MB per file, 5 files per ticket.
+Default upload limit is 5 MB per file. Resource-specific limits override the default: payment proof, meter photo, and contract proof allow 10 MB per file; help tickets allow up to five JPEG/PNG files at 10 MB each. MIME and magic-byte validation still apply.
 
 ## Error Handling
 
@@ -563,7 +584,7 @@ Other rules:
 - Passwords hashed with argon2id. Manager login is rate-limited per IP and per email.
 - Magic-link tokens: 32 crypto-random bytes, 24-hour expiry, single-use.
 - OTP: 5-minute expiry, max 3 attempts, resend blocked for 5 minutes.
-- Uploads: MIME allowlist, 5 MB cap, private bucket, signed URLs.
+- Uploads: MIME allowlist, 5 MB default cap with documented per-resource overrides, private bucket, signed URLs.
 - `photoUrl` columns store an R2 **object key**, never a public URL. Every response that
   exposes a photo — meter photo to a renter, ticket photo, CCCD scan — swaps the key for a
   short-lived signed URL at serialization time, so no stored value is a capability.
