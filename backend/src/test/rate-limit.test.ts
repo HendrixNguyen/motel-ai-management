@@ -5,10 +5,10 @@ import { enforceRateLimit, resetRateLimits } from "@/shared/rate-limit";
 afterEach(resetRateLimits);
 
 describe("rate limiting", () => {
-  test("rejects requests over configured limit", () => {
-    enforceRateLimit("ip:one", 2, 1000);
-    enforceRateLimit("ip:one", 2, 1000);
-    expect(() => enforceRateLimit("ip:one", 2, 1000)).toThrow(AppError);
+  test("rejects requests over configured limit", async () => {
+    await enforceRateLimit("ip:one", 2, 1000);
+    await enforceRateLimit("ip:one", 2, 1000);
+    await expect(enforceRateLimit("ip:one", 2, 1000)).rejects.toThrow(AppError);
   });
 });
 

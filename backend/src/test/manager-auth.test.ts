@@ -64,6 +64,13 @@ describe("manager auth", () => {
     expect(response.status).toBe(401);
   });
 
+  test("spoofed X-Forwarded-For does not change untrusted client bucket", async () => {
+    const first = await createApp().handle(new Request("http://localhost/api/auth/login", { method: "POST", headers: { "content-type": "application/json", "x-forwarded-for": "1.1.1.1" }, body: JSON.stringify({ email: "nobody@example.com", password: "bad" }) }));
+    const second = await createApp().handle(new Request("http://localhost/api/auth/login", { method: "POST", headers: { "content-type": "application/json", "x-forwarded-for": "2.2.2.2" }, body: JSON.stringify({ email: "nobody@example.com", password: "bad" }) }));
+    expect(first.status).toBe(401);
+    expect(second.status).toBe(401);
+  });
+
   test("unknown email performs password verification against a dummy hash", async () => {
     const original = Bun.password.verify;
     let calls = 0;

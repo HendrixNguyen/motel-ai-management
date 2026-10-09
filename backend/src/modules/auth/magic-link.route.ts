@@ -9,13 +9,17 @@ import { enforceRateLimit } from "@/shared/rate-limit";
 
 const COOKIE_NAME = "renter_session";
 
+function clientKey(request: Request): string {
+  return env.trustedProxyHeader ? request.headers.get(env.trustedProxyHeader)?.split(",")[0]?.trim() || "unknown" : "unknown";
+}
+
 export const magicLinkRoutes = new Elysia({ name: "magic-link-routes" })
   .use(cookie())
   .use(jwt({ name: "renterJwt", secret: env.renterSessionSecret, exp: "24h" }))
   .post(
     "/renter/magic-links/exchange",
     async ({ body, renterJwt, cookie, set, request }) => {
-      const ip = env.trustedProxy ? request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown" : "unknown";
+      const ip = clientKey(request);
         await enforceRateLimit(`magic-exchange:ip:${ip}`, 10);
         await enforceRateLimit(`magic-exchange:token:${body.token}`, 3);
 
@@ -40,7 +44,7 @@ export const magicLinkRoutes = new Elysia({ name: "magic-link-routes" })
     app.use(renterAuth).post(
       "/resend",
       async ({ auth, set, request }) => {
-        const ip = env.trustedProxy ? request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown" : "unknown";
+        const ip = clientKey(request);
         await enforceRateLimit(`magic-resend:ip:${ip}`, 5);
         await enforceRateLimit(`magic-resend:renter:${auth!.renterId}`, 3);
         const { token, url } = await issueMagicLink(auth!.renterId);

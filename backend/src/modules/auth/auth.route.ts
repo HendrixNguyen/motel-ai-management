@@ -13,6 +13,10 @@ import { enforceRateLimit } from "@/shared/rate-limit";
 
 const COOKIE_NAME = "manager_session";
 
+function clientKey(request: Request): string {
+  return env.trustedProxyHeader ? request.headers.get(env.trustedProxyHeader)?.split(",")[0]?.trim() || "unknown" : "unknown";
+}
+
 export const authRoutes = new Elysia({ name: "auth-routes" })
   .use(cookie())
   .use(jwt({ name: "manager", secret: env.managerJwtSecret, exp: "7d" }))
@@ -44,7 +48,7 @@ export const authRoutes = new Elysia({ name: "auth-routes" })
   .post(
     "/auth/login",
     async ({ body, manager, cookie, set, request }) => {
-      const ip = env.trustedProxy ? request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown" : "unknown";
+      const ip = clientKey(request);
       await enforceRateLimit(`login:ip:${ip}`, 10);
       await enforceRateLimit(`login:email:${body.email.trim().toLowerCase()}`, 5);
       const managerRow = await verifyManager(body.email, body.password);
