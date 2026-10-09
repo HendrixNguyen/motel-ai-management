@@ -108,8 +108,14 @@ export async function getBillingPeriod(periodId: string, motelId: string, manage
   if (!period) throw AppError.notFound("Không tìm thấy kỳ hóa đơn");
   const rooms = await listRoomsForBilling(motelId);
   const readings = await db.query.meterReadings.findMany({ where: eq(meterReadings.billingPeriodId, periodId), orderBy: [asc(meterReadings.type), asc(meterReadings.id)] });
-  const preciseVersions = await db.execute(sql`select id, floor(extract(epoch from updated_at) * 1000000)::bigint::text as version from meter_readings where billing_period_id = ${periodId}`) as { id: string; version: string }[];
-  return { ...periodResponse(period), electricityPrice: motel.electricityPrice, waterPrice: motel.waterPrice, rooms: rooms.map((room) => ({ ...room, readings: readings.filter((reading) => reading.roomId === room.id).map((reading) => ({ id: reading.id, roomId: reading.roomId, type: reading.type, previousReading: reading.previousReading, currentReading: reading.currentReading, readingDate: reading.readingDate, updatedAt: preciseVersions.find((version) => version.id === reading.id)?.version ?? reading.updatedAt.toISOString() })) })) };
+  const preciseVersions = await db.execute<{ id: string; version: string }>(sql`select id, floor(extract(epoch from updated_at) * 1000000)::bigint::text as version from meter_readings where billing_period_id = ${periodId}`);
+  const versions = new Map(preciseVersions.map((version) => [version.id, version.version]));
+  const roomsWithVersions = rooms.map((room) => ({ ...room, readings: readings.filter((reading) => reading.roomId === room.id).map((reading) => {
+    const version = versions.get(reading.id);
+    if (!version) throw new AppError("INTERNAL_ERROR", "Không thể đọc phiên bản chỉ số công tơ");
+    return { id: reading.id, roomId: reading.roomId, type: reading.type, previousReading: reading.previousReading, currentReading: reading.currentReading, readingDate: reading.readingDate, updatedAt: version };
+  }) }));
+  return { ...periodResponse(period), electricityPrice: motel.electricityPrice, waterPrice: motel.waterPrice, rooms: roomsWithVersions };
 }
 
 export async function updateMeterReadings(periodId: string, motelId: string, managerId: string, input: UpdateReadingsInput): Promise<MeterReadingResponse[]> {
@@ -135,11 +141,13 @@ export async function updateMeterReadings(periodId: string, motelId: string, man
       if (!updated) {
         const latest = await tx.query.meterReadings.findFirst({ where: eq(meterReadings.id, row.id) });
         if (!latest) throw AppError.notFound("Không tìm thấy chỉ số công tơ");
-        const [version] = await tx.execute(sql`select floor(extract(epoch from updated_at) * 1000000)::bigint::text as version from meter_readings where id = ${latest.id}`) as { version: string }[];
-        throw AppError.readingConflict({ id: latest.id, roomId: latest.roomId, type: latest.type, previousReading: latest.previousReading, currentReading: latest.currentReading, readingDate: latest.readingDate, updatedAt: version!.version });
+        const [version] = await tx.execute<{ version: string }>(sql`select floor(extract(epoch from updated_at) * 1000000)::bigint::text as version from meter_readings where id = ${latest.id}`);
+        if (!version || !/^\d+$/.test(version.version)) throw new AppError("INTERNAL_ERROR", "Không thể đọc phiên bản chỉ số công tơ");
+        throw AppError.readingConflict({ id: latest.id, roomId: latest.roomId, type: latest.type, previousReading: latest.previousReading, currentReading: latest.currentReading, readingDate: latest.readingDate, updatedAt: version.version });
       }
-      const [version] = await tx.execute(sql`select floor(extract(epoch from updated_at) * 1000000)::bigint::text as version from meter_readings where id = ${updated.id}`) as { version: string }[];
-      updates.push({ id: updated.id, roomId: updated.roomId, type: updated.type, previousReading: updated.previousReading, currentReading: updated.currentReading, readingDate: updated.readingDate, updatedAt: version!.version });
+      const [version] = await tx.execute<{ version: string }>(sql`select floor(extract(epoch from updated_at) * 1000000)::bigint::text as version from meter_readings where id = ${updated.id}`);
+      if (!version || !/^\d+$/.test(version.version)) throw new AppError("INTERNAL_ERROR", "Không thể đọc phiên bản chỉ số công tơ");
+      updates.push({ id: updated.id, roomId: updated.roomId, type: updated.type, previousReading: updated.previousReading, currentReading: updated.currentReading, readingDate: updated.readingDate, updatedAt: version.version });
     }
     return updates;
   });

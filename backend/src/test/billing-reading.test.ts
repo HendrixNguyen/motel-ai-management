@@ -21,16 +21,21 @@ describe("billing readings", () => {
     expect((await db.query.meterReadings.findMany({ where: (r, { eq }) => eq(r.billingPeriodId, period!.id) })).every((r) => r.currentReading === null)).toBe(true);
   });
 
-  test("returns an exact microsecond version and rejects a distinct same-millisecond version", async () => {
+  test("rejects an exact microsecond-stale version without writing", async () => {
     const [manager] = await db.insert(managers).values({ email: "precision-reading@example.com", passwordHash: "x", name: "M" }).returning();
     const [motel] = await db.insert(motels).values({ managerId: manager!.id, name: "M", electricityPrice: "2000", waterPrice: "15000" }).returning();
     const [room] = await db.insert(rooms).values({ motelId: motel!.id, name: "101" }).returning();
     const [period] = await db.insert(billingPeriods).values({ motelId: motel!.id, month: 1, year: 2026 }).returning();
     const [reading] = await db.insert(meterReadings).values({ billingPeriodId: period!.id, roomId: room!.id, type: "electric", previousReading: "0", currentReading: "3" }).returning();
     const getVersion = async () => (await db.execute(sql`select floor(extract(epoch from updated_at) * 1000000)::bigint::text as version from meter_readings where id = ${reading!.id}`) as { version: string }[])[0]!.version;
+    await db.execute(sql`update meter_readings set updated_at = date_trunc('milliseconds', updated_at) + interval '100 microseconds' where id = ${reading!.id}`);
     const version = await getVersion();
     await db.execute(sql`update meter_readings set updated_at = updated_at + interval '1 microsecond' where id = ${reading!.id}`);
-    expect(Math.floor(Number(version) / 1000)).toBe(Math.floor(Number(await getVersion()) / 1000));
+    const updatedVersion = await getVersion();
+    expect(BigInt(version)).not.toBe(BigInt(updatedVersion));
+    expect(BigInt(version) / 1000n).toBe(BigInt(updatedVersion) / 1000n);
+    expect(BigInt(version) % 1000n).toBe(100n);
+    expect(BigInt(updatedVersion) % 1000n).toBe(101n);
     await expect(updateMeterReadings(period!.id, motel!.id, manager!.id, { readings: [{ roomId: room!.id, type: "electric", currentReading: "4", expectedUpdatedAt: version }] })).rejects.toMatchObject({ code: "READING_CONFLICT" });
     expect((await db.query.meterReadings.findFirst({ where: eq(meterReadings.id, reading!.id) }))?.currentReading).toBe("3.00");
   });
@@ -53,18 +58,21 @@ describe("billing readings", () => {
     await expect(db.execute(sql`insert into meter_readings (room_id, billing_period_id, type, previous_reading, current_reading) values (${room!.id}, ${period!.id}, 'electric', '100', '99')`).execute()).rejects.toThrow();
   });
 
-  test("reports missing row after an earlier valid write even when that row is stale", async () => {
+  test("reports missing row after valid first reading and rolls back stale batch", async () => {
     const [manager] = await db.insert(managers).values({ email: "missing-stale@example.com", passwordHash: "x", name: "M" }).returning();
     const [motel] = await db.insert(motels).values({ managerId: manager!.id, name: "M", electricityPrice: "2000", waterPrice: "15000" }).returning();
     const [room] = await db.insert(rooms).values({ motelId: motel!.id, name: "101" }).returning();
     const [period] = await db.insert(billingPeriods).values({ motelId: motel!.id, month: 1, year: 2026 }).returning();
     const readings = await db.insert(meterReadings).values([{ billingPeriodId: period!.id, roomId: room!.id, type: "electric", previousReading: "0" }, { billingPeriodId: period!.id, roomId: room!.id, type: "water", previousReading: "0" }]).returning();
     const electric = readings.find((r) => r.type === "electric")!;
+    const water = readings.find((r) => r.type === "water")!;
     const version = (await db.execute(sql`select floor(extract(epoch from updated_at) * 1000000)::bigint::text as version from meter_readings where id = ${electric.id}`) as { version: string }[])[0]!.version;
+    const before = await db.query.meterReadings.findMany({ where: eq(meterReadings.billingPeriodId, period!.id), orderBy: [meterReadings.id] });
     await expect(updateMeterReadings(period!.id, motel!.id, manager!.id, { readings: [{ roomId: room!.id, type: "electric", currentReading: "10", expectedUpdatedAt: version }, { roomId: "00000000-0000-0000-0000-000000000000", type: "water", currentReading: "10", expectedUpdatedAt: "0" }] })).rejects.toMatchObject({ code: "NOT_FOUND" });
-    expect((await db.query.meterReadings.findMany({ where: eq(meterReadings.billingPeriodId, period!.id) })).every((r) => r.currentReading === null)).toBe(true);
-    await expect(updateMeterReadings(period!.id, motel!.id, manager!.id, { readings: [{ roomId: room!.id, type: "electric", currentReading: "10", expectedUpdatedAt: "0" }, { roomId: room!.id, type: "water", currentReading: "10", expectedUpdatedAt: "0" }] })).rejects.toMatchObject({ code: "READING_CONFLICT" });
-    expect((await db.query.meterReadings.findMany({ where: eq(meterReadings.billingPeriodId, period!.id) })).every((r) => r.currentReading === null)).toBe(true);
+    expect(await db.query.meterReadings.findMany({ where: eq(meterReadings.billingPeriodId, period!.id), orderBy: [meterReadings.id] })).toEqual(before);
+    const staleWaterVersion = (await db.execute(sql`select floor(extract(epoch from updated_at) * 1000000)::bigint::text as version from meter_readings where id = ${water.id}`) as { version: string }[])[0]!.version;
+    await expect(updateMeterReadings(period!.id, motel!.id, manager!.id, { readings: [{ roomId: room!.id, type: "electric", currentReading: "10", expectedUpdatedAt: version }, { roomId: room!.id, type: "water", currentReading: "10", expectedUpdatedAt: (BigInt(staleWaterVersion) - 1n).toString() }] })).rejects.toMatchObject({ code: "READING_CONFLICT" });
+    expect(await db.query.meterReadings.findMany({ where: eq(meterReadings.billingPeriodId, period!.id), orderBy: [meterReadings.id] })).toEqual(before);
   });
 
   test("rejects current reading below previous reading", async () => {
@@ -94,6 +102,16 @@ describe("billing readings", () => {
     const expectedUpdatedAt = (await db.execute(sql`select floor(extract(epoch from updated_at) * 1000000)::bigint::text as version from meter_readings where id = ${reading!.id}`) as { version: string }[])[0]!.version;
     await updateMeterReadings(period!.id, motel!.id, manager!.id, { readings: [{ roomId: room!.id, type: "electric", currentReading: "10", expectedUpdatedAt }] });
     await expect(updateMeterReadings(period!.id, motel!.id, manager!.id, { readings: [{ roomId: room!.id, type: "electric", currentReading: "20", expectedUpdatedAt }] })).rejects.toMatchObject({ code: "READING_CONFLICT" });
+  });
+
+  test("rejects stale version even when submitted value matches current", async () => {
+    const [manager] = await db.insert(managers).values({ email: "stale@example.com", passwordHash: "x", name: "M" }).returning();
+    const [motel] = await db.insert(motels).values({ managerId: manager!.id, name: "M", electricityPrice: "2000", waterPrice: "15000" }).returning();
+    const [room] = await db.insert(rooms).values({ motelId: motel!.id, name: "101" }).returning();
+    const [period] = await db.insert(billingPeriods).values({ motelId: motel!.id, month: 1, year: 2026 }).returning();
+    const [reading] = await db.insert(meterReadings).values({ billingPeriodId: period!.id, roomId: room!.id, type: "electric", previousReading: "0", currentReading: "10" }).returning();
+    await expect(updateMeterReadings(period!.id, motel!.id, manager!.id, { readings: [{ roomId: room!.id, type: "electric", currentReading: "10", expectedUpdatedAt: "0" }] })).rejects.toMatchObject({ code: "READING_CONFLICT" });
+    expect((await db.query.meterReadings.findFirst({ where: eq(meterReadings.id, reading!.id) }))?.currentReading).toBe("10.00");
   });
 
   test("returns precise versions in period reads", async () => {
