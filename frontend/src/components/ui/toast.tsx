@@ -20,9 +20,9 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   }, [toasts]);
   return <ToastContext value={notify}>
     {children}
-<div aria-live="polite" aria-relevant="additions" className="pointer-events-none fixed inset-x-4 top-4 z-50 mx-auto flex max-h-[calc(100dvh-2rem)] max-w-lg flex-col gap-2 overflow-y-auto">
-       {toasts.map(({ id, message, tone = "success", critical }) => <div key={id} role={critical || tone === "danger" ? "alert" : "status"} aria-live={critical || tone === "danger" ? "assertive" : "polite"} aria-atomic="true" aria-label={message} className={`pointer-events-auto flex items-start gap-3 rounded-card border border-border p-3 shadow-lg ${badgeTones[tone]}`}>
-         <p className="min-w-0 flex-1 self-center text-base leading-normal [overflow-wrap:anywhere]">{message}</p>
+    <div role="region" aria-label="Thông báo" aria-live="polite" aria-relevant="additions" className="pointer-events-none fixed inset-x-4 top-4 z-[9999] w-[calc(100vw-2rem)] max-h-[calc(100dvh-2rem)] max-w-[32rem] overflow-y-auto">
+      {toasts.map(({ id, message, tone = "success", critical }) => <div key={id} role={critical || tone === "danger" ? "alert" : "status"} aria-live={critical || tone === "danger" ? "assertive" : "polite"} aria-atomic="true" aria-label={message} className={`pointer-events-auto flex min-w-0 items-start gap-3 rounded-card border border-border p-3 shadow-lg ${badgeTones[tone]}`} >
+        <p className="min-w-0 flex-1 self-center text-base leading-normal [overflow-wrap:anywhere]">{message}</p>
         <Button variant="ghost" className="shrink-0" aria-label={`Đóng thông báo: ${message}`} onClick={() => setToasts((items) => items.filter((item) => item.id !== id))}>Đóng</Button>
       </div>)}
     </div>

@@ -8,7 +8,6 @@ async function signIn(context: BrowserContext, session = "valid") {
 test("unauthenticated rooms redirect to login", async ({ page }) => {
   await page.goto("/rooms");
   await expect(page).toHaveURL("/login");
-  await page.goto("/login", { waitUntil: "networkidle" });
   await expect(page.getByRole("heading", { name: "Đăng nhập" })).toBeVisible();
 });
 

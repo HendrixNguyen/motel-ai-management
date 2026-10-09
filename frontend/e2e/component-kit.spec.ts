@@ -135,6 +135,59 @@ test("confirm dialog cancels, closes on Escape, and exposes pending confirmation
   await expect(dialog).toBeVisible();
 });
 
+test("dialogs and toasts fit and remain interactive across viewport themes", async ({ page }) => {
+  for (const width of [360, 375, 430, 1280]) {
+    for (const theme of ["light", "dark"] as const) {
+      await page.setViewportSize({ width, height: 740 });
+      await page.evaluate((value) => { document.documentElement.dataset.theme = value; }, theme);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+
+      const modalTrigger = page.getByRole("button", { name: "Mở modal", exact: true });
+      await modalTrigger.click();
+      const modal = page.getByRole("dialog", { name: "Sửa phòng" });
+      const modalBox = await modal.boundingBox();
+      expect(modalBox).not.toBeNull();
+      expect(modalBox!.x).toBeGreaterThanOrEqual(0);
+      expect(modalBox!.x + modalBox!.width).toBeLessThanOrEqual(width);
+      expect(modalBox!.width).toBeGreaterThanOrEqual(Math.min(width - 32, 320));
+      const input = modal.getByRole("textbox", { name: "Tên phòng" });
+      const inputBox = await input.boundingBox();
+      expect(inputBox).not.toBeNull();
+      const inputReceivesPointer = await page.evaluate(({ x, y }) => document.elementFromPoint(x, y) instanceof HTMLInputElement, {
+        x: inputBox!.x + inputBox!.width / 2,
+        y: inputBox!.y + inputBox!.height / 2,
+      });
+      expect(inputReceivesPointer).toBe(true);
+      await input.click();
+      await expect(input).toBeFocused();
+      await page.keyboard.press("Escape");
+      await expect(modal).toBeHidden();
+
+      const drawerTrigger = page.getByRole("button", { name: "Mở drawer", exact: true });
+      await drawerTrigger.click();
+      const drawer = page.getByRole("dialog", { name: "Chi tiết khách thuê" });
+      const drawerBox = await drawer.boundingBox();
+      expect(drawerBox).not.toBeNull();
+      expect(drawerBox!.width).toBeGreaterThanOrEqual(Math.min(width, 320));
+      expect(drawerBox!.x).toBeGreaterThanOrEqual(0);
+      expect(drawerBox!.x + drawerBox!.width).toBeLessThanOrEqual(width);
+      await drawer.getByRole("button", { name: "Đóng", exact: true }).click();
+      await expect(drawer).toBeHidden();
+
+      await page.getByRole("button", { name: "Thông báo", exact: true }).click();
+      const toast = page.getByRole("status", { name: "Đã lưu phòng" });
+      await expect(toast).toBeVisible();
+      const toastBox = await toast.boundingBox();
+      expect(toastBox).not.toBeNull();
+      expect(toastBox!.width).toBeGreaterThanOrEqual(Math.min(width - 32, 320));
+      expect(toastBox!.x).toBeGreaterThanOrEqual(0);
+      expect(toastBox!.x + toastBox!.width).toBeLessThanOrEqual(width);
+      await toast.getByRole("button", { name: "Đóng thông báo: Đã lưu phòng" }).click();
+      await expect(toast).toBeHidden();
+    }
+  }
+});
+
 test("mobile table rows and reduced motion stay usable without overflow", async ({ page }) => {
   await page.setViewportSize({ width: 360, height: 667 });
   await page.emulateMedia({ reducedMotion: "reduce" });

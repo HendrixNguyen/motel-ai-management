@@ -14,7 +14,7 @@ export type MotelDraft = {
 };
 export type MotelFieldErrors = Record<string, string>;
 type PreparedMotel<T> = { ok: true; input: T } | { ok: false; fields: MotelFieldErrors };
-type MotelSubmitResult = { ok: true } | { ok: false; fields?: MotelFieldErrors; error?: string; status?: number };
+type MotelSubmitResult = { ok: true; motel?: MotelResponse } | { ok: false; fields?: MotelFieldErrors; error?: string; status?: number };
 
 export function createMotelDraft(motel?: MotelResponse): MotelDraft {
   return {
@@ -96,11 +96,11 @@ export async function submitMotel(draft: MotelDraft, original?: MotelResponse): 
     if (original) {
       const prepared = prepareMotelInput(draft, original);
       if (!prepared.ok) return prepared;
-      await updateMotel(original.id, prepared.input);
+      return { ok: true, motel: await updateMotel(original.id, prepared.input) };
     } else {
       const prepared = prepareMotelInput(draft);
       if (!prepared.ok) return prepared;
-      await createMotel(prepared.input);
+      return { ok: true, motel: await createMotel(prepared.input) };
     }
     return { ok: true };
   } catch (error) {

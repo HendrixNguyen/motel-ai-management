@@ -27,12 +27,12 @@ export default function MotelEditor({ motel, empty = false }: { motel?: MotelRes
       : <Button variant={motel ? "secondary" : "primary"} aria-label={motel ? `Chỉnh sửa ${motel.name}` : undefined} onClick={show}>{motel ? "Chỉnh sửa" : "Tạo nhà trọ"}</Button>}
     <Modal open={open} onClose={close} title={motel ? "Chỉnh sửa nhà trọ" : "Tạo nhà trọ"}
       description={motel ? "Cập nhật thông tin, đơn giá, phí và tài khoản nhận tiền." : "Nhập thông tin và đơn giá điện nước của nhà trọ."}>
-      {open && <MotelForm motel={motel} onCancel={close} onReload={() => { close(); router.refresh(); }}
+      {open && <MotelForm key={currentSession} motel={motel} onCancel={close} onReload={() => { close(); router.refresh(); }}
         onUnauthorized={() => { close(); router.replace("/login"); router.refresh(); }}
-        onSaved={() => {
-          // A response to a dismissed form must not close a newer editing session.
+        onSaved={(updatedMotel) => {
           if (session.current === currentSession) close();
           notify({ message: motel ? "Đã lưu thay đổi nhà trọ" : "Đã tạo nhà trọ" });
+          window.dispatchEvent(new CustomEvent("motel-updated", { detail: updatedMotel }));
           router.refresh();
         }} />}
     </Modal>
@@ -40,7 +40,7 @@ export default function MotelEditor({ motel, empty = false }: { motel?: MotelRes
 }
 
 function MotelForm({ motel, onCancel, onSaved, onReload, onUnauthorized }: {
-  motel?: MotelResponse; onCancel: () => void; onSaved: () => void; onReload: () => void; onUnauthorized: () => void;
+  motel?: MotelResponse; onCancel: () => void; onSaved: (updatedMotel: MotelResponse) => void; onReload: () => void; onUnauthorized: () => void;
 }) {
   const [formSession] = useState(() => createMotelFormSession(motel));
   const [draft, setDraft] = useState(formSession.initialDraft);
@@ -71,7 +71,7 @@ function MotelForm({ motel, onCancel, onSaved, onReload, onUnauthorized }: {
     setStatus(undefined);
     const result = await formSession.submit(draft);
     pendingRef.current = false;
-    if (result.ok) { onSaved(); return; }
+    if (result.ok) { if (result.motel) onSaved(result.motel); return; }
     if (!active.current) return;
     if (result.status === 401) { onUnauthorized(); return; }
     setFields(result.fields ?? {});

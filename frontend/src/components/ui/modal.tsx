@@ -18,7 +18,7 @@ export function Dialog({ open, onClose, title, description, children, footer, dr
   }, [open]);
 
   return (
-    <dialog ref={ref} aria-labelledby={`${id}-title`} aria-describedby={description ? `${id}-description` : undefined}
+    <dialog ref={ref} data-dialog aria-labelledby={`${id}-title`} aria-describedby={description ? `${id}-description` : undefined}
       onKeyDown={(event) => {
         if (event.key !== "Tab") return;
         const dialog = ref.current;
@@ -37,15 +37,15 @@ export function Dialog({ open, onClose, title, description, children, footer, dr
           first.focus();
         }
       }}
-      onClose={() => { if (!ref.current?.open) onClose(); }}
-      className={`pointer-events-auto relative max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain border border-border bg-surface p-0 text-text-body shadow-xl backdrop:bg-text/40 ${drawer ? "fixed inset-y-0 right-0 left-auto m-0 h-dvh w-[min(100vw,32rem)] max-w-none rounded-none" : "m-auto w-[calc(100%_-_2rem)] max-w-lg rounded-card"}`}>
-      <div className="flex items-start justify-between gap-3 border-b border-border p-4">
+      onClose={onClose}
+      className={`relative z-50 max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain border border-border bg-surface p-0 text-text-body shadow-xl backdrop:bg-text/40 ${drawer ? "fixed inset-y-0 right-0 left-auto m-0 h-dvh w-[min(100vw,32rem)] max-w-none rounded-none" : "m-auto box-border w-[min(32rem,calc(100vw-2rem))] max-w-none rounded-card"}`}>
+      <div data-dialog-header className="flex items-start justify-between gap-3 border-b border-border p-4">
         <div className="min-w-0"><h2 id={`${id}-title`} className="font-heading text-lg font-semibold text-text break-words">{title}</h2>
           {description && <p id={`${id}-description`} className="mt-2 text-base leading-normal">{description}</p>}
         </div>
-        <Button variant="ghost" className="shrink-0" onClick={() => { ref.current?.close(); onClose(); }}>Đóng</Button>
+        <Button variant="ghost" className="shrink-0" onClick={() => ref.current?.close()}>Đóng</Button>
       </div>
-      <div className="min-w-0 p-4">{children}</div>
+      <div data-dialog-content className="min-w-0 overflow-y-auto p-4">{children}</div>
       {footer && <div className="flex flex-wrap justify-end gap-2 border-t border-border p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">{footer}</div>}
     </dialog>
   );

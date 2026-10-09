@@ -68,7 +68,27 @@ html {
   background: var(--color-canvas);
 }
 
+dialog:not([open]) {
+  display: none;
+}
+
+dialog[open][data-dialog] {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  overflow: hidden;
+}
+
+dialog[open][data-dialog] > form,
+dialog[open][data-dialog] [data-dialog-content] {
+  min-height: 0;
+  overflow-y: auto;
+}
+
 html[data-theme="light"] {
+  color-scheme: light;
+}
+
+html:not([data-theme="dark"]) {
   color-scheme: light;
 }
 

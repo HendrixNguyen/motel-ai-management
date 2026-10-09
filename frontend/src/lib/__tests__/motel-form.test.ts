@@ -76,9 +76,9 @@ describe("motel submission", () => {
     const reopened = createMotelFormSession(currentMotel);
     expect(reopened.initialDraft.name).toBe(MOTEL.name);
     release();
-    expect(await pending).toEqual({ ok: true });
+    expect(await pending).toEqual({ ok: true, motel: { ...MOTEL, name: "Nhà trọ A" } });
     expect(currentMotel.name).toBe("Nhà trọ A");
-    expect(await reopened.submit({ ...reopened.initialDraft, waterPrice: "25.000" })).toEqual({ ok: true });
+    expect(await reopened.submit({ ...reopened.initialDraft, waterPrice: "25.000" })).toMatchObject({ ok: true, motel: { name: "Nhà trọ A", waterPrice: "25000" } });
     expect(patches).toEqual([{ name: "Nhà trọ A" }, { waterPrice: "25000" }]);
   });
   it("blocks invalid drafts before making a request", async () => {
@@ -90,13 +90,13 @@ describe("motel submission", () => {
   it("creates through the same-origin proxy with normalized string prices", async () => {
     const fetchMock = vi.fn().mockResolvedValue(Response.json(MOTEL, { status: 201 }));
     vi.stubGlobal("fetch", fetchMock);
-    expect(await submitMotel(validDraft())).toEqual({ ok: true });
+    expect(await submitMotel(validDraft())).toEqual({ ok: true, motel: MOTEL });
     expect(fetchMock).toHaveBeenCalledWith("/api/manager/motels", expect.objectContaining({ method: "POST", credentials: "same-origin", body: '{"name":"Nhà trọ An Bình","address":"8 Nguyễn Trãi","electricityPrice":"3500","waterPrice":"25000"}' }));
   });
   it("patches only the edited motel and settings the manager changed", async () => {
     const fetchMock = vi.fn().mockResolvedValue(Response.json(MOTEL));
     vi.stubGlobal("fetch", fetchMock);
-    expect(await submitMotel({ ...createMotelDraft(MOTEL), otherFees: [] }, MOTEL)).toEqual({ ok: true });
+    expect(await submitMotel({ ...createMotelDraft(MOTEL), otherFees: [] }, MOTEL)).toEqual({ ok: true, motel: MOTEL });
     expect(fetchMock).toHaveBeenCalledWith(`/api/manager/motels/${MOTEL.id}`, expect.objectContaining({ method: "PATCH", body: '{"otherFees":[]}' }));
   });
   it.each([[409, "CONFLICT"], [404, "NOT_FOUND"], [400, "VALIDATION_ERROR"], [401, "UNAUTHORIZED"]])("keeps HTTP %s at form level without inventing field errors", async (status, code) => {
