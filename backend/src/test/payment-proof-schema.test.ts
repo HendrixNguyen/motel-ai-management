@@ -60,13 +60,23 @@ describe("payment proof database constraints", () => {
     expect(history[0]!.status).toBe("rejected");
   });
 
-  test("rejects updates to reviewed proof rows", async () => {
+  test("rejects every protected update on reviewed proof rows", async () => {
     const { motel, renter, invoice } = await fixture();
     const [manager] = await db.query.managers.findMany({ limit: 1 });
-    const [proof] = await db.insert(paymentProofs).values({ invoiceId: invoice.id, renterId: renter.id, motelId: motel.id, objectKey: "proof/immutable", contentType: "image/jpeg", size: 10, checksum: "a", status: "rejected", reviewedAt: new Date(), reviewedByManagerId: manager!.id, rejectionReason: "Blurry" }).returning();
-    await expect(db.update(paymentProofs).set({ objectKey: "proof/changed" }).where(eq(paymentProofs.id, proof!.id)).execute()).rejects.toThrow();
-    const [approved] = await db.insert(paymentProofs).values({ invoiceId: invoice.id, renterId: renter.id, motelId: motel.id, objectKey: "proof/approved-immutable", contentType: "image/png", size: 10, checksum: "b", status: "approved", reviewedAt: new Date(), reviewedByManagerId: manager!.id }).returning();
-    await expect(db.update(paymentProofs).set({ checksum: "changed" }).where(eq(paymentProofs.id, approved!.id)).execute()).rejects.toThrow();
+    const mutations = [
+      { name: "status", patch: { status: "pending" as const } },
+      { name: "reviewer", patch: { reviewedByManagerId: null } },
+      { name: "review timestamp", patch: { reviewedAt: null } },
+      { name: "reason", patch: { rejectionReason: null } },
+      { name: "ownership", patch: { renterId: crypto.randomUUID() } },
+      { name: "submitted timestamp", patch: { submittedAt: new Date(0) } },
+    ];
+    for (const status of ["approved", "rejected"] as const) {
+      const [proof] = await db.insert(paymentProofs).values({ invoiceId: invoice.id, renterId: renter.id, motelId: motel.id, objectKey: `proof/immutable-${status}`, contentType: "image/jpeg", size: 10, checksum: status, status, reviewedAt: new Date(), reviewedByManagerId: manager!.id, rejectionReason: status === "rejected" ? "Blurry" : null }).returning();
+      for (const mutation of mutations) {
+        await expect(db.update(paymentProofs).set(mutation.patch).where(eq(paymentProofs.id, proof!.id)).execute(), `${status} ${mutation.name}`).rejects.toThrow();
+      }
+    }
   });
 
   test("enforces foreign keys and content metadata checks", async () => {
