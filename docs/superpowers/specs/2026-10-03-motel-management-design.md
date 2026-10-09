@@ -25,7 +25,7 @@ Explicitly out of scope. Do not build these without a new spec:
 - Payment gateway integration (VNPay, MoMo, ZaloPay) — VietQR + manual confirmation only
 - In-app chat between manager and renter — communication happens in Zalo
 - E-signature provider integration (FPT.eSign, VNPT SmartSign, Viettel CA)
-- SMS delivery for OTPs — Zalo only
+- SMS delivery for OTPs — no SMS in MVP; configured Zalo transport or another explicitly documented fallback only
 - Bank transaction webhooks / auto-reconciliation
 - Multi-currency, multi-language UI (Vietnamese only)
 - Room amenities catalogue
@@ -83,7 +83,7 @@ Money is `NUMERIC(14,0)` (VND has no practical subunit). Meter values are `NUMER
 - `payment_status`: `unpaid` | `paid` | `overdue`
 - `ticket_category`: `electricity` | `water` | `facilities` | `other`
 - `ticket_status`: `open` | `in_progress` | `resolved`
-- `notification_channel`: `oa_message` | `zns`
+- `notification_channel`: `oa_message` | `zns` | `zbs` | `web_push`
 - `notification_status`: `pending` | `sent` | `failed`
 
 ### managers
@@ -422,6 +422,10 @@ MVP consent is OTP-based. Upgrade to a certified provider (FPT.eSign, VNPT Smart
 Viettel CA) only when a use case requires chữ ký số — see
 [ADR-0006](../../../adr/0006-otp-consent-e-signature.md).
 
+### Notification strategy
+
+A notification is an outbound event; a channel is its transport. Web Push is primary after renter activation. ZNS/ZBS is activation/fallback transport; SMS is out of MVP unless separately documented. Delivery is queued/sent/failed and never promised by a domain route.
+
 ### Zalo notification strategy
 
 Channel routing keeps Zalo costs low — see
@@ -429,9 +433,8 @@ Channel routing keeps Zalo costs low — see
 
 1. On renter creation, send a paid ZNS welcome containing the magic link and the OA
    follow prompt. Followers cannot exist before first contact.
-2. The OA follow webhook sets `isOaFollower = true` and `zaloOaId`.
-3. Every later notification checks `isOaFollower`: `true` → free OA follower message,
-   `false` → paid ZNS fallback.
+2. The OA follow webhook sets `isOaFollower = true` and `zaloOaId` when OA transport is configured.
+3. For configured Zalo transport, later notification delivery may use the follower state to select OA message or ZNS/ZBS fallback. This is one provider path under the notification strategy, not the only post-activation channel.
 
 Triggers: bill ready, payment confirmed, contract sent for signing, OTP delivery,
 contract expiry reminder (30 days), ticket status change, ticket created.
@@ -503,7 +506,7 @@ the main dispute-reduction lever in the product, and it costs one column.
 4. On success: `otpSignedAt = now()`, `status = 'active'`, room becomes `occupied`.
 5. On expiry or exhaustion the renter requests a new OTP; the previous one is invalidated.
 
-Delivery is Zalo only. SMS is out of MVP scope.
+OTP delivery uses configured notification channels; Zalo transport may be used, but no route promises delivery. SMS is out of MVP scope.
 
 ## File Storage
 

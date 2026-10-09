@@ -291,7 +291,7 @@ Payment proof is one private JPEG or PNG image, at most 10 MB. Upload bytes are 
 | POST | `/api/renter/push-subscriptions` | `{endpoint,p256dh,auth}` | `201 {id,createdAt}` or `200 {id,createdAt}` for idempotent upsert; subscription credentials are never echoed |
 | DELETE | `/api/renter/push-subscriptions/:subscriptionId` | — | `204`; only owner may revoke |
 
-Proof upload returns `400 VALIDATION_ERROR` for missing/multiple files, unsupported declared MIME, invalid JPEG/PNG bytes, or size over 10 MB; `401 UNAUTHORIZED` for missing/expired renter session; `404 NOT_FOUND` for foreign/missing invoice; `409 CONFLICT` for paid invoice, inaccessible period, or existing `pending`/`approved` proof; `429 RATE_LIMITED` for mutation rate limits; `502 EXTERNAL_SERVICE_ERROR` for storage or notification-provider failure. Rejected proof may be replaced by a new POST after explicit state validation.
+Proof upload returns `400 VALIDATION_ERROR` for missing/multiple files, unsupported declared MIME, invalid JPEG/PNG bytes, or size over 10 MB; `401 UNAUTHORIZED` for missing/expired renter session; `404 NOT_FOUND` for foreign/missing invoice; `409 CONFLICT` for paid invoice, inaccessible period, or existing `pending`/`approved` proof; `429 RATE_LIMITED` for mutation rate limits; `502 EXTERNAL_SERVICE_ERROR` for storage failure. A rejected proof remains immutable history and may be replaced by one new POST after explicit state validation; the database allows only one non-rejected proof per invoice.
 
 ### Manager payment review — `/api/manager/motels/:motelId/billing/invoices/:invoiceId`
 
@@ -304,9 +304,19 @@ Proof upload returns `400 VALIDATION_ERROR` for missing/multiple files, unsuppor
 
 Manager review and cash confirmation return `401 UNAUTHORIZED` for missing/expired manager session, `404 NOT_FOUND` for foreign/missing motel or invoice, `409 CONFLICT` for invalid period/payment state or approve/reject/cash race, `429 RATE_LIMITED` when configured, and `502 EXTERNAL_SERVICE_ERROR` only for provider work after committed state. Approval, rejection, and cash confirmation are auditable; no renter endpoint can mark an invoice paid.
 
+Payment transition matrix:
+
+| Current invoice | Renter proof POST | Manager approve proof | Manager reject proof | Manager cash confirmation |
+| --- | --- | --- | --- | --- |
+| `unpaid` | create `pending` proof, or replace prior `rejected` proof | `paid` + `bank_transfer` | proof `rejected`, invoice remains `unpaid` | `paid` + `cash` |
+| `overdue` | create `pending` proof, or replace prior `rejected` proof | `paid` + `bank_transfer` | proof `rejected`, invoice remains `overdue` | `paid` + `cash` |
+| `paid` | `409 CONFLICT` | idempotent paid result only for same settled proof; no second transition | `409 CONFLICT` | idempotent paid result only for already-cash-settled invoice; otherwise `409 CONFLICT` |
+
+A pending or approved proof blocks replacement. A rejected proof remains immutable history; at most one non-rejected proof exists per invoice. No operation moves `paid` back to `unpaid` or `overdue`.
+
 ### Notification delivery
 
-Payment events use stable keys `invoice:<id>:proof-submitted`, `invoice:<id>:proof-approved`, `invoice:<id>:proof-rejected`, and `invoice:<id>:cash-confirmed`. Web Push is attempted first after activation; permanent push failure deactivates the subscription and queues configured ZNS/SMS fallback. Delivery is idempotent, bounded, and redacted. Activation uses configured ZNS/ZBS or manager-generated manual link/QR fallback; no route promises Zalo-only delivery.
+A notification is an outbound event; a channel is its transport. Payment events use stable keys `invoice:<id>:proof-submitted`, `invoice:<id>:proof-approved`, `invoice:<id>:proof-rejected`, and `invoice:<id>:cash-confirmed`. Web Push is attempted first after activation; permanent push failure deactivates the subscription and queues configured ZNS/ZBS fallback. SMS is not an MVP channel and may appear only after an explicit documented scope change. Delivery states are `pending`, `sent`, and `failed`; no route promises delivery. Delivery is idempotent, bounded, and redacted. Activation uses configured ZNS/ZBS or manager-generated manual link/QR fallback; no route promises Zalo-only delivery.
 
 ## Zalo webhook
 

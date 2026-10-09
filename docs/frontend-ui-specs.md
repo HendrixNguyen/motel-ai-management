@@ -466,7 +466,7 @@ Payment block:
 - Transfer description shown verbatim, with a copy button
 - Instruction: open your banking app and scan, or transfer manually with the exact
   description so the manager can match it
-- Payment proof: one JPEG/PNG image, maximum 10 MB, with states **Đang chờ duyệt**, **Đã duyệt**, and **Bị từ chối**. Rejected proof shows safe manager reason and allows one replacement; pending/approved and paid invoices disable upload.
+- Payment proof: one current JPEG/PNG image, maximum 10 MB, with states **Đang chờ duyệt**, **Đã duyệt**, and **Bị từ chối**. Rejected proof remains visible as history, shows safe manager reason, and allows one replacement current proof; pending/approved and paid invoices disable upload.
 - Renter has no **Đã thanh toán** action. Payment becomes paid only after manager bank-proof approval or explicit cash confirmation.
 
 If `motel.bankAccount` is null the payment block is replaced by "Chưa cập nhật thông tin
@@ -499,8 +499,8 @@ _Tạo yêu cầu mới (`/portal/tickets/new`):_ category selector, description
 (min 10 characters, counter shown), up to 5 photos with thumbnail previews and per-photo
 remove, then **Gửi yêu cầu**. Submit shows a success toast and returns to the list.
 
-After submitting, the portal shows the renter's phone number with a copy button and the
-line "Chủ nhà trọ sẽ phản hồi qua Zalo" — the app promises Zalo, not in-app replies.
+After submitting, the portal shows the renter's phone number with a copy button and the line "Chủ nhà trọ sẽ phản hồi theo kênh đã cấu hình" — the app does not promise Zalo or in-app replies.
+
 
 ---
 

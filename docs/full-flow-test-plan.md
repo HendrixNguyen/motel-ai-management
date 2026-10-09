@@ -16,7 +16,7 @@ Release is green only when all required backend files, frontend unit tests, fixt
 | Local PostgreSQL | Backend integration and constraints | Disposable `TEST_DATABASE_URL`; reset before each file |
 | Fixture browser | Deterministic UI and mobile flows | Mock API + fixture backend server |
 | Real stack | Deployment smoke and cross-service flow | QA Dokploy, gated by `E2E_REAL=1` |
-| Provider sandbox | Private storage and notification adapter checks | Explicit credentials only; no production sends; Web Push primary with configured ZNS/SMS fallback |
+| Provider sandbox | Private storage and notification adapter checks | Explicit credentials only; no production sends; Web Push primary with configured ZNS/ZBS fallback; SMS excluded unless separately scoped |
 
 ## Seed personas
 
@@ -26,7 +26,7 @@ Release is green only when all required backend files, frontend unit tests, fixt
 - Renter B belongs to Motel B and Room B-101.
 - One draft contract, one active contract, one expired contract.
 - One draft billing period, one sent period, one invoice per payment state.
-- Renter with push permission granted and denied; configured ZNS/SMS fallback state.
+- Renter with push permission granted and denied; configured ZNS/ZBS fallback state. SMS is not exercised in MVP.
 
 ## Required full flow
 
@@ -74,10 +74,10 @@ Release is green only when all required backend files, frontend unit tests, fixt
 4. Expired token/session; show safe recovery state.
 5. Renter sees only own profile, room, periods, invoices, itemized amounts, QR, and payment status.
 6. Submit exactly one valid JPEG/PNG proof under 10 MB; reject missing/multiple files, bad bytes/MIME, and oversized files with `VALIDATION_ERROR`.
-7. Pending proof blocks duplicate upload; manager rejection exposes safe reason and permits replacement; approval marks invoice paid with `paymentMethod=bank_transfer`.
+7. Pending or approved proof blocks duplicate upload; manager rejection preserves immutable proof history and permits one replacement current proof; approval marks invoice paid with `paymentMethod=bank_transfer`.
 8. Cash confirmation marks invoice paid with `paymentMethod=cash`; renter has no paid mutation.
 9. Renter B requests Renter A invoice/proof/subscription; response is `404` with no data leak.
-10. Register/revoke own push subscription; test push success, denied permission, permanent failure, bounded retry, and ZNS/SMS fallback without secret leakage.
+10. Register/revoke own push subscription; test push success, denied permission, permanent failure, bounded retry, and ZNS/ZBS fallback without secret leakage; SMS is not exercised in MVP.
 11. Responsive checks at 360px, 375px, 430px and keyboard-only navigation.
 
 ### Flow 5 — OTP signing
@@ -105,7 +105,7 @@ Release is green only when all required backend files, frontend unit tests, fixt
 1. Deliver activation through configured ZNS/ZBS or manager-generated manual link/QR fallback.
 2. Attempt Web Push first for activated renter payment events; persist event/provider ID/status.
 3. Permission denial or invalid endpoint does not block portal use.
-4. Permanent push failure deactivates subscription and queues configured ZNS/SMS fallback.
+4. Permanent push failure deactivates subscription and queues configured ZNS/ZBS fallback. SMS is out of MVP scope.
 5. Transient provider error retries at most three times with bounded backoff.
 6. Duplicate event key sends once; payloads are redacted.
 7. Logs and database contain no OTP plaintext, access token, push credentials, signed URL, object key, or secret.
