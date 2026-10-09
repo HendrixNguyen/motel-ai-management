@@ -75,6 +75,7 @@ export function createFixtureBackend(onMissingFixture: (failure: Error) => void 
         const [, motelId, collection, id] = scope;
         const motel = state.motels.find((row) => row.id === motelId);
         if (!motel) return error(404, "NOT_FOUND", "Không tìm thấy nhà trọ");
+        if (!collection && method === "GET") return json(motel);
         if (!collection && method === "PATCH") { Object.assign(motel, await input<UpdateMotelInput>()); return json(motel); }
         if (collection === "rooms") {
           const rooms = state.rooms.filter((room) => room.motelId === motelId);
