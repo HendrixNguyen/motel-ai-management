@@ -54,6 +54,13 @@ describe("accessible shell controls", () => {
     expect(renderToStaticMarkup(createElement(MotelSwitcher, { motels: [MOTEL], selectedId: MOTEL.id, onChange: () => {} }))).toContain('aria-label="Nhà trọ"');
     expect(renderToStaticMarkup(createElement(BottomNav, { children: createElement("a", { href: "/" }, "Trang chủ") }))).toContain("Trang chủ");
   });
+  it("keeps compact navigation labels short while preserving accessible names and scoped links", () => {
+    const html = renderToStaticMarkup(createElement(Sidebar));
+    expect(html).toContain('aria-label="Tính tiền &amp; Hóa đơn"');
+    expect(html).toContain("Hóa đơn");
+    expect(html).toContain("class=\"fixed inset-x-0 bottom-0");
+    expect(html).toContain(`href="/billing?motel=${MOTEL_WITHOUT_EXTRAS.id}"`);
+  });
   it("renders five destinations per navigation and preserves motel scope", () => {
     const html = renderToStaticMarkup(createElement(Sidebar));
     for (const path of ["/", "/motels", "/rooms", "/renters", "/billing"]) {
