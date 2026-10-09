@@ -89,6 +89,8 @@
 
 ## Task 5: Extend notifications with Web Push primary and ZNS/ZBS fallback
 
+**Execution status:** Not executed in this task; user scope covered test reruns and Task 6 only. No notification implementation changes claimed.
+
 **Files:**
 - Modify `backend/src/modules/notification/notification.schema.ts`
 - Add migration under `backend/drizzle/`
@@ -111,6 +113,10 @@
 **Tests:** subscription ownership/deduplication/revocation; push success; permission/endpoint failure; permanent push failure fallback; transient retries max three; duplicate event key; provider IDs/status; payload redaction; no private key/token logs; notification failure isolated from billing/payment state.
 
 ## Task 6: Complete renter API and activation fallback
+
+**Execution status:** Targeted regression repair complete for inactive renter magic-link exchange and absolute Request URLs in tests. URL assertion passed with configured `RENTER_PORTAL_URL` normalized to `http://localhost:3000`; expected path is `/r/<token>`. No token or secret value recorded. Full Task 6 scope (proof reads, push subscriptions, expired-link handling) remains unverified.
+
+**Evidence:** Initial `renter-auth.test.ts`: 7 pass, 1 fail — inactive renter exchange expected 401, got 200. Initial `renter-portal.test.ts`: 3 pass, 2 fail — relative URLs raised `ERR_INVALID_URL` at invoice detail and logout calls. Portal rerun then exposed another relative foreign-invoice URL; made all three absolute `http://localhost` URLs. Final separate runs: auth 8 pass, portal 5 pass.
 
 **Files:**
 - Modify `backend/src/modules/auth/magic-link.route.ts` only where manager-issued/manual fallback semantics need correction
