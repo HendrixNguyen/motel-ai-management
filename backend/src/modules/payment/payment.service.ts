@@ -1,7 +1,7 @@
 import { and, desc, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
+import { getRenterInvoiceDetail } from "@/modules/billing/billing.service";
 import { invoices, billingPeriods } from "@/modules/billing/billing.schema";
-import { settleInvoicePayment } from "@/modules/billing/billing.service";
 import { enforceRateLimit } from "@/shared/rate-limit";
 import { enqueueNotification } from "@/modules/notification/notification.service";
 import { paymentProofs } from "./payment.schema";
@@ -124,7 +124,7 @@ export async function confirmCashPayment(managerId: string, motelId: string, inv
     const invoice = locked[0] as typeof invoices.$inferSelect | undefined;
     if (!invoice) throw AppError.notFound("Không tìm thấy hóa đơn");
     if (invoice.paymentStatus === "paid" && invoice.paymentMethod !== "cash") throw AppError.conflict("Hóa đơn đã thanh toán bằng phương thức khác");
-    const settled = invoice.paymentStatus === "paid" ? invoice : (await tx.update(invoices).set({ paymentStatus: "paid", paymentMethod: "cash", paymentProofId: null, paidAt: new Date() }).where(eq(invoices.id, invoiceId)).returning())[0];
+    const settled = invoice.paymentStatus === "paid" ? invoice : (await tx.update(invoices).set({ paymentStatus: "paid", paymentMethod: "cash", paymentProofId: null, paidAt: new Date() }).where(and(eq(invoices.id, invoiceId), eq(invoices.motelId, motelId), eq(invoices.paymentStatus, "unpaid"))).returning())[0];
     if (!settled) throw AppError.externalService();
     await enqueueNotification({ eventKey: `invoice:${invoiceId}:cash-confirmed`, renterId: settled.renterId, motelId, templateId: "paymentConfirmed", payload: { invoiceId, totalAmount: settled.totalAmount } }, tx);
     return settled;

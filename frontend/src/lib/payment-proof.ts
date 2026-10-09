@@ -12,6 +12,15 @@ export function validatePaymentProofFile(file: File): PaymentProofFileResult {
   return { ok: true };
 }
 
+export async function validatePaymentProofBytes(file: File): Promise<PaymentProofFileResult> {
+  const basic = validatePaymentProofFile(file); if (!basic.ok) return basic;
+  const bytes = new Uint8Array(await file.slice(0, 8).arrayBuffer());
+  const jpeg = bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
+  const png = bytes.length === 8 && bytes.every((value, index) => value === [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a][index]);
+  if ((file.type === "image/jpeg" && !jpeg) || (file.type === "image/png" && !png)) return { ok: false, error: "Nội dung ảnh không hợp lệ" };
+  return { ok: true };
+}
+
 export function paymentProofLabel(status: PaymentProofStatus): string {
   return status === "pending" ? "Đang chờ duyệt" : status === "approved" ? "Đã duyệt" : "Cần gửi lại";
 }

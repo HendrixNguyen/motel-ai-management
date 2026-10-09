@@ -417,6 +417,7 @@ export interface RenterInvoiceSummary {
   totalAmount: VndString;
   qrCodeData: string | null;
   paymentStatus: PaymentStatus;
+  paymentMethod: "bank_transfer" | "cash" | null;
   paidAt: string | null;
   createdAt: string;
 }
