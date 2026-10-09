@@ -280,9 +280,9 @@ Ticket creation inserts its notification outbox row in the same transaction as t
 `Ticket` is `{id,renterId,motelId,roomId,category,description,photoUrls,status,createdAt,resolvedAt}`.
 Renter responses never permit payment mutation.
 
-### Planned: renter payment proof — `/api/renter/invoices/:invoiceId/payment-proof`
+### Renter payment proof — `/api/renter/invoices/:invoiceId/payment-proof`
 
-**Planned contract; runtime route is not shipped yet.** Payment proof is one private JPEG or PNG image, at most 10 MB. Upload bytes are validated before metadata commit; object keys never cross HTTP. Invoice payment state remains manager-controlled.
+Payment proof is one private JPEG or PNG image, at most 10 MB. Upload bytes are validated before metadata commit; object keys never cross HTTP. Invoice payment state remains manager-controlled.
 
 | Method | Path | Body | Exact response / errors |
 | --- | --- | --- | --- |
@@ -293,9 +293,9 @@ Renter responses never permit payment mutation.
 
 Proof upload returns `400 VALIDATION_ERROR` for missing/multiple files, unsupported declared MIME, invalid JPEG/PNG bytes, or size over 10 MB; `401 UNAUTHORIZED` for missing/expired renter session; `404 NOT_FOUND` for foreign/missing invoice; `409 CONFLICT` for paid invoice, inaccessible period, or existing `pending`/`approved` proof; `429 RATE_LIMITED` for mutation rate limits; `502 EXTERNAL_SERVICE_ERROR` for storage failure. A rejected proof remains immutable history and may be replaced by one new POST after explicit state validation; the database allows only one non-rejected proof per invoice.
 
-### Planned: manager payment review — `/api/manager/motels/:motelId/billing/invoices/:invoiceId`
+### Manager payment review — `/api/manager/motels/:motelId/billing/invoices/:invoiceId`
 
-**Planned contract; runtime routes are not shipped yet.**
+Runtime routes are shipped.
 
 | Method | Path | Body | Exact response / errors |
 | --- | --- | --- | --- |
@@ -316,9 +316,9 @@ Payment transition matrix:
 
 A pending or approved proof blocks replacement. A rejected proof remains immutable history; at most one non-rejected proof exists per invoice. No operation moves `paid` back to `unpaid` or `overdue`.
 
-### Planned payment notification delivery
+### Payment notification delivery
 
-**Planned contract; payment-proof and cash-confirmation events are not emitted by runtime routes yet.**
+Payment-proof approval, rejection, and cash-confirmation runtime routes emit idempotent outbox events after committed state. Push-subscription routes remain planned.
 
 Payment events use stable keys `invoice:<id>:proof-submitted`, `invoice:<id>:proof-approved`, `invoice:<id>:proof-rejected`, and `invoice:<id>:cash-confirmed`.
 
