@@ -50,7 +50,7 @@ export function createFixtureBackend(onMissingFixture: (failure: Error) => void 
       }
       if (method === "POST" && path === "/api/renter/magic-links/exchange") {
         const body = await input<{ token: string }>();
-        if (typeof body.token !== "string" || !/^[a-z0-9-]{8,64}$/.test(body.token)) return error(400, "VALIDATION_ERROR", "Mã liên kết không hợp lệ");
+        if (typeof body.token !== "string") return error(400, "VALIDATION_ERROR", "Mã liên kết không hợp lệ");
         const link = magicLinks.get(body.token);
         if (!link || link.expiresAt <= Date.now() || exchangedTokens.has(body.token)) return error(401, "MAGIC_LINK_EXPIRED", "Liên kết đã hết hạn");
         exchangedTokens.add(body.token);

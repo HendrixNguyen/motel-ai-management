@@ -33,12 +33,12 @@ test("fixture-level magic-link exchange supports keyboard submission and rejects
   await expect(page.locator('section[role="alert"]')).toContainText("Liên kết đã hết hạn");
 });
 
-test("fixture-level malformed magic-link shows validation recovery without leaking internals", async ({ page }) => {
+test("fixture-level unknown magic-link shows expired recovery without leaking internals", async ({ page }) => {
   const response = await page.request.post("/api/renter/magic-links/exchange", { data: { token: "bad!" } });
-  expect(response.status()).toBe(400);
-  await expect(response.json()).resolves.toEqual({ error: "Mã liên kết không hợp lệ", code: "VALIDATION_ERROR" });
+  expect(response.status()).toBe(401);
+  await expect(response.json()).resolves.toEqual({ error: "Liên kết đã hết hạn", code: "MAGIC_LINK_EXPIRED" });
   await page.goto("/r/bad!");
-  await expect(page.locator('section[role="alert"]')).toContainText("Không thể mở liên kết");
+  await expect(page.locator('section[role="alert"]')).toContainText("Liên kết đã hết hạn");
   await expect(page.locator('section[role="alert"]')).not.toContainText(/token|secret|private|host/i);
 });
 
