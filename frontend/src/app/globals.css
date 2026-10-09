@@ -66,7 +66,6 @@
 
 html {
   background: var(--color-canvas);
-  scroll-behavior: smooth;
 }
 
 html[data-theme="light"] {
@@ -132,7 +131,7 @@ html[data-theme="dark"] body {
 }
 
 @media (prefers-color-scheme: dark) {
-  html:not([data-theme="light"]) {
+  html[data-theme="system"] {
     --color-primary: #38BDF8;
     --color-primary-strong: #7DD3FC;
     --color-success: #4ADE80;

@@ -111,14 +111,28 @@
       "idx": 15,
       "version": "7",
       "when": 1791600800000,
-      "tag": "0015_rate_limit_buckets",
+      "tag": "0015_payment_settlement",
       "breakpoints": true
     },
     {
       "idx": 16,
       "version": "7",
+      "when": 1791600800000,
+      "tag": "0016_rate_limit_buckets",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
       "when": 1791600900000,
-      "tag": "0016_invoice_payment_metadata",
+      "tag": "0017_invoice_payment_metadata",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1791601000000,
+      "tag": "0018_invoice_payment_proof_ownership",
       "breakpoints": true
     }
   ]

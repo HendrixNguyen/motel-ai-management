@@ -28,14 +28,14 @@ export function changeTheme(theme: Theme, root: { dataset: { theme?: string } },
 export function getStoredTheme(): Theme {
   try {
     const stored = window.localStorage.getItem("motel-theme");
-    return stored === "light" || stored === "dark" || stored === "system" ? stored : "system";
+    return stored === "light" || stored === "dark" || stored === "system" ? stored : "light";
   } catch {
-    return "system";
+    return "light";
   }
 }
 
 export default function ThemeSelect() {
-  const [theme, setTheme] = useState<Theme>("system");
+  const [theme, setTheme] = useState<Theme>("light");
   useEffect(() => {
     queueMicrotask(() => setTheme(getStoredTheme()));
   }, []);
