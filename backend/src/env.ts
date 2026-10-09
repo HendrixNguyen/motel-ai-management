@@ -16,6 +16,7 @@ export interface Env {
   testDatabaseUrl: string;
   renterPortalUrl: string;
   frontendUrl: string;
+  trustedProxy: boolean;
   managerJwtSecret: string;
   renterSessionSecret: string;
   r2: {
@@ -117,6 +118,7 @@ export function parseEnv(input: Record<string, string | undefined>): Env {
     testDatabaseUrl: required(input, "TEST_DATABASE_URL"),
     renterPortalUrl: publicUrl(input, "RENTER_PORTAL_URL", "http://localhost:3000", production),
     frontendUrl: publicUrl(input, "FRONTEND_URL", "http://localhost:3001", production),
+    trustedProxy: input.TRUSTED_PROXY === "1",
     managerJwtSecret: secret(input, "MANAGER_JWT_SECRET"),
     renterSessionSecret: secret(input, "RENTER_SESSION_SECRET"),
     r2: {

@@ -3,6 +3,7 @@ import { app } from "@/app";
 import { db } from "@/db";
 import { managers } from "@/modules/auth/auth.schema";
 import { registerManager, verifyManager } from "@/modules/auth/auth.service";
+import { createApp } from "@/app";
 import { resetDb } from "@/db/test-db";
 
 // `resetDb` drops the schema and re-applies every migration, which takes seconds — past
@@ -56,6 +57,11 @@ describe("manager auth", () => {
     await expect(verifyManager("nobody@example.com", "whatever")).rejects.toMatchObject({
       code: "UNAUTHORIZED",
     });
+  });
+
+  test("authorization bearer header cannot authenticate manager routes", async () => {
+    const response = await createApp().handle(new Request("http://localhost/api/auth/me", { headers: { authorization: "Bearer forged" } }));
+    expect(response.status).toBe(401);
   });
 
   test("unknown email performs password verification against a dummy hash", async () => {

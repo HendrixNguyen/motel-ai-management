@@ -15,9 +15,10 @@ export const magicLinkRoutes = new Elysia({ name: "magic-link-routes" })
   .post(
     "/renter/magic-links/exchange",
     async ({ body, renterJwt, cookie, set, request }) => {
-      const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
-      enforceRateLimit(`magic-exchange:ip:${ip}`, 10);
-      enforceRateLimit(`magic-exchange:token:${body.token}`, 3);
+      const ip = env.trustedProxy ? request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown" : "unknown";
+        await enforceRateLimit(`magic-exchange:ip:${ip}`, 10);
+        await enforceRateLimit(`magic-exchange:token:${body.token}`, 3);
+
       const renter = await consumeMagicLink(body.token);
       const token = await renterJwt.sign({ renterId: renter.id, motelId: renter.motelId });
       cookie[COOKIE_NAME]?.set({
@@ -39,9 +40,9 @@ export const magicLinkRoutes = new Elysia({ name: "magic-link-routes" })
     app.use(renterAuth).post(
       "/resend",
       async ({ auth, set, request }) => {
-        const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
-        enforceRateLimit(`magic-resend:ip:${ip}`, 5);
-        enforceRateLimit(`magic-resend:renter:${auth!.renterId}`, 3);
+        const ip = env.trustedProxy ? request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown" : "unknown";
+        await enforceRateLimit(`magic-resend:ip:${ip}`, 5);
+        await enforceRateLimit(`magic-resend:renter:${auth!.renterId}`, 3);
         const { token, url } = await issueMagicLink(auth!.renterId);
         set.status = 200;
         return { message: "Đã gửi lại liên kết đăng nhập", url };
