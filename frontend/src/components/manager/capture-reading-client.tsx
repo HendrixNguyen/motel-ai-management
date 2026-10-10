@@ -1,7 +1,6 @@
 "use client";
 
 import Image from "next/image";
-
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { saveCaptureReadings, uploadMeterPhoto, isReadingConflict } from "@/lib/api/capture.client";

@@ -1,9 +1,10 @@
 import { defineConfig, devices } from "@playwright/test";
 
-const PORT = 3001;
+const PORT = Number(process.env.E2E_PORT ?? 3001);
 const BASE_URL = `http://localhost:${PORT}`;
 const REAL_STACK = process.env.E2E_REAL === "1";
-const FIXTURE_BACKEND_URL = "http://127.0.0.1:3002";
+const FIXTURE_BACKEND_PORT = Number(process.env.E2E_FIXTURE_PORT ?? 3002);
+const FIXTURE_BACKEND_URL = `http://127.0.0.1:${FIXTURE_BACKEND_PORT}`;
 
 // Two projects, two jobs.
 //

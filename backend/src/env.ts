@@ -9,8 +9,11 @@ type ZnsTemplateKey =
   | "expiry"
   | "ticket";
 
+export type RateLimitStore = "postgres" | "redis";
+
 export interface Env {
   nodeEnv: string;
+  rateLimitStore: RateLimitStore;
   port: number;
   databaseUrl: string;
   testDatabaseUrl: string;
@@ -55,8 +58,17 @@ function required(input: Record<string, string | undefined>, key: string): strin
 
 function secret(input: Record<string, string | undefined>, key: string): string {
   const value = required(input, key);
-  if (value.length < 32)
-    throw new AppError("VALIDATION_ERROR", `${key} phải dài tối thiểu 32 ký tự`);
+  if (value.length < 32 || value === "PLACEHOLDER") throw new AppError("VALIDATION_ERROR", `${key} không hợp lệ`);
+  return value;
+}
+
+function publicHttpsUrl(input: Record<string, string | undefined>, key: string, nodeEnv: string, fallback: string): string {
+  const value = input[key] ?? fallback;
+  if (nodeEnv === "production") {
+    let url: URL;
+    try { url = new URL(value); } catch { throw new AppError("VALIDATION_ERROR", `${key} phải là URL HTTPS`); }
+    if (url.protocol !== "https:" || url.hostname === "localhost" || url.hostname === "127.0.0.1") throw new AppError("VALIDATION_ERROR", `${key} phải là URL HTTPS public`);
+  }
   return value;
 }
 
@@ -106,18 +118,22 @@ export function validateProductionConfig(input: Record<string, string | undefine
 
 export function parseEnv(input: Record<string, string | undefined>): Env {
   const nodeEnv = input.NODE_ENV ?? "development";
+  const rateLimitStore = input.RATE_LIMIT_STORE ?? "postgres";
+  if (rateLimitStore !== "postgres" && rateLimitStore !== "redis") throw new AppError("VALIDATION_ERROR", `RATE_LIMIT_STORE không hợp lệ: ${rateLimitStore}`);
   const production = nodeEnv === "production";
   if (production) {
     validateProductionConfig(input);
+    if (input.DATABASE_URL?.includes("localhost") || input.DATABASE_URL?.includes("127.0.0.1")) throw new AppError("VALIDATION_ERROR", "DATABASE_URL production không được dùng localhost");
+    if (input.MANAGER_JWT_SECRET === input.RENTER_SESSION_SECRET) throw new AppError("VALIDATION_ERROR", "Production secrets phải khác nhau");
     if (input.TRUSTED_PROXY_HEADER && (!input.TRUSTED_PROXY_ASSERTION_HEADER || !input.TRUSTED_PROXY_ASSERTION_VALUE || input.TRUSTED_PROXY_ASSERTION_VALUE.length < 32)) throw new AppError("VALIDATION_ERROR", "Trusted proxy phải có assertion header và secret tối thiểu 32 ký tự");
   }
-
   const port = input.PORT === undefined ? 3000 : Number(input.PORT);
   if (!Number.isInteger(port) || port <= 0)
     throw new AppError("VALIDATION_ERROR", `PORT không hợp lệ: ${input.PORT}`);
 
   return {
     nodeEnv,
+    rateLimitStore,
     port,
     databaseUrl: required(input, "DATABASE_URL"),
     testDatabaseUrl: required(input, "TEST_DATABASE_URL"),

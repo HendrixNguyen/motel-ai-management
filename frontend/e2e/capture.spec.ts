@@ -12,6 +12,8 @@ test.describe("offline meter capture", () => {
     await page.getByRole("link", { name: /Mở kỳ/ }).click();
     await expect(page).toHaveURL(/\/capture\/b1c2d3e4-f5a6-4b7c-8d9e-0f1a2b3c4d5e/);
     await expect(page.getByRole("heading", { name: /Nhập chỉ số/ })).toBeVisible();
+    await expect(page.getByText("Chỉ số trước: 100")).toBeVisible();
+    await expect(page.getByLabel("Chỉ số hiện tại")).toBeVisible();
     await expect(page.getByRole("link", { name: /Phòng P\.101/ })).toBeVisible();
   });
 

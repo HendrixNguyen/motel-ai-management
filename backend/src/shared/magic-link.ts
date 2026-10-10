@@ -46,6 +46,9 @@ export async function consumeMagicLink(token: string): Promise<RenterRow> {
 
   const renter = await db.query.renters.findFirst({ where: eq(renters.id, claimed.renterId) });
   if (!renter) throw AppError.notFound("Không tìm thấy người thuê");
+  if (renter.status !== "active") {
+    throw new AppError("MAGIC_LINK_EXPIRED", "Liên kết không hợp lệ hoặc đã hết hạn");
+  }
 
   return renter;
 }
