@@ -89,6 +89,7 @@ describe("magic links", () => {
     const exchange = await app.handle(new Request("http://localhost/api/renter/magic-links/exchange", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token }) }));
     expect(exchange.status).toBe(401);
     expect(exchange.headers.get("set-cookie") ?? "").not.toContain("renter_session=");
+    expect(await exchange.json()).toMatchObject({ code: "MAGIC_LINK_EXPIRED" });
   });
 
   test("exchange endpoint sets a renter_session cookie", async () => {

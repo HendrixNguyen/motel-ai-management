@@ -169,7 +169,7 @@ export function createFixtureBackend(onMissingFixture: (failure: Error) => void 
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const server = createFixtureBackend();
-  server.listen(3002, "127.0.0.1");
+  server.listen(Number(process.env.E2E_FIXTURE_PORT ?? 3002), "127.0.0.1");
   process.on("SIGTERM", () => server.close(() => process.exit(0)));
   process.on("SIGINT", () => server.close(() => process.exit(0)));
 }

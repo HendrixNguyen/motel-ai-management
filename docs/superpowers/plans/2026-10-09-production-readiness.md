@@ -88,6 +88,8 @@
 - [ ] Document local compose exception versus production one-shot ordering.
 - [ ] Commit `feat: add production readiness and migration job`.
 
+**Verification evidence (2026-10-09):** Production readiness Task 2 implementation was continued in `production-payment`. Billing capture CAS fix uses PostgreSQL epoch-microseconds string tokens and a single atomic conditional UPDATE; missing reading lookup precedes CAS, so missing reports `NOT_FOUND` and transaction rolls earlier writes back while existing stale reading remains `READING_CONFLICT`. Added tests in `backend/src/test/billing-reading.test.ts`; API contract token format updated in `docs/api-contract.md`. `cd backend && bun run typecheck` and `bun test src/test/billing-reading.test.ts` passed (10 tests, 20 assertions) against local `TEST_DATABASE_URL`. Subsequent review refinements: precise-version query results are typed and shape-checked with safe `INTERNAL_ERROR` on mismatch; rollback test uses valid first row and stale second row and compares all records; microsecond checks use `BigInt`; same-value stale rejection remains explicit. No QA DB or environment files used.
+
 ## Task 3: Private storage and upload hardening
 
 **Files:**

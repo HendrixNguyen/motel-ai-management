@@ -56,7 +56,8 @@ beforeEach(resetDb);
 describe("schema constraints", () => {
   test("room names are unique within a motel", async () => {
     await seed();
-    await db.insert(rooms).values({ motelId, name: "P.102" });
+    const [room] = await db.insert(rooms).values({ motelId, name: "P.102" }).returning();
+    expect(room!.name).toBe("P.102");
     await expect(
       db.insert(rooms).values({ motelId, name: "P.102" }).execute(),
     ).rejects.toThrow();
@@ -114,7 +115,8 @@ describe("schema constraints", () => {
       monthlyRent: "3000000",
       otpAttempts: "3",
     };
-    await db.insert(contracts).values(values);
+    const [contract] = await db.insert(contracts).values(values).returning();
+    expect(contract!.otpAttempts).toBe("3");
     await expect(db.insert(contracts).values({ ...values, otpAttempts: "4" }).execute())
       .rejects.toThrow();
     await expect(db.insert(contracts).values({ ...values, otpAttempts: "-1" }).execute())
@@ -136,7 +138,8 @@ describe("schema constraints", () => {
       monthlyRent: "3000000",
       status: "active" as const,
     };
-    await db.insert(contracts).values(values);
+    const [contract] = await db.insert(contracts).values(values).returning();
+    expect(contract!.status).toBe("active");
     await expect(db.insert(contracts).values(values).execute()).rejects.toThrow();
   });
 
@@ -180,7 +183,8 @@ describe("schema constraints", () => {
         .values({ email: "Mixed@Example.COM", passwordHash: "x", name: "B" })
         .execute(),
     ).rejects.toThrow();
-    await db.insert(managers).values({ email: "lower@example.com", passwordHash: "x", name: "C" });
+    const [manager] = await db.insert(managers).values({ email: "lower@example.com", passwordHash: "x", name: "C" }).returning();
+    expect(manager!.email).toBe("lower@example.com");
   });
 
   test("a renter phone must already be normalised to 84XXXXXXXXX", async () => {
@@ -203,11 +207,13 @@ describe("schema constraints", () => {
   test("at most one default contract template per motel", async () => {
     await seed();
     const values = { motelId, name: "Mẫu", clauses: [], isDefault: true };
-    await db.insert(contractTemplates).values(values);
+    const [template] = await db.insert(contractTemplates).values(values).returning();
+    expect(template!.isDefault).toBe(true);
     await expect(db.insert(contractTemplates).values({ ...values, name: "Mẫu 2" }).execute())
       .rejects.toThrow();
     // A second, non-default template is fine.
-    await db.insert(contractTemplates).values({ ...values, name: "Mẫu 3", isDefault: false });
+    const [nonDefault] = await db.insert(contractTemplates).values({ ...values, name: "Mẫu 3", isDefault: false }).returning();
+    expect(nonDefault!.isDefault).toBe(false);
   });
 
   test("one invoice per room per billing period", async () => {
@@ -224,7 +230,8 @@ describe("schema constraints", () => {
       waterCost: "25000",
       totalAmount: "3060000",
     };
-    await db.insert(invoices).values(values);
+    const [invoice] = await db.insert(invoices).values(values).returning();
+    expect(invoice!.totalAmount).toBe("3060000");
     await expect(db.insert(invoices).values(values).execute()).rejects.toThrow();
   });
 
@@ -237,11 +244,13 @@ describe("schema constraints", () => {
       previousReading: "100",
       currentReading: "150",
     };
-    await db.insert(meterReadings).values(values);
+    const [reading] = await db.insert(meterReadings).values(values).returning();
+    expect(reading!.currentReading).toBe("150.00");
     await expect(db.insert(meterReadings).values({ ...values, currentReading: "160" }).execute())
       .rejects.toThrow();
     // The same meter in the same period is one row; water is a different meter.
-    await db.insert(meterReadings).values({ ...values, type: "water" });
+    const [water] = await db.insert(meterReadings).values({ ...values, type: "water" }).returning();
+    expect(water!.type).toBe("water");
   });
 
   test("a help ticket carries at most five photos", async () => {
@@ -265,13 +274,14 @@ describe("schema constraints", () => {
     const { renterId } = await seedRenter();
     const [otherMotel] = await db.insert(motels).values({ managerId, name: "Other", electricityPrice: "1", waterPrice: "2" }).returning();
     const [ticket] = await db.insert(helpTickets).values({ renterId, roomId, motelId, category: "facilities", description: "Mô tả sự cố đủ dài" }).returning();
-    await expect(db.execute(sql`INSERT INTO ticket_photo_uploads (ticket_id, motel_id, object_key, content_type, size, checksum) VALUES (${ticket!.id}, ${otherMotel!.id}, 'mismatch', 'image/jpeg', 3, 'checksum')`)).rejects.toThrow();
+    await expect(db.execute(sql`INSERT INTO ticket_photo_uploads (ticket_id, motel_id, object_key, content_type, size, checksum) VALUES (${ticket!.id}, ${otherMotel!.id}, 'mismatch', 'image/jpeg', 3, 'checksum')`).execute()).rejects.toThrow();
   });
 
   test("a magic link token is unique", async () => {
     const { renterId } = await seedRenter();
     const values = { renterId, token: "token-abc", expiresAt: new Date("2026-10-05T00:00:00Z") };
-    await db.insert(magicLinks).values(values);
+    const [link] = await db.insert(magicLinks).values(values).returning();
+    expect(link!.token).toBe("token-abc");
     await expect(db.insert(magicLinks).values(values).execute()).rejects.toThrow();
   });
 });

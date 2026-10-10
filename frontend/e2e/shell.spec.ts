@@ -8,7 +8,10 @@ async function signIn(context: BrowserContext, session = "valid") {
 test("unauthenticated rooms redirect to login", async ({ page }) => {
   await page.goto("/rooms");
   await expect(page).toHaveURL("/login");
+  const loginCard = page.locator("main > div");
   await expect(page.getByRole("heading", { name: "Đăng nhập" })).toBeVisible();
+  await expect(loginCard).toHaveCSS("width", "343px");
+  expect(await loginCard.getByRole("heading", { name: "Đăng nhập" }).evaluate((heading) => heading.getBoundingClientRect().width)).toBeGreaterThan(0);
 });
 
 test("login stores the proxied session and lands on the overview", async ({ page, context }) => {
@@ -47,9 +50,9 @@ test("missing login fields are described inline before a request is made", async
 test("switching motel preserves the pathname and other search parameters", async ({ page, context }) => {
   await signIn(context);
   await page.goto(`/rooms?motel=${MOTEL.id}&status=available`);
-  await page.getByLabel("Nhà trọ", { exact: true }).selectOption(MOTEL_WITHOUT_EXTRAS.id);
+  await page.getByRole("combobox", { name: "Nhà trọ", exact: true }).selectOption(MOTEL_WITHOUT_EXTRAS.id);
   await expect(page).toHaveURL(`/rooms?motel=${MOTEL_WITHOUT_EXTRAS.id}&status=available`);
-  await expect(page.getByLabel("Nhà trọ", { exact: true })).toHaveValue(MOTEL_WITHOUT_EXTRAS.id);
+  await expect(page.getByRole("combobox", { name: "Nhà trọ", exact: true })).toHaveValue(MOTEL_WITHOUT_EXTRAS.id);
   await page.getByRole("navigation", { name: "Điều hướng chính trên điện thoại" }).getByRole("link", { name: "Khách thuê" }).click();
   await expect(page).toHaveURL(`/renters?motel=${MOTEL_WITHOUT_EXTRAS.id}`);
 });
@@ -78,7 +81,7 @@ test("manager without motels can reach the shell without redirecting in a loop",
   await signIn(context, "no-motels");
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "Tổng quan", exact: true })).toBeVisible();
-  await expect(page.getByLabel("Nhà trọ", { exact: true })).toBeDisabled();
+  await expect(page.getByRole("combobox", { name: "Nhà trọ", exact: true })).toBeDisabled();
   await expect(page).toHaveURL("/");
 });
 

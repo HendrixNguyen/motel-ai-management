@@ -419,9 +419,23 @@ export interface RenterInvoiceSummary {
   totalAmount: VndString;
   qrCodeData: string | null;
   paymentStatus: PaymentStatus;
+  paymentMethod: "bank_transfer" | "cash" | null;
   paidAt: string | null;
   createdAt: string;
 }
+export type PaymentProofStatus = "pending" | "approved" | "rejected";
+export interface PaymentProof {
+  id: string;
+  invoiceId: string;
+  status: PaymentProofStatus;
+  contentType: "image/jpeg" | "image/png";
+  size: number;
+  submittedAt: string;
+  reviewedAt: string | null;
+  rejectionReason: string | null;
+}
+export interface RenterPaymentProof extends PaymentProof { signedUrl: string; }
+
 export interface RenterInvoiceDetail extends RenterInvoiceSummary {
   bankAccount: { bankCode: string; accountNumber: string; accountName: string } | null;
   transferDescription: string;

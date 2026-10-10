@@ -19,9 +19,7 @@ export async function enforceRateLimit(key: string, limit: number, now = Date.no
     RETURNING request_count AS count
   `);
   const count = Number(row?.count ?? 0);
-  if (count > limit) {
-    throw AppError.rateLimited("Vui lòng thử lại sau", Math.max(1, Math.ceil((windowStart + WINDOW_MS - now) / 1000)));
-  }
+  if (count > limit) throw AppError.rateLimited("Vui lòng thử lại sau", Math.max(1, Math.ceil((windowStart + WINDOW_MS - now) / 1000)));
 }
 
 function enforceLocalRateLimit(key: string, limit: number, now: number): void {

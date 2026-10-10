@@ -111,7 +111,21 @@
       "idx": 15,
       "version": "7",
       "when": 1791600800000,
-      "tag": "0015_rate_limit_buckets",
+      "tag": "0015_payment_settlement",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1791600900000,
+      "tag": "0016_rate_limit_buckets",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1791601000000,
+      "tag": "0019_reconcile_rate_limit_buckets",
       "breakpoints": true
     }
   ]

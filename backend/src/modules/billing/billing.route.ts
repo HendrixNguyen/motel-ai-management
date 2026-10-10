@@ -1,12 +1,12 @@
 import { Elysia, t } from "elysia";
 import { cookie } from "@elysiajs/cookie";
 import { managerAuth } from "@/middleware/manager-auth";
-import { createBillingPeriod, generateInvoices, getBillingPeriod, getMeterPhoto, listBillingPeriods, listInvoices, markInvoiceOverdue, markInvoicePaid, sendBillingPeriod, updateMeterReadings, uploadMeterPhoto } from "./billing.service";
+import { createBillingPeriod, generateInvoices, getBillingPeriod, getMeterPhoto, listBillingPeriods, listInvoices, markInvoiceOverdue, sendBillingPeriod, updateMeterReadings, uploadMeterPhoto } from "./billing.service";
 
 const params = t.Object({ motelId: t.String({ format: "uuid" }) });
 const detailParams = t.Object({ motelId: t.String({ format: "uuid" }), periodId: t.String({ format: "uuid" }) });
 const createBody = t.Object({ month: t.Integer({ minimum: 1, maximum: 12 }), year: t.Integer() });
-const readingBody = t.Object({ readings: t.Array(t.Object({ roomId: t.String({ format: "uuid" }), type: t.Union([t.Literal("electric"), t.Literal("water")]), currentReading: t.String(), photoUrl: t.Optional(t.Nullable(t.String())), expectedUpdatedAt: t.String({ format: "date-time" }) }), { minItems: 1 }) });
+const readingBody = t.Object({ readings: t.Array(t.Object({ roomId: t.String({ format: "uuid" }), type: t.Union([t.Literal("electric"), t.Literal("water")]), currentReading: t.String(), photoUrl: t.Optional(t.Nullable(t.String())), expectedUpdatedAt: t.String({ pattern: "^\\d+$" }) }), { minItems: 1 }) });
 
 export const billingRoutes = new Elysia({ name: "billing-routes" })
   .use(cookie())
@@ -20,5 +20,5 @@ export const billingRoutes = new Elysia({ name: "billing-routes" })
   .post("/manager/motels/:motelId/billing/periods/:periodId/invoices", ({ params, auth }) => generateInvoices(params.periodId, params.motelId, auth!.userId), { params: detailParams })
   .get("/manager/motels/:motelId/billing/periods/:periodId/invoices", ({ params, auth }) => listInvoices(params.periodId, params.motelId, auth!.userId), { params: detailParams })
   .post("/manager/motels/:motelId/billing/periods/:periodId/send", ({ params, auth }) => sendBillingPeriod(params.periodId, params.motelId, auth!.userId), { params: detailParams })
-  .patch("/manager/motels/:motelId/billing/invoices/:invoiceId/paid", ({ params, auth }) => markInvoicePaid(params.invoiceId, params.motelId, auth!.userId), { params: t.Object({ motelId: t.String({ format: "uuid" }), invoiceId: t.String({ format: "uuid" }) }) })
+  .patch("/manager/motels/:motelId/billing/invoices/:invoiceId/paid", ({ set }) => { set.status = 410; return { error: "Sử dụng cash-confirmation hoặc payment-proof/approve", code: "GONE" }; }, { params: t.Object({ motelId: t.String({ format: "uuid" }), invoiceId: t.String({ format: "uuid" }) }) })
   .patch("/manager/motels/:motelId/billing/invoices/:invoiceId/overdue", ({ params, auth }) => markInvoiceOverdue(params.invoiceId, params.motelId, auth!.userId), { params: t.Object({ motelId: t.String({ format: "uuid" }), invoiceId: t.String({ format: "uuid" }) }) });
