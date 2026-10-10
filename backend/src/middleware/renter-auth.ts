@@ -5,6 +5,7 @@ import { env } from "@/config";
 import { AppError } from "@/shared/errors";
 import { db } from "@/db";
 import { renters } from "@/modules/renter/renter.schema";
+import { motels } from "@/modules/motel/motel.schema";
 
 export type RenterAuthPayload = { renterId: string; motelId: string };
 
@@ -40,6 +41,14 @@ export const renterAuth = new Elysia({ name: "renter-auth" })
     const renterRow = await db.query.renters.findFirst({
       where: and(eq(renters.id, payload.renterId), eq(renters.motelId, payload.motelId), eq(renters.status, "active")),
     });
+
+    const motelRow = renterRow
+      ? await db.query.motels.findFirst({ where: and(eq(motels.id, renterRow.motelId)) })
+      : undefined;
+
+    if (!motelRow) {
+      return { auth: undefined as RenterAuthPayload | undefined };
+    }
 
     if (!renterRow) {
       return { auth: undefined as RenterAuthPayload | undefined };

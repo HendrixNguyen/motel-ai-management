@@ -24,6 +24,10 @@ export const magicLinkRoutes = new Elysia({ name: "magic-link-routes" })
         await enforceRateLimit(`magic-exchange:token:${body.token}`, 3);
 
       const renter = await consumeMagicLink(body.token);
+      if (renter.status !== "active") {
+        set.status = 401;
+        return { error: "Chưa đăng nhập", code: "UNAUTHORIZED" };
+      }
       const token = await renterJwt.sign({ renterId: renter.id, motelId: renter.motelId });
       cookie[COOKIE_NAME]?.set({
         value: token,

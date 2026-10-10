@@ -124,7 +124,21 @@
     {
       "idx": 17,
       "version": "7",
+      "when": 1791600950000,
+      "tag": "0017_invoice_payment_metadata",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
       "when": 1791601000000,
+      "tag": "0018_invoice_payment_proof_ownership",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1791601100000,
       "tag": "0019_reconcile_rate_limit_buckets",
       "breakpoints": true
     }

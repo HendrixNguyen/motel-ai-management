@@ -92,6 +92,21 @@ describe("magic links", () => {
     expect(await exchange.json()).toMatchObject({ code: "MAGIC_LINK_EXPIRED" });
   });
 
+  test("an active renter session is revalidated on every request", async () => {
+    const renter = await seedRenter();
+    const { token } = await issueMagicLink(renter.id);
+    const exchange = await app.handle(new Request("http://localhost/api/renter/magic-links/exchange", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token }) }));
+    expect(exchange.status).toBe(200);
+    const cookie = exchange.headers.get("set-cookie") ?? "";
+
+    const before = await app.handle(new Request("http://localhost/api/renter/me", { headers: { cookie } }));
+    expect(before.status).toBe(200);
+
+    await db.update(renters).set({ status: "inactive" }).where(eq(renters.id, renter.id));
+    const after = await app.handle(new Request("http://localhost/api/renter/me", { headers: { cookie } }));
+    expect(after.status).toBe(401);
+  });
+
   test("exchange endpoint sets a renter_session cookie", async () => {
     const renter = await seedRenter();
     const { token } = await issueMagicLink(renter.id);

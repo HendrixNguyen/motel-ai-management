@@ -9,7 +9,7 @@ const markup = (node: React.ReactElement) => renderToStaticMarkup(node);
 describe("theme foundation", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
-    vi.unstubAllGlobals();
+
   });
 
   test("renders system without browser state", () => {
@@ -18,7 +18,7 @@ describe("theme foundation", () => {
 
   test("normalizes invalid stored values to system", () => {
     vi.stubGlobal("localStorage", { getItem: vi.fn(() => "invalid") });
-    expect(getStoredTheme()).toBe("system");
+    expect(getStoredTheme()).toBe("light");
   });
 
   test("guards blocked storage during theme change", () => {
@@ -26,7 +26,7 @@ describe("theme foundation", () => {
     vi.stubGlobal("localStorage", storage);
     const root = { dataset: {} as { theme?: string } };
     const media = { matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() };
-    expect(getStoredTheme()).toBe("system");
+    expect(getStoredTheme()).toBe("light");
     expect(() => changeTheme("dark", root, media)).not.toThrow();
     expect(storage.setItem).not.toHaveBeenCalled();
     expect(root.dataset.theme).toBe("dark");
@@ -64,10 +64,10 @@ describe("theme foundation", () => {
     expect(media.addEventListener).toHaveBeenCalledTimes(1);
   });
 
-  test("early script guards storage and includes system fallback", () => {
-    expect(themeInitScript).toContain("try");
-    expect(themeInitScript).toContain("matchMedia");
+  test("early script defaults to light and only uses explicit stored theme", () => {
     expect(themeInitScript).toContain("motel-theme");
+    expect(themeInitScript).toContain("s==='light'||s==='dark'?s:'light'");
+    expect(themeInitScript).not.toContain("matchMedia");
   });
 
   test("foundation CSS scopes scroll margin and includes safe area", async () => {

@@ -7,7 +7,7 @@ test("dashboard shows operational tasks without horizontal overflow", async ({ p
   await page.route("**/api/**", async (route) => {
     const path = new URL(route.request().url()).pathname;
     const responses: Record<string, unknown> = {
-      "/api/auth/me": { id: "manager-1", phone: "84901234567", name: "Chủ trọ" },
+      "/api/auth/me": { id: "manager-1", email: "chu-tro@example.test" },
       "/api/manager/motels": [motel],
       "/api/manager/motels/motel-1/rooms": [
         { id: "room-1", motelId: "motel-1", name: "P.101", basePrice: "3500000", floor: 1, status: "occupied", createdAt: motel.createdAt },

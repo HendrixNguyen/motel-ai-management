@@ -18,7 +18,7 @@ export default function Field({ id, label, hint, describedBy, error, children }:
       <label htmlFor={id} className="block text-sm font-semibold text-text">{label}</label>
       {typeof children === "function" ? children({ id, className: controlClassName, "aria-describedby": descriptions, "aria-invalid": error ? true : undefined }) : isValidElement(children) ? cloneElement(children as React.ReactElement<Record<string, unknown>>, { id, className: [controlClassName, (children.props as { className?: string }).className].filter(Boolean).join(" "), "aria-describedby": [(children.props as { "aria-describedby"?: string })["aria-describedby"], descriptions].filter(Boolean).join(" ") || undefined, "aria-invalid": error ? true : (children.props as { "aria-invalid"?: boolean })["aria-invalid"] }) : children}
       {hint && <p id={`${id}-hint`} className="text-sm text-text-muted">{hint}</p>}
-      {error && <p id={`${id}-error`} className="text-sm text-danger" role="alert">{error}</p>}
+      {error && <p id={`${id}-error`} className="text-sm text-danger">{error}</p>}
     </div>
   );
 }

@@ -42,8 +42,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html
       lang="vi"
-      suppressHydrationWarning
       className={`${headingFont.variable} ${bodyFont.variable} h-full antialiased`}
+      suppressHydrationWarning
     >
       <body className="flex min-h-full flex-col bg-canvas text-text-body font-sans">
         <ThemeInit />

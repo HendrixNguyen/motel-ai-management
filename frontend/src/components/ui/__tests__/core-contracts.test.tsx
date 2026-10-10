@@ -36,12 +36,17 @@ describe("Core UI v2 compatibility contracts", () => {
     expect(html).toContain('for="name"');
     expect(html).toContain('aria-invalid="true"');
     expect(html).toContain('aria-describedby="name-error"');
+    expect(html).not.toContain('role="alert"');
     expect(html).toContain("Required");
   });
 
-  test("Modal and Drawer preserve headings and closed state", () => {
-    expect(markup(<Modal open={false} onClose={() => {}} title="Edit">Body</Modal>)).toContain("Edit");
-    expect(markup(<Drawer open={false} onClose={() => {}} title="Menu">Body</Drawer>)).toContain("Menu");
+  test("Modal and Drawer preserve headings and mobile width", () => {
+    const modal = markup(<Modal open={false} onClose={() => {}} title="Edit">Body</Modal>);
+    const drawer = markup(<Drawer open={false} onClose={() => {}} title="Menu">Body</Drawer>);
+    expect(modal).toContain("Edit");
+    expect(modal).toContain("relative z-50");
+    expect(modal).toContain("w-[min(32rem,calc(100vw-2rem))]");
+    expect(drawer).toContain("w-[min(100vw,32rem)]");
   });
 
   test("Badge preserves tone and label", () => {

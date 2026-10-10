@@ -75,7 +75,8 @@ export function createFixtureBackend(onMissingFixture: (failure: Error) => void 
           const otpSignedAt = new Date().toISOString(); signedRenters.set(renterSession, otpSignedAt); return json({ otpSignedAt, status: "active" });
         }
         if (path === "/api/renter/contract" && method === "GET") { const otpSignedAt = signedRenters.get(renterSession) ?? null; return json({ id: "contract", status: otpSignedAt ? "active" : "draft", monthlyRent: "3500000", deposit: "3500000", startDate: "2026-10-01", endDate: "2027-09-30", clauses: [{ title: "Điều khoản", content: "Nội dung" }], otpSignedAt }); }
-        if (path === "/api/renter/tickets" && method === "GET") return json([]);
+        if (method === "GET" && path.match(/^\/api\/renter\/invoices\/[^/]+\/payment-proof$/)) return json(null);
+        if (method === "GET" && path === "/api/renter/tickets") return json([]);
         if (path === "/api/renter/tickets" && method === "POST") { const body = await input<{ category: string; description: string }>(); return json({ id: "ticket", category: body.category, description: body.description, status: "open", createdAt: new Date().toISOString() }, 201); }
       }
       if (!managerSession) return unauthorized();

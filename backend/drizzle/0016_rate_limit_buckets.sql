@@ -1,6 +1,7 @@
-CREATE TABLE "rate_limit_buckets" (
-  "key" text PRIMARY KEY,
-  "window_started_at" timestamp with time zone NOT NULL,
-  "count" integer NOT NULL,
-  CONSTRAINT "rate_limit_buckets_count_check" CHECK ("count" > 0)
+CREATE TABLE IF NOT EXISTS rate_limit_buckets (
+  bucket_key text NOT NULL,
+  window_start timestamptz NOT NULL,
+  request_count integer NOT NULL DEFAULT 0,
+  PRIMARY KEY (bucket_key, window_start)
 );
+CREATE INDEX IF NOT EXISTS rate_limit_buckets_window_idx ON rate_limit_buckets (window_start);

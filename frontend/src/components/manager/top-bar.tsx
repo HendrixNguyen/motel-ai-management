@@ -15,11 +15,20 @@ export default function TopBar({ manager, motels }: { manager: ManagerMeResponse
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const selected = searchParams.get("motel") ?? motels[0]?.id;
+  const [currentMotels, setCurrentMotels] = useState(motels);
+  const motelItems = currentMotels.length ? currentMotels : motels;
   const [switching, startTransition] = useTransition();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string>();
   const search = searchParams.toString();
-
+  useEffect(() => {
+    const update = (event: Event) => {
+      const updated = (event as CustomEvent<MotelResponse>).detail;
+      setCurrentMotels((items) => items.map((motel) => motel.id === updated.id ? updated : motel));
+    };
+    window.addEventListener("motel-updated", update);
+    return () => window.removeEventListener("motel-updated", update);
+  }, []);
   useEffect(() => {
     if (!searchParams.has("motel") && motels[0]) router.replace(motelHref(pathname, search, motels[0].id));
   }, [motels, pathname, router, search, searchParams]);
@@ -45,7 +54,7 @@ export default function TopBar({ manager, motels }: { manager: ManagerMeResponse
         <div className="hidden min-w-0 flex-1 lg:block"><p className="text-xs font-semibold text-text-muted">KHÔNG GIAN VẬN HÀNH</p><p className="mt-1 truncate font-heading text-lg font-semibold text-text">Theo dõi nhà trọ, hóa đơn và khách thuê</p></div>
         <div className="min-w-0 flex-1 lg:max-w-sm">
           <label htmlFor="motel-selector" className="mb-2 block text-sm font-semibold text-text">Nhà trọ</label>
-           <MotelSwitcher motels={motels} selectedId={selected} disabled={switching} onChange={(id) => startTransition(() => router.replace(motelHref(pathname, search, id)))} />
+           <MotelSwitcher motels={motelItems} selectedId={selected} disabled={switching} onChange={(id) => startTransition(() => router.replace(motelHref(pathname, search, id)))} />
         </div>
         <details className="relative shrink-0 lg:ml-auto">
           <summary aria-label="Menu phụ, Tài khoản" className="flex min-h-11 cursor-pointer items-center rounded-input border border-border-strong px-3 text-sm font-semibold text-text hover:bg-canvas focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">
