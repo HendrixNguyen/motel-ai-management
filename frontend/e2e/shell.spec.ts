@@ -18,6 +18,7 @@ test("login stores the proxied session and lands on the overview", async ({ page
   await page.getByRole("button", { name: "Đăng nhập", exact: true }).click();
   await expect(page).toHaveURL(`/?motel=${MOTEL.id}`);
   await expect(page.getByRole("heading", { name: "Tổng quan", exact: true })).toBeVisible();
+  await expect.poll(() => page.getByRole("main").evaluate((element) => getComputedStyle(element).animationName)).not.toBe("none");
   expect((await context.cookies()).find((cookie) => cookie.name === "manager_session")?.httpOnly).toBe(true);
 });
 
@@ -100,6 +101,7 @@ test("mobile navigation contains five reachable destinations and a labelled seco
   const nav = page.getByRole("navigation", { name: "Điều hướng chính trên điện thoại" });
   await expect(nav.getByRole("link")).toHaveCount(5);
   await expect(page.getByText("Menu phụ", { exact: true })).toBeVisible();
+  await expect.poll(() => nav.getByRole("link", { name: "Tổng quan", exact: true }).evaluate((element) => getComputedStyle(element).transitionDuration)).not.toBe("0s");
   for (const [name, path] of [["Nhà trọ", "/motels"], ["Phòng trọ", "/rooms"], ["Khách thuê", "/renters"], ["Tổng quan", "/"]]) {
     const link = nav.getByRole("link", { name, exact: true });
     await link.focus();
@@ -110,7 +112,7 @@ test("mobile navigation contains five reachable destinations and a labelled seco
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
 
-test("desktop sidebar is sticky and 240px wide", async ({ page, context }) => {
+test("desktop sidebar is sticky, 240px wide, and main content clears it", async ({ page, context }) => {
   await signIn(context);
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto(`/?motel=${MOTEL.id}`);
@@ -118,4 +120,11 @@ test("desktop sidebar is sticky and 240px wide", async ({ page, context }) => {
   await expect(sidebar).toBeVisible();
   expect(await sidebar.evaluate((element) => ({ width: element.getBoundingClientRect().width, position: getComputedStyle(element).position }))).toEqual({ width: 240, position: "sticky" });
   await expect(sidebar.getByRole("link")).toHaveCount(5);
+  const sidebarRight = await sidebar.evaluate((element) => element.getBoundingClientRect().right);
+  const main = page.getByRole("main");
+  await expect(main).toBeVisible();
+  const mainBox = await main.boundingBox();
+  expect(mainBox).not.toBeNull();
+  expect(mainBox!.x).toBeGreaterThanOrEqual(sidebarRight);
+  expect(await main.evaluate((element) => getComputedStyle(element.parentElement!.parentElement!.parentElement!).display)).toBe("flex");
 });

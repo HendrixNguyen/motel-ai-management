@@ -18,7 +18,7 @@ export function Dialog({ open, onClose, title, description, children, footer, dr
   }, [open]);
 
   return (
-    <dialog ref={ref} data-dialog aria-labelledby={`${id}-title`} aria-describedby={description ? `${id}-description` : undefined}
+    <dialog ref={ref} data-dialog data-motion="dialog" aria-labelledby={`${id}-title`} aria-describedby={description ? `${id}-description` : undefined}
       onKeyDown={(event) => {
         if (event.key !== "Tab") return;
         const dialog = ref.current;

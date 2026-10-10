@@ -24,6 +24,7 @@ for (const [trigger, title] of [["Mở modal", "Sửa phòng"], ["Mở drawer", 
     const dialog = page.getByRole("dialog", { name: title });
     await button.click();
     await expect(dialog).toBeVisible();
+    await expect.poll(() => dialog.evaluate((element) => getComputedStyle(element).animationName)).not.toBe("none");
     for (let i = 0; i < 5; i++) {
       await page.keyboard.press("Tab");
       expect(await dialog.evaluate((element) => element.contains(document.activeElement))).toBe(true);
@@ -105,6 +106,7 @@ test("toast auto-dismisses normal messages and preserves critical errors", async
   await page.getByRole("button", { name: "Thông báo", exact: true }).click();
   const normal = page.getByRole("status", { name: "Đã lưu phòng" });
   await expect(normal).toBeVisible();
+  await expect.poll(() => normal.evaluate((element) => getComputedStyle(element).animationName)).not.toBe("none");
   await expect(normal).toHaveAttribute("aria-atomic", "true");
   await expect(normal).toBeHidden({ timeout: 3500 });
   await page.getByRole("button", { name: "Thông báo lỗi", exact: true }).click();
@@ -190,16 +192,27 @@ test("dialogs and toasts fit and remain interactive across viewport themes", asy
 
 test("mobile table rows and reduced motion stay usable without overflow", async ({ page }) => {
   await page.setViewportSize({ width: 360, height: 667 });
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await page.evaluate(() => { document.documentElement.dataset.theme = "light"; });
   await page.emulateMedia({ reducedMotion: "reduce" });
-  expect(await page.locator("tbody tr").first().evaluate((element) => getComputedStyle(element).display)).toBe("block");
+  await page.getByRole("button", { name: "Mở modal", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Sửa phòng" });
+  await expect.poll(() => dialog.evaluate((element) => getComputedStyle(element).animationName)).toBe("none");
+  await page.keyboard.press("Escape");
+  await page.getByRole("button", { name: "Thông báo", exact: true }).click();
+  await expect.poll(() => page.getByRole("status", { name: "Đã lưu phòng" }).evaluate((element) => getComputedStyle(element).animationName)).toBe("none");
+  await page.getByRole("status", { name: "Đã lưu phòng" }).getByRole("button").click();
   expect(await page.locator('[role="status"] [aria-hidden="true"]').evaluate((element) => getComputedStyle(element).animationName)).toBe("none");
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  expect(await page.locator("tbody tr").first().evaluate((element) => getComputedStyle(element).display)).toBe("block");
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   for (const button of await page.getByRole("button").all()) {
     const rect = await button.boundingBox();
     if (rect) { expect(rect.height).toBeGreaterThanOrEqual(44); expect(rect.width).toBeGreaterThanOrEqual(44); }
   }
   const trigger = page.getByRole("button", { name: "Mở drawer", exact: true });
-  await trigger.focus();
+  await page.keyboard.press("Tab");
+  while (!(await trigger.evaluate((element) => element === document.activeElement))) await page.keyboard.press("Tab");
   expect(await trigger.evaluate((element) => getComputedStyle(element).boxShadow)).not.toBe("none");
   await trigger.click();
   expect(await page.getByRole("dialog").evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
