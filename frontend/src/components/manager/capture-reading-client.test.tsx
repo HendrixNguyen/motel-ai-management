@@ -27,7 +27,7 @@ describe("capture responsive layout", () => {
     const item = reading("electric", "101.00");
     const html = renderToStaticMarkup(createElement(CaptureReadingClient, { motelId: period.motelId, period, reading: item, roomName: "P.101", roomReadings: [item], nextUrl: undefined }));
 
-    expect(html).toContain("w-full min-w-0 max-w-lg");
+    expect(html).toContain('style="width:100%;max-width:min(100%, 32rem)"');
     expect(html).toContain("min-w-0 flex-wrap");
   });
 });
