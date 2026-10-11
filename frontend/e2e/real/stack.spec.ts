@@ -5,14 +5,17 @@ const configErrors = validateLiveQaConfig(process.env);
 const authenticatedErrors = validateLiveQaConfig(process.env, "authenticated");
 const mutationErrors = validateLiveQaConfig(process.env, "mutating");
 
+if (configErrors.length) throw new Error(`Live QA preflight rejected configuration: ${configErrors.join("; ")}`);
+
 test.beforeAll(async ({ request }) => {
-  expect(configErrors, `Live QA preflight rejected configuration: ${configErrors.join("; ")}`).toEqual([]);
+  test.skip(authenticatedErrors.length > 0, `Live QA authenticated preflight rejected configuration: ${authenticatedErrors.join("; ")}`);
   const response = await request.get(`${process.env.E2E_FRONTEND_URL}/api/auth/me`);
   expect(response.status(), "A reachable QA frontend proxy must reject an anonymous identity read").toBe(401);
 });
 
 test("live manager login forwards httpOnly cookie, opens shell and logs out", async ({ page, context }) => {
-  expect(authenticatedErrors, `Live QA authenticated preflight rejected configuration: ${authenticatedErrors.join("; ")}`).toEqual([]);
+  test.skip(authenticatedErrors.length > 0, `Live QA authenticated preflight rejected configuration: ${authenticatedErrors.join("; ")}`);
+  const diagnostics = collectSafeDiagnostics(page);
   await page.goto("/login");
   await signIn(page);
   const cookie = (await context.cookies()).find((entry) => entry.name === "manager_session");
@@ -28,46 +31,32 @@ test("live manager login forwards httpOnly cookie, opens shell and logs out", as
   expect((await page.request.get("/api/auth/me")).status()).toBe(401);
   await page.goto("/renters");
   await expect(page).toHaveURL("/login");
+  expect(diagnostics).toEqual([]);
 });
 
 test.describe("QA UI mutations", () => {
   test.beforeEach(async ({ page }) => {
-    expect(mutationErrors, `Live QA mutation preflight rejected configuration: ${mutationErrors.join("; ")}`).toEqual([]);
+    test.skip(mutationErrors.length > 0, `Live QA mutation preflight rejected configuration: ${mutationErrors.join("; ")}`);
     await page.goto("/login");
     await signIn(page);
     const response = await page.request.get("/api/auth/me");
     const identity = await response.json() as { id?: string };
     expect(identity.id, "Login must match dedicated E2E_QA_MANAGER_ID").toBe(process.env.E2E_QA_MANAGER_ID);
+    const motels = await page.request.get("/api/manager/motels");
+    const motelRows = await motels.json() as Array<{ id: string }>;
+    expect(motelRows.some((motel) => motel.id === process.env.E2E_QA_MOTEL_ID), "Dedicated QA motel must be owned by authenticated QA manager").toBe(true);
   });
 
-  test("creates run-scoped motel, room and renter, then persists after reload", async ({ page }) => {
+  test("creates run-scoped room and renter in dedicated QA motel, then persists after reload", async ({ page }) => {
     const runId = `${new Date().toISOString().replace(/\D/g, "").slice(0, 14)}-${crypto.randomUUID().slice(0, 8)}`;
-    const motelName = `QA Motel ${runId}`;
     const roomName = `QA-${runId}`;
     const renterName = `QA Renter ${runId}`;
     const phone = `849${Math.floor(10000000 + Math.random() * 89999999)}`;
-    const diagnostics: string[] = [];
-    page.on("console", (message) => { if (message.type() === "error") diagnostics.push(redactLiveQaDiagnostic(message.text())); });
-    page.on("pageerror", (error) => diagnostics.push(redactLiveQaDiagnostic(error.message)));
-    page.on("response", (response) => {
-      if (response.url().includes("/api/") && response.status() >= 400) diagnostics.push(redactLiveQaDiagnostic(`${response.request().method()} ${new URL(response.url()).pathname} ${response.status()}`));
-    });
+    const diagnostics = collectSafeDiagnostics(page);
 
-    await page.goto("/motels");
-    await page.getByRole("button", { name: "Tạo nhà trọ", exact: true }).click();
-    const motelDialog = page.getByRole("dialog");
-    await motelDialog.getByLabel("Tên nhà trọ", { exact: true }).fill(motelName);
-    await motelDialog.getByLabel("Giá điện (₫/kWh)", { exact: true }).fill("3500");
-    await motelDialog.getByLabel("Giá nước (₫/m³)", { exact: true }).fill("15000");
-    await motelDialog.getByRole("button", { name: "Tạo nhà trọ", exact: true }).click();
-    await expect(page.getByRole("heading", { name: motelName, exact: true })).toBeVisible();
-    await page.reload();
-    await expect(page.getByRole("heading", { name: motelName, exact: true })).toBeVisible();
-    const motelId = await page.getByRole("banner").getByRole("combobox", { name: "Nhà trọ", exact: true }).locator("option").evaluateAll((options, name) => options.find((option) => option.textContent?.includes(name))?.getAttribute("value"), motelName);
-    expect(motelId).toBeTruthy();
-
-    await page.goto(`/rooms?motel=${encodeURIComponent(motelId!)}`);
-    await expect(page.getByRole("banner").getByRole("combobox", { name: "Nhà trọ", exact: true })).toHaveValue(motelId!);
+    const motelId = process.env.E2E_QA_MOTEL_ID!;
+    await page.goto(`/rooms?motel=${encodeURIComponent(motelId)}`);
+    await expect(page.getByRole("banner").getByRole("combobox", { name: "Nhà trọ", exact: true })).toHaveValue(motelId);
     await page.getByRole("button", { name: "Thêm phòng", exact: true }).click();
     const roomDialog = page.getByRole("dialog");
     await roomDialog.getByLabel("Tên phòng", { exact: true }).fill(roomName);
@@ -78,7 +67,7 @@ test.describe("QA UI mutations", () => {
     await page.reload();
     await expect(page.getByRole("heading", { name: roomName, exact: true })).toBeVisible();
 
-    await page.goto(`/renters?motel=${encodeURIComponent(motelId!)}`);
+    await page.goto(`/renters?motel=${encodeURIComponent(motelId)}`);
     await page.getByRole("button", { name: "Thêm khách thuê", exact: true }).click();
     const renterDialog = page.getByRole("dialog");
     await renterDialog.getByLabel("Họ tên", { exact: true }).fill(renterName);
@@ -91,6 +80,17 @@ test.describe("QA UI mutations", () => {
     expect(diagnostics).toEqual([]);
   });
 });
+
+function collectSafeDiagnostics(page: import("@playwright/test").Page): string[] {
+  const diagnostics: string[] = [];
+  page.on("console", (message) => { if (message.type() === "error") diagnostics.push(redactLiveQaDiagnostic(message.text(), "console")); });
+  page.on("pageerror", (error) => diagnostics.push(redactLiveQaDiagnostic(error.message, "pageerror")));
+  page.on("requestfailed", (request) => diagnostics.push(redactLiveQaDiagnostic(request.url(), "requestfailed")));
+  page.on("response", (response) => {
+    if (response.status() >= 400) diagnostics.push(redactLiveQaDiagnostic(response.url(), "response", response.status(), response.request().method()));
+  });
+  return diagnostics;
+}
 
 async function signIn(page: import("@playwright/test").Page) {
   await page.getByLabel("Email", { exact: true }).fill(process.env.E2E_LOGIN_EMAIL!);

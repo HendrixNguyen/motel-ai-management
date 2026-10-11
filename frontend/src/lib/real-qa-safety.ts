@@ -1,21 +1,13 @@
-export function redactLiveQaDiagnostic(value: string): string {
-  return value
-    .replace(/https?:\/\/[^\s"'<>]+/gi, (candidate) => {
-      try {
-        const url = new URL(candidate);
-        url.username = "";
-        url.password = "";
-        url.pathname = url.pathname.replace(/\/(?:magic|token|signed|proof)[^/\s]*/gi, "/[REDACTED]");
-        for (const key of url.searchParams.keys()) if (/token|key|secret|signature|sig|credential|authorization|phone|email|password/i.test(key)) url.searchParams.set(key, "[REDACTED]");
-        return url.toString();
-      } catch {
-        return "[REDACTED_URL]";
-      }
-    })
-    .replace(/([?&](?:token|key|secret|signature|sig|phone|email|password)=)[^&\s]*/gi, "$1[REDACTED]")
-    .replace(/Bearer\s+[^\s]+/gi, "Bearer [REDACTED]")
-    .replace(/[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}/g, "[REDACTED_EMAIL]")
-    .replace(/\b(?:\+?\d[\d ()-]{7,}\d)\b/g, "[REDACTED_PHONE]");
+export function redactLiveQaDiagnostic(value: string, event: "console" | "pageerror" | "requestfailed" | "response" = "console", status?: number, method?: string): string {
+  if (event === "response") return `response ${method === "GET" || method === "POST" || method === "PUT" || method === "PATCH" || method === "DELETE" ? method : "HTTP"} ${Number.isInteger(status) && status! >= 100 && status! <= 599 ? status : "unknown"}`;
+  return event === "console" ? "console error" : event === "pageerror" ? "page error" : "request failed";
+}
+
+export async function runLiveQaPreflight(env: Record<string, string | undefined>, mode: "anonymous" | "authenticated" | "mutating", request: () => Promise<unknown>): Promise<string[]> {
+  const errors = validateLiveQaConfig(env, mode);
+  if (errors.length) return errors;
+  await request();
+  return [];
 }
 
 export function validateLiveQaConfig(env: Record<string, string | undefined>, mode: "anonymous" | "authenticated" | "mutating" = "anonymous"): string[] {
@@ -23,7 +15,7 @@ export function validateLiveQaConfig(env: Record<string, string | undefined>, mo
   const errors: string[] = [];
   const required = ["E2E_REAL", "E2E_FRONTEND_URL", "E2E_QA_ENVIRONMENT", "E2E_QA_ALLOWED_ORIGINS"];
   if (mode !== "anonymous") required.push("E2E_LOGIN_EMAIL", "E2E_LOGIN_PASSWORD", "E2E_QA_MANAGER_ID");
-  if (mutating) required.push("E2E_QA_MUTATIONS");
+  if (mutating) required.push("E2E_QA_MUTATIONS", "E2E_QA_MOTEL_ID");
   if (mutating && env.E2E_QA_MOTEL_ID && !/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(env.E2E_QA_MOTEL_ID)) errors.push("E2E_QA_MOTEL_ID must be a UUID");
   for (const name of required) if (!env[name]) errors.push(`Set ${name} for the live QA suite`);
   if (env.E2E_REAL !== "1") errors.push("E2E_REAL must equal 1");

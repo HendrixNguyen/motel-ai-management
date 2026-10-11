@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { redactLiveQaDiagnostic, validateLiveQaConfig } from "./real-qa-safety";
+import { redactLiveQaDiagnostic, runLiveQaPreflight, validateLiveQaConfig } from "./real-qa-safety";
 
 const validQaEnv: Record<string, string | undefined> = {
   E2E_REAL: "1",
@@ -51,13 +51,30 @@ describe("live QA safety", () => {
     expect(validateLiveQaConfig({ ...validQaEnv, BACKEND_URL: "https://user:pass@api.qa.example.test" }, "mutating")).toContain("Configured QA URL must be a credential-free HTTPS origin");
   });
 
-  it("redacts credentials embedded in URL path and query signed-link parameters", () => {
-    expect(redactLiveQaDiagnostic("https://qa.test/renter/magic-secret?X-Amz-Credential=abc&X-Amz-Signature=def&Authorization=secret&signature=xyz")).not.toContain("abc");
-    expect(redactLiveQaDiagnostic("https://qa.test/renter/magic-secret?X-Amz-Credential=abc&X-Amz-Signature=def&Authorization=secret&signature=xyz")).not.toContain("magic-secret");
+  it("redacts entire signed links and magic-token paths without retaining URL data", () => {
+    const output = redactLiveQaDiagnostic("request https://qa.test/renter/magic-secret?X-Amz-Credential=abc&X-Amz-Signature=def and https://storage.test/proof/123?phone=%2B84901234567&X-Goog-Signature=xyz");
+    expect(output).not.toContain("qa.test");
+    expect(output).not.toContain("magic-secret");
+    expect(output).not.toContain("abc");
+    expect(output).not.toContain("storage.test");
+    expect(output).not.toContain("+84901234567");
   });
 
-  it("allows motel creation when no existing dedicated motel ID is provided", () => {
-    expect(validateLiveQaConfig({ ...validQaEnv, E2E_QA_MOTEL_ID: undefined }, "mutating")).toEqual([]);
+  it("normalizes live diagnostics to safe event type and response status", () => {
+    expect(redactLiveQaDiagnostic("https://qa.test/api/renter/magic-secret?token=abc", "console")).toBe("console error");
+    expect(redactLiveQaDiagnostic("https://qa.test/api/renter/123?phone=+84901234567", "requestfailed")).toBe("request failed");
+    expect(redactLiveQaDiagnostic("https://qa.test/api/renter/123?phone=+84901234567", "response", 422, "POST")).toBe("response POST 422");
+  });
+
+  it("requires existing motel ID for mutation suite", () => {
+    expect(validateLiveQaConfig({ ...validQaEnv, E2E_QA_MOTEL_ID: undefined }, "mutating")).toContain("Set E2E_QA_MOTEL_ID for the live QA suite");
+  });
+
+  it("does not invoke request callback when preflight config is unsafe", async () => {
+    let requests = 0;
+    const errors = await runLiveQaPreflight({ ...validQaEnv, E2E_QA_MUTATIONS: undefined }, "mutating", async () => { requests += 1; });
+    expect(errors).toContain("Set E2E_QA_MUTATIONS for the live QA suite");
+    expect(requests).toBe(0);
   });
 
   it("rejects malformed dedicated motel IDs before mutation", () => {
@@ -76,7 +93,9 @@ describe("live QA safety", () => {
     expect(validateLiveQaConfig({ ...validQaEnv, E2E_QA_MANAGER_ID: undefined }, "mutating")).toContain("Set E2E_QA_MANAGER_ID for the live QA suite");
   });
 
-  it("redacts tokens, phone numbers, emails and bearer credentials", () => {
-    expect(redactLiveQaDiagnostic("https://qa.test/r?token=abc123&phone=84901234567 qa.person@example.test Bearer sensitive-token")).toBe("https://qa.test/r?token=[REDACTED]&phone=[REDACTED] [REDACTED_EMAIL] Bearer [REDACTED]");
+  it("discards untrusted diagnostics instead of retaining credential-like text", () => {
+    const output = redactLiveQaDiagnostic("https://qa.test/r?token=abc123&phone=+84901234567 qa.person@example.test Bearer sensitive-token", "console");
+    expect(output).toBe("console error");
+    expect(output).not.toMatch(/abc123|84901234567|qa\\.person|sensitive-token/);
   });
 });
