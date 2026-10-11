@@ -22,6 +22,16 @@ function reading(type: MeterReadingResponse["type"], currentReading: string): Me
   return { id: `${type}-1`, roomId: "room-1", type, previousReading: "100.00", currentReading, readingDate: null, updatedAt: "2026-10-01T00:00:00.000Z" };
 }
 
+describe("capture responsive layout", () => {
+  it("keeps capture controls bounded to viewport at mobile widths", () => {
+    const item = reading("electric", "101.00");
+    const html = renderToStaticMarkup(createElement(CaptureReadingClient, { motelId: period.motelId, period, reading: item, roomName: "P.101", roomReadings: [item], nextUrl: undefined }));
+
+    expect(html).toContain("w-full min-w-0 max-w-lg");
+    expect(html).toContain("min-w-0 flex-wrap");
+  });
+});
+
 describe("capture preview rates", () => {
   it("uses electricity and water rates from the billing period DTO", () => {
     const electric = reading("electric", "101.00");
