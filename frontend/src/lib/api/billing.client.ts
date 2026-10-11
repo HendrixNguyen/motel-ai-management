@@ -31,6 +31,7 @@ export function approvePaymentProof(motelId: string, invoiceId: string): Promise
 
 export function rejectPaymentProof(motelId: string, invoiceId: string, reason: string): Promise<PaymentProof> {
   if (!reason.trim()) return Promise.reject(new Error("Vui lòng nhập lý do từ chối."));
+  if (reason.trim().length > 500) return Promise.reject(new Error("Lý do từ chối không được vượt quá 500 ký tự."));
   return apiSend(`${invoicePath(motelId, invoiceId)}/payment-proof/reject`, "POST", { reason: reason.trim() });
 }
 

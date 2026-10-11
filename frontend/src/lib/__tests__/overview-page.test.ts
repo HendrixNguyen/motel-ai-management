@@ -23,7 +23,7 @@ async function markup(params: Record<string, string | string[]> = {}, rooms: Roo
   const motelId = typeof params.motel === "string" ? params.motel : motels[0]?.id;
   const period: BillingPeriodResponse = { id: "period-1", motelId: motelId ?? MOTEL.id, month: 10, year: 2026, status: "draft", createdAt: MOTEL.createdAt };
   const renter: RenterResponse = { id: "renter-1", motelId: motelId ?? MOTEL.id, name: "Nguyễn Văn A", phone: "84901234567", idNumber: null, idCardFrontUrl: null, idCardBackUrl: null, roomId: rooms[0]?.id ?? null, zaloOaId: null, isOaFollower: false, status: "active", createdAt: MOTEL.createdAt };
-  const invoice: InvoiceResponse = { id: "invoice-1", billingPeriodId: period.id, roomId: rooms[0]?.id ?? "room-1", roomName: rooms[0]?.name ?? "P.101", renterId: renter.id, motelId: period.motelId, rentAmount: "3500000", electricityUsage: "0", electricityCost: "0", waterUsage: "0", waterCost: "0", otherFees: [], totalAmount: "3500000", qrCodeData: null, paymentStatus: "unpaid", paidAt: null, createdAt: MOTEL.createdAt };
+  const invoice: InvoiceResponse = { id: "invoice-1", billingPeriodId: period.id, roomId: rooms[0]?.id ?? "room-1", roomName: rooms[0]?.name ?? "P.101", renterId: renter.id, motelId: period.motelId, rentAmount: "3500000", electricityUsage: "0", electricityCost: "0", waterUsage: "0", waterCost: "0", otherFees: [], totalAmount: "3500000", qrCodeData: null, paymentStatus: "unpaid", paymentMethod: null, paidAt: null, createdAt: MOTEL.createdAt };
   const fetchMock = vi.fn(async (url: string) => {
     const { pathname, search } = new URL(url);
     if (pathname === "/api/manager/motels") return Response.json(motels);

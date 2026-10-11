@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/lib/api/client";
 import { approvePaymentProof, confirmInvoiceCash, getManagerPaymentProof, rejectPaymentProof } from "@/lib/api/billing.client";
-import { MANAGER_ID, MOTEL_ID, RENTER_ID } from "./fixtures";
-import type { InvoicePaymentResult, ManagerPaymentProof, PaymentProof } from "@/lib/api/types";
+import { MOTEL_ID, RENTER_ID } from "./fixtures";
+import type { InvoicePaymentResult, InvoiceResponse, ManagerPaymentProof, PaymentProof } from "@/lib/api/types";
 
 const fetchMock = vi.fn();
 globalThis.fetch = fetchMock as typeof fetch;
@@ -12,6 +12,12 @@ function response(body: unknown, status = 200) { return new Response(JSON.string
 beforeEach(() => fetchMock.mockReset());
 
 describe("manager payment review API", () => {
+  it("includes settled payment method in canonical invoice responses", () => {
+    const bankInvoice: InvoiceResponse = { id: "invoice", billingPeriodId: "period", roomId: "room", roomName: "P.101", renterId: "renter", motelId: "motel", rentAmount: "100", electricityUsage: "0", electricityCost: "0", waterUsage: "0", waterCost: "0", otherFees: [], totalAmount: "100", qrCodeData: null, paymentStatus: "paid", paymentMethod: "bank_transfer", paidAt: "2026-10-01T00:00:00.000Z", createdAt: "2026-10-01T00:00:00.000Z" };
+    const cashInvoice: InvoiceResponse = { ...bankInvoice, paymentMethod: "cash" };
+    expect([bankInvoice.paymentMethod, cashInvoice.paymentMethod]).toEqual(["bank_transfer", "cash"]);
+  });
+
   it("reads proof through the selected motel and invoice", async () => {
     const proof: ManagerPaymentProof = { id: "proof", invoiceId: "invoice", renterId: "renter", status: "pending", contentType: "image/jpeg", size: 100, submittedAt: "2026-10-01T00:00:00.000Z", reviewedAt: null, reviewedByManagerId: null, rejectionReason: null, signedUrl: "https://private.invalid/proof" };
     fetchMock.mockResolvedValue(response(proof));
@@ -23,6 +29,17 @@ describe("manager payment review API", () => {
   it("rejects blank reasons before sending", async () => {
     await expect(rejectPaymentProof("motel", "invoice", " \n ")).rejects.toThrow("Vui lòng nhập lý do từ chối.");
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects reasons over 500 characters before sending", async () => {
+    await expect(rejectPaymentProof("motel", "invoice", "x".repeat(501))).rejects.toThrow("Lý do từ chối không được vượt quá 500 ký tự.");
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("allows a trimmed 500-character rejection reason", async () => {
+    fetchMock.mockResolvedValue(response({ id: "proof", invoiceId: "invoice", status: "rejected", rejectionReason: "x".repeat(500) }));
+    await rejectPaymentProof("motel", "invoice", ` ${"x".repeat(500)} `);
+    expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))).toEqual({ reason: "x".repeat(500) });
   });
 
   it("sends distinct approve, reject, and cash actions to manager endpoints", async () => {

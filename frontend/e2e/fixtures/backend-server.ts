@@ -1,13 +1,13 @@
 /** Test-only backend: RSC reads and mutations share typed, per-session state. */
 import { createServer } from "node:http";
 import { fileURLToPath } from "node:url";
-import { MANAGER_AUTH, MANAGER_ME, MOTEL, MOTEL_WITHOUT_EXTRAS, ROOMS, RENTERS, CAPTURE_PERIOD, CAPTURE_PERIOD_DETAIL } from "../../src/lib/api/__tests__/fixtures";
-import type { ApiErrorBody, CreateMotelInput, CreateRenterInput, CreateRoomInput, MotelResponse, RenterDetailResponse, RenterResponse, RoomResponse, UpdateMotelInput, UpdateRenterInput, UpdateRoomInput } from "../../src/lib/api/types";
+import { MANAGER_AUTH, MANAGER_ME, MOTEL, MOTEL_WITHOUT_EXTRAS, ROOMS, RENTERS, CAPTURE_PERIOD, CAPTURE_PERIOD_DETAIL, INVOICE_ID, BILLING_PERIOD_ID, RENTER_ID } from "../../src/lib/api/__tests__/fixtures";
+import type { ApiErrorBody, CreateMotelInput, CreateRenterInput, CreateRoomInput, InvoiceResponse, MotelResponse, RenterDetailResponse, RenterResponse, RoomResponse, UpdateMotelInput, UpdateRenterInput, UpdateRoomInput } from "../../src/lib/api/types";
 
 export function createFixtureBackend(onMissingFixture: (failure: Error) => void = (failure) => {
   queueMicrotask(() => { throw failure; });
 }) {
-  const states = new Map<string, { motels: MotelResponse[]; rooms: RoomResponse[]; renters: RenterResponse[] }>();
+  const states = new Map<string, { motels: MotelResponse[]; rooms: RoomResponse[]; renters: RenterResponse[]; invoices: InvoiceResponse[]; proofs: Map<string, { id: string; invoiceId: string; renterId: string; status: "pending" | "approved" | "rejected"; contentType: "image/jpeg"; size: number; submittedAt: string; reviewedAt: string | null; reviewedByManagerId: string | null; rejectionReason: string | null; signedUrl: string }> }>();
   const signedRenters = new Map<string, string>();
   const magicLinks = new Map([
     ["flow-token", { expiresAt: Date.now() + 24 * 60 * 60 * 1000 }],
@@ -20,6 +20,8 @@ export function createFixtureBackend(onMissingFixture: (failure: Error) => void 
     if (!states.has(session)) states.set(session, {
       motels: session.startsWith("no-motels") ? [] : structuredClone([MOTEL, MOTEL_WITHOUT_EXTRAS]),
       rooms: structuredClone(ROOMS), renters: structuredClone(RENTERS),
+      invoices: session.startsWith("payment-review") ? [{ id: INVOICE_ID, billingPeriodId: BILLING_PERIOD_ID, roomId: ROOMS[0]!.id, roomName: ROOMS[0]!.name, renterId: RENTER_ID, motelId: MOTEL.id, rentAmount: "3500000", electricityUsage: "20.00", electricityCost: "70000", waterUsage: "3.00", waterCost: "45000", otherFees: [], totalAmount: "3615000", qrCodeData: null, paymentStatus: "unpaid", paymentMethod: null, paidAt: null, createdAt: "2026-10-01T00:00:00.000Z" }, { id: "invoice-approve", billingPeriodId: BILLING_PERIOD_ID, roomId: "room-approve", roomName: "P.102", renterId: RENTER_ID, motelId: MOTEL.id, rentAmount: "3500000", electricityUsage: "20.00", electricityCost: "70000", waterUsage: "3.00", waterCost: "45000", otherFees: [], totalAmount: "3615000", qrCodeData: null, paymentStatus: "unpaid", paymentMethod: null, paidAt: null, createdAt: "2026-10-01T00:00:00.000Z" }, { id: "invoice-cash", billingPeriodId: BILLING_PERIOD_ID, roomId: "room-cash", roomName: "P.103", renterId: RENTER_ID, motelId: MOTEL.id, rentAmount: "3500000", electricityUsage: "20.00", electricityCost: "70000", waterUsage: "3.00", waterCost: "45000", otherFees: [], totalAmount: "3615000", qrCodeData: null, paymentStatus: "unpaid", paymentMethod: null, paidAt: null, createdAt: "2026-10-01T00:00:00.000Z" }] : [],
+      proofs: new Map(session.startsWith("payment-review") ? [[INVOICE_ID, { id: "proof-fixture", invoiceId: INVOICE_ID, renterId: RENTER_ID, status: "pending", contentType: "image/jpeg", size: 100, submittedAt: "2026-10-01T00:00:00.000Z", reviewedAt: null, reviewedByManagerId: null, rejectionReason: null, signedUrl: "data:image/jpeg;base64,/9j/2Q==" }], ["invoice-approve", { id: "proof-approve", invoiceId: "invoice-approve", renterId: RENTER_ID, status: "pending", contentType: "image/jpeg", size: 100, submittedAt: "2026-10-01T00:00:00.000Z", reviewedAt: null, reviewedByManagerId: null, rejectionReason: null, signedUrl: "data:image/jpeg;base64,/9j/2Q==" }]] : []),
     });
     return states.get(session)!;
   };
@@ -84,6 +86,35 @@ export function createFixtureBackend(onMissingFixture: (failure: Error) => void 
       const state = stateFor(managerSession);
       if (method === "GET" && path.match(/^\/api\/manager\/motels\/[^/]+\/billing\/periods$/)) return json([CAPTURE_PERIOD]);
       if (method === "GET" && path.match(/^\/api\/manager\/motels\/[^/]+\/billing\/periods\/[^/]+$/)) return json(managerSession === "sent-capture" ? { ...CAPTURE_PERIOD_DETAIL, status: "sent" } : CAPTURE_PERIOD_DETAIL);
+      const invoiceList = /^\/api\/manager\/motels\/([^/]+)\/billing\/periods\/([^/]+)\/invoices$/.exec(path);
+      if (method === "GET" && invoiceList) return json(state.invoices.filter((invoice) => invoice.motelId === invoiceList[1] && invoice.billingPeriodId === invoiceList[2]));
+      const paymentRoute = /^\/api\/manager\/motels\/([^/]+)\/billing\/invoices\/([^/]+)\/(payment-proof(?:\/(?:approve|reject))?|cash-confirmation)$/.exec(path);
+      if (paymentRoute) {
+        const [, motelId, invoiceId, action] = paymentRoute;
+        if (!motelId || !invoiceId || !action) return error(404, "NOT_FOUND", "Không tìm thấy hóa đơn");
+        const invoice = state.invoices.find((item) => item.id === invoiceId && item.motelId === motelId);
+        if (!invoice) return error(404, "NOT_FOUND", "Không tìm thấy hóa đơn");
+        const proof = state.proofs.get(invoiceId);
+        if (method === "GET" && action === "payment-proof") return json(proof ?? null);
+        if (method === "POST" && action === "payment-proof/reject") {
+          const body = await input<{ reason: string }>();
+          const reason = body.reason.trim();
+          if (!reason || reason.length > 500) return error(400, "VALIDATION_ERROR", "Lý do từ chối phải dài từ 1 đến 500 ký tự");
+          if (!proof || proof.status !== "pending") return error(409, "CONFLICT", "Không có chứng từ chờ duyệt");
+          proof.status = "rejected"; proof.rejectionReason = reason; proof.reviewedAt = new Date().toISOString(); proof.reviewedByManagerId = MANAGER_ME.id;
+          return json({ id: proof.id, invoiceId, status: proof.status, rejectionReason: reason });
+        }
+        if (method === "POST" && action === "payment-proof/approve") {
+          if (!proof || proof.status !== "pending") return error(409, "CONFLICT", "Không có chứng từ chờ duyệt");
+          proof.status = "approved"; proof.reviewedAt = new Date().toISOString(); proof.reviewedByManagerId = MANAGER_ME.id;
+          invoice.paymentStatus = "paid"; invoice.paymentMethod = "bank_transfer"; invoice.paidAt = proof.reviewedAt;
+          return json({ invoiceId, paymentStatus: "paid", paidAt: invoice.paidAt, paymentMethod: "bank_transfer" });
+        }
+        if (method === "POST" && action === "cash-confirmation") {
+          invoice.paymentStatus = "paid"; invoice.paymentMethod = "cash"; invoice.paidAt = new Date().toISOString();
+          return json({ invoiceId, paymentStatus: "paid", paidAt: invoice.paidAt, paymentMethod: "cash" });
+        }
+      }
       if (method === "GET" && path.match(/^\/api\/manager\/motels\/[^/]+\/billing\/periods\/[^/]+\/invoices$/)) return json([]);
       if (method === "PUT" && path.match(/^\/api\/manager\/motels\/[^/]+\/billing\/periods\/[^/]+\/readings$/)) return json({ ok: true });
       if (path === "/api/manager/motels") {
