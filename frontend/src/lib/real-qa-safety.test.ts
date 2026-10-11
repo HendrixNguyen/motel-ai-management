@@ -77,6 +77,13 @@ describe("live QA safety", () => {
     expect(requests).toBe(0);
   });
 
+  it("allows anonymous preflight when only authenticated config is missing", async () => {
+    let requests = 0;
+    const errors = await runLiveQaPreflight({ ...validQaEnv, E2E_LOGIN_EMAIL: undefined, E2E_LOGIN_PASSWORD: undefined, E2E_QA_MANAGER_ID: undefined }, "anonymous", async () => { requests += 1; });
+    expect(errors).toEqual([]);
+    expect(requests).toBe(1);
+  });
+
   it("rejects malformed dedicated motel IDs before mutation", () => {
     expect(validateLiveQaConfig({ ...validQaEnv, E2E_QA_MOTEL_ID: "not-a-uuid" }, "mutating")).toContain("E2E_QA_MOTEL_ID must be a UUID");
   });
