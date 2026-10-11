@@ -32,7 +32,7 @@ export const paymentProofs = pgTable(
     uniqueIndex("payment_proofs_object_key_uq").on(t.objectKey),
     uniqueIndex("payment_proofs_current_invoice_uq").on(t.invoiceId).where(sql`${t.status} <> 'rejected'`),
     check("payment_proofs_content_type_check", sql`${t.contentType} in ('image/jpeg', 'image/png')`),
-    check("payment_proofs_size_check", sql`${t.size} between 1 and 10485760`),
+    check("payment_proofs_size_check", sql`${t.size} between 1 and 5000000`),
     check("payment_proofs_checksum_check", sql`length(trim(${t.checksum})) > 0`),
      check("payment_proofs_review_state_check", sql`(${t.status} = 'pending' and ${t.reviewedAt} is null and ${t.reviewedByManagerId} is null and ${t.rejectionReason} is null) or (${t.status} = 'approved' and ${t.reviewedAt} is not null and ${t.reviewedByManagerId} is not null and ${t.rejectionReason} is null) or (${t.status} = 'rejected' and ${t.reviewedAt} is not null and ${t.reviewedByManagerId} is not null and ${t.rejectionReason} is not null and length(trim(${t.rejectionReason})) between 1 and 500)`),
 

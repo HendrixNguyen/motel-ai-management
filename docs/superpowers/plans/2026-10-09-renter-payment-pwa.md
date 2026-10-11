@@ -14,7 +14,7 @@
 - Money remains digit strings; invoice totals remain billing snapshots.
 - Tenant scope comes from auth session only. Cross-tenant access is `404`.
 - Renter and manager cookies/plugins remain separate.
-- Proof image is one current JPEG/PNG, maximum 10 MB, byte-validated, private, opaque object key, short-lived signed reads. Pending/approved blocks replacement; rejected proof stays audit history and allows one new current proof.
+- Proof image is one current JPEG/PNG, maximum 5,000,000 bytes (5 MB), byte-validated, private, opaque object key, short-lived signed reads. Pending/approved blocks replacement; rejected proof stays audit history and allows one new current proof.
 - Approval/rejection/cash transitions are manager-only, idempotent, and auditable.
 - Notification means outbound event; channel means transport. Web Push is primary after activation; ZNS/ZBS is fallback. SMS is excluded unless separately documented. Events are committed after domain state, idempotent, bounded, and redacted; queued/sent/failed are distinct.
 - Browser uses relative `/api/*`; no client-visible provider credentials or `BACKEND_URL`.

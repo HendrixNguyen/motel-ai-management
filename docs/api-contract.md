@@ -283,7 +283,7 @@ Renter responses never permit payment mutation.
 
 ### Live: renter payment proof — `/api/renter/invoices/:invoiceId/payment-proof`
 
-**Live contract.** Payment proof is one private JPEG or PNG image, at most 10 MB. Upload bytes are validated before metadata commit; object keys never cross HTTP. Invoice payment state remains manager-controlled.
+**Live contract.** Payment proof is one private JPEG or PNG image, at most 5,000,000 bytes (5 MB). Upload bytes are validated before metadata commit; object keys never cross HTTP. Invoice payment state remains manager-controlled.
 
 | Method | Path | Body | Exact response / errors |
 | --- | --- | --- | --- |
@@ -292,7 +292,7 @@ Renter responses never permit payment mutation.
 | POST | `/api/renter/push-subscriptions` | `{endpoint,p256dh,auth}` | **Planned route.** `201 {id,createdAt}` or `200 {id,createdAt}` for idempotent upsert; subscription credentials are never echoed |
 | DELETE | `/api/renter/push-subscriptions/:subscriptionId` | — | **Planned route.** `204`; only owner may revoke |
 
-Proof upload returns `400 VALIDATION_ERROR` for missing/multiple files, unsupported declared MIME, invalid JPEG/PNG bytes, or size over 10 MB; `401 UNAUTHORIZED` for missing/expired renter session; `404 NOT_FOUND` for foreign/missing invoice; `409 CONFLICT` for paid invoice, inaccessible period, or existing `pending`/`approved` proof; `429 RATE_LIMITED` for mutation rate limits; `502 EXTERNAL_SERVICE_ERROR` for storage failure. A rejected proof remains immutable history and may be replaced by one new POST after explicit state validation; the database allows only one non-rejected proof per invoice.
+Proof upload returns `400 VALIDATION_ERROR` for missing/multiple files, unsupported declared MIME, invalid JPEG/PNG bytes, or size over 5,000,000 bytes; `401 UNAUTHORIZED` for missing/expired renter session; `404 NOT_FOUND` for foreign/missing invoice; `409 CONFLICT` for paid invoice, inaccessible period, or existing `pending`/`approved` proof; `429 RATE_LIMITED` for mutation rate limits; `502 EXTERNAL_SERVICE_ERROR` for storage failure. A rejected proof remains immutable history and may be replaced by one new POST after explicit state validation; the database allows only one non-rejected proof per invoice.
 
 ### Live: manager payment review — `/api/manager/motels/:motelId/billing/invoices/:invoiceId`
 

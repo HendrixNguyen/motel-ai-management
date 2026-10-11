@@ -56,7 +56,7 @@ All renter routes derive renter and motel from `renter_session`; all manager rou
 - `GET /api/renter/me` — existing profile/room response.
 - `GET /api/renter/billing/periods` — existing scoped period list.
 - `GET /api/renter/invoices/:invoiceId` — existing scoped invoice detail including bank account and QR payload.
-- `POST /api/renter/invoices/:invoiceId/payment-proof` — multipart single image, JPEG/PNG only, max 10 MB; returns proof metadata and `pending` state. Reject if invoice is paid, proof is pending/approved, period is inaccessible, or file fails content/MIME/size checks.
+- `POST /api/renter/invoices/:invoiceId/payment-proof` — multipart single image, JPEG/PNG only, maximum 5,000,000 bytes (5 MB); returns proof metadata and `pending` state. Reject if invoice is paid, proof is pending/approved, period is inaccessible, or file fails content/MIME/size checks.
 - `GET /api/renter/invoices/:invoiceId/payment-proof` — returns current proof status and a short-lived signed URL only when caller owns invoice.
 - `DELETE /api/renter/invoices/:invoiceId/payment-proof` — omit from MVP unless replacement UX requires it; rejected proof replacement is preferred through a new POST after explicit state validation.
 - `POST /api/renter/push-subscriptions` — planned route: validate endpoint and Web Push keys; upsert own subscription.
@@ -90,7 +90,7 @@ Exact response/error bodies must be added to `docs/api-contract.md` before imple
 - Separate renter and manager auth middleware/plugins and cookies.
 - Every query scopes by session-derived renter/motel or manager-owned motel; never trust `renterId`, `motelId`, or `managerId` from body.
 - Cross-tenant invoice, proof, subscription, and signed-image requests return `404`.
-- Validate upload bytes, not only filename/declaration; stream-limit before buffering; apply 5 MB default per-file limit with payment-proof override of 10 MB; JPEG/PNG only; opaque server keys; private bucket; short signed URL TTL.
+- Validate upload bytes, not only filename/declaration; stream-limit before buffering; apply 5 MB default per-file limit to payment proof; JPEG/PNG only; opaque server keys; private bucket; short signed URL TTL.
 - Never log or return magic tokens, push private keys, object keys, signed URLs beyond intended response, provider credentials, or raw notification payload secrets.
 - Rate-limit magic-link issue/exchange, proof submission, and push subscription mutation.
 - CSP/service-worker scope limited to renter PWA; never cache authenticated API responses, invoice data, or signed URLs.

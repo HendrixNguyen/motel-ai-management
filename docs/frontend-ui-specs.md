@@ -469,7 +469,7 @@ Payment block:
 - Transfer description shown verbatim, with a copy button
 - Instruction: open your banking app and scan, or transfer manually with the exact
   description so the manager can match it
-- Payment proof: one current JPEG/PNG image, maximum 10 MB, with states **Đang chờ duyệt**, **Đã duyệt**, and **Bị từ chối**. Rejected proof remains visible as history, shows safe manager reason, and allows one replacement current proof; pending/approved and paid invoices disable upload.
+- Payment proof: one current JPEG/PNG image, maximum 5,000,000 bytes (5 MB), with states **Đang chờ duyệt**, **Đã duyệt**, and **Bị từ chối**. Rejected proof remains visible as history, shows safe manager reason, and allows one replacement current proof; pending/approved and paid invoices disable upload.
 - Renter has no **Đã thanh toán** action. Payment becomes paid only after manager bank-proof approval or explicit cash confirmation.
 
 If `motel.bankAccount` is null the payment block is replaced by "Chưa cập nhật thông tin

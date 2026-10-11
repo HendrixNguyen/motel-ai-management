@@ -85,7 +85,7 @@ The first production release uses one backend replica because the current proces
 | Magic-link issue/exchange | 5 / hour; 1 active issue cooldown | manager/renter + IP |
 | OTP request | 1 / 5 min; 5 / hour | contract + renter + IP |
 | OTP verify | 3 attempts / challenge | challenge + renter |
-| Payment-proof upload | 5 / hour; 10 MB body ceiling | renter + invoice + IP |
+| Payment-proof upload | 5 / hour; 5,000,000-byte body ceiling | renter + invoice + IP |
 | Push subscribe/revoke | 20 / hour | renter + IP |
 | Webhook | provider-appropriate burst limit | IP/provider signature |
 
@@ -98,12 +98,12 @@ Limits are enforced before expensive storage/provider work and emit metrics with
 1. Renter exchanges magic link and receives `renter_session`.
 2. Portal reads invoice, itemized amounts, VietQR payload, payment status, and current proof state.
 3. Renter uploads exactly one JPEG or PNG through `POST /api/renter/invoices/:invoiceId/payment-proof`.
-4. Backend authenticates renter, verifies invoice ownership and payable state, validates multipart count, declared MIME, magic bytes, decoded size, and 10 MB maximum before committing metadata.
+4. Backend authenticates renter, verifies invoice ownership and payable state, validates multipart count, declared MIME, magic bytes, decoded size, and 5,000,000-byte maximum before committing metadata.
 5. Backend writes private object and `payment_proofs` metadata in a transactionally safe sequence. Orphan cleanup is required if metadata commit fails.
 6. Response returns proof metadata only; never object key or reusable URL. Renter can request a 300-second signed read only when authorized.
 7. PWA shows pending state, preserves safe retry state, and never treats upload success as payment success.
 
-A pending or approved proof blocks replacement. A rejected proof remains immutable history and permits one replacement current proof. Database constraints remain authoritative: one non-rejected proof per invoice, JPEG/PNG content type, 1–10 MB size, and review-state consistency.
+A pending or approved proof blocks replacement. A rejected proof remains immutable history and permits one replacement current proof. Database constraints remain authoritative: one non-rejected proof per invoice, JPEG/PNG content type, 1–5,000,000-byte size, and review-state consistency.
 
 ### Manager review and cash
 
@@ -142,7 +142,7 @@ All uploads pass through backend and private storage adapter. Enforce:
 
 - request body and multipart part limits before buffering;
 - declared MIME plus magic-byte validation; decode/re-encode or virus scanning when provider/runtime permits;
-- resource-specific count and size rules: payment proof exactly one JPEG/PNG up to 10 MB; meter photo one JPEG/PNG up to 10 MB; ticket up to five JPEG/PNG up to 10 MB; contract proof 1–3 PDF/JPEG/PNG up to 10 MB each;
+- resource-specific count and size rules: payment proof exactly one JPEG/PNG up to 5,000,000 bytes (5 MB); meter photo one JPEG/PNG up to 10 MB; ticket up to five JPEG/PNG up to 10 MB; contract proof 1–3 PDF/JPEG/PNG up to 10 MB each;
 - opaque server-generated keys scoped by motel and resource; no user-controlled path traversal or extension trust;
 - checksum and content type metadata; no public bucket/object ACL;
 - authorization before signed URL issuance, 300-second default TTL, and no signed URL in service worker caches;
