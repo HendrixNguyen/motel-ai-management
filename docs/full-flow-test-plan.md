@@ -3,7 +3,7 @@
 - **Date:** 2026-10-08
 - **Status:** Task 9 delivery gate; fixture E2E audit update
 - **Owner:** QA/engineering
-- **Scope:** Implemented manager login → magic-link exchange → renter portal read flow, recovery states, and responsive keyboard checks; remaining payment-proof/provider flows stay blocked until routes exist
+- **Scope:** Implemented renter proof upload/status APIs and UI plus manager proof-review/cash APIs; end-to-end payment flow remains unverified because manager review UI is missing and existing paid action calls a retired route.
 
 ## Exit rule
 
@@ -73,8 +73,8 @@ Release is green only when all required backend files, frontend unit tests, fixt
 3. Reuse token; reject with `MAGIC_LINK_EXPIRED`.
 4. Expired token/session; show safe recovery state.
 5. Renter sees only own profile, room, periods, invoices, itemized amounts, QR, and payment status.
-6. **Blocked gap:** no implemented payment-proof upload route exists, so no E2E test is added for proof upload, validation, replacement, or approval.
-7. **Blocked gap:** no implemented cash-confirmation route exists, so no E2E test is added for cash payment or renter paid-mutation denial.
+6. Renter payment-proof upload and own-proof status routes/UI are implemented; backend route/service behavior and renter upload/status interactions still need focused tests.
+7. Manager proof read/approve/reject and cash-confirmation APIs are implemented, but manager review UI and focused endpoint tests are missing. Existing generic paid action still calls `PATCH /manager/motels/:motelId/billing/invoices/:invoiceId/paid`, which is documented to return `410 GONE`; payment flow remains blocked end-to-end until manager UI replaces that caller and browser coverage passes.
 8. Renter portal read remains covered by fixture E2E: profile, billing period, invoice summary/detail, QR payload, and payment status.
 9. Renter B requests Renter A invoice/proof/subscription; response is `404` with no data leak.
 10. Register/revoke own push subscription; test push success, denied permission, permanent failure, bounded retry, and ZNS/ZBS fallback without secret leakage; SMS is not exercised in MVP.
@@ -172,7 +172,7 @@ Add:
 - `e2e/zalo-failure.spec.ts`: disabled/deferred states, retry/error banners, no secret text.
 - `e2e/full-flow.spec.ts`: manager login → one-time magic-link exchange → portal read, fixture-level replay/unknown-token/expired recovery, renter session rejection, 430px overflow, keyboard submission, and UI-only OTP/ticket journeys. These browser checks do not prove DB atomicity or backend OTP attempt/expiry semantics.
 - Backend atomic replay/expiry proof: `backend/src/test/renter-auth.test.ts` covers consumed replay, unknown token, concurrent exchanges, and expired rows; `backend/src/test/isolation.test.ts` covers route-level replay. Run these against PostgreSQL separately.
-- Payment-proof upload, approval, and cash-confirmation E2E remain blocked because corresponding product routes are not implemented.
+- Payment-proof upload/status APIs and renter UI exist; manager proof read/approve/reject and cash-confirmation APIs exist, but manager review UI is missing. The existing generic paid UI action calls the retired `PATCH /manager/motels/:motelId/billing/invoices/:invoiceId/paid` route (`410 GONE`). Payment-proof, manager review, and cash-confirmation end-to-end coverage remains blocked until UI is complete and real interactions pass.
 
 Run:
 
