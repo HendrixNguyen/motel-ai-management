@@ -5,10 +5,8 @@ const configErrors = validateLiveQaConfig(process.env);
 const authenticatedErrors = validateLiveQaConfig(process.env, "authenticated");
 const mutationErrors = validateLiveQaConfig(process.env, "mutating");
 
-if (configErrors.length) throw new Error(`Live QA preflight rejected configuration: ${configErrors.join("; ")}`);
-
 test.beforeAll(async ({ request }) => {
-  test.skip(configErrors.length > 0, `Live QA preflight rejected configuration: ${configErrors.join("; ")}`);
+  expect(configErrors, `Live QA preflight rejected configuration: ${configErrors.join("; ")}`).toEqual([]);
   const response = await request.get(`${process.env.E2E_FRONTEND_URL}/api/auth/me`);
   expect(response.status(), "A reachable QA frontend proxy must reject an anonymous identity read").toBe(401);
 });

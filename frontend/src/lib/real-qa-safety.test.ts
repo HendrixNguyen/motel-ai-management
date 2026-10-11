@@ -84,6 +84,13 @@ describe("live QA safety", () => {
     expect(requests).toBe(1);
   });
 
+  it("keeps fixture imports safe while live preflight rejects missing configuration before requests", async () => {
+    let requests = 0;
+    const errors = await runLiveQaPreflight({}, "anonymous", async () => { requests += 1; });
+    expect(errors).not.toEqual([]);
+    expect(requests).toBe(0);
+  });
+
   it("rejects malformed dedicated motel IDs before mutation", () => {
     expect(validateLiveQaConfig({ ...validQaEnv, E2E_QA_MOTEL_ID: "not-a-uuid" }, "mutating")).toContain("E2E_QA_MOTEL_ID must be a UUID");
   });
