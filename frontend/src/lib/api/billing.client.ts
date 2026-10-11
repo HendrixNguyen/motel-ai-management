@@ -1,5 +1,5 @@
-import { apiSend } from "./client";
-import type { BillingPeriodDetailResponse, BillingPeriodResponse, InvoiceGenerationResponse, InvoiceResponse, UpdateReadingsInput } from "./types";
+import { apiGet, apiSend } from "./client";
+import type { BillingPeriodDetailResponse, BillingPeriodResponse, InvoiceGenerationResponse, InvoicePaymentResult, InvoiceResponse, ManagerPaymentProof, PaymentProof, UpdateReadingsInput } from "./types";
 
 const periodsPath = (motelId: string) => `/api/manager/motels/${encodeURIComponent(motelId)}/billing/periods`;
 
@@ -19,8 +19,23 @@ export function finalizeBillingPeriod(motelId: string, periodId: string): Promis
   return apiSend(`${periodsPath(motelId)}/${encodeURIComponent(periodId)}/send`, "POST");
 }
 
-export function markInvoicePaid(motelId: string, invoiceId: string): Promise<InvoiceResponse> {
-  return apiSend(`/api/manager/motels/${encodeURIComponent(motelId)}/billing/invoices/${encodeURIComponent(invoiceId)}/paid`, "PATCH");
+const invoicePath = (motelId: string, invoiceId: string) => `/api/manager/motels/${encodeURIComponent(motelId)}/billing/invoices/${encodeURIComponent(invoiceId)}`;
+
+export function getManagerPaymentProof(motelId: string, invoiceId: string): Promise<ManagerPaymentProof | null> {
+  return apiGet(`${invoicePath(motelId, invoiceId)}/payment-proof`);
+}
+
+export function approvePaymentProof(motelId: string, invoiceId: string): Promise<InvoicePaymentResult> {
+  return apiSend(`${invoicePath(motelId, invoiceId)}/payment-proof/approve`, "POST");
+}
+
+export function rejectPaymentProof(motelId: string, invoiceId: string, reason: string): Promise<PaymentProof> {
+  if (!reason.trim()) return Promise.reject(new Error("Vui lòng nhập lý do từ chối."));
+  return apiSend(`${invoicePath(motelId, invoiceId)}/payment-proof/reject`, "POST", { reason: reason.trim() });
+}
+
+export function confirmInvoiceCash(motelId: string, invoiceId: string): Promise<InvoicePaymentResult> {
+  return apiSend(`${invoicePath(motelId, invoiceId)}/cash-confirmation`, "POST");
 }
 
 export function markInvoiceOverdue(motelId: string, invoiceId: string): Promise<InvoiceResponse> {
