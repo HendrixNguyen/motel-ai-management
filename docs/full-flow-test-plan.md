@@ -1,9 +1,9 @@
 # Full-Flow Verification Plan
 
 - **Date:** 2026-10-08
-- **Status:** Task 9 delivery gate; fixture E2E audit update
+- **Status:** Task 9 delivery gate; Task 5 QA report partial/blocked; fixture E2E audit update
 - **Owner:** QA/engineering
-- **Scope:** Implemented manager login → magic-link exchange → renter portal read flow, recovery states, and responsive keyboard checks; remaining payment-proof/provider flows stay blocked until routes exist
+- **Scope:** Implemented manager login → magic-link exchange → renter portal read flow, recovery states, and responsive keyboard checks; contract create/send UI audit records absent controls as blocked; billing/payment journey remains skipped because safe UI setup and QA credentials are unavailable. No live QA journey claimed.
 
 ## Exit rule
 
