@@ -1,5 +1,9 @@
 # Task 5 report
 
+- **Status:** Partial / blocked
+- **Scope boundary:** Task 5 review findings only; not full live QA journey.
+- **Blockers:** Contract create/send controls absent. Billing/payment journey remains skipped: no safe UI setup or QA credentials available. No live QA config or network used.
+
 ## Scope
 
 Implemented Core UI v2 form, money/date, select/textarea, upload, preview, error summary, and action-bar primitives.
@@ -18,6 +22,8 @@ Implemented Core UI v2 form, money/date, select/textarea, upload, preview, error
 
 ## Review fixes
 
+- `frontend/e2e/real/core-flow.spec.ts` asserts zero contract create/send buttons and adds a static `blocked` annotation; absence is not a passing contract/payment journey.
+- Billing/payment journey stays explicitly skipped because no safe UI setup or confirmed QA credentials/isolation are available. Suite remains gated by `E2E_REAL=1` and validated QA config; no live QA config/network or data writes used.
 - Invalid VND input now rejects without arbitrary character stripping.
 - FileUpload exposes `onRetry`, forwards `files`, and renders linked validation errors.
 - DateField accepts only valid `YYYY-MM-DD` calendar dates.

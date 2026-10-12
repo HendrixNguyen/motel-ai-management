@@ -1,9 +1,9 @@
 # Full-Flow Verification Plan
 
-- **Date:** 2026-10-11
-- **Status:** Local renter and manager payment UI implemented; live QA journey gated on dedicated QA credentials/config
+- **Date:** 2026-10-08
+- **Status:** Task 9 delivery gate; Task 5 QA report partial/blocked; fixture E2E audit update
 - **Owner:** QA/engineering
-- **Scope:** Renter proof upload/status UI and manager proof-review/approve/reject/cash UI are implemented. Fixture tests cover interactions; persisted full billing/payment journey remains unverified until live QA run succeeds.
+- **Scope:** Implemented manager login → magic-link exchange → renter portal read flow, recovery states, and responsive keyboard checks; contract create/send UI audit records absent controls as blocked; billing/payment journey remains skipped because safe UI setup and QA credentials are unavailable. No live QA journey claimed.
 
 ## Exit rule
 
@@ -16,7 +16,7 @@ Release is green only when all required backend files, frontend unit tests, fixt
 | Local PostgreSQL | Backend integration and constraints | Disposable `TEST_DATABASE_URL`; reset before each file |
 | Fixture browser | Deterministic UI and mobile flows | Mock API + fixture backend server |
 | Real stack | Deployment smoke and cross-service flow | QA Dokploy, gated by `E2E_REAL=1` |
-| Provider sandbox | Private storage and notification adapter checks | Explicit credentials only; no production sends; Web Push primary with configured provider fallback; SMS excluded unless separately scoped |
+| Provider sandbox | Private storage and notification adapter checks | Explicit credentials only; no production sends; Web Push primary with configured ZNS/ZBS fallback; SMS excluded unless separately scoped |
 
 ## Seed personas
 
@@ -26,7 +26,7 @@ Release is green only when all required backend files, frontend unit tests, fixt
 - Renter B belongs to Motel B and Room B-101.
 - One draft contract, one active contract, one expired contract.
 - One draft billing period, one sent period, one invoice per payment state.
-- Renter with push permission granted and denied; configured notification-provider fallback state. SMS is not exercised in MVP.
+- Renter with push permission granted and denied; configured ZNS/ZBS fallback state. SMS is not exercised in MVP.
 
 ## Required full flow
 
@@ -63,7 +63,7 @@ Release is green only when all required backend files, frontend unit tests, fixt
 7. Submit lower-than-previous reading; reject without partial writes.
 8. Generate invoices; verify rent, utility math, fees, VND strings, and QR payload.
 9. Re-run generation; verify stable invoice IDs and payment state.
-10. Chốt kỳ; verify sent period/readings are read-only and no unsupported notification claim appears.
+10. Chốt kỳ; verify sent period/readings are read-only and no Zalo claim appears.
 11. Mark paid/overdue; verify idempotency and immutable invoice amounts.
 
 ### Flow 4 — Renter activation, payment proof, and portal
@@ -73,17 +73,16 @@ Release is green only when all required backend files, frontend unit tests, fixt
 3. Reuse token; reject with `MAGIC_LINK_EXPIRED`.
 4. Expired token/session; show safe recovery state.
 5. Renter sees only own profile, room, periods, invoices, itemized amounts, QR, and payment status.
-6. Renter payment-proof upload/status UI accepts one JPG/PNG up to 5,000,000 bytes; fixture E2E checks upload boundary copy and portal flow.
-7. Manager invoice UI reads proofs and exposes distinct reject-with-reason, approve, and cash-confirm actions; fixture E2E covers separate actions and status feedback. The legacy generic paid API route remains retired and must not be used for payment.
-8. Live QA browser spec (`frontend/e2e/real/core-flow.spec.ts`) includes a no-write assertion that stops at unsupported contract create/send UI before setup mutations. Planned later assertions cover a run-scoped room, renter, billing period, readings, invoice, renter portal, and rejected-proof replacement; they remain unreachable until contract UI is supported. Approval and cash branches on distinct invoices are not yet implemented. Do not reuse invoices or reset/clean historical records. Live execution remains blocked until QA URL, allowlist, environment label, dedicated credentials/manager/motel IDs, mutation confirmation, and full branch setup are available.
-9. Renter portal read remains covered by fixture E2E: profile, billing period, invoice summary/detail, QR payload, and payment status.
-10. Renter B requests Renter A invoice/proof/subscription; response is `404` with no data leak.
-11. Register/revoke own push subscription; test push success, denied permission, permanent failure, bounded retry, and notification-provider fallback without secret leakage; SMS is not exercised in MVP.
+6. **Blocked gap:** no implemented payment-proof upload route exists, so no E2E test is added for proof upload, validation, replacement, or approval.
+7. **Blocked gap:** no implemented cash-confirmation route exists, so no E2E test is added for cash payment or renter paid-mutation denial.
+8. Renter portal read remains covered by fixture E2E: profile, billing period, invoice summary/detail, QR payload, and payment status.
+9. Renter B requests Renter A invoice/proof/subscription; response is `404` with no data leak.
+10. Register/revoke own push subscription; test push success, denied permission, permanent failure, bounded retry, and ZNS/ZBS fallback without secret leakage; SMS is not exercised in MVP.
 11. Responsive checks at 360px, 375px, 430px and keyboard-only navigation.
 
 ### Flow 5 — OTP signing
 
-1. Request OTP through configured fake notification provider.
+1. Request OTP through configured fake Zalo sender.
 2. Verify response never contains OTP.
 3. Confirm database stores hash only.
 4. Reject wrong OTP and persist attempts.
@@ -99,14 +98,14 @@ Release is green only when all required backend files, frontend unit tests, fixt
 2. Upload 0–5 valid private images; reject sixth, oversized, wrong MIME, and bad magic bytes.
 3. List own tickets; verify manager-only note is absent.
 4. Cross-renter read returns `404`/empty scoped result.
-5. Ticket creation remains available when notification delivery fails; the failure is auditable.
+5. Ticket creation remains available when Zalo delivery fails; notification failure is auditable.
 
 ### Flow 7 — Notification delivery
 
-1. Deliver activation through configured notification provider or manager-generated manual link/QR fallback.
+1. Deliver activation through configured ZNS/ZBS or manager-generated manual link/QR fallback.
 2. Attempt Web Push first for activated renter payment events; persist event/provider ID/status.
 3. Permission denial or invalid endpoint does not block portal use.
-4. Permanent push failure deactivates subscription and queues configured notification-provider fallback. SMS is out of MVP scope.
+4. Permanent push failure deactivates subscription and queues configured ZNS/ZBS fallback. SMS is out of MVP scope.
 5. Transient provider error retries at most three times with bounded backoff.
 6. Duplicate event key sends once; payloads are redacted.
 7. Logs and database contain no OTP plaintext, access token, push credentials, signed URL, object key, or secret.
@@ -173,7 +172,7 @@ Add:
 - `e2e/zalo-failure.spec.ts`: disabled/deferred states, retry/error banners, no secret text.
 - `e2e/full-flow.spec.ts`: manager login → one-time magic-link exchange → portal read, fixture-level replay/unknown-token/expired recovery, renter session rejection, 430px overflow, keyboard submission, and UI-only OTP/ticket journeys. These browser checks do not prove DB atomicity or backend OTP attempt/expiry semantics.
 - Backend atomic replay/expiry proof: `backend/src/test/renter-auth.test.ts` covers consumed replay, unknown token, concurrent exchanges, and expired rows; `backend/src/test/isolation.test.ts` covers route-level replay. Run these against PostgreSQL separately.
-- Renter proof upload/status and manager proof review/approve/reject/cash UI exist; fixture-backed browser tests cover local interactions. The generic paid API route remains retired (`410 GONE`) and is not part of UI flow. Persisted full-stack behavior is not verified until gated real QA journey runs with dedicated config; never infer live success from fixtures or collection-only checks.
+- Payment-proof upload, approval, and cash-confirmation E2E remain blocked because corresponding product routes are not implemented.
 
 Run:
 
