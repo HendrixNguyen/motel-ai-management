@@ -14,6 +14,12 @@ test.describe("offline meter capture", () => {
     await expect(page.getByRole("heading", { name: /Nhập chỉ số/ })).toContainText("10/2026");
     await expect(page.getByRole("main")).toContainText("trước 100");
     await expect(page.getByRole("link", { name: /Phòng P\.101/ })).toBeVisible();
+    await expect.poll(() => page.evaluate(() => document.querySelector("main")!.getBoundingClientRect().width)).toBeGreaterThan(340);
+    const capture = page.locator("main section");
+    await expect.poll(() => capture.evaluate((element) => element.getBoundingClientRect().width)).toBeGreaterThan(300);
+    await page.setViewportSize({ width: 1600, height: 900 });
+    await expect.poll(() => page.evaluate(() => document.querySelector("main")!.getBoundingClientRect().width)).toBeGreaterThan(1000);
+    await expect.poll(() => capture.evaluate((element) => element.getBoundingClientRect().width)).toBeGreaterThan(500);
   });
 
   test("keeps API and signed URL responses out of Cache Storage", async ({ page }) => {
