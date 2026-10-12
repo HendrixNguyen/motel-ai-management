@@ -9,6 +9,14 @@ test("unauthenticated and expired renter sessions cannot read portal data", asyn
   expect(expired.status()).toBe(401);
 });
 
+test("payment-proof panel reports the 5 MB upload limit", async ({ page, context }) => {
+  await context.addCookies([{ name: "renter_session", value: "fixture", url: "http://localhost:3001" }]);
+  await page.route("**/api/renter/invoices/invoice-1", (route) => route.fulfill({ json: { id: "invoice-1", billingPeriodId: "period", month: 10, year: 2026, roomId: "room", roomName: "P.101", rentAmount: "3500000", electricityUsage: "20.00", electricityCost: "70000", waterUsage: "3.00", waterCost: "45000", otherFees: [], totalAmount: "3615000", qrCodeData: "000201010212", paymentStatus: "unpaid", paidAt: null, createdAt: "2026-10-01T00:00:00.000Z" } }));
+  await page.route("**/api/renter/invoices/invoice-1/payment-proof", (route) => route.fulfill({ json: null }));
+  await page.goto("/portal/bills/invoice-1");
+  await expect(page.getByText("Gửi một ảnh JPG hoặc PNG, tối đa 5 MB. Chủ nhà sẽ kiểm tra và xác nhận.")).toBeVisible();
+});
+
 test("manager and renter sessions route independently at 430px", async ({ page, context }) => {
   await context.addCookies([
     { name: "manager_session", value: "valid", url: "http://localhost:3001" },

@@ -93,6 +93,13 @@ describe("payment proof database constraints", () => {
     }
   });
 
+  test("accepts 5,000,000-byte proofs and rejects 5,000,001-byte proofs", async () => {
+    const { motel, renter, invoice } = await fixture();
+    const [current] = await db.insert(paymentProofs).values({ invoiceId: invoice.id, renterId: renter.id, motelId: motel.id, objectKey: "proof/max", contentType: "image/jpeg", size: 5_000_000, checksum: "a", status: "pending" }).returning();
+    await expect(db.insert(paymentProofs).values({ invoiceId: invoice.id, renterId: renter.id, motelId: motel.id, objectKey: "proof/over-max", contentType: "image/jpeg", size: 5_000_001, checksum: "b", status: "pending" }).execute()).rejects.toMatchObject({ cause: { constraint_name: "payment_proofs_size_check" } });
+    expect(current!.size).toBe(5_000_000);
+  });
+
   test("enforces foreign keys and content metadata checks", async () => {
     const { motel, renter, invoice } = await fixture();
     await expect(db.insert(paymentProofs).values({ invoiceId: crypto.randomUUID(), renterId: renter.id, motelId: motel.id, objectKey: "proof/missing", contentType: "image/jpeg", size: 10, checksum: "a", status: "pending" }).execute()).rejects.toThrow();

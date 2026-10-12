@@ -18,7 +18,7 @@
 - `manager_session` and `renter_session` are host-only, `httpOnly`, `secure`, `sameSite=lax`; renter lifetime is 24 hours.
 - Tenant scope comes from sessions; foreign resources return `404`, never `403`.
 - Magic links are random, single-use, hash-at-rest, and expire after 24 hours; raw tokens never appear in URLs after exchange, logs, analytics, referrers, or errors.
-- Payment is VietQR plus manager confirmation; one private JPEG/PNG proof, maximum 10 MB; no gateway, reconciliation, OCR, automatic approval, or SMS.
+- Payment is VietQR plus manager confirmation; one private JPEG/PNG proof, maximum 5,000,000 bytes (5 MB); no gateway, reconciliation, OCR, automatic approval, or SMS.
 - Payment proof keys, signed URLs, secrets, credentials, OTPs, JWTs, and provider payloads never enter client responses or logs.
 - Web Push is primary after activation; configured ZNS/ZBS is fallback; manual link/QR remains available.
 - Existing modular boundaries remain: cross-module calls use exported services, not foreign tables.
@@ -105,7 +105,7 @@
 - `putPrivateObject(upload: ValidatedUpload, key: string): Promise<StoredObjectMetadata>` and `deletePrivateObject(key: string): Promise<void>` provide bounded timeout/retry and orphan cleanup.
 - `getAuthorizedSignedRead(...): Promise<{ url: string; expiresInSeconds: 300 }>` authorizes before signing and never caches in service worker.
 
-- [ ] Write failing tests for payment proof one JPEG/PNG up to 10 MB, meter/ticket/contract policies, bad bytes, MIME mismatch, path traversal, public URL rejection, signed TTL, timeout/502 mapping, and orphan cleanup.
+- [ ] Write failing tests for payment proof one JPEG/PNG up to 5,000,000 bytes, meter/ticket/contract policies, bad bytes, MIME mismatch, path traversal, public URL rejection, signed TTL, timeout/502 mapping, and orphan cleanup.
 - [ ] Implement validation before buffering/provider work where runtime permits, opaque scoped keys, checksum metadata, private ACL assumptions, and redacted storage errors.
 - [ ] Verify storage/upload tests and `cd backend && bun run typecheck`.
 - [ ] Update `docs/api-contract.md`, `docs/testing-strategy.md`, and env docs only for actual behavior.

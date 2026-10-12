@@ -257,6 +257,7 @@ export interface InvoiceResponse {
   totalAmount: VndString;
   qrCodeData: string | null;
   paymentStatus: PaymentStatus;
+  paymentMethod: "bank_transfer" | "cash" | null;
   paidAt: string | null;
   createdAt: string;
 }
@@ -435,6 +436,8 @@ export interface PaymentProof {
   rejectionReason: string | null;
 }
 export interface RenterPaymentProof extends PaymentProof { signedUrl: string; }
+export interface ManagerPaymentProof extends PaymentProof { renterId: string; reviewedByManagerId: string | null; signedUrl: string; }
+export interface InvoicePaymentResult { invoiceId: string; paymentStatus: "paid"; paidAt: string; paymentMethod: "bank_transfer" | "cash"; }
 
 export interface RenterInvoiceDetail extends RenterInvoiceSummary {
   bankAccount: { bankCode: string; accountNumber: string; accountName: string } | null;

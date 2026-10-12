@@ -22,7 +22,7 @@ async function invoiceForRenter(session: RenterAuthPayload, invoiceId: string) {
 
 export async function submitPaymentProof(session: RenterAuthPayload, invoiceId: string, file: File): Promise<PaymentProofResponse> {
   await enforceRateLimit(`upload:${session.renterId}`, 10);
-  if (file.size > 10 * 1024 * 1024) throw AppError.badRequest("Tệp vượt quá giới hạn 10 MB");
+  if (file.size > 5_000_000) throw AppError.badRequest("Tệp vượt quá giới hạn 5 MB");
   const owned = await invoiceForRenter(session, invoiceId);
   if (!owned) throw AppError.notFound("Không tìm thấy hóa đơn");
   if (owned.invoice.paymentStatus === "paid") throw AppError.conflict("Hóa đơn đã thanh toán");

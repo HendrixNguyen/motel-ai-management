@@ -141,6 +141,13 @@
       "when": 1791601100000,
       "tag": "0019_reconcile_rate_limit_buckets",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1791703680000,
+      "tag": "0020_payment_proof_size_limit",
+      "breakpoints": true
     }
   ]
 }

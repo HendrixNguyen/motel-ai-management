@@ -12,7 +12,7 @@ export const paymentRoutes = new Elysia({ name: "payment-routes" })
   .use(cookie())
   .group("", (routes) => routes
     .use(renterAuth)
-    .post("/renter/invoices/:invoiceId/payment-proof", async ({ params, body, auth, set }) => { const result = await submitPaymentProof(requireRenterAuth(auth), params.invoiceId, body as File); set.status = 201; return result; }, { params: renterParams, body: t.File({ type: ["image/jpeg", "image/png"], maxSize: "10m" }), detail: { security: [{ renterAuth: [] }] } })
+    .post("/renter/invoices/:invoiceId/payment-proof", async ({ params, body, auth, set }) => { const result = await submitPaymentProof(requireRenterAuth(auth), params.invoiceId, body as File); set.status = 201; return result; }, { params: renterParams, body: t.File({ type: ["image/jpeg", "image/png"], maxSize: 5_000_000 }), detail: { security: [{ renterAuth: [] }] } })
     .get("/renter/invoices/:invoiceId/payment-proof", ({ params, auth }) => getRenterPaymentProof(requireRenterAuth(auth), params.invoiceId), { params: renterParams, detail: { security: [{ renterAuth: [] }] } }))
   .group("", (routes) => routes
     .use(managerAuth)

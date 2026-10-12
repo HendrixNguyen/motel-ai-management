@@ -32,3 +32,6 @@
 - Focused test command unavailable: `bun: command not found`.
 - Fixed Task 6 shell test regex single-escape bug; no backend changes.
 - Backend history correction: reverted only `backend/src/shared/magic-link.ts` behavior from unrelated commit `8e8221d`; Task 6 scope is frontend-only.
+- Fixed live QA spec module-load failure: fixture collection now imports real spec safely; live `beforeAll` asserts full safe config before its first HTTP request, without skipping an executed live suite.
+- Regression contract: `real-qa-safety.test.ts` confirms missing configuration prevents the anonymous preflight request.
+- Frontend typecheck passed; lint passed with one existing unused `INVOICE_ID` warning. Fixture Playwright ran 87 tests; 86 passed, one unrelated `e2e/capture.spec.ts` navigation test failed.

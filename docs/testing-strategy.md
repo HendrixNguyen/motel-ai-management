@@ -89,7 +89,7 @@ destroys the schema it is given.
 | Contract signing | renter-only read, hashed OTP, five-minute expiry/cooldown, three-attempt limit, atomic activation, safe error codes |
 | Tenant scoping | both isolation directions, over HTTP |
 | Billing rules | meter's `basePrice` is never read by the calculation |
-| Renter payment | one-proof invariant, JPEG/PNG byte and 10 MB limits, proof state transitions, manager-only approval/cash payment, signed URL TTL, renter paid-mutation denial |
+| Renter payment | one-proof invariant, JPEG/PNG byte and 5,000,000-byte payment-proof limit, proof state transitions, manager-only approval/cash payment, signed URL TTL, renter paid-mutation denial |
 | Notifications | push subscription ownership/deduplication, Web Push-first ordering, bounded retries, permanent-failure fallback, stable event-key idempotency, redacted payloads |
 | Meter capture | an offline entry survives a reload and syncs on reconnect (browser-level test) |
 
@@ -144,8 +144,13 @@ login/logout responses set and clear an `httpOnly` cookie through the actual Nex
 server is test infrastructure only and is never started by the application's dev/start commands.
 Do not reuse an unrelated Next dev server for these tests: its backend setting may differ.
 
-The `real-stack` project uses a live backend and is gated on `E2E_REAL=1`. That invocation runs the
-live project instead of the fixture project and does not start the fake backend.
+The `real-stack` project uses a live QA frontend/backend and is gated on `E2E_REAL=1`; exact
+`E2E_QA_ALLOWED_ORIGINS` allowlisting and `E2E_QA_ENVIRONMENT=qa` are required. Read-only checks
+need only the QA URL and explicit environment marker. Mutating specs additionally require
+`E2E_QA_MUTATIONS=1`, dedicated manager credentials/ID, and a dedicated manager-owned
+`E2E_QA_MOTEL_ID`; they create run-tagged room and renter records through UI and leave tagged
+audit history. No traces, screenshots, video, or request/response bodies are retained for live runs. That invocation runs the live project instead
+of the fixture project and does not start the fake backend.
 
 **Hermetic is not the same as runnable.** The fixture-backed suite needs no database or real backend,
 but it still needs a browser that can start. On a minimal Linux image Chromium dies at launch with

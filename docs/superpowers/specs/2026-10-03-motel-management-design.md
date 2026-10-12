@@ -533,7 +533,7 @@ OTP delivery uses configured notification channels; Zalo transport may be used, 
 
 Cloudflare R2 via its S3-compatible API. Buckets: `motel-uploads`, private, served through
 short-lived signed URLs so CCCD scans and ticket photos are never publicly listable.
-Default upload limit is 5 MB per file. Resource-specific limits override the default: payment proof, meter photo, and contract proof allow 10 MB per file; help tickets allow up to five JPEG/PNG files at 10 MB each. MIME and magic-byte validation still apply.
+Default upload limit is 5 MB per file. Resource-specific limits override the default: meter photos and contract proofs allow 10 MB per file; payment proof allows one JPEG/PNG image up to 5,000,000 bytes (5 MB); help tickets allow up to five JPEG/PNG files at 10 MB each. MIME and magic-byte validation still apply.
 
 ## Error Handling
 
