@@ -24,4 +24,6 @@ test("contract create/send UI is blocked: controls absent", async ({ page }) => 
   });
 });
 
-test.skip("billing and payment journey", "Skipped: no safe UI setup or confirmed QA credentials/isolation.");
+test("billing and payment journey remains explicitly skipped without QA setup", async () => {
+  test.skip(true, "No safe UI setup or confirmed QA credentials/isolation.");
+});
