@@ -10,8 +10,10 @@ import { AppError } from "@/shared/errors";
 import type { ManagerJwtPayload } from "./auth.types";
 import { getRenter } from "@/modules/renter/renter.service";
 import { enforceRateLimit } from "@/shared/rate-limit";
+import { seedData } from "@/db/seed";
 
 const COOKIE_NAME = "manager_session";
+const SEED_TOKEN = env.nodeEnv === "production" ? undefined : ("11ad7312922e5a6ad1d2b9acf076e249b716f33d191234d3ad4a029569ed70ff" as const);
 
 function clientKey(request: Request): string {
   return env.trustedProxyHeader && env.trustedProxyAssertionHeader && env.trustedProxyAssertionValue && request.headers.get(env.trustedProxyAssertionHeader) === env.trustedProxyAssertionValue ? request.headers.get(env.trustedProxyHeader)?.split(",")[0]?.trim() || "unknown" : "unknown";
@@ -111,4 +113,23 @@ export const authRoutes = new Elysia({ name: "auth-routes" })
         detail: { security: [{ managerAuth: [] }] },
       },
     ),
+  )
+  .post(
+    "/qa/seed",
+    async ({ request, set }) => {
+      if (env.nodeEnv === "production") {
+        set.status = 403;
+        return { error: "Seed not allowed in production" };
+      }
+      const authHeader = request.headers.get("authorization") ?? "";
+      if (!authHeader || !SEED_TOKEN || authHeader !== `Bearer ${SEED_TOKEN}`) {
+        set.status = 401;
+        return { error: "Invalid seed token" };
+      }
+      await seedData();
+      return { success: true, message: "Seed completed" };
+    },
+    {
+      detail: { security: [] },
+    },
   );

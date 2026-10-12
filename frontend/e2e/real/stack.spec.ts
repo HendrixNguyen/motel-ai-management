@@ -83,7 +83,13 @@ function collectSafeDiagnostics(page: import("@playwright/test").Page): string[]
   const diagnostics: string[] = [];
   page.on("console", (message) => { if (message.type() === "error") diagnostics.push(redactLiveQaDiagnostic(message.text(), "console")); });
   page.on("pageerror", (error) => diagnostics.push(redactLiveQaDiagnostic(error.message, "pageerror")));
-  page.on("requestfailed", (request) => diagnostics.push(redactLiveQaDiagnostic(request.url(), "requestfailed")));
+  page.on("requestfailed", (request) => {
+    const failure = request.failure();
+    const url = request.url();
+    // Ignore aborted RSC requests (Next.js App Router aborts in-flight RSC requests on navigation)
+    if (failure?.errorText === "net::ERR_ABORTED" && url.includes("_rsc=")) return;
+    diagnostics.push(redactLiveQaDiagnostic(url, "requestfailed"));
+  });
   page.on("response", (response) => {
     if (response.status() >= 400) diagnostics.push(redactLiveQaDiagnostic(response.url(), "response", response.status(), response.request().method()));
   });
