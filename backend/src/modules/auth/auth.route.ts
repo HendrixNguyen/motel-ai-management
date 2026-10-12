@@ -114,22 +114,24 @@ export const authRoutes = new Elysia({ name: "auth-routes" })
       },
     ),
   )
-  .post(
-    "/qa/seed",
-    async ({ request, set }) => {
-      if (env.nodeEnv === "production") {
-        set.status = 403;
-        return { error: "Seed not allowed in production" };
-      }
-      const authHeader = request.headers.get("authorization") ?? "";
-      if (!authHeader || !SEED_TOKEN || authHeader !== `Bearer ${SEED_TOKEN}`) {
-        set.status = 401;
-        return { error: "Invalid seed token" };
-      }
-      await seedData();
-      return { success: true, message: "Seed completed" };
-    },
-    {
-      detail: { security: [] },
-    },
+  .group("/qa", (app) =>
+    app.post(
+      "/seed",
+      async ({ request, set }) => {
+        if (env.nodeEnv === "production") {
+          set.status = 403;
+          return { error: "Seed not allowed in production" };
+        }
+        const authHeader = request.headers.get("authorization") ?? "";
+        if (!authHeader || !SEED_TOKEN || authHeader !== `Bearer ${SEED_TOKEN}`) {
+          set.status = 401;
+          return { error: "Invalid seed token" };
+        }
+        await seedData();
+        return { success: true, message: "Seed completed" };
+      },
+      {
+        detail: { security: [] },
+      },
+    ),
   );
