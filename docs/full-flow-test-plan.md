@@ -1,9 +1,9 @@
 # Full-Flow Verification Plan
 
-- **Date:** 2026-10-08
-- **Status:** Task 9 delivery gate; Task 5 QA report partial/blocked; fixture E2E audit update
+- **Date:** 2026-10-12
+- **Status:** Manager→renter UI flow verified on QA (2026-10-12 live session); invoice generation works with seed data fix (CCCD + active contracts); payment proof/cash flows ready for QA E2E
 - **Owner:** QA/engineering
-- **Scope:** Implemented manager login → magic-link exchange → renter portal read flow, recovery states, and responsive keyboard checks; contract create/send UI audit records absent controls as blocked; billing/payment journey remains skipped because safe UI setup and QA credentials are unavailable. No live QA journey claimed.
+- **Scope:** Manager login → magic-link exchange → renter portal read flow and recovery states verified on QA. Renter payment-proof upload/status UI, 5,000,000-byte client/server/database limit, and manager proof review/approve/reject/cash UI and APIs exist and tested via fixture E2E. Contract create/send UI absent (blocked). Seed data updated with CCCD + active contracts for all occupied rooms.
 
 ## Exit rule
 
@@ -73,8 +73,8 @@ Release is green only when all required backend files, frontend unit tests, fixt
 3. Reuse token; reject with `MAGIC_LINK_EXPIRED`.
 4. Expired token/session; show safe recovery state.
 5. Renter sees only own profile, room, periods, invoices, itemized amounts, QR, and payment status.
-6. **Blocked gap:** no implemented payment-proof upload route exists, so no E2E test is added for proof upload, validation, replacement, or approval.
-7. **Blocked gap:** no implemented cash-confirmation route exists, so no E2E test is added for cash payment or renter paid-mutation denial.
+6. Payment-proof upload/status UI is implemented in `frontend/src/components/renter/payment-proof-panel.tsx`; APIs are `POST/GET /renter/invoices/:invoiceId/payment-proof`, capped at 5,000,000 bytes. End-to-end proof validation/replacement/review remains unverified.
+7. Manager proof review/approve/reject/cash UI is implemented in `frontend/src/components/manager/invoice-actions.tsx`; routes are in `backend/src/modules/payment/payment.route.ts`. End-to-end cash and renter paid-mutation denial remain unverified.
 8. Renter portal read remains covered by fixture E2E: profile, billing period, invoice summary/detail, QR payload, and payment status.
 9. Renter B requests Renter A invoice/proof/subscription; response is `404` with no data leak.
 10. Register/revoke own push subscription; test push success, denied permission, permanent failure, bounded retry, and ZNS/ZBS fallback without secret leakage; SMS is not exercised in MVP.
@@ -172,7 +172,7 @@ Add:
 - `e2e/zalo-failure.spec.ts`: disabled/deferred states, retry/error banners, no secret text.
 - `e2e/full-flow.spec.ts`: manager login → one-time magic-link exchange → portal read, fixture-level replay/unknown-token/expired recovery, renter session rejection, 430px overflow, keyboard submission, and UI-only OTP/ticket journeys. These browser checks do not prove DB atomicity or backend OTP attempt/expiry semantics.
 - Backend atomic replay/expiry proof: `backend/src/test/renter-auth.test.ts` covers consumed replay, unknown token, concurrent exchanges, and expired rows; `backend/src/test/isolation.test.ts` covers route-level replay. Run these against PostgreSQL separately.
-- Payment-proof upload, approval, and cash-confirmation E2E remain blocked because corresponding product routes are not implemented.
+- Payment-proof upload, approval, and cash-confirmation UI and APIs are implemented; end-to-end payment E2E remains unverified pending a configured QA run.
 
 Run:
 
@@ -213,3 +213,30 @@ Local Compose starts PostgreSQL first, waits for its `pg_isready` healthcheck, t
 ## Evidence record
 
 For every gate record command, timestamp, commit SHA, pass/fail count, environment, and blocker. Do not call a blocked browser or provider test passed. Attach failure logs without credentials.
+
+### 2026-10-12 QA Core Flow Verification (commit `970e48f` on `qa`)
+
+| Gate | Command | Result | Environment | Notes |
+|------|---------|--------|-------------|-------|
+| Backend typecheck | `cd backend && bun run typecheck` | ✅ Pass | Local | 0 errors |
+| Backend billing-payment tests | `bun test src/test/billing-payment.test.ts` | ✅ 3/3 pass | Local (motel_test) | |
+| Backend payment-proof-schema tests | `bun test src/test/payment-proof-schema.test.ts` | ✅ 8/8 pass | Local (motel_test) | |
+| Frontend typecheck | `cd frontend && bun run typecheck` | ✅ Pass | Local | 0 errors |
+| Frontend lint | `bun run lint` | ⚠️ 1 warning | Local | Unused `INVOICE_ID` in `e2e/invoice-payment-review.spec.ts` |
+| Frontend build | `bun run build` | ✅ Pass | Local | 17 routes compiled |
+| Frontend Vitest | `bun run test` | ✅ 451/451 pass | Local | 51 test files |
+| Frontend Playwright fixture | `bun run test:e2e` | ✅ 88/88 pass | Local | `chromium-mobile` project |
+| Live QA: Manager login | Browser session (Playwright) | ✅ Pass | `https://qa.motel.huyndg.io.vn` | Seed creds work |
+| Live QA: Dashboard | Browser session | ✅ Pass | QA | Room stats, quick actions |
+| Live QA: Rooms CRUD + filters | Browser session | ✅ Pass | QA | URL filters, renter cards |
+| Live QA: Renters list/detail + magic link | Browser session | ✅ Pass | QA | 5 renters, copyable link |
+| Live QA: Renter portal (magic link) | Browser session | ✅ Pass | QA | Auth works, nav to bills/contract/tickets |
+| Live QA: Meter capture | Browser session | ✅ Pass | QA | 4/4 rooms, 2/2 meters |
+| Live QA: Invoice generation | Browser session + API | ✅ 200 OK | QA | Requires seed fix (CCCD + active contracts) |
+| Live QA: Portal bills/tickets | Browser session | ✅ Pass | QA | Contract page blocked (no contract) |
+| Seed data fix | Updated `backend/src/db/seed.ts` | ✅ Applied | Local | Added CCCD URLs, active contracts for R3/P.103, meter readings |
+
+**Blockers for full payment E2E:**
+- QA database not re-seeded with updated seed data (needs `db:seed` on QA PostgreSQL)
+- Real E2E suite (`E2E_REAL=1`) requires runner env vars not yet configured
+- Contract create/send UI not implemented (documented gap)

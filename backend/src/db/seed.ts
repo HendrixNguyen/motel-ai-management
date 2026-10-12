@@ -131,7 +131,7 @@ export async function seedData() {
       name: "P.103",
       basePrice: parseAmount("1500000"), // 1,500,000 VND
       floor: 2,
-      status: "available",
+      status: "occupied",
     },
     {
       id: ROOM_104_ID,
@@ -158,6 +158,8 @@ export async function seedData() {
       name: "Nguyễn Văn An",
       phone: normalisePhone("0901234567"),
       idNumber: "001234567890",
+      idCardFrontUrl: "https://example.com/cccd/001234567890_front.jpg",
+      idCardBackUrl: "https://example.com/cccd/001234567890_back.jpg",
       roomId: ROOM_101_ID,
       isOaFollower: true,
       status: "active",
@@ -168,6 +170,8 @@ export async function seedData() {
       name: "Trần Thị Bình",
       phone: normalisePhone("0909876543"),
       idNumber: "009876543210",
+      idCardFrontUrl: "https://example.com/cccd/009876543210_front.jpg",
+      idCardBackUrl: "https://example.com/cccd/009876543210_back.jpg",
       roomId: ROOM_102_ID,
       isOaFollower: false,
       status: "active",
@@ -178,6 +182,8 @@ export async function seedData() {
       name: "Lê Văn Cường",
       phone: normalisePhone("0912345678"),
       idNumber: "001122334455",
+      idCardFrontUrl: "https://example.com/cccd/001122334455_front.jpg",
+      idCardBackUrl: "https://example.com/cccd/001122334455_back.jpg",
       roomId: null, // Unassigned
       isOaFollower: true,
       status: "active",
@@ -279,19 +285,19 @@ export async function seedData() {
     },
     {
       id: CONTRACT_3_ID,
-      renterId: RENTER_1_ID, // Same renter as contract 1 but different room/period
+      renterId: RENTER_3_ID,
       roomId: ROOM_103_ID,
       motelId: MOTEL_ID,
       templateId: CONTRACT_TEMPLATE_ID,
-      startDate: "2025-01-01",
-      endDate: "2025-12-31",
+      startDate: "2026-01-01",
+      endDate: "2026-12-31",
       monthlyRent: parseAmount("1500000"),
       deposit: parseAmount("1500000"),
       clauses: JSON.parse(
         JSON.stringify([
           {
             title: "Thời hạn hợp đồng",
-            content: "Hợp đồng đã hết hạn.",
+            content: "Hợp đồng có thời hạn từ ngày ký đến ngày 31/12/2026.",
           },
           {
             title: "Tiền phòng",
@@ -303,7 +309,7 @@ export async function seedData() {
           },
         ])
       ),
-      status: "expired",
+      status: "active",
     },
   ] satisfies (typeof contracts.$inferInsert)[];
 
@@ -484,18 +490,18 @@ export async function seedData() {
       billingPeriodId: BILLING_PERIOD_OCT_ID,
       type: "electric",
       previousReading: parseAmount("50.00"),
-      currentReading: parseAmount("50.00"),
+      currentReading: parseAmount("95.50"),
       photoUrl: "https://example.com/meter13.jpg",
       readingDate: "2026-10-31",
     },
-    // Room 103 - Water (still unoccupied)
+    // Room 103 - Water (now occupied)
     {
       id: "14141414-1414-1414-1414-141414141414",
       roomId: ROOM_103_ID,
       billingPeriodId: BILLING_PERIOD_OCT_ID,
       type: "water",
       previousReading: parseAmount("10.00"),
-      currentReading: parseAmount("10.00"),
+      currentReading: parseAmount("15.20"),
       photoUrl: "https://example.com/meter14.jpg",
       readingDate: "2026-10-31",
     },
@@ -576,6 +582,28 @@ export async function seedData() {
       totalAmount: parseAmount("1970250"), // 1800000 + 122250 + 48000 + 100000 + 50000
       qrCodeData:
         "https://img.vietqr.io/image/004-123456789-qr_only.png?amount=1970250&addInfo=THANH+TOAN+TIEN+PHONG+THANG+9",
+      paymentStatus: "unpaid",
+    },
+    {
+      id: "19191919-1919-1919-1919-191919191919",
+      billingPeriodId: BILLING_PERIOD_SEP_ID,
+      roomId: ROOM_103_ID,
+      renterId: RENTER_3_ID,
+      motelId: MOTEL_ID,
+      rentAmount: parseAmount("1500000"),
+      electricityUsage: parseAmount("45.50"), // 95.50 - 50.00
+      electricityCost: parseAmount("136500"), // 45.50 * 3000
+      waterUsage: parseAmount("5.20"), // 15.20 - 10.00
+      waterCost: parseAmount("78000"), // 5.20 * 15000
+      otherFees: JSON.parse(
+        JSON.stringify([
+          { name: "Internet", amount: parseAmount("100000") },
+          { name: "Vệ sinh", amount: parseAmount("50000") },
+        ])
+      ),
+      totalAmount: parseAmount("1864500"), // 1500000 + 136500 + 78000 + 100000 + 50000
+      qrCodeData:
+        "https://img.vietqr.io/image/004-123456789-qr_only.png?amount=1864500&addInfo=THANH+TOAN+TIEN+PHONG+THANG+9",
       paymentStatus: "unpaid",
     },
   ] satisfies (typeof invoices.$inferInsert)[];
