@@ -4,6 +4,9 @@ import { seedData } from "@/db/seed";
 import { enqueueContractExpiryReminders } from "@/modules/notification/expiry.service";
 import { nextExpiryRunAt, postgresAdvisoryLeaseDb, runWithAdvisoryLease } from "@/modules/notification/scheduler.service";
 
+const maskedDbUrl = env.databaseUrl.replace(/:([^:@]+)@/, ":****@");
+console.log(`Database URL: ${maskedDbUrl}`);
+
 if (env.nodeEnv !== "test") {
   if (process.env.SEED_DATABASE === "true" && env.nodeEnv !== "production") {
     console.log("SEED_DATABASE=true detected, running seed...");
