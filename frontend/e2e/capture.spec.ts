@@ -13,7 +13,8 @@ test.describe("offline meter capture", () => {
     await expect(page).toHaveURL(/\/capture\/b1c2d3e4-f5a6-4b7c-8d9e-0f1a2b3c4d5e\?motel=/);
     await expect(page.getByRole("heading", { name: /Nhập chỉ số/ })).toContainText("10/2026");
     await expect(page.getByRole("main")).toContainText("trước 100");
-    await expect(page.getByRole("link", { name: /Phòng P\.101/ })).toBeVisible();
+    await page.getByRole("link", { name: /Phòng P\.101/ }).click();
+    await expect(page.getByLabel("Chỉ số hiện tại")).toBeVisible();
   });
 
   test("keeps API and signed URL responses out of Cache Storage", async ({ page }) => {

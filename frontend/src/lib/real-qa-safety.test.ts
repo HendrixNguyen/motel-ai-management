@@ -110,6 +110,6 @@ describe("live QA safety", () => {
   it("discards untrusted diagnostics instead of retaining credential-like text", () => {
     const output = redactLiveQaDiagnostic("https://qa.test/r?token=abc123&phone=+84901234567 qa.person@example.test Bearer sensitive-token", "console");
     expect(output).toBe("console error");
-    expect(output).not.toMatch(/abc123|84901234567|qa\\.person|sensitive-token/);
+    expect(output).not.toMatch(/abc123|84901234567|qa\.person|sensitive-token/);
   });
 });

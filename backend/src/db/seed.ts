@@ -18,6 +18,7 @@ import {
   invoices,
   helpTickets,
   zaloNotifications,
+  notificationEvents,
 } from "@/db/schemas";
 
 // Hardcoded UUIDs for deterministic data
@@ -58,6 +59,7 @@ export async function seedData() {
   await db.delete(billingPeriods);
   await db.delete(contracts);
   await db.delete(contractTemplates);
+  await db.delete(notificationEvents);
   await db.delete(renters);
   await db.delete(rooms);
   await db.delete(motels);
