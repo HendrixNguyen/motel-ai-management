@@ -1,3 +1,6 @@
+import { db } from "@/db";
+import { motels } from "@/db/schemas";
+import { eq, and } from "drizzle-orm";
 import { Elysia, t } from "elysia";
 import { cookie } from "@elysiajs/cookie";
 import { jwt } from "@elysiajs/jwt";
@@ -133,5 +136,19 @@ export const authRoutes = new Elysia({ name: "auth-routes" })
       {
         detail: { security: [] },
       },
+    )
+    .get(
+      "/db-test",
+      async ({ set }) => {
+        try {
+          const result = await db.select().from(motels).where(and(eq(motels.id, "22222222-2222-2222-2222-222222222222"), eq(motels.managerId, "11111111-1111-1111-1111-111111111111")));
+          return { success: true, data: result };
+        } catch (error: any) {
+          console.error("DB test error:", error);
+          set.status = 500;
+          return { error: error.message, cause: error.cause?.message, stack: error.stack };
+        }
+      },
+      { detail: { security: [] } },
     ),
   );
