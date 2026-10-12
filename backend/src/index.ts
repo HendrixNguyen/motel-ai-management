@@ -6,6 +6,7 @@ import { nextExpiryRunAt, postgresAdvisoryLeaseDb, runWithAdvisoryLease } from "
 
 const maskedDbUrl = env.databaseUrl.replace(/:([^:@]+)@/, ":****@");
 console.log(`Database URL: ${maskedDbUrl}`);
+// Force new image build: 2026-10-12
 
 if (env.nodeEnv !== "test") {
   if (process.env.SEED_DATABASE === "true" && env.nodeEnv !== "production") {
