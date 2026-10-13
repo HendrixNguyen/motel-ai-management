@@ -65,6 +65,7 @@ export default function Dropdown({
         id={buttonId}
         type="button"
         disabled={disabled}
+        role="combobox"
         aria-haspopup="listbox"
         aria-expanded={isOpen}
         aria-controls={listboxId}
