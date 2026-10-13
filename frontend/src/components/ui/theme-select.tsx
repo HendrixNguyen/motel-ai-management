@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Dropdown from "./dropdown";
 
 export type Theme = "light" | "dark" | "system";
 
@@ -34,6 +35,12 @@ export function getStoredTheme(): Theme {
   }
 }
 
+const themeOptions = [
+  { value: "system", label: "Theo hệ thống" },
+  { value: "light", label: "Sáng" },
+  { value: "dark", label: "Tối" },
+];
+
 export default function ThemeSelect() {
   const [theme, setTheme] = useState<Theme>("light");
   useEffect(() => {
@@ -48,5 +55,15 @@ export default function ThemeSelect() {
     const media = window.matchMedia("(prefers-color-scheme: dark)");
     changeTheme(next, document.documentElement, media);
   }
-  return <label className="block text-sm text-text"><span className="mb-1 block font-semibold">Giao diện</span><select aria-label="Giao diện" value={theme} onChange={(event) => change(event.target.value as Theme)} className="min-h-11 w-full rounded-input border border-border-strong bg-surface px-3 text-text"><option value="system">Theo hệ thống</option><option value="light">Sáng</option><option value="dark">Tối</option></select></label>;
+  return (
+    <label htmlFor="theme-select-button" className="block text-sm text-text">
+      <span className="mb-1 block font-semibold">Giao diện</span>
+      <Dropdown
+        id="theme-select"
+        options={themeOptions}
+        value={theme}
+        onChange={(value) => change(value as Theme)}
+      />
+    </label>
+  );
 }

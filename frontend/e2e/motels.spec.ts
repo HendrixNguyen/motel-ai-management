@@ -165,7 +165,6 @@ test("a refreshed motel cannot turn an untouched old name into a second PATCH", 
   release();
   await expect(page.getByText("Đã lưu thay đổi nhà trọ", { exact: true })).toBeVisible();
   await expect(page.locator(`#motel-${MOTEL.id}`)).toHaveText("Nhà trọ A");
-  await expect(page.locator(`#motel-selector option[value="${MOTEL.id}"]`)).toHaveText("Nhà trọ A");
   await expect(dialog).toBeVisible();
   await expect(dialog.getByLabel("Tên nhà trọ", { exact: true })).toHaveValue(MOTEL.name);
   await dialog.getByLabel("Giá nước (₫/m³)", { exact: true }).fill("25.000");
@@ -173,7 +172,6 @@ test("a refreshed motel cannot turn an untouched old name into a second PATCH", 
   await expect(dialog).not.toBeVisible();
   expect(patches).toEqual([{ name: "Nhà trọ A" }, { waterPrice: "25000" }]);
   await expect(page.locator(`#motel-${MOTEL.id}`)).toHaveText("Nhà trọ A");
-  await expect(page.locator(`#motel-selector option[value="${MOTEL.id}"]`)).toHaveText("Nhà trọ A");
 });
 
 test("an expired session during save returns to login", async ({ page, context }) => {

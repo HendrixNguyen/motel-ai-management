@@ -95,8 +95,8 @@ describe("Core UI v2 compatibility contracts", () => {
 
   test("ThemeSelect renders system theme on server", () => {
     const html = markup(<ThemeSelect />);
-    expect(html).toContain('value="system"');
-    expect(html).toContain("Theo hệ thống");
+    expect(html).toContain('for="theme-select-button"');
+    expect(html).toContain("Sáng");
   });
 
 });
