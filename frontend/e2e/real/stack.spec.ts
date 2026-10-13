@@ -54,7 +54,7 @@ test.describe("QA UI mutations", () => {
 
     const motelId = process.env.E2E_QA_MOTEL_ID!;
     await page.goto(`/rooms?motel=${encodeURIComponent(motelId)}`);
-    await expect(page.getByRole("banner").getByRole("combobox", { name: "Nhà trọ", exact: true })).toHaveValue(motelId);
+    await expect(page.getByRole("banner").getByRole("combobox", { name: "Nhà trọ", exact: true })).toHaveAttribute("data-value", motelId);
     await page.getByRole("button", { name: "Thêm phòng", exact: true }).click();
     const roomDialog = page.getByRole("dialog");
     await roomDialog.getByLabel("Tên phòng", { exact: true }).fill(roomName);
