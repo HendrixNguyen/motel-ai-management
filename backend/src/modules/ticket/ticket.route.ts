@@ -3,9 +3,11 @@ import { cookie } from "@elysiajs/cookie";
 import { renterAuth, requireRenterAuth } from "@/middleware/renter-auth";
 import { createTicket, getTicket, listTickets } from "./ticket.service";
 import { getRenter } from "@/modules/renter/renter.service";
+import { AppError } from "@/shared/errors";
 
 const params = t.Object({ ticketId: t.String({ format: "uuid" }) });
 const category = t.Union([t.Literal("electricity"), t.Literal("water"), t.Literal("facilities"), t.Literal("other")]);
+const validCategories = ["electricity", "water", "facilities", "other"] as const;
 
 export const ticketRoutes = new Elysia({ name: "ticket-routes" })
   .use(cookie())
@@ -38,7 +40,7 @@ export const ticketRoutes = new Elysia({ name: "ticket-routes" })
       set.status = 400;
       return { error: "Dữ liệu gửi lên không hợp lệ", code: "VALIDATION_ERROR" };
     }
-    if (!category.Value.Check(categoryValue) || !description) { set.status = 400; return { error: "Dữ liệu gửi lên không hợp lệ", code: "VALIDATION_ERROR" }; }
+    if (!validCategories.includes(categoryValue as typeof validCategories[number]) || !description) { set.status = 400; return { error: "Dữ liệu gửi lên không hợp lệ", code: "VALIDATION_ERROR" }; }
     const ticketCategory = categoryValue as "electricity" | "water" | "facilities" | "other";
     const result = await createTicket({ renterId: session.renterId, motelId: session.motelId, roomId: renter.roomId, category: ticketCategory, description, files });
     set.status = 201;
