@@ -210,7 +210,7 @@ backend/
 | Method | Path | Notes |
 |--------|------|-------|
 | GET | `/api/manager/motels/:motelId/renters` | Supports `?status=&roomId=&search=` |
-| POST | `/api/manager/motels/:motelId/renters` | `409` on duplicate `(motelId, phone)`; triggers ZNS welcome (deferred to sub-project 8 — return token/URL for now) |
+| POST | `/api/manager/motels/:motelId/renters` | `409` on duplicate `(motelId, phone)`; returns manager-issued activation link/URL fallback; notification delivery remains deferred to sub-project 8 |
 | GET | `/api/manager/motels/:motelId/renters/:renterId` | Includes contract summary and invoice history |
 | PATCH | `/api/manager/motels/:motelId/renters/:renterId` | Name, phone, CCCD, `idCardFrontUrl`, `idCardBackUrl`, `roomId`, status |
 | DELETE | `/api/manager/motels/:motelId/renters/:renterId` | Soft-delete: sets `status = inactive`, keeps financial history |

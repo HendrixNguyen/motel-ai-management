@@ -14,11 +14,12 @@ pnpm dev
 bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+The dev server listens on port 3001, not 3000 — 3000 is the backend's (`backend/` sets
+`PORT=3000`), and only one process can bind it.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts)
+to load Be Vietnam Pro for headings and Noto Sans for body text, both subset for `vietnamese`.
+Design tokens live in the `@theme` block in `src/app/globals.css`.
 
 ## Learn More
 

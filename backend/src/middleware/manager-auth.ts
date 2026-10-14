@@ -7,16 +7,9 @@ export interface ManagerAuthPayload { userId: string; email: string }
 
 export const managerAuth = new Elysia({ name: "manager-auth" })
   .use(jwt({ name: "manager", secret: env.managerJwtSecret, exp: "7d" }))
-  .derive({ as: "scoped" }, async ({ manager, cookie, headers }) => {
+  .derive({ as: "scoped" }, async ({ manager, cookie }) => {
     const managerCookie = cookie?.manager_session as { value: string } | undefined;
-    let token: string | undefined = managerCookie?.value;
-
-    if (!token) {
-      const authHeader = headers.authorization;
-      if (authHeader?.startsWith("Bearer ")) {
-        token = authHeader.slice(7);
-      }
-    }
+    const token = managerCookie?.value;
 
     if (!token) {
       return { auth: undefined as ManagerAuthPayload | undefined };

@@ -8,6 +8,146 @@
       "when": 1791086881549,
       "tag": "0000_motionless_microchip",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1791390017613,
+      "tag": "0001_elite_ozymandias",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791390520000,
+      "tag": "0002_upload_metadata",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1791392000000,
+      "tag": "0003_notification_outbox",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1791392500000,
+      "tag": "0004_notification_webhook_events",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1791393000000,
+      "tag": "0005_notification_leases",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1791393500000,
+      "tag": "0006_notification_attempt_count_check",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1791394000000,
+      "tag": "0007_zalo_oa_motel_mappings",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1791394500000,
+      "tag": "0008_fix_attempt_count_constraint",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1791430500000,
+      "tag": "0009_ticket_photo_uploads",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1791430800000,
+      "tag": "0010_ticket_photo_motel_scope",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1791430950000,
+      "tag": "0011_drop_redundant_ticket_fk",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1791431100000,
+      "tag": "0012_restore_contract_otp_sent_at",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1791600687000,
+      "tag": "0013_payment_proofs",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1791600700000,
+      "tag": "0014_payment_proofs_immutable",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1791600800000,
+      "tag": "0015_payment_settlement",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1791600900000,
+      "tag": "0016_rate_limit_buckets",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1791600950000,
+      "tag": "0017_invoice_payment_metadata",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1791601000000,
+      "tag": "0018_invoice_payment_proof_ownership",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1791601100000,
+      "tag": "0019_reconcile_rate_limit_buckets",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1791703680000,
+      "tag": "0020_payment_proof_size_limit",
+      "breakpoints": true
     }
   ]
 }

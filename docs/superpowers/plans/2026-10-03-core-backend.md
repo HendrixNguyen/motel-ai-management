@@ -18,6 +18,22 @@ auth and tenancy layers need.
 
 **Spec:** [`docs/superpowers/specs/2026-10-03-motel-management-design.md`](../../docs/superpowers/specs/2026-10-03-motel-management-design.md) — read the Data Model, Authentication, Backend Architecture, Error Handling, and Security sections before starting. Also read [`docs/api-contract.md`](../../docs/api-contract.md) for the error codes and envelope, [`docs/testing-strategy.md`](../../docs/testing-strategy.md) for the testing contract, and [`docs/adr/0004-modular-monolith.md`](../../docs/adr/0004-modular-monolith.md) for the module rules.
 
+## Progress reconciliation — 2026-10-07
+
+This plan is historical. Code inspection confirms core backend implementation exists, but historical RED runs, commits, review gates, and full verification cannot be inferred from present files. Do not check old step boxes retroactively.
+
+| Task | Current state | Evidence / remaining work |
+|------|---------------|---------------------------|
+| 1. Error, money, phone utilities | Implemented | `backend/src/shared/errors.ts`, `money.ts`, `phone.ts`; tests exist in `backend/src/test/{money,phone}.test.ts`. |
+| 2. Environment parsing | Implemented | `backend/src/env.ts`, `config.ts`, and `env.test.ts` exist; current env model includes test DB and portal URLs beyond original draft. |
+| 3. Schema and migrations | Implemented | Module schemas, `backend/drizzle/0000_motionless_microchip.sql`, `db/schemas.ts`, `db/index.ts`, and guarded `db/test-db.ts` exist; `schema-constraints.test.ts` covers DB constraints. |
+| 4. App and error handling | Implemented | `backend/src/app.ts` mounts routes and standard error envelope; `error-envelope.test.ts` covers health, 404, AppError, and internal-error sanitisation. |
+| 5. Manager auth and tenancy | Implemented | Manager auth uses `Bun.password` Argon2id in `auth.service.ts`; routes and tenancy tests exist. `cross-tenant-isolation-2.test.ts` provides current real-route HTTP isolation coverage. |
+| 6. Renter sessions and magic links | Implemented | `magic-link.ts`, `magic-link.route.ts`, renter middleware, and `renter-auth.test.ts` cover issue, exchange, expiry, replay, and cookie session. |
+| 7. Docs and full verification | Implemented with deferred scope | Replaced obsolete `/api/motels` and `/api/rooms` assertions in `backend/src/test/isolation.test.ts` with authenticated manager routes; invalid-cookie test remains auth rejection, while authenticated cross-renter invoice isolation stays deferred to sub-project 7 because endpoint is not mounted. Backend typecheck passed; explicit sequential tests passed for money, phone, env, schema constraints, error envelope, manager auth, tenancy, renter auth, isolation, and cross-tenant isolation. Frontend typecheck, lint, build, and 343 Vitest tests passed. E2E browser gate not run; security/code review remains separate. |
+
+Known plan drift: original `argon2` dependency instruction is obsolete; project uses Bun's built-in Argon2id hashing. Original `/api/motels`, `/api/rooms`, and placeholder `/api/renter/invoices` assertions are not current route contracts. Fix or defer those tests in their owning sub-project; do not change product code only to satisfy this historical plan.
+
 ## Global Constraints
 
 - Bun only. Never `npm`, `yarn`, or `npx`.

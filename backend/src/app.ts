@@ -7,7 +7,17 @@ import { magicLinkRoutes } from "@/modules/auth/magic-link.route";
 import { motelRoutes } from "@/modules/motel/motel.route";
 import { renterRoutes } from "@/modules/renter/renter.route";
 import { roomRoutes } from "@/modules/room/room.route";
+import { billingRoutes } from "@/modules/billing/billing.route";
+import { contractRoutes } from "@/modules/contract/contract.route";
 import { AppError } from "@/shared/errors";
+import { notificationRoutes } from "@/modules/notification/notification.route";
+import { renterPortalRoutes } from "@/modules/renter-portal/renter-portal.route";
+import { ticketRoutes } from "@/modules/ticket/ticket.route";
+import { paymentRoutes } from "@/modules/payment/payment.route";
+import { getRenterNotificationRecipient } from "@/modules/renter/renter.service";
+import { setNotificationRecipientResolver } from "@/modules/notification/notification.service";
+
+setNotificationRecipientResolver(getRenterNotificationRecipient);
 
 /**
  * A fresh instance per call. `app` is the one the server listens on; tests build their own
@@ -33,8 +43,15 @@ export function createApp() {
         .use(authRoutes)
         .use(magicLinkRoutes)
         .use(motelRoutes)
-        .use(roomRoutes)
-        .use(renterRoutes),
+       .use(roomRoutes)
+       .use(billingRoutes)
+       .use(contractRoutes)
+       .use(renterRoutes)
+        .use(notificationRoutes)
+        .use(renterPortalRoutes)
+          .use(ticketRoutes)
+          .use(paymentRoutes),
+
     )
     .all("*", () => {
       throw AppError.notFound("Không tìm thấy");

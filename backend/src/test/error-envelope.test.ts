@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { createApp } from "@/app";
 import { AppError } from "@/shared/errors";
+import { redactSecrets } from "@/middleware/error-handler";
 
 describe("error envelope", () => {
   test("health check responds without a database round trip", async () => {
@@ -37,21 +38,41 @@ describe("error envelope", () => {
     });
   });
 
-  test("an unexpected error is logged but never leaks internals to the client", async () => {
-    const res = await createApp()
-      .get("/boom", () => {
-        throw new Error("connect ECONNREFUSED 10.0.0.5:5432 password=hunter2");
-      })
-      .handle(new Request("http://localhost/boom"));
+  test("an unexpected error is logged without secrets from error or URL", async () => {
+    const originalError = console.error;
+    const logs: unknown[][] = [];
+    console.error = (...args: unknown[]) => logs.push(args);
+    try {
+      const res = await createApp()
+        .get("/r/:token", () => {
+          throw new Error("connect ECONNREFUSED 10.0.0.5:5432 password=hunter2");
+        })
+        .handle(new Request("http://localhost/r/magic-secret?access%5Ftoken=access-secret&magic%5Flink%5Ftoken=link-secret&safe=1"));
 
-    expect(res.status).toBe(500);
-    const body = await res.text();
-    expect(JSON.parse(body)).toEqual({
-      error: "Đã xảy ra lỗi hệ thống",
-      code: "INTERNAL_ERROR",
-    });
-    expect(body).not.toContain("hunter2");
-    expect(body).not.toContain("ECONNREFUSED");
+      expect(res.status).toBe(500);
+      const body = await res.text();
+      expect(JSON.parse(body)).toEqual({
+        error: "Đã xảy ra lỗi hệ thống",
+        code: "INTERNAL_ERROR",
+      });
+      expect(body).not.toContain("hunter2");
+      expect(body).not.toContain("ECONNREFUSED");
+      const serializedLogs = JSON.stringify(logs);
+      expect(serializedLogs).not.toContain("magic-secret");
+      expect(serializedLogs).not.toContain("access-secret");
+      expect(serializedLogs).not.toContain("link-secret");
+      expect(serializedLogs).not.toContain("hunter2");
+      expect(serializedLogs).toContain("[REDACTED]");
+
+      const nested = redactSecrets({ Authorization: "Bearer auth-secret", nested: [{ password: "object-secret" }], url: "/relative?access%5Ftoken=query-secret" });
+      const nestedSerialized = JSON.stringify(nested);
+      expect(nestedSerialized).not.toContain("query-secret");
+      expect(nestedSerialized).not.toContain("object-secret");
+      expect(nestedSerialized).not.toContain("auth-secret");
+      expect(nestedSerialized).toContain("[REDACTED]");
+    } finally {
+      console.error = originalError;
+    }
   });
 
   test("unknown routes return the standard envelope, not Elysia's default text", async () => {

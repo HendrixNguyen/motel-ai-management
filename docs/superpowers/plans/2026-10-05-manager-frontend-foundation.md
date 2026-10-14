@@ -76,7 +76,7 @@ frontend/
     app/(manager)/renters/page.tsx NEW   M4
     app/(manager)/renters/[renterId]/page.tsx  NEW  M4 detail
     components/ui/*.tsx            NEW   11 primitives
-    lib/api/{types,client,server,auth,motels,rooms,renters}.ts   NEW
+    lib/api/{types,client,server,auth,auth.client,motels,motels.client,rooms,rooms.client,renters,renters.client}.ts   NEW
     lib/format/{vnd,date,status}.ts NEW
     lib/format/__tests__/*.test.ts NEW
     lib/motel-selection.ts         NEW   read/validate ?motel=

@@ -79,6 +79,8 @@ runtime environment. Its value is the verified private backend URL, not a public
 
 ## Runtime Configuration
 
+The repository's root Compose deployment waits for PostgreSQL health before backend startup. Backend startup runs `bun run db:migrate` before `bun run start` and restarts after transient failures. This is safe for one backend replica only; production multi-replica rollouts require a separate one-shot migration job before replicas start, with no concurrent replica migrations.
+
 ### Backend
 
 The backend receives:

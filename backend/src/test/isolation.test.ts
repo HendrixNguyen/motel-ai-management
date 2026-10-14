@@ -5,7 +5,7 @@ import { resetDb } from "@/db/test-db";
 import { motels } from "@/modules/motel/motel.schema";
 import { rooms } from "@/modules/room/room.schema";
 import { renters } from "@/modules/renter/renter.schema";
-import { registerManager, verifyManager } from "@/modules/auth/auth.service";
+import { registerManager } from "@/modules/auth/auth.service";
 import { consumeMagicLink, issueMagicLink } from "@/shared/magic-link";
 
 // `resetDb` drops the schema and re-applies every migration, which takes seconds — past
@@ -40,12 +40,11 @@ async function loginAndGetCookie(manager: { id: string; email: string; name: str
 
 describe("cross-tenant isolation over HTTP", () => {
   test("manager A cannot access manager B's motel via API", async () => {
-    const { a, b, owned, foreign } = await seedTwoManagers();
+    const { a, foreign } = await seedTwoManagers();
     const cookieA = await loginAndGetCookie(a);
 
-    // Try to access foreign motel (should be 404)
     const res = await app.handle(
-      new Request(`http://localhost/api/motels/${foreign.id}`, {
+      new Request(`http://localhost/api/manager/motels/${foreign.id}`, {
         headers: { Cookie: cookieA ?? "" },
       }),
     );
@@ -53,19 +52,19 @@ describe("cross-tenant isolation over HTTP", () => {
   });
 
   test("manager A cannot access manager B's rooms via API", async () => {
-    const { a, b, owned, foreign } = await seedTwoManagers();
+    const { a, foreign } = await seedTwoManagers();
     const cookieA = await loginAndGetCookie(a);
-    const room = await db.insert(rooms).values({ motelId: foreign.id, name: "P.201" }).returning();
+    const room = await db.insert(rooms).values({ motelId: foreign.id, name: "P.201", basePrice: "5000000" }).returning();
 
     const res = await app.handle(
-      new Request(`http://localhost/api/rooms/${room[0]!.id}`, {
+      new Request(`http://localhost/api/manager/motels/${foreign.id}/rooms/${room[0]!.id}`, {
         headers: { Cookie: cookieA ?? "" },
       }),
     );
     expect(res.status).toBe(404);
   });
 
-  test("renter A cannot access renter B's data by guessing id", async () => {
+  test("invalid renter session cannot access protected renter endpoint", async () => {
     const { a, owned } = await seedTwoManagers();
     const room = await db.insert(rooms).values({ motelId: owned.id, name: "P.101" }).returning();
     const renter = await db.insert(renters).values({

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, setDefaultTimeout, test } from "bun:test";
-import { sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { env } from "@/config";
 import { db } from "@/db";
 import { resetDb } from "@/db/test-db";
@@ -41,7 +41,7 @@ describe("magic links", () => {
     // `/r/<token>` is the only token-bearing route the portal defines. Any other path
     // (it was `/renter/<token>`) 404s on arrival, so every link the manager copies out
     // is dead.
-    expect(url).toBe(`${env.frontendUrl}/r/${token}`);
+    expect(url).toBe(`${env.renterPortalUrl}/r/${token}`);
   });
 
   test("a consumed link cannot be replayed", async () => {
@@ -61,6 +61,16 @@ describe("magic links", () => {
     });
   });
 
+  test("concurrent exchanges consume link once", async () => {
+    const renter = await seedRenter();
+    const { token } = await issueMagicLink(renter.id);
+    const results = await Promise.allSettled([consumeMagicLink(token), consumeMagicLink(token)]);
+    expect(results.filter((result) => result.status === "fulfilled")).toHaveLength(1);
+    expect(results.filter((result) => result.status === "rejected")).toHaveLength(1);
+    const rejected = results.find((result): result is PromiseRejectedResult => result.status === "rejected");
+    expect(rejected?.reason).toMatchObject({ code: "MAGIC_LINK_EXPIRED" });
+  });
+
   test("an expired link is rejected", async () => {
     const renter = await seedRenter();
     const { token } = await issueMagicLink(renter.id);
@@ -70,6 +80,31 @@ describe("magic links", () => {
     await expect(consumeMagicLink(token)).rejects.toMatchObject({
       code: "MAGIC_LINK_EXPIRED",
     });
+  });
+
+  test("inactive renter session is rejected", async () => {
+    const renter = await seedRenter();
+    const { token } = await issueMagicLink(renter.id);
+    await db.update(renters).set({ status: "inactive" }).where(eq(renters.id, renter.id));
+    const exchange = await app.handle(new Request("http://localhost/api/renter/magic-links/exchange", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token }) }));
+    expect(exchange.status).toBe(401);
+    expect(exchange.headers.get("set-cookie") ?? "").not.toContain("renter_session=");
+    expect(await exchange.json()).toMatchObject({ code: "MAGIC_LINK_EXPIRED" });
+  });
+
+  test("an active renter session is revalidated on every request", async () => {
+    const renter = await seedRenter();
+    const { token } = await issueMagicLink(renter.id);
+    const exchange = await app.handle(new Request("http://localhost/api/renter/magic-links/exchange", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token }) }));
+    expect(exchange.status).toBe(200);
+    const cookie = exchange.headers.get("set-cookie") ?? "";
+
+    const before = await app.handle(new Request("http://localhost/api/renter/me", { headers: { cookie } }));
+    expect(before.status).toBe(200);
+
+    await db.update(renters).set({ status: "inactive" }).where(eq(renters.id, renter.id));
+    const after = await app.handle(new Request("http://localhost/api/renter/me", { headers: { cookie } }));
+    expect(after.status).toBe(401);
   });
 
   test("exchange endpoint sets a renter_session cookie", async () => {

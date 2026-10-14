@@ -45,6 +45,8 @@ Rules:
 
 - Cross-module calls go through the other module's **exported service functions**, never
   by importing its tables. If billing needs a room, it calls `roomService.findById()`.
+- Schema modules may import another module's schema table only to declare Drizzle foreign keys;
+  application code must still use exported service functions for cross-module reads and writes.
 - `db/schemas.ts` exists solely to re-export tables so `drizzle-kit` can see the full
   schema. It is not an import target for application code.
 - `shared/` holds genuinely cross-cutting utilities only — money parsing, phone

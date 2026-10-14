@@ -6,6 +6,7 @@ import { registerManager } from "@/modules/auth/auth.service";
 import { billingPeriods, invoices } from "@/modules/billing/billing.schema";
 import { contracts } from "@/modules/contract/contract.schema";
 import { renters } from "@/modules/renter/renter.schema";
+import { rooms } from "@/modules/room/room.schema";
 
 // `resetDb` drops the schema and re-applies every migration, which takes seconds — past
 // Bun's 5 s default, and worse once a long run has churned the system catalogs.
@@ -861,6 +862,33 @@ describe("PATCH /api/manager/motels/:motelId/renters/:renterId", () => {
     expect(((await res.json()) as RenterPayload).roomId).toBe(second.id);
     const [stored] = await db.select({ roomId: renters.roomId }).from(renters);
     expect(stored!.roomId).toBe(second.id);
+    const roomRows = await db.select({ id: rooms.id, status: rooms.status }).from(rooms);
+    expect(roomRows.find((room) => room.id === first.id)?.status).toBe("available");
+    expect(roomRows.find((room) => room.id === second.id)?.status).toBe("occupied");
+  });
+
+  test("assigning and unassigning updates room occupancy automatically", async () => {
+    const a = await login("a@example.com");
+    const motel = await createMotel(a.cookie);
+    const room = await createRoom(a.cookie, motel.id);
+    const renter = await createRenter(a.cookie, motel.id, { roomId: room.id });
+
+    let [stored] = await db.select({ status: rooms.status }).from(rooms);
+    expect(stored!.status).toBe("occupied");
+
+    const res = await api("PATCH", `/manager/motels/${motel.id}/renters/${renter.id}`, { cookie: a.cookie, body: { roomId: null } });
+    expect(res.status).toBe(200);
+    [stored] = await db.select({ status: rooms.status }).from(rooms);
+    expect(stored!.status).toBe("available");
+  });
+
+  test("automatic occupancy does not overwrite maintenance", async () => {
+    const a = await login("a@example.com");
+    const motel = await createMotel(a.cookie);
+    const room = await createRoom(a.cookie, motel.id, { status: "maintenance" });
+    await createRenter(a.cookie, motel.id, { roomId: room.id });
+    const [stored] = await db.select({ status: rooms.status }).from(rooms);
+    expect(stored!.status).toBe("maintenance");
   });
 
   test("404 for a room in another motel, and the stored room is untouched", async () => {
