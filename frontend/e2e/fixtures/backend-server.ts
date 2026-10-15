@@ -8,6 +8,7 @@ export function createFixtureBackend(onMissingFixture: (failure: Error) => void 
   queueMicrotask(() => { throw failure; });
 }) {
   const states = new Map<string, { motels: MotelResponse[]; rooms: RoomResponse[]; renters: RenterResponse[]; invoices: InvoiceResponse[]; proofs: Map<string, { id: string; invoiceId: string; renterId: string; status: "pending" | "approved" | "rejected"; contentType: "image/jpeg"; size: number; submittedAt: string; reviewedAt: string | null; reviewedByManagerId: string | null; rejectionReason: string | null; signedUrl: string }> }>();
+  const templateStore = new Map<string, { id: string; motelId: string; name: string; clauses: { title: string; content: string }[]; isDefault: boolean; createdAt: string }>();
   const signedRenters = new Map<string, string>();
   const magicLinks = new Map([
     ["flow-token", { expiresAt: Date.now() + 24 * 60 * 60 * 1000 }],
@@ -48,7 +49,7 @@ export function createFixtureBackend(onMissingFixture: (failure: Error) => void 
         const body = await input<{ email: string; password: string }>();
         if (body.email !== MANAGER_ME.email || body.password !== "password123") return error(400, "VALIDATION_ERROR", "Email hoặc mật khẩu không đúng");
         response.setHeader("set-cookie", `manager_session=login-${crypto.randomUUID()}; Path=/; HttpOnly; SameSite=Lax`);
-        return json(MANAGER_AUTH);
+        return json({ ...MANAGER_AUTH, id: "manager-a" });
       }
       if (method === "POST" && path === "/api/auth/logout") {
         response.writeHead(204, { "set-cookie": "manager_session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0" }); return response.end();
@@ -83,6 +84,15 @@ export function createFixtureBackend(onMissingFixture: (failure: Error) => void 
       }
       if (!managerSession) return unauthorized();
       if (method === "GET" && path === "/api/auth/me") return managerSession === "me-expired" ? unauthorized() : json(MANAGER_ME);
+      if (method === "GET" && path.match(/^\/api\/manager\/motels\/[^/]+\/contracts$/)) return json(managerSession.startsWith("contract-") ? [{ id: managerSession === "contract-active" ? "contract-active" : "contract-draft", motelId: MOTEL.id, renterId: RENTERS[0]!.id, roomId: ROOMS[0]!.id, startDate: "2026-01-01", endDate: "2027-01-01", monthlyRent: "3500000", deposit: "1000000", clauses: [{ title: "Tiền thuê", content: "Đúng hạn" }], otpSentAt: null, otpSignedAt: null, status: managerSession === "contract-active" ? "active" : "draft", createdAt: "2026-01-01T00:00:00.000Z" }] : []);
+      if (method === "GET" && path.match(/^\/api\/manager\/motels\/[^/]+\/contracts\/contract-draft$/) && managerSession === "contract-draft") return json({ id: "contract-draft", motelId: MOTEL.id, renterId: RENTERS[0]!.id, roomId: ROOMS[0]!.id, startDate: "2026-01-01", endDate: "2027-01-01", monthlyRent: "3500000", deposit: "1000000", clauses: [{ title: "Tiền thuê", content: "Đúng hạn" }], otpSentAt: null, otpSignedAt: null, status: "draft", createdAt: "2026-01-01T00:00:00.000Z" });
+      if (method === "GET" && path.match(/^\/api\/manager\/motels\/[^/]+\/contract-templates$/)) { const created = templateStore.get(managerSession); return json([{ id: "contract-template", motelId: MOTEL.id, name: "Chuẩn", clauses: [{ title: "Tiền thuê", content: "Đúng hạn" }], isDefault: true, createdAt: "2026-01-01T00:00:00.000Z" }, ...(created ? [created] : [])]); }
+      if (method === "PATCH" && path.match(/^\/api\/manager\/motels\/[^/]+\/contracts\/contract-draft$/) && managerSession === "contract-draft") { const body = await input<Record<string, unknown>>(); return json({ id: "contract-draft", motelId: MOTEL.id, renterId: RENTERS[0]!.id, roomId: ROOMS[0]!.id, startDate: "2026-01-01", endDate: "2027-01-01", monthlyRent: "3500000", deposit: "1000000", clauses: [{ title: "Tiền thuê", content: "Đúng hạn" }], otpSentAt: null, otpSignedAt: null, status: "draft", createdAt: "2026-01-01T00:00:00.000Z", ...body }); }
+      if (method === "POST" && path.match(/^\/api\/manager\/motels\/[^/]+\/contracts\/contract-active\/terminate$/) && managerSession === "contract-active") return json({ id: "contract-active", motelId: MOTEL.id, renterId: RENTERS[0]!.id, roomId: ROOMS[0]!.id, startDate: "2026-01-01", endDate: "2027-01-01", monthlyRent: "3500000", deposit: "1000000", clauses: [{ title: "Tiền thuê", content: "Đúng hạn" }], otpSentAt: null, otpSignedAt: null, status: "terminated", createdAt: "2026-01-01T00:00:00.000Z" });
+      if (method === "POST" && path.match(/^\/api\/manager\/motels\/[^/]+\/contracts$/)) { const body = await input<Record<string, unknown>>(); return json({ id: "contract-created", motelId: MOTEL.id, ...body, otpSentAt: null, otpSignedAt: null, status: "draft", createdAt: new Date().toISOString() }, 201); }
+      if (method === "POST" && path.match(/^\/api\/manager\/motels\/[^/]+\/contract-templates$/)) { const body = await input<{ name: string; clauses: { title: string; content: string }[] }>(); const created = { id: "contract-template-created", motelId: MOTEL.id, ...body, isDefault: false, createdAt: new Date().toISOString() }; templateStore.set(managerSession, created); return json(created, 201); }
+      if (method === "PATCH" && path.match(/^\/api\/manager\/motels\/[^/]+\/contract-templates\/contract-template-created$/)) { const body = await input<{ name: string; clauses?: { title: string; content: string }[] }>(); const updated = { ...(templateStore.get(managerSession) ?? { id: "contract-template-created", motelId: MOTEL.id, name: "Hợp đồng mới", clauses: [{ title: "Tiền cọc", content: "Hoàn lại khi bàn giao phòng" }], isDefault: false, createdAt: "2026-01-01T00:00:00.000Z" }), ...body }; templateStore.set(managerSession, updated); return json(updated); }
+      if (method === "DELETE" && path.match(/^\/api\/manager\/motels\/[^/]+\/contract-templates\/contract-template-created$/)) { templateStore.delete(managerSession); return json({ deleted: true }); }
       const state = stateFor(managerSession);
       if (method === "GET" && path.match(/^\/api\/manager\/motels\/[^/]+\/billing\/periods$/)) return json([CAPTURE_PERIOD]);
       if (method === "GET" && path.match(/^\/api\/manager\/motels\/[^/]+\/billing\/periods\/[^/]+$/)) return json(managerSession === "sent-capture" ? { ...CAPTURE_PERIOD_DETAIL, status: "sent" } : CAPTURE_PERIOD_DETAIL);

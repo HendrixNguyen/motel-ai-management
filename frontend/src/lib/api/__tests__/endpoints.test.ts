@@ -85,6 +85,9 @@ function calls(): string[] {
 
 beforeEach(() => {
   fetchMock.mockReset();
+  const session = { getItem: vi.fn(() => null), setItem: vi.fn(), removeItem: vi.fn() };
+  vi.stubGlobal("sessionStorage", session);
+  vi.stubGlobal("window", { sessionStorage: session });
   env.redirects.length = 0;
   process.env.BACKEND_URL = BACKEND_URL;
 });
@@ -333,10 +336,16 @@ describe("writes (client components, relative URL through the proxy)", () => {
     expect(Object.keys(MANAGER_ME)).not.toContain("name");
   });
 
-  it("logs out and resolves undefined on the 204", async () => {
+  it("logs out and clears only the authenticated manager's capture queue", async () => {
     fetchMock.mockResolvedValue(new Response(null, { status: 204 }));
+    const browserSession = { getItem: () => "manager-1", removeItem: vi.fn() };
+    vi.stubGlobal("window", { sessionStorage: browserSession });
+    vi.stubGlobal("sessionStorage", browserSession);
+    const clear = vi.spyOn(await import("@/lib/capture/queue"), "clearCaptureQueue");
 
     await expect(logout()).resolves.toBeUndefined();
+    expect(clear).toHaveBeenCalledWith("manager-1");
+    expect(sessionStorage.removeItem).toHaveBeenCalledWith("manager-id");
 
     expect(lastUrl()).toBe("/api/auth/logout");
     expect(lastInit().method).toBe("POST");

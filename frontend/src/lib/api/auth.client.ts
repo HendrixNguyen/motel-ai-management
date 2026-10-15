@@ -1,6 +1,6 @@
 import { apiSend } from "./client";
 import type { LoginInput, ManagerAuthResponse, RegisterManagerInput } from "./types";
-import { clearAllCaptureQueue } from "@/lib/capture/queue";
+import { clearCaptureQueue } from "@/lib/capture/queue";
 
 /**
  * The three auth calls that must be made **by the browser**.
@@ -18,8 +18,10 @@ import { clearAllCaptureQueue } from "@/lib/capture/queue";
  */
 
 /** `POST /api/auth/register` — `auth.route.ts:18`. Answers 201 with the manager. */
-export function register(input: RegisterManagerInput): Promise<ManagerAuthResponse> {
-  return apiSend<ManagerAuthResponse>("/api/auth/register", "POST", input);
+export async function register(input: RegisterManagerInput): Promise<ManagerAuthResponse> {
+  const manager = await apiSend<ManagerAuthResponse>("/api/auth/register", "POST", input);
+  try { sessionStorage.setItem("manager-id", manager.id); } catch { /* Registration must succeed when local storage is unavailable. */ }
+  return manager;
 }
 
 /**
@@ -28,8 +30,10 @@ export function register(input: RegisterManagerInput): Promise<ManagerAuthRespon
  * A wrong email or password is a `400 VALIDATION_ERROR` whose message is Vietnamese and safe to
  * render (`auth.service.ts`). Rate limiting is per IP and per email, and answers `429 RATE_LIMITED`.
  */
-export function login(input: LoginInput): Promise<ManagerAuthResponse> {
-  return apiSend<ManagerAuthResponse>("/api/auth/login", "POST", input);
+export async function login(input: LoginInput): Promise<ManagerAuthResponse> {
+  const manager = await apiSend<ManagerAuthResponse>("/api/auth/login", "POST", input);
+  try { sessionStorage.setItem("manager-id", manager.id); } catch { /* Login must succeed when local storage is unavailable. */ }
+  return manager;
 }
 
 /**
@@ -37,5 +41,11 @@ export function login(input: LoginInput): Promise<ManagerAuthResponse> {
  * `undefined`, and the browser drops the cookie because the backend cleared it.
  */
 export async function logout(): Promise<void> {
-  try { await apiSend<void>("/api/auth/logout", "POST"); } finally { await clearAllCaptureQueue(); }
+  let managerId: string | null = null;
+  try { managerId = window.sessionStorage.getItem("manager-id"); } catch { /* Session cleanup must continue when storage is unavailable. */ }
+  try { await apiSend<void>("/api/auth/logout", "POST"); }
+  finally {
+    if (managerId) await clearCaptureQueue(managerId);
+    try { window.sessionStorage.removeItem("manager-id"); } catch { /* The server cookie is authoritative. */ }
+  }
 }

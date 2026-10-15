@@ -7,12 +7,12 @@ const valid = {
   MANAGER_JWT_SECRET: "a".repeat(48),
   RENTER_SESSION_SECRET: "b".repeat(48),
   R2_ACCOUNT_ID: "acct",
-  R2_ACCESS_KEY_ID: "key",
-  R2_SECRET_ACCESS_KEY: "secret",
   ZALO_OA_ID: "oa",
-  ZALO_OA_SECRET: "oa-secret",
-  ZALO_ACCESS_TOKEN: "token",
-  ZALO_WEBHOOK_SECRET: "hook",
+  ZALO_OA_SECRET: "z".repeat(48),
+  ZALO_ACCESS_TOKEN: "y".repeat(48),
+  ZALO_WEBHOOK_SECRET: "x".repeat(48),
+  R2_ACCESS_KEY_ID: "r".repeat(48),
+  R2_SECRET_ACCESS_KEY: "s".repeat(48),
 };
 
 describe("parseEnv", () => {
@@ -34,7 +34,7 @@ describe("parseEnv", () => {
 
   test("rejects placeholder or duplicate production secrets", () => {
     expect(() => parseEnv({ ...valid, NODE_ENV: "production", DATABASE_URL: "postgres://u:p@db.internal:5432/motel", RENTER_PORTAL_URL: "https://renter.example.com", FRONTEND_URL: "https://app.example.com", MANAGER_JWT_SECRET: "PLACEHOLDER" })).toThrow(/MANAGER_JWT_SECRET/);
-    expect(() => parseEnv({ ...valid, NODE_ENV: "production", DATABASE_URL: "postgres://u:p@db.internal:5432/motel", RENTER_PORTAL_URL: "https://renter.example.com", FRONTEND_URL: "https://app.example.com", RENTER_SESSION_SECRET: valid.MANAGER_JWT_SECRET })).toThrow(/secret/);
+    expect(() => parseEnv({ ...valid, NODE_ENV: "production", DATABASE_URL: "postgres://u:p@db.internal:5432/motel", RENTER_PORTAL_URL: "https://renter.example.com", FRONTEND_URL: "https://app.example.com", RENTER_SESSION_SECRET: valid.MANAGER_JWT_SECRET })).toThrow(/secret|trùng/);
   });
 
   test("throws when DATABASE_URL is missing", () => {
@@ -95,7 +95,7 @@ describe("parseEnv", () => {
   });
 
   test("requires a proxy assertion pair in production", () => {
-    const production = { ...valid, NODE_ENV: "production", RENTER_PORTAL_URL: "https://renter.example.com", FRONTEND_URL: "https://app.example.com", MANAGER_JWT_SECRET: "a".repeat(48), RENTER_SESSION_SECRET: "b".repeat(48), ZALO_OA_SECRET: "d".repeat(48), ZALO_ACCESS_TOKEN: "e".repeat(48), ZALO_WEBHOOK_SECRET: "c".repeat(48), R2_ACCESS_KEY_ID: "f".repeat(48), R2_SECRET_ACCESS_KEY: "g".repeat(48) };
+    const production = { ...valid, NODE_ENV: "production", DATABASE_URL: "postgres://u:p@db.internal:5432/motel", RENTER_PORTAL_URL: "https://renter.example.com", FRONTEND_URL: "https://app.example.com", MANAGER_JWT_SECRET: "m".repeat(48), RENTER_SESSION_SECRET: "n".repeat(48), ZALO_OA_SECRET: "o".repeat(48), ZALO_ACCESS_TOKEN: "p".repeat(48), ZALO_WEBHOOK_SECRET: "q".repeat(48), R2_ACCESS_KEY_ID: "r".repeat(48), R2_SECRET_ACCESS_KEY: "s".repeat(48) };
     expect(() => parseEnv({ ...production, TRUSTED_PROXY_HEADER: "x-forwarded-for" })).toThrow(/proxy/i);
     expect(parseEnv({ ...production, TRUSTED_PROXY_HEADER: "x-forwarded-for", TRUSTED_PROXY_ASSERTION_HEADER: "x-internal-proxy", TRUSTED_PROXY_ASSERTION_VALUE: "h".repeat(32) }).trustedProxyAssertionValue).toBe("h".repeat(32));
   });

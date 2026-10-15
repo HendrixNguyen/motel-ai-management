@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { logout } from "@/lib/api/auth.client";
+import CaptureQueueWarning from "@/components/manager/capture-queue-warning";
 import { ApiError, GENERIC_ERROR_MESSAGE } from "@/lib/api/client";
 import type { ManagerMeResponse, MotelResponse } from "@/lib/api/types";
 import { motelHref } from "@/lib/motel-navigation";
@@ -15,8 +15,8 @@ export default function TopBar({ manager, motels }: { manager: ManagerMeResponse
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const selected = searchParams.get("motel") ?? motels[0]?.id;
-  const [currentMotels, setCurrentMotels] = useState(motels);
-  const motelItems = currentMotels.length ? currentMotels : motels;
+  const [currentMotels, setCurrentMotels] = useState({ source: motels, items: motels });
+  const motelItems = currentMotels.source === motels ? currentMotels.items : motels;
   const [switching, startTransition] = useTransition();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string>();
@@ -24,13 +24,13 @@ export default function TopBar({ manager, motels }: { manager: ManagerMeResponse
   useEffect(() => {
     const update = (event: Event) => {
       const updated = (event as CustomEvent<MotelResponse>).detail;
-      setCurrentMotels((items) => items.map((motel) => motel.id === updated.id ? updated : motel));
+      setCurrentMotels((current) => ({ ...current, items: current.items.map((motel) => motel.id === updated.id ? updated : motel) }));
     };
     window.addEventListener("motel-updated", update);
     return () => window.removeEventListener("motel-updated", update);
   }, []);
   useEffect(() => {
-    if (!searchParams.has("motel") && motels[0]) router.replace(motelHref(pathname, search, motels[0].id));
+    if (motels.length && !searchParams.has("motel")) router.replace(motelHref(pathname, search, motels[0]!.id));
   }, [motels, pathname, router, search, searchParams]);
 
   async function handleLogout() {
@@ -38,7 +38,9 @@ export default function TopBar({ manager, motels }: { manager: ManagerMeResponse
     setPending(true);
     setError(undefined);
     try {
-      await logout();
+      const event = new CustomEvent("capture:logout", { cancelable: true }); window.dispatchEvent(event);
+      if (event.defaultPrevented) { setPending(false); return; }
+      const { logout } = await import("@/lib/api/auth.client"); await logout();
       router.replace("/login");
       router.refresh();
     } catch (cause) {
@@ -54,7 +56,7 @@ export default function TopBar({ manager, motels }: { manager: ManagerMeResponse
         <div className="hidden min-w-0 flex-1 lg:block"><p className="text-xs font-semibold text-text-muted">KHÔNG GIAN VẬN HÀNH</p><p className="mt-1 truncate font-heading text-lg font-semibold text-text">Theo dõi nhà trọ, hóa đơn và khách thuê</p></div>
         <div className="min-w-0 flex-1 lg:max-w-sm">
           <label htmlFor="motel-selector" className="mb-2 block text-sm font-semibold text-text">Nhà trọ</label>
-           <MotelSwitcher motels={motelItems} selectedId={selected} disabled={switching} onChange={(id) => startTransition(() => router.replace(motelHref(pathname, search, id)))} />
+           <MotelSwitcher motels={motelItems} selectedId={selected} disabled={switching} onChange={(id) => { const event = new CustomEvent("capture:motel-switch", { cancelable: true, detail: id }); window.dispatchEvent(event); if (!event.defaultPrevented) startTransition(() => router.replace(motelHref(pathname, search, id))); }} />
         </div>
         <details className="relative shrink-0 lg:ml-auto">
           <summary aria-label="Menu phụ, Tài khoản" className="flex min-h-11 cursor-pointer items-center rounded-input border border-border-strong px-3 text-sm font-semibold text-text hover:bg-canvas focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">
@@ -69,6 +71,7 @@ export default function TopBar({ manager, motels }: { manager: ManagerMeResponse
           </div>
         </details>
       </div>
+      {selected && <CaptureQueueWarning managerId={manager.id} motelId={selected} />}
     </header>
   );
 }

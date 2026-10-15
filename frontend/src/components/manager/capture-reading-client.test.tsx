@@ -25,7 +25,7 @@ function reading(type: MeterReadingResponse["type"], currentReading: string): Me
 describe("capture responsive layout", () => {
   it("keeps capture controls bounded to viewport at mobile widths", () => {
     const item = reading("electric", "101.00");
-    const html = renderToStaticMarkup(createElement(CaptureReadingClient, { motelId: period.motelId, period, reading: item, roomName: "P.101", roomReadings: [item], nextUrl: undefined }));
+    const html = renderToStaticMarkup(createElement(CaptureReadingClient, { managerId: "manager-1", motelId: period.motelId, period, reading: item, roomName: "P.101", roomReadings: [item], nextUrl: undefined }));
 
     expect(html).toContain('style="width:100%;max-width:min(100%, 32rem)"');
     expect(html).toContain("min-w-0 flex-wrap");
@@ -36,8 +36,8 @@ describe("capture preview rates", () => {
   it("uses electricity and water rates from the billing period DTO", () => {
     const electric = reading("electric", "101.00");
     const water = reading("water", "101.00");
-    const electricHtml = renderToStaticMarkup(createElement(CaptureReadingClient, { motelId: period.motelId, period, reading: electric, roomName: "P.101", roomReadings: [electric], nextUrl: undefined }));
-    const waterHtml = renderToStaticMarkup(createElement(CaptureReadingClient, { motelId: period.motelId, period, reading: water, roomName: "P.101", roomReadings: [water], nextUrl: undefined }));
+    const electricHtml = renderToStaticMarkup(createElement(CaptureReadingClient, { managerId: "manager-1", motelId: period.motelId, period, reading: electric, roomName: "P.101", roomReadings: [electric], nextUrl: undefined }));
+    const waterHtml = renderToStaticMarkup(createElement(CaptureReadingClient, { managerId: "manager-1", motelId: period.motelId, period, reading: water, roomName: "P.101", roomReadings: [water], nextUrl: undefined }));
 
     expect(electricHtml).toContain("Ước tính 4321 ₫");
     expect(waterHtml).toContain("Ước tính 27890 ₫");

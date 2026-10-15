@@ -91,7 +91,8 @@ destroys the schema it is given.
 | Billing rules | meter's `basePrice` is never read by the calculation |
 | Renter payment | one-proof invariant, JPEG/PNG byte and 5,000,000-byte payment-proof limit, proof state transitions, manager-only approval/cash payment, signed URL TTL, renter paid-mutation denial |
 | Notifications | push subscription ownership/deduplication, Web Push-first ordering, bounded retries, permanent-failure fallback, stable event-key idempotency, redacted payloads |
-| Meter capture | an offline entry survives a reload and syncs on reconnect (browser-level test) |
+| Meter capture | manager ownership, motel+period scoping, wrong-manager rejection, stale-motel queue clearing on switch, logout cleanup, draft-only enqueue, and offline reload/reconnect sync (unit + browser-level tests) |
+| Manager contracts | active-renter/room motel scoping, decimal-safe VND normalization, valid dates, draft-only PATCH fields, cross-motel template rejection, and lifecycle transitions (unit + HTTP + E2E) |
 
 ## What not to test
 

@@ -142,7 +142,7 @@ a "Doanh thu dự kiến 0 ₫" tile is a false claim about data that does not e
 
 | Surface | Built | Deferred — no endpoint exists |
 |---------|-------|-------------------------------|
-| Sidebar | **Tổng quan**, **Nhà trọ**, **Phòng trọ**, **Khách thuê**, **Tính tiền & Hóa đơn** (M5, M6) | **Hợp đồng** (M7, M7a), **Sự cố & Yêu cầu** (M8), **Cài đặt** (M9) |
+| Sidebar | **Tổng quan**, **Nhà trọ**, **Phòng trọ**, **Khách thuê**, **Tính tiền & Hóa đơn**, **Hợp đồng** (read-only list, draft create/edit, detail, template create/edit/delete, send request and terminate through existing APIs) | **Sự cố & Yêu cầu** manager administration (M8; no manager endpoint), dedicated **Cài đặt** route (M9; supported price/fee/bank fields remain in M2 edit) |
 | M1 Overview | **Phòng** card, live quick actions | **Doanh thu dự kiến**, **Tiền chưa thu**, **Sự cố chưa xử lý** cards, and both widgets |
 | M3 Phòng trọ | filters, cards, add/edit, change status | overdue indicator, meter history |
 | M4 Khách thuê | list, detail, **Tạo magic link** | provider-specific send/retry actions |
@@ -308,7 +308,9 @@ the manager's manual confirmation; it does not verify a bank transfer automatica
 
 ### M7 — Hợp đồng `/contracts`
 
-Two tabs.
+**Current implementation note (2026-10-13):** Current QA implementation is read-only contract summary cards. Names resolve from motel-scoped renter/room reads; unmatched linked records show safe labels, not ID fragments. Detail, create/edit, lifecycle actions, and templates UI remain unimplemented.
+
+Target behavior: two tabs.
 
 _Tab 1 — Hợp đồng:_ grouped Active / Sắp hết hạn (≤30 days) / Đã thanh lý. Detail view
 lists every clause, rent, deposit, term, and signing metadata (`otpSignedAt`, renter
