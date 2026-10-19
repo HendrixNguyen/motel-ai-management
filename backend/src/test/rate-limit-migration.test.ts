@@ -33,9 +33,10 @@ async function runMigration(sql: ReturnType<typeof postgres>, source = migration
 }
 
 afterAll(async () => {
-  for (const name of databases) await admin.unsafe(`DROP DATABASE IF EXISTS "${name}" WITH (FORCE)`);
+  const leftovers = await admin`SELECT datname FROM pg_database WHERE datname LIKE 'migration_%' AND datname = ANY(${databases})`;
+  for (const row of leftovers) await admin.unsafe(`DROP DATABASE IF EXISTS "${row.datname}" WITH (FORCE)`);
   await admin.end();
-}, 30_000);
+}, 120_000);
 
 describe("0019 rate-limit bucket reconciliation", () => {
   test("creates current schema on fresh install", async () => {
