@@ -72,7 +72,18 @@ a `CHECK` constraint, so it cannot test the thing most likely to break.
   against the current migration set, so a constraint added since the last run is enforced
   rather than silently absent
 - `resetDb()` throws unless the pool is pointed at `TEST_DATABASE_URL`. It destroys a
-  schema, and a real database must not be reachable from it
+  schema, and a real database must not be reachable from it. It terminates existing sessions
+  to that configured test database before rebuilding schemas; keep other processes away from
+  `TEST_DATABASE_URL` while tests run.
+- Integration test files reset this shared database, so they must run serially. Use
+  `bun run test` (the package script passes `--parallel=1`); bypassing the package script
+  requires `bun test --parallel=1`, never bare `bun test` or `--parallel`.
+- `rate-limit-migration.test.ts` creates and drops temporary databases. Full suite runs need
+  `MIGRATION_TEST_ADMIN_URL` pointing at a disposable local PostgreSQL admin database with
+  `CREATEDB` permission. These tests create databases named `migration_<random>` and remove
+  those they create in `afterAll`; after an interrupted run, manually remove only orphaned
+  `migration_*` databases from that disposable test instance. Never point this URL at a
+  shared or production server.
 
 Never point `TEST_DATABASE_URL` at a database holding data you care about. The test suite
 destroys the schema it is given.
