@@ -15,6 +15,9 @@ test("payment-proof panel reports the 5 MB upload limit", async ({ page, context
   await page.route("**/api/renter/invoices/invoice-1/payment-proof", (route) => route.fulfill({ json: null }));
   await page.goto("/portal/bills/invoice-1");
   await expect(page.getByText("Gửi một ảnh JPG hoặc PNG, tối đa 5 MB. Chủ nhà sẽ kiểm tra và xác nhận.")).toBeVisible();
+  await expect(page.getByLabel("Ảnh chứng từ")).toHaveAttribute("accept", "image/jpeg,image/png");
+  await expect(page.getByText("Kéo thả ảnh vào đây")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Chọn ảnh" })).toBeVisible();
 });
 
 test("manager and renter sessions route independently at 430px", async ({ page, context }) => {
@@ -69,7 +72,7 @@ test("fixture-level unknown magic-link shows expired recovery without leaking in
   await expect(page.locator('section[role="alert"]')).not.toContainText(/token|secret|private|host/i);
 });
 
-test("capture save, invoice QR, and UI-only OTP contract and ticket journey", async ({ page }) => {
+test("capture save, invoice QR, explicit contract consent and ticket journey", async ({ page }) => {
   await page.context().addCookies([{ name: "manager_session", value: "capture-session", domain: "localhost", path: "/" }]);
   await page.goto("/capture?motel=6f1c1a52-0d4e-4a2b-9c3d-8e5f6a7b8c9d");
   await expect(page.getByRole("heading", { name: /Nhập chỉ số/ })).toBeVisible();
@@ -98,24 +101,21 @@ test("capture save, invoice QR, and UI-only OTP contract and ticket journey", as
   await expect(page.getByText("Chưa thanh toán", { exact: true })).toBeVisible();
   await expect(page.locator('canvas[aria-label="Mã QR thanh toán hóa đơn"]')).toBeVisible();
   await expect(page).toHaveURL(/\/portal\/bills\/invoice/);
-  await page.goto("/portal/tickets");
-  await expect(page.getByRole("heading", { name: "Báo sự cố" })).toBeVisible();
-  let verifyPayload: Record<string, unknown> | undefined;
-  await page.route("**/api/renter/contracts/*/sign-request", (route) => route.fulfill({ json: { sentAt: "2026-10-01T00:00:00.000Z" } }));
-  page.on("request", (request) => { if (request.url().includes("/api/renter/contracts/") && request.url().endsWith("/verify")) verifyPayload = request.postDataJSON() as Record<string, unknown>; });
+  let consentPayload: Record<string, unknown> | undefined;
+  page.on("request", (request) => { if (request.url().endsWith("/api/renter/contracts/contract/consent")) consentPayload = request.postDataJSON() as Record<string, unknown>; });
   await page.goto("/portal/contract");
   await page.getByLabel(/đồng ý/).check();
-  await page.getByRole("button", { name: "Gửi mã OTP" }).click();
-  await expect(page.getByText("Mã OTP đã được gửi qua Zalo.")).toBeVisible();
-  await page.getByLabel("Mã OTP").fill("123456");
-  await page.getByRole("button", { name: "Xác nhận ký" }).click();
-  await expect(page.getByText("Đã ký hợp đồng.")).toBeVisible();
-  expect(verifyPayload).toEqual({ otp: "123456" });
+  await page.getByLabel(/Xác nhận ký hợp đồng và kích hoạt/).check();
+  await page.getByRole("button", { name: "Xác nhận ký hợp đồng" }).click();
+  await expect(page.getByText("Hợp đồng đã được xác nhận.")).toBeVisible();
+  expect(consentPayload).toEqual({ consent: true, termsVersion: "a".repeat(64) });
   await expect(page).toHaveURL(/\/portal\/contract/);
   await page.reload();
   await page.waitForTimeout(500);
   await expect(page.getByText("Đang hiệu lực")).toBeVisible({ timeout: 10000 });
-  await expect(page.getByRole("button", { name: "Xác nhận ký" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Xác nhận ký hợp đồng" })).toHaveCount(0);
+  await page.goto("/portal/tickets");
+  await expect(page.getByRole("heading", { name: "Báo sự cố" })).toBeVisible();
   await page.route("**/api/renter/tickets", async (route) => { if (route.request().method() === "POST") { ticketPayload = await route.request().postDataJSON(); ticketResponse = { id: "ticket-new", category: String(ticketPayload?.category), description: String(ticketPayload?.description), status: "open", createdAt: "2026-10-08T00:00:00.000Z" }; await route.fulfill({ status: 201, json: ticketResponse }); } else await route.fulfill({ json: [] }); });
   await page.goto("/portal/tickets");
   await page.getByLabel("Mô tả").fill("Điện chập chờn trong phòng");

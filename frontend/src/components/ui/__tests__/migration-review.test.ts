@@ -14,6 +14,6 @@ describe("Core UI v2 migration contracts", () => {
 
   test("dark theme defines semantic surface tokens", async () => {
     const css = await readFile(new URL("../../../app/globals.css", import.meta.url), "utf8");
-    expect(css).toMatch(/html\[data-theme="dark"\]\s*\{[\s\S]*--color-surface:\s*#111827;[\s\S]*--color-canvas:\s*#0F172A;/);
+    expect(css).toMatch(/html\[data-theme="dark"\]\s*\{[\s\S]*--color-surface:\s*#1B303C;[\s\S]*--color-canvas:\s*#10232E;/);
   });
 });

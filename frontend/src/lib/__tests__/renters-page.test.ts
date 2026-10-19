@@ -80,18 +80,18 @@ describe("M4 renter detail", () => {
     expect(markup).toContain(RENTER_DETAIL_WITHOUT_HISTORY.name);
     expect(markup).toContain("Chưa có hợp đồng đang hiệu lực");
     expect(markup).toContain("Chưa có hóa đơn");
-    expect(markup).toContain("CCCD mặt trước: Chưa cập nhật");
-    expect(markup).toContain("CCCD mặt sau: Chưa cập nhật");
+    expect(markup).toContain("Mặt trước · Chưa có ảnh");
+    expect(markup).toContain("Mặt sau · Chưa có ảnh");
     expect(markup).not.toContain("<img");
     expect(markup).toContain("Tạo magic link");
     expect(markup).not.toMatch(/Gửi Zalo|Tiền cọc|Hạn thanh toán/);
   });
-  it("renders real contract calendar dates and invoice amounts/statuses only from the detail DTO", async () => {
-    const { markup } = await detailPage({ ...RENTER_DETAIL, idCardFrontUrl: "https://images.example/front.jpg" }, { roomId: ROOM.id });
+  it("renders real contract calendar dates, invoice amounts and manager-only CCCD upload controls", async () => {
+    const { markup } = await detailPage(RENTER_DETAIL, { roomId: ROOM.id });
     for (const value of ["01/09/2026", "31/08/2027", "3.500.000 ₫", "3.740.000 ₫", "Đã thanh toán", "Quá hạn", ROOM.name]) expect(markup).toContain(value);
-    expect(markup).toContain('alt="CCCD mặt trước của Trần Thị B"');
-    expect(markup).toContain('src="https://images.example/front.jpg"');
-    expect(markup).not.toContain('alt="CCCD mặt sau');
+    expect(markup).toContain("Ảnh CCCD");
+    expect(markup).toContain("Chỉ quản lý nhà trọ xem được");
+    expect(markup).toContain("CCCD mặt trước");
     expect(markup).toContain(`/renters?motel=${MOTEL.id}&amp;roomId=${ROOM.id}`);
   });
   it("keeps contract and invoice amounts in nonwrapping monetary elements", async () => {
@@ -100,27 +100,12 @@ describe("M4 renter detail", () => {
     expect(amounts.length).toBeGreaterThanOrEqual(2);
     for (const amount of amounts) expect(amount[2]).toContain("whitespace-nowrap");
   });
-  it("displays both provided image sides with no referrer or optimization proxy", async () => {
-    const { markup } = await detailPage({ ...RENTER_DETAIL_WITHOUT_HISTORY, idCardFrontUrl: "https://images.example/front.jpg", idCardBackUrl: "https://images.example/back.jpg" });
-    expect(markup.match(/<img /g)).toHaveLength(2);
-    expect(markup.match(/referrerPolicy="no-referrer"/g)).toHaveLength(2);
-    expect(markup).not.toContain("/_next/image");
-  });
-  it("does not render unsafe URL schemes as CCCD images", async () => {
-    const { markup } = await detailPage({ ...RENTER_DETAIL_WITHOUT_HISTORY, idCardFrontUrl: "javascript:alert(1)", idCardBackUrl: "//evil.example/back.jpg" });
-    expect(markup).not.toContain("<img");
-    expect(markup).toContain("Chưa cập nhật");
-  });
-  it("accepts root-relative images while leaving storage keys unresolved", async () => {
-    const { markup } = await detailPage({ ...RENTER_DETAIL_WITHOUT_HISTORY, idCardFrontUrl: "/documents/front.jpg", idCardBackUrl: "renters/back.jpg" });
-    expect(markup).toContain('src="/documents/front.jpg"');
-    expect(markup.match(/<img /g)).toHaveLength(1);
-    expect(markup).toContain("CCCD mặt sau: Chưa cập nhật");
-  });
-  it("does not render malformed remote URLs or embedded credentials", async () => {
-    const { markup } = await detailPage({ ...RENTER_DETAIL_WITHOUT_HISTORY, idCardFrontUrl: "https://", idCardBackUrl: "https://private:secret@images.example/back.jpg" });
-    expect(markup).not.toContain("<img");
+  it("does not expose arbitrary CCCD URLs in renter response props", async () => {
+    const { markup } = await detailPage(RENTER_DETAIL_WITHOUT_HISTORY);
+    expect(markup).not.toContain("objectKey");
+    expect(markup).not.toContain("signedUrl");
     expect(markup).not.toContain("private:secret");
+    expect(markup).toContain("Chỉ quản lý nhà trọ xem được");
   });
   it("routes a missing renter to the manager not-found screen", async () => {
     vi.stubGlobal("fetch", vi.fn(async (url: string) => new URL(url).pathname.endsWith("/motels") ? Response.json([MOTEL]) : Response.json({ error: "Không tìm thấy", code: "NOT_FOUND" }, { status: 404 })));

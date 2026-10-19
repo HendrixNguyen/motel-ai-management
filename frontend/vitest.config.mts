@@ -24,5 +24,10 @@ export default defineConfig({
   test: {
     include: ["src/**/*.test.ts", "src/**/*.test.tsx"],
     exclude: [...configDefaults.exclude, "e2e/**"],
+    coverage: {
+      provider: "v8",
+      thresholds: { statements: 90 },
+      exclude: ["src/**/*.test.ts", "src/**/*.test.tsx", "src/**/fixtures/**", "e2e/**"],
+    },
   },
 });

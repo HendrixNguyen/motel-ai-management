@@ -69,6 +69,16 @@ describe("apiGet", () => {
 
     await expect(apiGet("/api/manager/motels/x/rooms")).resolves.toEqual([ROOM]);
   });
+
+  it("wraps a rejected fetch without leaking network details", async () => {
+    fetchMock.mockRejectedValue(new TypeError("connect refused to secret.internal:5432"));
+    const error = (await apiGet("/api/manager/motels").catch((cause: unknown) => cause)) as ApiError;
+    expect(error).toBeInstanceOf(ApiError);
+    expect(error.status).toBe(0);
+    expect(error.code).toBe("INTERNAL_ERROR");
+    expect(error.message).toBe(GENERIC);
+    expect(error.message).not.toContain("secret.internal");
+  });
 });
 
 describe("apiSend", () => {

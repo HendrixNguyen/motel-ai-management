@@ -6,9 +6,10 @@ import { registerManager } from "@/modules/auth/auth.service";
 import { motels } from "@/modules/motel/motel.schema";
 import { rooms } from "@/modules/room/room.schema";
 import { billingPeriods, meterReadings } from "@/modules/billing/billing.schema";
+import { resetRateLimits } from "@/shared/rate-limit";
 
 setDefaultTimeout(20_000);
-beforeEach(resetDb);
+beforeEach(async () => { resetRateLimits(); await resetDb(); });
 
 async function login(email: string): Promise<string> {
   await registerManager({ email, password: "aaaaaaaaaa", name: email });
@@ -46,7 +47,10 @@ test("seeds next period baselines from latest prior electric and water readings"
   const response = await app.handle(new Request(`http://localhost/api/manager/motels/${motel!.id}/billing/periods`, { method: "POST", headers: { Cookie: cookie, "Content-Type": "application/json" }, body: JSON.stringify({ month: 10, year: 2026 }) }));
   expect(response.status).toBe(201);
   const body = await response.json() as { rooms: Array<{ readings: Array<{ type: string; previousReading: string }> }> };
-  expect(body.rooms[0]!.readings).toEqual(expect.arrayContaining([{ type: "electric", previousReading: "125.50" }, { type: "water", previousReading: "24.25" }]));
+  const readings = body.rooms[0]!.readings;
+  expect(readings).toHaveLength(2);
+  expect(readings.find((reading) => reading.type === "electric")?.previousReading).toBe("125.50");
+  expect(readings.find((reading) => reading.type === "water")?.previousReading).toBe("24.25");
 });
 
 test("unknown period returns 404", async () => {

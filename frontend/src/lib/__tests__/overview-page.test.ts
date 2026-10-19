@@ -8,6 +8,7 @@ import type { BillingPeriodResponse, InvoiceResponse, MotelResponse, RenterRespo
 
 vi.mock("server-only", () => ({}));
 vi.mock("next/headers", () => ({ cookies: async () => ({ toString: () => "manager_session=valid" }) }));
+vi.mock("@/lib/api/contracts", () => ({ listContracts: vi.fn(async () => []) }));
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ refresh: vi.fn(), replace: vi.fn(), push: vi.fn() }),
   notFound: () => { throw new Error("NEXT_NOT_FOUND"); },
@@ -22,7 +23,7 @@ function roomsWithStatuses(statuses: RoomStatus[], motelId = MOTEL.id): RoomResp
 async function markup(params: Record<string, string | string[]> = {}, rooms: RoomResponse[] = roomsWithStatuses(["occupied", "available", "maintenance"]), motels: MotelResponse[] = [MOTEL, MOTEL_WITHOUT_EXTRAS]) {
   const motelId = typeof params.motel === "string" ? params.motel : motels[0]?.id;
   const period: BillingPeriodResponse = { id: "period-1", motelId: motelId ?? MOTEL.id, month: 10, year: 2026, status: "draft", createdAt: MOTEL.createdAt };
-  const renter: RenterResponse = { id: "renter-1", motelId: motelId ?? MOTEL.id, name: "Nguyễn Văn A", phone: "84901234567", idNumber: null, idCardFrontUrl: null, idCardBackUrl: null, roomId: rooms[0]?.id ?? null, zaloOaId: null, isOaFollower: false, status: "active", createdAt: MOTEL.createdAt };
+  const renter: RenterResponse = { id: "renter-1", motelId: motelId ?? MOTEL.id, name: "Nguyễn Văn A", phone: "84901234567", idNumber: null, idCardFrontUploaded: false, idCardBackUploaded: false, roomId: rooms[0]?.id ?? null, zaloOaId: null, isOaFollower: false, status: "active", createdAt: MOTEL.createdAt };
   const invoice: InvoiceResponse = { id: "invoice-1", billingPeriodId: period.id, roomId: rooms[0]?.id ?? "room-1", roomName: rooms[0]?.name ?? "P.101", renterId: renter.id, motelId: period.motelId, rentAmount: "3500000", electricityUsage: "0", electricityCost: "0", waterUsage: "0", waterCost: "0", otherFees: [], totalAmount: "3500000", qrCodeData: null, paymentStatus: "unpaid", paymentMethod: null, paidAt: null, createdAt: MOTEL.createdAt };
   const fetchMock = vi.fn(async (url: string) => {
     const { pathname, search } = new URL(url);

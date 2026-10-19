@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
+import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import CaptureQueueWarning from "@/components/manager/capture-queue-warning";
 import { ApiError, GENERIC_ERROR_MESSAGE } from "@/lib/api/client";
@@ -51,7 +52,7 @@ export default function TopBar({ manager, motels }: { manager: ManagerMeResponse
   }
 
   return (
-    <header className="border-b border-border bg-surface px-4 py-3 lg:px-8">
+    <header className="border-b border-border bg-surface px-4 py-3 shadow-[0_1px_2px_rgba(23,43,58,0.05)] lg:px-8">
       <div className="mx-auto flex max-w-6xl items-end gap-4">
         <div className="hidden min-w-0 flex-1 lg:block"><p className="text-xs font-semibold text-text-muted">KHÔNG GIAN VẬN HÀNH</p><p className="mt-1 truncate font-heading text-lg font-semibold text-text">Theo dõi nhà trọ, hóa đơn và khách thuê</p></div>
         <div className="min-w-0 flex-1 lg:max-w-sm">
@@ -64,7 +65,8 @@ export default function TopBar({ manager, motels }: { manager: ManagerMeResponse
           </summary>
           <div className="absolute right-0 z-30 mt-2 w-64 max-w-[calc(100vw-2rem)] space-y-4 rounded-card border border-border bg-surface p-4 shadow-lg">
              <p className="text-sm wrap-anywhere">{manager.email}</p>
-             <ThemeSelect />
+              <Link href={motelHref("/contracts", "", selected)} className="flex min-h-11 items-center rounded-input px-3 text-sm font-semibold text-text hover:bg-canvas focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">Hợp đồng</Link>
+              <ThemeSelect />
              {error && <p role="alert" className="text-sm text-danger">{error}</p>}
 
             <Button variant="secondary" onClick={handleLogout} pending={pending} pendingLabel="Đang đăng xuất…" className="w-full">Đăng xuất</Button>

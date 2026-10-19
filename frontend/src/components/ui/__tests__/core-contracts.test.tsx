@@ -1,5 +1,10 @@
-import { describe, expect, test } from "vitest";
+import { describe, expect, test, vi } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
+import { createElement } from "react";
+import { createRoot } from "react-dom/client";
+import { act } from "react";
+import { JSDOM } from "jsdom";
+import { beforeAll } from "vitest";
 import Button from "../button";
 import Field from "../field";
 import Badge from "../badge";
@@ -10,11 +15,17 @@ import Modal from "../modal";
 import Drawer from "../drawer";
 import { ToastProvider } from "../toast";
 import ThemeSelect from "../theme-select";
+import ThemeInit from "../theme-init";
+import Dropdown from "../dropdown";
 import type { CoreTone, CoreTheme, SpacingToken } from "../contracts";
 
 const markup = (node: React.ReactElement) => renderToStaticMarkup(node);
 
-describe("Core UI v2 compatibility contracts", () => {
+const dom = new JSDOM("<!doctype html><html><body></body></html>", { url: "http://localhost/" });
+Object.defineProperties(globalThis, { window: { configurable: true, value: dom.window }, document: { configurable: true, value: dom.window.document }, navigator: { configurable: true, value: dom.window.navigator }, MouseEvent: { configurable: true, value: dom.window.MouseEvent }, KeyboardEvent: { configurable: true, value: dom.window.KeyboardEvent }, HTMLElement: { configurable: true, value: dom.window.HTMLElement }, Node: { configurable: true, value: dom.window.Node }, IS_REACT_ACT_ENVIRONMENT: { configurable: true, value: true } });
+beforeAll(() => { Object.defineProperty(globalThis, "IS_REACT_ACT_ENVIRONMENT", { configurable: true, value: true }); });
+
+ describe("Core UI v2 compatibility contracts", () => {
   test("exports shared semantic contract types", () => {
     const tone: CoreTone = "success";
     const theme: CoreTheme = "system";
@@ -38,6 +49,22 @@ describe("Core UI v2 compatibility contracts", () => {
     expect(html).toContain('aria-describedby="name-error"');
     expect(html).not.toContain('role="alert"');
     expect(html).toContain("Required");
+  });
+
+  test("Dialog session restores trigger once on close and unmount", async () => {
+    const { openDialogSession } = await import("../dialog-session");
+    const dialog = document.createElement("dialog");
+    const trigger = document.createElement("button");
+    const focus = vi.spyOn(trigger, "focus");
+    let closed = 0;
+    dialog.showModal = () => { dialog.open = true; };
+    dialog.close = () => { dialog.open = false; closed += 1; dialog.dispatchEvent(new dom.window.Event("close")); };
+    const dispose = openDialogSession(dialog, trigger);
+    expect(dialog.open).toBe(true);
+    dispose();
+dialog.dispatchEvent(new dom.window.Event("close"));
+    expect(closed).toBe(1);
+    expect(focus).toHaveBeenCalledOnce();
   });
 
   test("Modal and Drawer preserve headings and mobile width", () => {
@@ -91,6 +118,111 @@ describe("Core UI v2 compatibility contracts", () => {
     expect(html).toContain('aria-label="Điều hướng gọn trên điện thoại"');
     expect(html).toContain('aria-label="Tính tiền &amp; Hóa đơn"');
     expect(html).toContain(">Hóa đơn</span>");
+  });
+
+  test("Dropdown keeps long values readable, bounds the option list, and exposes selection state", () => {
+    const html = markup(<Dropdown id="room" value="room-1" onChange={() => {}} options={[{ value: "room-1", label: "Phòng có tên rất dài, không được cắt mất nội dung" }, { value: "room-2", label: "Phòng 102" }]} />);
+    expect(html).toContain("Phòng có tên rất dài, không được cắt mất nội dung");
+    expect(html).toContain("min-w-0 flex-1 text-left [overflow-wrap:anywhere]");
+    expect(html).toContain('role="combobox"');
+    expect(html).toContain('data-value="room-1"');
+    expect(html).not.toContain("max-h-60");
+    expect(html).not.toContain('role="listbox"');
+  });
+
+  test("Dropdown changes value and closes after selecting an option", async () => {
+    const host = document.createElement("div");
+    document.body.append(host);
+    const root = createRoot(host);
+    const values: string[] = [];
+    try {
+      await act(async () => { root.render(createElement(Dropdown, { id: "room", value: "room-1", onChange: (value: string) => values.push(value), options: [{ value: "room-1", label: "Phòng 101" }, { value: "room-2", label: "Phòng 102" }] })); });
+      await act(async () => { (host.querySelector('[role="combobox"]') as HTMLButtonElement).click(); });
+      expect(host.querySelector('[role="listbox"]')).not.toBeNull();
+      await act(async () => { (host.querySelector('[role="option"][data-option-index="1"]') as HTMLLIElement).click(); });
+      expect(values).toEqual(["room-2"]);
+      expect(host.querySelector('[role="listbox"]')).toBeNull();
+    } finally { await act(async () => root.unmount()); host.remove(); }
+  });
+
+  test("Dropdown closes when clicked outside and when disabled", async () => {
+    const host = document.createElement("div");
+    const outside = document.createElement("button");
+    document.body.append(host, outside);
+    const root = createRoot(host);
+    const props = { id: "room", value: "room-1", onChange: () => {}, options: [{ value: "room-1", label: "101" }] };
+    try {
+      await act(async () => { root.render(createElement(Dropdown, props)); });
+      await act(async () => { (host.querySelector('[role="combobox"]') as HTMLButtonElement).click(); });
+      await act(async () => { outside.dispatchEvent(new MouseEvent("mousedown", { bubbles: true })); });
+      expect(host.querySelector('[role="listbox"]')).toBeNull();
+      await act(async () => { root.render(createElement(Dropdown, { ...props, disabled: true })); });
+      expect((host.querySelector('[role="combobox"]') as HTMLButtonElement).disabled).toBe(true);
+    } finally { await act(async () => root.unmount()); host.remove(); outside.remove(); }
+  });
+
+  test("Dropdown keyboard Escape and arrows close and cycle selection", async () => {
+    const host = document.createElement("div");
+    document.body.append(host);
+    const root = createRoot(host);
+    const values: string[] = [];
+    try {
+      await act(async () => { root.render(createElement(Dropdown, { id: "room", value: "room-1", onChange: (value: string) => values.push(value), options: [{ value: "room-1", label: "101" }, { value: "room-2", label: "102" }] })); });
+      await act(async () => { document.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown" })); });
+      expect(values).toEqual(["room-2"]);
+      await act(async () => { document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" })); });
+      expect(host.querySelector('[role="listbox"]')).toBeNull();
+    } finally { await act(async () => root.unmount()); host.remove(); }
+  });
+
+  test("Dropdown handles unresolved selection and closes after clearing placeholder", async () => {
+    const host = document.createElement("div"); document.body.append(host);
+    const root = createRoot(host); const values: string[] = [];
+    try {
+      await act(async () => root.render(createElement(Dropdown, { id: "missing", value: "missing", onChange: (value: string) => values.push(value), options: [] })));
+      expect(host.querySelector("[role=combobox]")?.textContent).toContain("Chọn");
+      await act(async () => (host.querySelector("[role=combobox]") as HTMLButtonElement).click());
+      expect(host.querySelectorAll('[role="option"]')).toHaveLength(1);
+      await act(async () => (host.querySelector('[role="option"]') as HTMLLIElement).click());
+      expect(values).toEqual([""]);
+      expect(host.querySelector('[role="listbox"]')).toBeNull();
+    } finally { await act(async () => root.unmount()); host.remove(); }
+  });
+
+  test("Dropdown arrow keys wrap and no options leave selection unchanged", async () => {
+    const host = document.createElement("div"); document.body.append(host);
+    const root = createRoot(host); const values: string[] = [];
+    try {
+      await act(async () => root.render(createElement(Dropdown, { id: "room", value: "room-1", onChange: (value: string) => values.push(value), options: [{ value: "room-1", label: "101" }, { value: "room-2", label: "102" }] })));
+      await act(async () => { (host.querySelector('[role="combobox"]') as HTMLButtonElement).click(); document.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowUp" })); });
+      expect(values).toEqual(["room-2"]);
+      await act(async () => root.render(createElement(Dropdown, { id: "empty", value: "", onChange: (value: string) => values.push(value), options: [] })));
+      await act(async () => document.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown" })));
+      expect(values).toEqual(["room-2"]);
+    } finally { await act(async () => root.unmount()); host.remove(); }
+  });
+
+  test("ThemeInit emits safe inline theme bootstrap", () => {
+    const markup = renderToStaticMarkup(<ThemeInit />);
+    expect(markup).toContain("motel-theme");
+    expect(markup).toContain("prefers-color-scheme: dark");
+    expect(markup).toContain("<script>");
+    expect(markup).toContain("</script>");
+  });
+
+  test("theme helpers choose light/dark fallbacks, subscribe only to system media and tolerate storage failures", async () => {
+    const { applyTheme, changeTheme, getStoredTheme, resolveTheme, syncSystemTheme } = await import("../theme-select");
+    const root = { dataset: {} as { theme?: string } };
+    expect(resolveTheme("unknown", true)).toBe("light");
+    expect(resolveTheme("system", true)).toBe("dark");
+    applyTheme("system", root, false); expect(root.dataset.theme).toBe("light");
+    const add = vi.fn(); const remove = vi.fn(); const media = { matches: true, addEventListener: add, removeEventListener: remove };
+    const cleanupLight = syncSystemTheme("light", root, media); expect(add).not.toHaveBeenCalled(); cleanupLight();
+    const cleanupSystem = syncSystemTheme("system", root, media); expect(add).toHaveBeenCalledOnce(); cleanupSystem(); expect(remove).toHaveBeenCalledOnce();
+    vi.stubGlobal("window", { localStorage: { getItem: () => "invalid", setItem: () => { throw new Error("blocked"); } }, matchMedia: () => media });
+    expect(getStoredTheme()).toBe("light");
+    changeTheme("dark", root, media); expect(root.dataset.theme).toBe("dark");
+    vi.unstubAllGlobals();
   });
 
   test("ThemeSelect renders system theme on server", () => {

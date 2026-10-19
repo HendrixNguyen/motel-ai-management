@@ -15,6 +15,7 @@ const TABLES = [
   "zalo_oa_motel_mappings",
   "notification_webhook_events",
   "notification_events",
+  "push_subscriptions",
   "zalo_notifications",
   "magic_links",
   "ticket_photo_uploads",

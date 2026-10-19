@@ -9,7 +9,7 @@ import {
 import { getMotel, listMotels } from "@/lib/api/motels";
 import { createRoom, deleteRoom, updateRoom } from "@/lib/api/rooms.client";
 import { getRoom, listRooms } from "@/lib/api/rooms";
-import { createRenter, createRenterMagicLink, deleteRenter, updateRenter } from "@/lib/api/renters.client";
+import { createRenter, createRenterMagicLink, deleteRenter, updateRenter, getRenterCccdUrl, uploadRenterCccd } from "@/lib/api/renters.client";
 import { getRenter, listRenters } from "@/lib/api/renters";
 import { login, logout, register } from "@/lib/api/auth.client";
 import {
@@ -253,6 +253,15 @@ describe("writes (client components, relative URL through the proxy)", () => {
     expect(JSON.parse(String(lastInit().body))).toEqual({ waterPrice: "16000" });
   });
 
+  it("encodes motel IDs in update and delete paths", async () => {
+    fetchMock.mockResolvedValue(jsonResponse(MOTEL));
+    await updateMotel("id/with space", { waterPrice: "16000" });
+    expect(lastUrl()).toBe("/api/manager/motels/id%2Fwith%20space");
+    fetchMock.mockResolvedValue(new Response(null, { status: 204 }));
+    await deleteMotel("id/with space");
+    expect(lastUrl()).toBe("/api/manager/motels/id%2Fwith%20space");
+  });
+
   it("deletes a motel and resolves undefined on the 204", async () => {
     fetchMock.mockResolvedValue(new Response(null, { status: 204 }));
 
@@ -292,6 +301,27 @@ describe("writes (client components, relative URL through the proxy)", () => {
     fetchMock.mockResolvedValueOnce(new Response(null, { status: 204 }));
     await expect(deleteRenter(MOTEL_ID, RENTER_ID)).resolves.toBeUndefined();
     expect(lastInit().method).toBe("DELETE");
+  });
+
+  it("encodes manager-only CCCD upload/read routes and uses multipart field file", async () => {
+    const file = new File(["cccd"], "front.jpg", { type: "image/jpeg" });
+    fetchMock.mockResolvedValue(jsonResponse({ uploaded: true, side: "front" }, 201));
+    await uploadRenterCccd("motel / one", "renter/id", "front", file);
+    expect(lastUrl()).toBe("/api/manager/motels/motel%20%2F%20one/renters/renter%2Fid/cccd/front");
+    expect(lastInit().credentials).toBe("same-origin");
+    expect(lastInit().method).toBe("POST");
+    expect((lastInit().body as FormData).get("file")).toBe(file);
+    fetchMock.mockResolvedValue(jsonResponse({ url: "https://signed.example/photo" }));
+    await getRenterCccdUrl("motel / one", "renter/id", "back");
+    expect(lastUrl()).toBe("/api/manager/motels/motel%20%2F%20one/renters/renter%2Fid/cccd/back");
+    expect(lastInit().credentials).toBe("same-origin");
+  });
+
+  it("turns CCCD upload and signed preview error envelopes into readable errors", async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ error: "Quota exceeded" }, 502));
+    await expect(uploadRenterCccd("m", "r", "front", new File(["x"], "f.jpg", { type: "image/jpeg" }))).rejects.toThrow("Quota exceeded");
+    fetchMock.mockResolvedValue(jsonResponse({}, 503));
+    await expect(getRenterCccdUrl("m", "r", "back")).rejects.toThrow("Không thể mở ảnh CCCD");
   });
 
   it("creates a magic link for a renter", async () => {

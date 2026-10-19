@@ -1,5 +1,4 @@
 import Link from "next/link";
-import Image from "next/image";
 import { notFound } from "next/navigation";
 import { listMotels } from "@/lib/api/motels";
 import { listRooms } from "@/lib/api/rooms";
@@ -14,6 +13,7 @@ import { oaFollowerLabel, renterStatusLabel } from "@/lib/format/status";
 import Badge, { type BadgeTone } from "@/components/ui/badge";
 import CopyButton from "@/components/ui/copy-button";
 import RenterMagicLink from "@/components/manager/renter-magic-link";
+import RenterCccdUploads from "@/components/manager/renter-cccd-uploads";
 
 const payment: Record<RecentInvoice["paymentStatus"], { label: string; tone: BadgeTone }> = {
   paid: { label: "Đã thanh toán", tone: "success" },
@@ -21,25 +21,6 @@ const payment: Record<RecentInvoice["paymentStatus"], { label: string; tone: Bad
   overdue: { label: "Quá hạn", tone: "danger" },
 };
 
-function isSafeImageUrl(url: string | null): url is string {
-  if (!url || /[\\\s]/.test(url)) return false;
-  if (url.startsWith("/")) return !url.startsWith("//");
-  try {
-    const parsed = new URL(url);
-    return (parsed.protocol === "https:" || parsed.protocol === "http:") && !parsed.username && !parsed.password;
-  } catch { return false; }
-}
-
-function IdentityImage({ url, side, name }: { url: string | null; side: "trước" | "sau"; name: string }) {
-  // Private documents load directly in the browser without a referrer or server optimizer fetch.
-  const safe = isSafeImageUrl(url);
-  return <div className="min-w-0">
-    {safe ? <><p className="mb-2 text-sm font-semibold text-text">CCCD mặt {side}</p>
-      <div className="relative aspect-[8/5] w-full rounded-input border border-border bg-canvas">
-        <Image src={url} alt={`CCCD mặt ${side} của ${name}`} fill sizes="(max-width: 640px) 100vw, 50vw" unoptimized loading="lazy" referrerPolicy="no-referrer" className="rounded-input object-contain" />
-      </div></> : <p className="rounded-input border border-border bg-canvas p-4 text-base text-text-muted">CCCD mặt {side}: Chưa cập nhật</p>}
-  </div>;
-}
 
 export default async function RenterDetail({ params, searchParams }: { params: Promise<{ renterId: string }>; searchParams: Promise<MotelSearchParams> }) {
   const motels = await listMotels();
@@ -68,7 +49,7 @@ export default async function RenterDetail({ params, searchParams }: { params: P
         <div><dt className="text-sm text-text-muted">Số CCCD</dt><dd className="mt-1 text-text [overflow-wrap:anywhere]">{renter.idNumber ?? "Chưa cập nhật"}</dd></div>
         <div><dt className="text-sm text-text-muted">Phòng</dt><dd className="mt-1 text-text [overflow-wrap:anywhere]">{renter.roomId ? roomName ?? "Chưa cập nhật" : "Chưa xếp phòng"}</dd></div>
       </dl>
-      <div className="mt-6 grid min-w-0 gap-4 sm:grid-cols-2"><IdentityImage url={renter.idCardFrontUrl} side="trước" name={renter.name} /><IdentityImage url={renter.idCardBackUrl} side="sau" name={renter.name} /></div>
+      <RenterCccdUploads motelId={motelId} renterId={renterId} renterName={renter.name} frontUploaded={renter.idCardFrontUploaded} backUploaded={renter.idCardBackUploaded} />
     </section>
     <section aria-labelledby="contract" className="min-w-0 rounded-card border border-border bg-surface p-4 sm:p-6">
       <h2 id="contract" className="font-heading text-lg font-semibold text-text">Hợp đồng đang hiệu lực</h2>

@@ -1,11 +1,11 @@
 import { expect, test } from "@playwright/test";
-import { MOTEL, MANAGER_ID, MOTEL_ID, RENTER_ID, BILLING_PERIOD_ID, INVOICE_ID } from "../src/lib/api/__tests__/fixtures";
+import { MOTEL, MANAGER_ID, MOTEL_ID, RENTER_ID, BILLING_PERIOD_ID } from "../src/lib/api/__tests__/fixtures";
 import type { MotelResponse, RenterResponse } from "../src/lib/api/types";
 
 test("manager reviews proof, rejects with reason, approves proof, and confirms cash distinctly", async ({ page, context }) => {
   await context.addCookies([{ name: "manager_session", value: "payment-review-session", domain: "localhost", path: "/" }]);
   const motel: MotelResponse = MOTEL;
-  const renter: RenterResponse = { id: RENTER_ID, name: "Trần Thị B", phone: "84901234567", motelId: MOTEL_ID, idNumber: null, idCardFrontUrl: null, idCardBackUrl: null, roomId: null, zaloOaId: null, isOaFollower: false, status: "active", createdAt: MOTEL.createdAt };
+  const renter: RenterResponse = { id: RENTER_ID, name: "Trần Thị B", phone: "84901234567", motelId: MOTEL_ID, idNumber: null, idCardFrontUploaded: false, idCardBackUploaded: false, roomId: null, zaloOaId: null, isOaFollower: false, status: "active", createdAt: MOTEL.createdAt };
   await page.route("**/api/auth/me", (route) => route.fulfill({ json: { id: MANAGER_ID, email: "manager@example.vn" } }));
   await page.route("**/api/manager/motels", (route) => route.fulfill({ json: [motel] }));
   await page.route(`**/api/manager/motels/${MOTEL_ID}/billing/periods`, (route) => route.fulfill({ json: [{ id: BILLING_PERIOD_ID, motelId: MOTEL_ID, month: 10, year: 2026, status: "sent", createdAt: "2026-10-01T00:00:00.000Z" }] }));

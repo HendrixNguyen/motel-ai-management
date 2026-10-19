@@ -7,10 +7,11 @@ import { AppError } from "@/shared/errors";
 import { listRoomsForBilling } from "@/modules/room/room.service";
 import { type BillingPeriodDetailResponse, type BillingPeriodResponse, type CreateBillingPeriodInput, type InvoiceGenerationResponse, type InvoiceResponse, type MeterReadingResponse, type UpdateReadingsInput, type SignedUploadResponse, type UploadResponse } from "./billing.types";
 import { uploads } from "./upload.schema";
-import { FakeStorageAdapter, StorageError, type StorageAdapter, validateStorageInput } from "@/shared/storage";
+import { StorageError, type StorageAdapter, validateStorageInput } from "@/shared/storage";
 
-let uploadStorage: StorageAdapter = new FakeStorageAdapter();
+let uploadStorage: StorageAdapter | undefined;
 export function configureUploadStorage(storage: StorageAdapter): void { uploadStorage = storage; }
+function requireUploadStorage(): StorageAdapter { if (!uploadStorage) throw AppError.externalService("Lưu trữ tệp chưa được cấu hình"); return uploadStorage; }
 import { listBillableContractsForMotel } from "@/modules/contract/contract.service";
 import { calculateInvoiceAmounts } from "./billing.calculation";
 import { buildTransferDescription, buildVietQrPayload } from "@/modules/vietqr/vietqr.service";
@@ -51,7 +52,7 @@ export async function getRenterInvoiceDetail(renterId: string, motelId: string, 
   const item = row[0]; if (!item) return null;
   const room = (await listRoomsForBilling(motelId)).find((candidate) => candidate.id === item.invoice.roomId); if (!room) return null;
   const readings = await db.select({ type: meterReadings.type, capturedAt: meterReadings.readingDate, objectKey: uploads.objectKey }).from(meterReadings).leftJoin(uploads, and(eq(uploads.resourceType, "meter_reading"), eq(uploads.resourceId, meterReadings.id))).where(and(eq(meterReadings.billingPeriodId, item.invoice.billingPeriodId), eq(meterReadings.roomId, item.invoice.roomId)));
-  const meterPhotos = await Promise.all(readings.filter((reading) => reading.objectKey).map(async (reading) => ({ type: reading.type, signedUrl: await uploadStorage.createSignedDownload(reading.objectKey!, 300), capturedAt: reading.capturedAt })));
+  const meterPhotos = await Promise.all(readings.filter((reading) => reading.objectKey).map(async (reading) => ({ type: reading.type, signedUrl: await requireUploadStorage().createSignedDownload(reading.objectKey!, 300), capturedAt: reading.capturedAt })));
   return { id: item.invoice.id, billingPeriodId: item.invoice.billingPeriodId, month: item.month, year: item.year, roomId: item.invoice.roomId, roomName: room.name, rentAmount: item.invoice.rentAmount, electricityUsage: item.invoice.electricityUsage, electricityCost: item.invoice.electricityCost, waterUsage: item.invoice.waterUsage, waterCost: item.invoice.waterCost, otherFees: item.invoice.otherFees, totalAmount: item.invoice.totalAmount, qrCodeData: item.invoice.qrCodeData, paymentStatus: item.invoice.paymentStatus, paymentMethod: item.invoice.paymentMethod, paidAt: item.invoice.paidAt?.toISOString() ?? null, createdAt: item.invoice.createdAt.toISOString(), transferDescription: `Thanh toán tháng ${item.month}/${item.year}`, meterPhotos };
 }
 
@@ -258,14 +259,14 @@ export async function uploadMeterPhoto(motelId: string, periodId: string, readin
   if (file.type !== "image/jpeg" && file.type !== "image/png") throw AppError.badRequest("Chỉ hỗ trợ ảnh JPEG hoặc PNG");
   const bytes = new Uint8Array(await file.arrayBuffer());
   try {
-    await validateStorageInput({ objectKey: "validation/key", body: bytes, contentType: file.type });
+    await validateStorageInput({ objectKey: "validation/key", body: bytes, contentType: file.type, maxBytes: 10 * 1024 * 1024 });
   } catch (error) {
     if (error instanceof StorageError) throw AppError.badRequest(error.message);
     throw error;
   }
   const objectKey = `motels/${motelId}/meter/${readingId}/${crypto.randomUUID()}`;
   try {
-    const stored = await uploadStorage.put({ objectKey, body: bytes, contentType: file.type });
+    const stored = await requireUploadStorage().put({ objectKey, body: bytes, contentType: file.type, maxBytes: 10 * 1024 * 1024 });
     let previousKey: string | undefined;
     try {
       const row = await db.transaction(async (tx) => {
@@ -278,10 +279,10 @@ export async function uploadMeterPhoto(motelId: string, periodId: string, readin
         if (linked.length === 0) throw AppError.notFound("Không tìm thấy chỉ số công tơ");
         return created;
       });
-      if (previousKey) await uploadStorage.delete(previousKey).catch(() => undefined);
+      if (previousKey) await requireUploadStorage().delete(previousKey).catch(() => undefined);
       return { id: row.id, contentType: row.contentType, size: row.size, checksum: row.checksum, createdAt: row.createdAt.toISOString() };
     } catch (error) {
-      await uploadStorage.delete(stored.objectKey).catch(() => undefined);
+      await requireUploadStorage().delete(stored.objectKey).catch(() => undefined);
       if (error instanceof AppError) throw error;
       throw AppError.externalService();
     }
@@ -296,7 +297,7 @@ export async function getMeterPhoto(motelId: string, periodId: string, readingId
   const reading = await db.query.meterReadings.findFirst({ where: and(eq(meterReadings.id, readingId), eq(meterReadings.billingPeriodId, periodId)) });
   const upload = await db.query.uploads.findFirst({ where: and(eq(uploads.resourceType, "meter_reading"), eq(uploads.resourceId, readingId), eq(uploads.motelId, motelId)) });
   if (!reading || !upload) throw AppError.notFound("Không tìm thấy ảnh công tơ");
-  try { return { url: await uploadStorage.createSignedDownload(upload.objectKey, 300), contentType: upload.contentType, size: upload.size, checksum: upload.checksum }; } catch { throw AppError.externalService(); }
+  try { return { url: await requireUploadStorage().createSignedDownload(upload.objectKey, 300), contentType: upload.contentType, size: upload.size, checksum: upload.checksum }; } catch { throw AppError.externalService(); }
 }
 
 export async function countBillingPeriodsForMotel(motelId: string): Promise<number> {

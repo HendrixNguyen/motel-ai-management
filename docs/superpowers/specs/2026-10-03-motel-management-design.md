@@ -140,11 +140,21 @@ invoice. See [ADR-0005](../../../adr/0005-room-base-price.md).
 | name | TEXT | NOT NULL |
 | phone | TEXT | NOT NULL, normalized to `84XXXXXXXXX` (no leading `0`/`+`) |
 | idNumber | TEXT | CCCD number, nullable |
-| idCardFrontUrl | TEXT | Cloudflare R2 URL, nullable |
-| idCardBackUrl | TEXT | Cloudflare R2 URL, nullable |
+| legacyIdCardFrontUrl | TEXT | historical arbitrary URL, nullable, never served or trusted |
+| legacyIdCardBackUrl | TEXT | historical arbitrary URL, nullable, never served or trusted |
+| idCardFrontObjectKey | TEXT | private R2 object key, nullable |
+| idCardFrontContentType | TEXT | JPEG/PNG metadata, nullable |
+| idCardFrontSize | INTEGER | bytes, 1–5,000,000, nullable |
+| idCardFrontChecksum | TEXT | content checksum, nullable |
+| idCardBackObjectKey | TEXT | private R2 object key, nullable |
+| idCardBackContentType | TEXT | JPEG/PNG metadata, nullable |
+| idCardBackSize | INTEGER | bytes, 1–5,000,000, nullable |
+| idCardBackChecksum | TEXT | content checksum, nullable |
+
+Only manager motel-owner sessions may upload or read CCCD images. Renter sessions cannot access CCCD images. Manager previews use signed URLs expiring after 300 seconds. No automatic retention period is set; deletion/retention policy requires legal/operational approval.
 | roomId | UUID | FK → rooms, nullable (unassigned) |
-| zaloOaId | TEXT | Set by OA follow webhook, nullable |
-| isOaFollower | BOOLEAN | DEFAULT false |
+| legacyZaloOaId | TEXT | historical OA linkage, nullable; no OA delivery |
+| isOaFollower | BOOLEAN | DEFAULT false; retained for compatibility only |
 | status | renter_status | DEFAULT `active` |
 | createdAt | TIMESTAMPTZ | DEFAULT now() |
 
@@ -178,8 +188,12 @@ Partial UNIQUE (`motelId`) WHERE `isDefault` — at most one default per motel.
 | monthlyRent | NUMERIC(14,0) | NOT NULL |
 | deposit | NUMERIC(14,0) | NOT NULL DEFAULT 0 |
 | clauses | JSONB | Snapshot of template clauses at contract creation |
-| otpSentAt | TIMESTAMPTZ | nullable |
-| otpSignedAt | TIMESTAMPTZ | nullable |
+| acceptedTermsVersion | TEXT | nullable SHA-256 of the canonical contract terms shown to renter |
+| acceptedTermsSnapshot | JSONB | nullable immutable terms snapshot accepted by renter |
+| consentMethod | TEXT | nullable `session_consent` |
+| consentAcceptedAt | TIMESTAMPTZ | nullable server-recorded consent time |
+| otpSentAt | TIMESTAMPTZ | legacy nullable history only |
+| otpSignedAt | TIMESTAMPTZ | legacy nullable history only |
 | status | contract_status | DEFAULT `draft` |
 | createdAt | TIMESTAMPTZ | DEFAULT now() |
 
@@ -434,16 +448,12 @@ only by cookie.
 2. Manager creates a contract for a renter, picking a template and overriding individual
    clauses. `clauses` snapshots the result.
 3. Contract is saved as `draft` and a magic link is sent to the renter.
-4. Renter reviews the contract on the portal and taps **Ký hợp đồng**.
-5. System generates a 6-digit OTP and sends it over Zalo (channel chosen by the same
-   OA-follower rule as every other notification). `otpSentAt` is stamped.
-6. Renter enters the OTP within 5 minutes. On success `otpSignedAt` is stamped and
-   status becomes `active`; the room flips to `occupied`.
+4. Renter reviews exact contract terms on the authenticated portal, checks explicit consent, then confirms signing.
+5. Server recomputes the canonical SHA-256 terms version, validates session ownership, renter identity number and manager-uploaded private CCCD front/back, then records immutable accepted terms snapshot, `session_consent` method and server time.
+6. Consent evidence and draft-to-active transition commit in one transaction. Exact retries are idempotent; changed terms conflict and require fresh review/consent. No OTP delivery or OTP endpoint is used for new signatures.
 7. A daily job finds contracts expiring in 30 days and sends a reminder.
 
-MVP consent is OTP-based. Upgrade to a certified provider (FPT.eSign, VNPT SmartSign,
-Viettel CA) only when a use case requires chữ ký số — see
-[ADR-0006](../../../adr/0006-otp-consent-e-signature.md).
+This MVP records authenticated-session consent, not independent identity proof or certified digital signature. Legal sufficiency is not established; obtain legal assessment before relying on it as a legally enforceable electronic signature. Historical OTP fields/evidence remain unchanged.
 
 ### Notification strategy
 
@@ -459,8 +469,7 @@ Channel routing keeps Zalo costs low — see
 2. The OA follow webhook sets `isOaFollower = true` and `zaloOaId` when OA transport is configured.
 3. For configured Zalo transport, later notification delivery may use the follower state to select OA message or ZNS/ZBS fallback. This is one provider path under the notification strategy, not the only post-activation channel.
 
-Triggers: bill ready, payment confirmed, contract sent for signing, OTP delivery,
-contract expiry reminder (30 days), ticket status change, ticket created.
+Triggers: bill ready, payment confirmed, contract sent for signing, contract expiry reminder (30 days), ticket status change, ticket created.
 
 Every notification creates one generic `notification_events` outbox row in the same transaction as its domain mutation. Zalo delivery may additionally write a `zalo_notifications` audit row linked to that event. Provider delivery starts only after commit; failures update delivery state and expose **Gửi lại** without reverting domain state. Retry uses bounded attempts and stable `eventKey`.
 
@@ -519,15 +528,11 @@ the main dispute-reduction lever in the product, and it costs one column.
 - No webhook or auto-confirmation. The manager marks invoices paid manually. See
   [ADR-0002](../../../adr/0002-manual-payment-confirmation.md).
 
-## E-Signature (MVP: OTP Consent)
+## Contract Consent (MVP)
 
-1. Renter taps **Ký hợp đồng** on the portal.
-2. System generates a 6-digit OTP, sends it over Zalo, stamps `otpSentAt`.
-3. Renter enters the OTP within **5 minutes**; max **3 attempts**.
-4. On success: `otpSignedAt = now()`, `status = 'active'`, room becomes `occupied`.
-5. On expiry or exhaustion the renter requests a new OTP; the previous one is invalidated.
+Renter with valid authenticated session explicitly checks consent and separately confirms signing. Server validates renter ownership and contract terms version, then atomically stores immutable accepted-term snapshot, `session_consent` method, server acceptance time and activates the draft. Manager must upload CCCD number and private front/back images before signing; renter cannot upload or view CCCD. A changed version invalidates displayed consent. Exact successful retries return existing evidence; OTP is not used for new signing. Historical OTP columns remain for old audit records.
 
-OTP delivery uses configured notification channels; Zalo transport may be used, but no route promises delivery. SMS is out of MVP scope.
+This records session consent, not independent identity proof or a certified digital signature. Legal sufficiency requires external legal review before commercial reliance.
 
 ## File Storage
 
@@ -551,14 +556,12 @@ are user-facing and may be localized later.
 | `VALIDATION_ERROR` | 400 | Request failed schema validation. Carries no `details` — see [`docs/api-contract.md`](../../api-contract.md), which owns the envelope |
 | `UNAUTHORIZED` | 401 | Missing or expired credential |
 | `MAGIC_LINK_EXPIRED` | 401 | Magic link past `expiresAt`, or already consumed |
-| `OTP_INVALID` | 401 | Wrong OTP, or the 3-attempt allowance is exhausted |
-| `OTP_EXPIRED` | 401 | OTP past its 5-minute window |
 | `FORBIDDEN` | 403 | Valid credential, wrong role |
 | `NOT_FOUND` | 404 | Row absent, or hidden from this tenant |
 | `CONFLICT` | 409 | Uniqueness or state violation (duplicate period, room already has an active contract) |
 | `READING_CONFLICT` | 409 | A reading write was based on a stale `updatedAt`; `details.server` carries the current row |
 | `PERIOD_ALREADY_SENT` | 409 | Capture or generation attempted on a period that is no longer `draft` |
-| `RATE_LIMITED` | 429 | OTP or magic-link request too frequent; `details.retryAfterSeconds` |
+| `RATE_LIMITED` | 429 | Magic-link request too frequent; `details.retryAfterSeconds` |
 | `EXTERNAL_SERVICE_ERROR` | 502 | Zalo or R2 rejected the call; `details.failureReason` carries the upstream message |
 | `INTERNAL_ERROR` | 500 | Unexpected server fault; details stay server-side |
 
@@ -583,7 +586,7 @@ Other rules:
   confirm that another tenant's motel exists.
 - Passwords hashed with argon2id. Manager login is rate-limited per IP and per email.
 - Magic-link tokens: 32 crypto-random bytes, 24-hour expiry, single-use.
-- OTP: 5-minute expiry, max 3 attempts, resend blocked for 5 minutes.
+- Contract consent is recorded in an authenticated renter session against the exact displayed terms version; it is not independent identity proof or certified e-signature. Legal review is required before relying on this MVP as legally enforceable.
 - Uploads: MIME allowlist, 5 MB default cap with documented per-resource overrides, private bucket, signed URLs.
 - `photoUrl` columns store an R2 **object key**, never a public URL. Every response that
   exposes a photo — meter photo to a renter, ticket photo, CCCD scan — swaps the key for a
@@ -602,7 +605,7 @@ Each sub-project gets its own spec → plan → implementation cycle.
 | 1 | Core Backend + Database — env parsing, Drizzle schema, migrations, auth + tenant middleware, error envelope | — |
 | 2 | Room & Renter Management — motels, rooms, renters CRUD, magic-link issuing | 1 |
 | 3 | Billing System — periods, meter readings, invoice generation, VietQR payloads | 2 |
-| 4 | Contract Management — templates, contracts, OTP signing | 2 |
+| 4 | Contract Management — templates, contracts, authenticated renter consent | 2 |
 | 5 | Manager Frontend — dashboard and all manager pages | 2, 3, 4 |
 | 6 | On-site Meter Capture — installable PWA, offline queue, meter photos | 1, 2, 3, 5 |
 | 7 | Renter Portal — magic-link landing, bills, contract view, ticket submission | 2, 3, 4 |

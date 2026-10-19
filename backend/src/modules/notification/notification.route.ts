@@ -3,10 +3,20 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import { env } from "@/config";
 import { AppError } from "@/shared/errors";
 import { processZaloWebhook } from "./notification.webhook";
+import { renterAuth } from "@/middleware/renter-auth";
+import { getPushSubscriptionForOwner, getWebPushPublicKey, isWebPushConfigured, removePushSubscription, savePushSubscription } from "./notification.service";
 
 function validSignature(raw: Uint8Array, signature: string | undefined): boolean { if (!signature) return false; const expected = createHmac("sha256", env.zalo.webhookSecret).update(raw).digest("hex"); const actual = Buffer.from(signature); const wanted = Buffer.from(expected); return actual.length === wanted.length && timingSafeEqual(actual, wanted); }
 
-export const notificationRoutes = new Elysia({ name: "notification-routes" }).post("/webhooks/zalo", async ({ request, headers, set }) => {
+const pushBody = t.Object({ endpoint: t.String({ minLength: 1, maxLength: 4096 }), expirationTime: t.Optional(t.Nullable(t.Number())), keys: t.Object({ p256dh: t.String({ minLength: 1, maxLength: 256 }), auth: t.String({ minLength: 1, maxLength: 256 }) }) });
+const pushDeleteBody = t.Object({ endpoint: t.String({ minLength: 1, maxLength: 4096 }) });
+export const notificationRoutes = new Elysia({ name: "notification-routes" })
+  .group("/renter/push", (app) => app.use(renterAuth)
+    .get("/key", () => ({ publicKey: getWebPushPublicKey(), enabled: isWebPushConfigured() }), { detail: { security: [{ renterAuth: [] }] } })
+    .get("/subscription", async ({ auth }) => ({ subscription: await getPushSubscriptionForOwner(auth!.renterId, auth!.motelId) }), { detail: { security: [{ renterAuth: [] }] } })
+    .post("/subscription", ({ auth, body }) => savePushSubscription(auth!.renterId, auth!.motelId, body), { body: pushBody, detail: { security: [{ renterAuth: [] }] } })
+    .delete("/subscription", ({ auth, body }) => removePushSubscription(auth!.renterId, auth!.motelId, body.endpoint), { body: pushDeleteBody, detail: { security: [{ renterAuth: [] }] } }))
+  .post("/webhooks/zalo", async ({ request, headers, set }) => {
   const raw = new Uint8Array(await request.arrayBuffer());
   if (!validSignature(raw, headers["x-zalo-signature"])) { set.status = 401; return { error: "Chữ ký không hợp lệ", code: "UNAUTHORIZED" }; }
   let event: { event_id?: string; event_name?: string; user_id?: string; follower_id?: string; phone?: string; oa_id?: string };

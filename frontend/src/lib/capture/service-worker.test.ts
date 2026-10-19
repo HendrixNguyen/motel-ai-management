@@ -13,11 +13,12 @@ describe("capture service worker behavior", () => {
     const context = { location: { origin: "http://localhost" }, addEventListener: (type: string, handler: (event: Event) => void) => listeners.set(type, handler), skipWaiting: vi.fn(), clients: { claim: vi.fn() }, caches: { open: vi.fn(async () => cache), match: cache.match }, fetch: fetchMock };
     new Function("self", "caches", "fetch", source)(context, context.caches, fetchMock);
     const install: Event = { type: "install", waitUntil: vi.fn() }; listeners.get("install")!(install); await install.waitUntil!.mock.calls[0]![0];
-    expect(cache.addAll).toHaveBeenCalledWith(["/", "/login", "/capture", "/offline.html"]);
+    expect(cache.addAll).toHaveBeenCalledWith(["/offline.html"]);
     const activate: Event = { type: "activate", waitUntil: vi.fn() }; listeners.get("activate")!(activate); await activate.waitUntil!.mock.calls[0]![0]; expect(context.clients.claim).toHaveBeenCalled();
     const fetchCase = async (url: string, init: RequestInit = {}) => { const request = { method: init.method ?? "GET", mode: init.mode ?? "same-origin", headers: new Headers(init.headers), url: `http://localhost${url}` } as unknown as Request; const event: Event = { type: "fetch", request, respondWith: vi.fn() }; listeners.get("fetch")!(event); if (event.respondWith!.mock.calls.length) return event.respondWith!.mock.calls[0]![0] as Promise<Response>; return undefined; };
-    const online = await fetchCase("/capture/period/room?motel=one", { mode: "navigate" as RequestMode });
-    const onlineResponse = await online!; expect(onlineResponse.status).toBe(200); expect(await onlineResponse.clone().text()).toContain("network:/capture/period/room"); await expect(cache.match(new Request("http://localhost/capture/period/room?motel=two"))).resolves.toBeUndefined(); expect(cache.put).toHaveBeenCalled();
+const online = await fetchCase("/capture/period/room?motel=one", { mode: "navigate" as RequestMode });
+     expect(online).toBeUndefined();
+     expect(cache.put).not.toHaveBeenCalled();
     const api = await fetchCase("/api/auth/me"); expect(api).toBeUndefined();
     const signed = await fetchCase("/capture/signed-url"); expect(signed).toBeUndefined();
     const exclusions = [
@@ -25,8 +26,8 @@ describe("capture service worker behavior", () => {
     ] as const;
     for (const [url, init] of exclusions) expect(await fetchCase(url, init)).toBeUndefined();
     const crossOrigin = { method: "GET", mode: "navigate", headers: new Headers(), url: "https://other.example/capture" } as unknown as Request; const crossEvent: Event = { type: "fetch", request: crossOrigin, respondWith: vi.fn() }; listeners.get("fetch")!(crossEvent); expect(crossEvent.respondWith).not.toHaveBeenCalled();
-    const offline = await fetchCase("/capture/period/room?motel=one", { mode: "navigate" as RequestMode }); const offlineResponse = await offline!; expect(offlineResponse.status).toBe(200); expect(await offlineResponse.text()).toContain("network:/capture/period/room");
-    captureFetches = 2; const cachedSecond = await fetchCase("/capture/period/room?motel=one", { mode: "navigate" as RequestMode }); const cachedSecondResponse = await cachedSecond!; expect(cachedSecondResponse.status).toBe(200); expect(await cachedSecondResponse.text()).toContain("network:/capture/period/room");
-    const uncached = await fetchCase("/capture/period/new?motel=three", { mode: "navigate" as RequestMode }); const uncachedResponse = await uncached!; expect(uncachedResponse.status).toBe(200); expect(await uncachedResponse.text()).toContain("shell:/offline.html"); expect(cache.match).toHaveBeenCalled();
+     expect(await fetchCase("/capture/period/room?motel=one", { mode: "navigate" as RequestMode })).toBeUndefined();
+    const renterRoute = await fetchCase("/portal/bills", { mode: "navigate" as RequestMode }); expect(renterRoute).toBeUndefined();
+     const captureRoute = await fetchCase("/capture/period/new?motel=three", { mode: "navigate" as RequestMode }); expect(captureRoute).toBeUndefined();
   });
 });

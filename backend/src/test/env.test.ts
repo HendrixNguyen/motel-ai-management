@@ -7,6 +7,7 @@ const valid = {
   MANAGER_JWT_SECRET: "a".repeat(48),
   RENTER_SESSION_SECRET: "b".repeat(48),
   R2_ACCOUNT_ID: "acct",
+  R2_BUCKET: "motel-uploads",
   ZALO_OA_ID: "oa",
   ZALO_OA_SECRET: "z".repeat(48),
   ZALO_ACCESS_TOKEN: "y".repeat(48),
@@ -16,8 +17,24 @@ const valid = {
 };
 
 describe("parseEnv", () => {
+  test("requires a non-placeholder private R2 bucket", () => {
+    expect(() => parseEnv({ ...valid, R2_BUCKET: "" })).toThrow(/R2_BUCKET/);
+    expect(() => parseEnv({ ...valid, R2_BUCKET: "public" })).toThrow(/riêng tư/);
+  });
   test("accepts a complete environment with postgres rate limits", () => {
     expect(parseEnv({ ...valid, NODE_ENV: "production", RATE_LIMIT_STORE: "postgres", DATABASE_URL: "postgres://u:p@db.internal:5432/motel", RENTER_PORTAL_URL: "https://renter.example.com", FRONTEND_URL: "https://app.example.com" }).rateLimitStore).toBe("postgres");
+  });
+
+  test("covers URL parser failures and every production secret placeholder branch", () => {
+    const production = { ...valid, NODE_ENV: "production", DATABASE_URL: "postgres://u:p@db.internal:5432/motel", TEST_DATABASE_URL: "postgres://test:p@db.internal:5432/motel_test", RENTER_PORTAL_URL: "https://renter.example.test", FRONTEND_URL: "https://app.example.test", MANAGER_JWT_SECRET: "a".repeat(48), RENTER_SESSION_SECRET: "b".repeat(48), ZALO_OA_SECRET: "c".repeat(48), ZALO_ACCESS_TOKEN: "d".repeat(48), ZALO_WEBHOOK_SECRET: "e".repeat(48), R2_ACCESS_KEY_ID: "f".repeat(48), R2_SECRET_ACCESS_KEY: "g".repeat(48) };
+    expect(() => parseEnv({ ...valid, RENTER_PORTAL_URL: "not a url" })).toThrow();
+    expect(() => parseEnv({ ...production, FRONTEND_URL: "not a url" })).toThrow();
+    for (const placeholder of ["placeholder-value", "change-me-now", "secret-value", "mock-value", "test-value", "dev-value", "development-value", "password-value", "super_secret-value"]) {
+      expect(() => parseEnv({ ...production, ZALO_ACCESS_TOKEN: placeholder })).toThrow(/secret production thực/);
+    }
+    expect(() => parseEnv({ ...production, R2_PUBLIC_URL: "not a url" })).toThrow(/URL hợp lệ/);
+    expect(() => parseEnv({ ...production, DATABASE_URL: "" })).toThrow(/DATABASE_URL/);
+    expect(() => parseEnv({ ...production, TEST_DATABASE_URL: "" })).toThrow(/TEST_DATABASE_URL/);
   });
 
   test("rejects local rate limits in production", () => {
@@ -75,6 +92,12 @@ describe("parseEnv", () => {
 
   test("rejects duplicate production secrets", () => {
     expect(() => parseEnv({ ...valid, NODE_ENV: "production", RENTER_PORTAL_URL: "https://renter.example.com", FRONTEND_URL: "https://app.example.com", MANAGER_JWT_SECRET: "a".repeat(48), RENTER_SESSION_SECRET: "a".repeat(48), ZALO_OA_SECRET: "d".repeat(48), ZALO_ACCESS_TOKEN: "e".repeat(48), ZALO_WEBHOOK_SECRET: "c".repeat(48), R2_ACCESS_KEY_ID: "f".repeat(48), R2_SECRET_ACCESS_KEY: "g".repeat(48) })).toThrow(/trùng/);
+  });
+
+  test("enables push only when both VAPID keys are configured", () => {
+    expect(parseEnv(valid).webPush).toBeNull();
+    expect(parseEnv({ ...valid, FRONTEND_URL: "https://app.example.test", VAPID_PUBLIC_KEY: "pub" }).webPush).toBeNull();
+    expect(parseEnv({ ...valid, VAPID_PUBLIC_KEY: "pub", VAPID_PRIVATE_KEY: "priv", VAPID_SUBJECT: "mailto:ops@example.test" }).webPush).toEqual({ publicKey: "pub", privateKey: "priv", subject: "mailto:ops@example.test" });
   });
 
   test("exposes ZNS template ids and flags placeholders", () => {
