@@ -21,7 +21,7 @@
 
 - [ ] Recheck clean/dirty state, branch SHA and existing implementation; preserve unrelated changes. Audit supported upload APIs before designing callers; no guessed upload endpoints.
 - [ ] Update owning specifications to supersede OTP signing requirements, distinguish consent from delivery, document separate signing route and approved palette. Correct stale claims about missing manager contract UI.
-- [ ] Define additive `POST /api/renter/contracts/:contractId/sign` contract before implementation: authenticated renter, `{ consent: true, contractVersion: string }`; server-generated version identifies immutable reviewed terms, including financial terms, dates, parties and clauses. Response uses existing contract representation with consent method/timestamp/version evidence. Extend renter contract read to supply version.
+- [ ] Define additive `POST /api/renter/contracts/:contractId/consent` contract before implementation: authenticated renter, `{ consent: true, termsVersion: string }`; server-generated version identifies immutable reviewed terms, including financial terms, dates, parties and clauses. Response uses existing contract representation with consent method/timestamp/version evidence. Extend renter contract read to supply version. Current API route exists; plan aligns to `/consent` not `/sign`.
 - [ ] Document foreign contract 404, invalid consent 400, expired session 401, changed/ineligible contract 409. Same renter/version retry after successful consent returns original result without duplicate evidence; a different version does not overwrite it.
 - [ ] Establish baseline typechecks and focused tests. Reset/migration tests use disposable isolated DB, never QA. Missing tooling/credentials are blocked gates, not passes.
 
