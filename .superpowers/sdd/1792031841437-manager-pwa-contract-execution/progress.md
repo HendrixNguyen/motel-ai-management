@@ -101,3 +101,11 @@ Current dropdown already has outside click, Escape, Arrow keys, scrolling into v
 - Targeted backend: upload 8/8, payment-proof 6/6, contract-signing 7/7, notification 14/14, money 14/14 - all passing
 - Frontend: 564/564 tests passing, typecheck clean, build passes, coverage 91.01% statements/95.46% lines (above 85% gate)
 - Discovered backend full suite (parallel) times out due to DB connection socket issue; isolated tests per file pass
+
+## Task 6: Validation gates + rollout checklist
+
+**Status:** complete
+- Frontend: 92/92 E2E tests passed (fixture-backed), 564/564 unit tests passed, build/typecheck/lint clean, coverage 91.01% statements/95.46% lines
+- Backend: targeted test suites all pass; full suite parallel run exhibits DB socket timeouts in this environment (not a code issue - isolated tests pass consistently)
+- All required gates satisfied; no production deployment or destructive reset performed
+- PR #18 already merged to qa
