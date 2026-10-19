@@ -21,7 +21,9 @@ page scrolling. Tables must reflow into readable rows or focused detail editors 
 
 ## Contract lifecycle
 
-Manager contract screen shows draft, active, expired, and terminated badges. Create form requires renter, room, start date, and end date; rent defaults from room base price and clause content is shown as a snapshot. Drafts allow edits; active and terminated contracts are read-only. Send action reports notification failure without showing a sent timestamp. Terminate action is destructive and requires confirmation.
+Manager contract screen shows draft, active, expired, and terminated badges. Create form requires renter, room, start date, and end date; rent defaults from room base price and clause content is shown as a snapshot. Drafts allow edits until renter consent; active and terminated contracts are read-only. Send action reports notification failure without showing a sent timestamp. Terminate action is destructive and requires confirmation. Renter signing uses authenticated session plus explicit read-and-agree and final-sign confirmations; no OTP UI or delivery. Terms changes reset both confirmations. A signed contract displays server-recorded consent and accepted version. This MVP records session consent and does not claim independently verified identity or certified digital signature.
+
+CCCD upload and private preview are manager-only, on renter detail; renters never upload or view CCCD. Manager uploads front/back as separate JPEG/PNG images, max 5,000,000 bytes each. Private R2 objects are read through manager-authorized 300-second signed URLs. Renter upload control is limited to one post-transfer payment-proof image, JPEG/PNG up to 5,000,000 bytes; rejected proof can be replaced. Both upload controls show a button and desktop drop zone; file picker remains available on mobile and for keyboard users.
 
 ## 1. Design Tokens
 
@@ -237,12 +239,10 @@ An unfiltered empty motel offers `Thêm phòng`; an empty filtered result offers
 
 ### M4 — Khách thuê `/renters`
 
-Table: Họ tên, SĐT, Số CCCD, Phòng, Trạng thái (`Đang thuê` / `Đã kết thức hợp đồng`), Trạng thái
-Zalo OA (`Đã follow` / `Chưa follow`), Ngày bắt đầu, actions. Renter status is the tenancy, not
+Table: Họ tên, SĐT, Số CCCD, Phòng, Trạng thái (`Đang thuê` / `Đã kết thức hợp đồng`), Ngày bắt đầu, actions. Renter status is the tenancy, not
 the room: a renter can be `Đang thuê` with no room assigned.
 
-Renter detail page: personal info with front/back CCCD images (or an "chưa cập nhật"
-placeholder), active contract summary with end date and deposit, invoice history with
+Renter detail page: personal info with manager-only front/back CCCD controls and previews via private short-lived signed URLs (or "chưa có ảnh" status), active contract summary with end date and deposit, invoice history with
 payment status, and **Tạo magic link**.
 
 Delivered M4 behavior: list and detail reads use the selected `?motel=` and validate motel
@@ -312,9 +312,7 @@ the manager's manual confirmation; it does not verify a bank transfer automatica
 
 Target behavior: two tabs.
 
-_Tab 1 — Hợp đồng:_ grouped Active / Sắp hết hạn (≤30 days) / Đã thanh lý. Detail view
-lists every clause, rent, deposit, term, and signing metadata (`otpSignedAt`, renter
-phone).
+_Tab 1 — Hợp đồng:_ grouped Active / Sắp hết hạn (≤30 days) / Đã thanh lý. Detail view lists every clause, rent, deposit, term, and signing metadata (`consentAcceptedAt`, accepted terms version, consent method). Historical OTP timestamps remain for legacy contracts only.
 
 _Tab 2 — Mẫu hợp đồng `/contracts/templates`:_ template list with a default marker.
 Template editor is a clause builder — add, reorder, edit, or remove `{title, content}`
@@ -441,7 +439,7 @@ When there is no invoice for the current period, the card is replaced by a neutr
 2×2 quick links: **Chi tiết điện nước**, **Lịch sử hóa đơn**, **Hợp đồng thuê**, **Báo
 hỏng / Yêu cầu hỗ trợ**.
 
-After activation, a dismissible notification banner offers **Bật thông báo** for Web Push. If permission is denied or unavailable, show **Thông báo vẫn gửi qua kênh dự phòng**; never block invoice access or payment.
+Renter home shows a non-blocking **Thông báo thanh toán** section with explicit **Bật thông báo** opt-in and **Tắt thông báo** opt-out. If browser support is absent or permission denied, hide the control; invoice access and payment remain available. Push text is generic and never includes amounts, proof data or identity details. Logout removes the server subscription and unregisters the browser's current push subscription. If push is unconfigured, payment UI reports that delivery notifications are unavailable rather than promising fallback.
 
 ### R2 — Chi tiết hóa đơn `/portal/bills/[id]`
 
@@ -486,11 +484,8 @@ opens the same detail view as R2.
 
 Summary (rent, deposit, term, room) then clauses as an accordion.
 
-- **Signed:** a confirmation block with `otpSignedAt` and the signing phone number.
-- **Draft, unsigned:** CTA **Xác nhận & ký hợp đồng** → clear confirmation of the clauses
-  and renter consent, then OTP entry. OTP may be visually grouped but must accept paste and
-  assistive-technology input; do not require manually focused one-digit boxes. Resend is
-  disabled for 5 minutes. Wrong or expired OTP shows an inline error and keeps the form open.
+- **Signed:** a confirmation block with server-recorded `consentAcceptedAt`, accepted terms version and consent method. Do not imply OTP or certified digital signature.
+- **Draft, unsigned:** CTA **Xác nhận & ký hợp đồng** → explicit read-and-agree checkbox, separate final confirmation, then submit exact `termsVersion`. If terms changed, reset consent and require a fresh review. Session expiry requires renewed authentication and must not auto-submit. CCCD image upload/view is manager-only; renter sees neither image nor upload control.
 - **Terminated/expired:** read-only with an explanatory banner.
 
 ### R5 — Yêu cầu hỗ trợ `/portal/tickets`

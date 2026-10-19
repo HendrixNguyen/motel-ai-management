@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, setDefaultTimeout, test } from "bun:test";
 import { app } from "@/app";
 import { db } from "@/db";
+import { resetRateLimits } from "@/shared/rate-limit";
 import { managers } from "@/modules/auth/auth.schema";
 import { registerManager, verifyManager } from "@/modules/auth/auth.service";
 import { createApp } from "@/app";
@@ -10,7 +11,7 @@ import { resetDb } from "@/db/test-db";
 // Bun's 5 s default, and worse once a long run has churned the system catalogs.
 setDefaultTimeout(20_000);
 
-beforeEach(resetDb);
+beforeEach(async () => { resetRateLimits(); await resetDb(); });
 
 const valid = { email: "a@example.com", password: "correct horse battery", name: "A" };
 
@@ -69,6 +70,15 @@ describe("manager auth", () => {
     const second = await createApp().handle(new Request("http://localhost/api/auth/login", { method: "POST", headers: { "content-type": "application/json", "x-forwarded-for": "2.2.2.2" }, body: JSON.stringify({ email: "nobody@example.com", password: "bad" }) }));
     expect(first.status).toBe(401);
     expect(second.status).toBe(401);
+  });
+
+  test("rejects malformed auth input and prevents duplicate email registration", async () => {
+    const invalid = await app.handle(new Request("http://localhost/api/auth/register", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email: "not-email", password: "x", name: "" }) }));
+    expect([400, 422]).toContain(invalid.status);
+    const badLogin = await app.handle(new Request("http://localhost/api/auth/login", { method: "POST", headers: { "content-type": "application/json" }, body: "not-json" }));
+    expect([400, 422]).toContain(badLogin.status);
+    await registerManager({ email: "duplicate@example.test", password: "password123", name: "one" });
+    await expect(registerManager({ email: "duplicate@example.test", password: "password123", name: "two" })).rejects.toMatchObject({ code: "CONFLICT" });
   });
 
   test("unknown email performs password verification against a dummy hash", async () => {

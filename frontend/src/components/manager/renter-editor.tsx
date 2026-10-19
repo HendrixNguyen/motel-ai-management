@@ -7,7 +7,9 @@ import Field from "@/components/ui/field";
 import Modal from "@/components/ui/modal";
 import { useToast } from "@/components/ui/toast";
 import type { RenterResponse, RoomResponse } from "@/lib/api/types";
+import { uploadRenterCccd } from "@/lib/api/renters.client";
 import { createRenterFormSession, type RenterFieldErrors } from "@/lib/renter-form";
+import FileUpload from "@/components/ui/file-upload";
 
 export default function RenterEditor({ motelId, rooms, renter, initiallyOpen = false }: {
   motelId: string; rooms: RoomResponse[]; renter?: RenterResponse; initiallyOpen?: boolean;
@@ -44,6 +46,10 @@ function RenterForm({ motelId, rooms, renter, onCancel, onSaved, onReload, onUna
   const [error, setError] = useState<string>();
   const [status, setStatus] = useState<number>();
   const [pending, setPending] = useState(false);
+  const router = useRouter();
+  const [cccdStatus, setCccdStatus] = useState({ front: renter?.idCardFrontUploaded ?? false, back: renter?.idCardBackUploaded ?? false });
+  const [cccdError, setCccdError] = useState("");
+  const [cccdPending, setCccdPending] = useState(false);
   const pendingRef = useRef(false);
   const active = useRef(true);
   const summary = useRef<HTMLDivElement>(null);
@@ -51,6 +57,18 @@ function RenterForm({ motelId, rooms, renter, onCancel, onSaved, onReload, onUna
   const id = (field: string) => `${prefix}-${field}`;
   useEffect(() => { active.current = true; return () => { active.current = false; }; }, []);
   useEffect(() => { if (error || Object.keys(fields).length) summary.current?.focus(); }, [error, fields]);
+
+  async function uploadCccd(side: "front" | "back", file: File) {
+    if (!renter) return;
+    setCccdPending(true); setCccdError("");
+    try {
+      await uploadRenterCccd(motelId, renter.id, side, file);
+      setCccdStatus((current) => ({ ...current, [side]: true }));
+      router.refresh();
+    } catch (cause) {
+      setCccdError(cause instanceof Error ? cause.message : "Không thể tải ảnh CCCD");
+    } finally { setCccdPending(false); }
+  }
 
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -85,6 +103,9 @@ function RenterForm({ motelId, rooms, renter, onCancel, onSaved, onReload, onUna
         {draft.roomId && !rooms.some((room) => room.id === draft.roomId) && <option value={draft.roomId}>Phòng chưa cập nhật</option>}
         {rooms.map((room) => <option key={room.id} value={room.id}>{room.name}</option>)}
       </select>}</Field>
+      {renter && <section aria-label="Ảnh CCCD" className="space-y-3 border-t border-border pt-4"><h3 className="font-semibold text-text">Ảnh CCCD · chỉ quản lý xem</h3><div className="grid gap-3 sm:grid-cols-2">
+        {(["front", "back"] as const).map((side) => <FileUpload key={side} id={id(`cccd-${side}`)} label={`CCCD mặt ${side === "front" ? "trước" : "sau"} · ${cccdStatus[side] ? "đã tải" : "chưa có ảnh"}`} maxBytes={5_000_000} pending={cccdPending} onFiles={(files) => { if (files[0]) void uploadCccd(side, files[0]); }} />)}
+      </div>{cccdError && <p role="alert" className="text-sm text-danger">{cccdError}</p>}</section>}
     </fieldset>
     <div className="flex flex-wrap justify-end gap-2 border-t border-border pt-4 pb-[env(safe-area-inset-bottom)]">
       <Button variant="secondary" disabled={pending} onClick={onCancel}>Hủy</Button>

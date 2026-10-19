@@ -1,5 +1,7 @@
 import { check, index, integer, jsonb, pgEnum, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
+import { renters } from "@/modules/renter/renter.schema";
+import { motels } from "@/modules/motel/motel.schema";
 export const zaloOaMotelMappings = pgTable("zalo_oa_motel_mappings", {
   id: uuid("id").primaryKey().defaultRandom(),
   oaId: text("oa_id").notNull(),
@@ -21,6 +23,22 @@ export const notificationWebhookEvents = pgTable("notification_webhook_events", 
   payload: jsonb("payload").$type<Record<string, unknown>>().notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [uniqueIndex("notification_webhook_events_event_id_uq").on(table.eventId)]);
+
+export const pushSubscriptions = pgTable("push_subscriptions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  renterId: uuid("renter_id").notNull().references(() => renters.id, { onDelete: "cascade" }),
+  motelId: uuid("motel_id").notNull().references(() => motels.id, { onDelete: "cascade" }),
+  endpoint: text("endpoint").notNull(),
+  p256dh: text("p256dh").notNull(),
+  auth: text("auth").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("push_subscriptions_endpoint_uq").on(table.endpoint),
+  index("push_subscriptions_owner_idx").on(table.renterId, table.motelId),
+  check("push_subscriptions_https_endpoint", sql`${table.endpoint} ~ '^https://'`),
+  check("push_subscriptions_keys_nonempty", sql`length(trim(${table.p256dh})) > 0 and length(trim(${table.auth})) > 0`),
+]);
 
 export const notificationEvents = pgTable(
   "notification_events",

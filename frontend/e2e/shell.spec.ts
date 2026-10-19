@@ -102,8 +102,15 @@ test("mobile navigation contains five reachable destinations and a labelled seco
   await signIn(context);
   await page.goto(`/?motel=${MOTEL.id}`);
   const nav = page.getByRole("navigation", { name: "Điều hướng chính trên điện thoại" });
-  await expect(nav.getByRole("link")).toHaveCount(5);
+  await expect(nav.getByRole("link")).toHaveCount(6);
   await expect(page.getByText("Menu phụ", { exact: true })).toBeVisible();
+  const secondary = page.getByRole("link", { name: "Hợp đồng", exact: true }).last();
+  await page.getByText("Menu phụ", { exact: true }).click();
+  await expect(secondary).toBeVisible();
+  await secondary.focus();
+  await secondary.press("Enter");
+  await expect(page.getByRole("heading", { name: "Hợp đồng", exact: true })).toBeVisible();
+  await page.goto(`/?motel=${MOTEL.id}`);
   await expect.poll(() => nav.getByRole("link", { name: "Tổng quan", exact: true }).evaluate((element) => getComputedStyle(element).transitionDuration)).not.toBe("0s");
   for (const [name, path] of [["Nhà trọ", "/motels"], ["Phòng trọ", "/rooms"], ["Khách thuê", "/renters"], ["Tổng quan", "/"]]) {
     const link = nav.getByRole("link", { name, exact: true });
@@ -122,7 +129,7 @@ test("desktop sidebar is sticky, 240px wide, and main content clears it", async 
   const sidebar = page.getByRole("complementary", { name: "Thanh điều hướng" });
   await expect(sidebar).toBeVisible();
   expect(await sidebar.evaluate((element) => ({ width: element.getBoundingClientRect().width, position: getComputedStyle(element).position }))).toEqual({ width: 240, position: "sticky" });
-  await expect(sidebar.getByRole("link")).toHaveCount(5);
+  await expect(sidebar.getByRole("link")).toHaveCount(6);
   const sidebarRight = await sidebar.evaluate((element) => element.getBoundingClientRect().right);
   const main = page.getByRole("main");
   await expect(main).toBeVisible();

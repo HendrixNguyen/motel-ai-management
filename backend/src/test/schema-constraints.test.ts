@@ -100,7 +100,7 @@ describe("schema constraints", () => {
     expect(row[0]?.currentReading).toBeNull();
   });
 
-  test("contract OTP attempts stay between zero and three", async () => {
+  test("legacy contract OTP attempts stay between zero and three", async () => {
     await seed();
     const renter = await db
       .insert(renters)

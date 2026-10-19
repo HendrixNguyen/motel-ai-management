@@ -13,8 +13,7 @@ import {
   sendContract,
   getRenterContract,
   getLatestRenterContract,
-  requestContractOtp,
-  verifyContractOtp,
+  acceptRenterContractConsent,
   terminateContract,
   updateContract,
   updateContractTemplate,
@@ -50,7 +49,7 @@ const contractBody = t.Object({
   clauses: t.Optional(t.Array(clause)),
 });
 const renterContractParams = t.Object({ contractId: t.String({ format: "uuid" }) });
-const otpBody = t.Object({ otp: t.String({ pattern: "^[0-9]{6}$" }) });
+const consentBody = t.Object({ consent: t.Literal(true), termsVersion: t.String({ pattern: "^[a-f0-9]{64}$" }) });
 const contractPatch = t.Object({
   templateId: t.Optional(t.String({ format: "uuid" })),
   startDate: t.Optional(date),
@@ -163,8 +162,7 @@ const renterContractRoutes = new Elysia({ name: "renter-contract-routes" })
   .group("/renter/contracts/:contractId", (contractApp) =>
     contractApp
       .get("", ({ params, auth }) => getRenterContract(params.contractId, auth!.renterId, auth!.motelId), { params: renterContractParams })
-      .post("/sign-request", ({ params, auth }) => requestContractOtp(params.contractId, auth!.renterId, auth!.motelId), { params: renterContractParams })
-      .post("/verify", ({ params, auth, body }) => verifyContractOtp(params.contractId, auth!.renterId, auth!.motelId, body.otp), { params: renterContractParams, body: otpBody }),
+      .post("/consent", ({ params, auth, body }) => acceptRenterContractConsent(params.contractId, auth!.renterId, auth!.motelId, body.termsVersion), { params: renterContractParams, body: consentBody }),
   );
 
 export const contractRoutes = new Elysia({ name: "contract-routes" })

@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, setDefaultTimeout, test } from "bun:test"
 import { app } from "@/app";
 import { db } from "@/db";
 import { resetDb } from "@/db/test-db";
+import { resetRateLimits } from "@/shared/rate-limit";
 import { registerManager } from "@/modules/auth/auth.service";
 import { motels } from "@/modules/motel/motel.schema";
 import { rooms } from "@/modules/room/room.schema";
@@ -14,7 +15,7 @@ import { env } from "@/config";
 // Bun's 5 s default, and worse once a long run has churned the system catalogs.
 setDefaultTimeout(120_000);
 
-beforeEach(resetDb);
+beforeEach(async () => { resetRateLimits(); await resetDb(); });
 
 const PASSWORD = "aaaaaaaaaa";
 

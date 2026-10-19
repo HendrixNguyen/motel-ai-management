@@ -8,6 +8,7 @@ export interface StoragePutInput {
   objectKey: string;
   body: Uint8Array | ReadableStream<Uint8Array>;
   contentType: StorageContentType;
+  maxBytes?: number;
 }
 
 export interface StorageObject {
@@ -43,7 +44,7 @@ function magicMatches(bytes: Uint8Array, contentType: StorageContentType): boole
   return new TextDecoder().decode(bytes.slice(0, 5)) === "%PDF-";
 }
 
-export async function readStorageBody(body: StoragePutInput["body"]): Promise<Uint8Array> {
+export async function readStorageBody(body: StoragePutInput["body"], maxBytes = MAX_STORAGE_BYTES): Promise<Uint8Array> {
   if (body instanceof Uint8Array) return body;
   const reader = body.getReader();
   const chunks: Uint8Array[] = [];
@@ -52,7 +53,7 @@ export async function readStorageBody(body: StoragePutInput["body"]): Promise<Ui
     const result = await reader.read();
     if (result.done) break;
     size += result.value.byteLength;
-    if (size > MAX_STORAGE_BYTES) throw new StorageError("Tệp vượt quá giới hạn 10 MB");
+    if (size > maxBytes) throw new StorageError(`Tệp vượt quá giới hạn ${maxBytes === 5_000_000 ? "5 MB" : "10 MB"}`);
     chunks.push(result.value);
   }
   const output = new Uint8Array(size);
@@ -64,8 +65,10 @@ export async function readStorageBody(body: StoragePutInput["body"]): Promise<Ui
 export async function validateStorageInput(input: StoragePutInput): Promise<Uint8Array> {
   normalizeStorageKey(input.objectKey);
   if (!SUPPORTED_CONTENT_TYPES.includes(input.contentType)) throw new StorageError("MIME không được hỗ trợ");
-  const bytes = await readStorageBody(input.body);
-  if (bytes.byteLength > MAX_STORAGE_BYTES) throw new StorageError("Tệp vượt quá giới hạn 10 MB");
+  const maxBytes = input.maxBytes ?? MAX_STORAGE_BYTES;
+  if (!Number.isInteger(maxBytes) || maxBytes < 1 || maxBytes > MAX_STORAGE_BYTES) throw new StorageError("Giới hạn tệp không hợp lệ");
+  const bytes = await readStorageBody(input.body, maxBytes);
+  if (bytes.byteLength > maxBytes) throw new StorageError(`Tệp vượt quá giới hạn ${maxBytes === 5_000_000 ? "5 MB" : "10 MB"}`);
   if (!magicMatches(bytes, input.contentType)) throw new StorageError("MIME không khớp nội dung tệp");
   return bytes;
 }

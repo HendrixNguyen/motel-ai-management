@@ -52,6 +52,24 @@ export function updateRenter(
  * A soft delete: it sets `status = inactive` and keeps the financial history, so the renter's invoices
  * remain readable after they leave.
  */
+export function uploadRenterCccd(motelId: string, renterId: string, side: "front" | "back", file: File): Promise<{ side: "front" | "back"; uploaded: true; contentType: string; size: number }> {
+  const form = new FormData();
+  form.append("file", file);
+  return fetch(`${RENTERS(motelId)}/${encodeURIComponent(renterId)}/cccd/${side}`, { method: "POST", credentials: "same-origin", headers: { accept: "application/json" }, body: form }).then(async (response) => {
+    const value = await response.json();
+    if (!response.ok) throw new Error(typeof value?.error === "string" ? value.error : "Không thể tải ảnh CCCD");
+    return value;
+  });
+}
+
+export function getRenterCccdUrl(motelId: string, renterId: string, side: "front" | "back"): Promise<{ side: "front" | "back"; url: string; contentType: string; size: number }> {
+  return fetch(`${RENTERS(motelId)}/${encodeURIComponent(renterId)}/cccd/${side}`, { credentials: "same-origin", headers: { accept: "application/json" } }).then(async (response) => {
+    const value = await response.json();
+    if (!response.ok) throw new Error(typeof value?.error === "string" ? value.error : "Không thể mở ảnh CCCD");
+    return value;
+  });
+}
+
 export function deleteRenter(motelId: string, renterId: string): Promise<void> {
   return apiSend<void>(`${RENTERS(motelId)}/${encodeURIComponent(renterId)}`, "DELETE");
 }

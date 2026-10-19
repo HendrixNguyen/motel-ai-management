@@ -16,7 +16,6 @@ export function createFixtureBackend(onMissingFixture: (failure: Error) => void 
     ["expired-token", { expiresAt: Date.now() - 60 * 60 * 1000 }],
   ]);
   const exchangedTokens = new Set<string>();
-  const otpAttempts = new Map<string, number>();
   const stateFor = (session: string) => {
     if (!states.has(session)) states.set(session, {
       motels: session.startsWith("no-motels") ? [] : structuredClone([MOTEL, MOTEL_WITHOUT_EXTRAS]),
@@ -65,19 +64,21 @@ export function createFixtureBackend(onMissingFixture: (failure: Error) => void 
       if (path.startsWith("/api/renter/")) {
         if (renterSession !== "fixture") return unauthorized();
         if (path === "/api/renter/logout" && method === "POST") { response.writeHead(204, { "set-cookie": "renter_session=; Path=/; Max-Age=0" }); return response.end(); }
+        if (path === "/api/renter/push/key" && method === "GET") return json({ enabled: false, publicKey: null });
+        if (path === "/api/renter/push/subscription" && method === "GET") return json({ subscription: null });
+        if (path === "/api/renter/push/subscription" && method === "POST") return json({ registered: true, subscriptionId: "push-subscription" });
+        if (path === "/api/renter/push/subscription" && method === "DELETE") return json({ removed: true });
         if (path === "/api/renter/me") return json({ id: "renter", name: "An", phone: "84901234567", room: { id: "room", name: "P.101", floor: 1 }, motel: { id: "motel", name: "Nhà trọ Minh Anh" }, activeContract: null });
         if (method === "GET" && path === "/api/renter/billing/periods") return json([{ id: "period", month: 10, year: 2026, status: "sent", createdAt: "2026-10-01T00:00:00.000Z" }]);
         if (method === "GET" && path.match(/^\/api\/renter\/billing\/periods\/[^/]+\/invoices$/)) return json([{ id: "invoice", billingPeriodId: "period", month: 10, year: 2026, roomId: "room", roomName: "P.101", rentAmount: "3500000", electricityUsage: "20.00", electricityCost: "70000", waterUsage: "3.00", waterCost: "45000", otherFees: [{ name: "Vệ sinh", amount: "50000" }], totalAmount: "3665000", qrCodeData: "000201010212", paymentStatus: "unpaid", paidAt: null, createdAt: "2026-10-01T00:00:00.000Z" }]);
         if (method === "GET" && path.match(/^\/api\/renter\/invoices\/[^/]+$/)) return json({ id: "invoice", billingPeriodId: "period", month: 10, year: 2026, roomId: "room", roomName: "P.101", rentAmount: "3500000", electricityUsage: "20.00", electricityCost: "70000", waterUsage: "3.00", waterCost: "45000", otherFees: [{ name: "Vệ sinh", amount: "50000" }], totalAmount: "3665000", qrCodeData: "000201010212", paymentStatus: "unpaid", paidAt: null, createdAt: "2026-10-01T00:00:00.000Z" });
-        if (path === "/api/renter/contracts/contract/sign-request" && method === "POST") return json({ sentAt: new Date().toISOString() });
-        if (path === "/api/renter/contracts/contract/verify" && method === "POST") {
-          const body = await input<{ otp: string }>();
-          const attempts = otpAttempts.get(renterSession) ?? 0;
-          if (attempts >= 3) return error(401, "OTP_INVALID", "Mã OTP không đúng hoặc đã hết lượt thử");
-          if (body.otp !== "123456") { otpAttempts.set(renterSession, attempts + 1); return error(401, "OTP_INVALID", "Mã OTP không đúng hoặc đã hết lượt thử"); }
-          const otpSignedAt = new Date().toISOString(); signedRenters.set(renterSession, otpSignedAt); return json({ otpSignedAt, status: "active" });
+        if (path === "/api/renter/contracts/contract/consent" && method === "POST") {
+          const body = await input<{ consent: boolean; termsVersion: string }>();
+          if (body.consent !== true || body.termsVersion !== "a".repeat(64)) return error(409, "CONFLICT", "Điều khoản đã thay đổi");
+          const consentAcceptedAt = new Date().toISOString(); signedRenters.set(renterSession, consentAcceptedAt);
+          return json({ id: "contract", status: "active", consentAcceptedAt, consentMethod: "session_consent", consentEvidence: { termsVersion: body.termsVersion, acceptedTermsSnapshot: { termsVersion: body.termsVersion } } });
         }
-        if (path === "/api/renter/contract" && method === "GET") { const otpSignedAt = signedRenters.get(renterSession) ?? null; return json({ id: "contract", status: otpSignedAt ? "active" : "draft", monthlyRent: "3500000", deposit: "3500000", startDate: "2026-10-01", endDate: "2027-09-30", clauses: [{ title: "Điều khoản", content: "Nội dung" }], otpSignedAt }); }
+        if (path === "/api/renter/contract" && method === "GET") { const consentAcceptedAt = signedRenters.get(renterSession) ?? null; return json({ id: "contract", status: consentAcceptedAt ? "active" : "draft", motelId: "motel", renterId: "renter", roomId: "room", monthlyRent: "3500000", deposit: "3500000", startDate: "2026-10-01", endDate: "2027-09-30", clauses: [{ title: "Điều khoản", content: "Nội dung" }], termsVersion: "a".repeat(64), consentAcceptedAt, consentMethod: consentAcceptedAt ? "session_consent" : null, consentEvidence: consentAcceptedAt ? { termsVersion: "a".repeat(64), acceptedTermsSnapshot: { termsVersion: "a".repeat(64) } } : null, otpSentAt: null, otpSignedAt: null, createdAt: "2026-10-01T00:00:00.000Z" }); }
         if (method === "GET" && path.match(/^\/api\/renter\/invoices\/[^/]+\/payment-proof$/)) return json(null);
         if (method === "GET" && path === "/api/renter/tickets") return json([]);
         if (path === "/api/renter/tickets" && method === "POST") { const body = await input<{ category: string; description: string }>(); return json({ id: "ticket", category: body.category, description: body.description, status: "open", createdAt: new Date().toISOString() }, 201); }
@@ -189,7 +190,7 @@ export function createFixtureBackend(onMissingFixture: (failure: Error) => void 
             }
             const create = body as CreateRenterInput;
             const renter: RenterResponse = { id: crypto.randomUUID(), motelId: motel.id, name: create.name, phone: create.phone,
-              idNumber: create.idNumber ?? null, roomId: create.roomId ?? null, idCardFrontUrl: create.idCardFrontUrl ?? null, idCardBackUrl: create.idCardBackUrl ?? null,
+              idNumber: create.idNumber ?? null, roomId: create.roomId ?? null, idCardFrontUploaded: false, idCardBackUploaded: false,
               zaloOaId: null, isOaFollower: false, status: "active", createdAt: new Date().toISOString() };
             state.renters.push(renter); return json(renter, 201);
           }

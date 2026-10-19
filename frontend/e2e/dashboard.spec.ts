@@ -13,7 +13,7 @@ test("dashboard shows operational tasks without horizontal overflow", async ({ p
         { id: "room-1", motelId: "motel-1", name: "P.101", basePrice: "3500000", floor: 1, status: "occupied", createdAt: motel.createdAt },
         { id: "room-2", motelId: "motel-1", name: "P.102", basePrice: "3500000", floor: 1, status: "available", createdAt: motel.createdAt },
       ],
-      "/api/manager/motels/motel-1/renters": [{ id: "renter-1", motelId: "motel-1", name: "Trần Thị B", phone: "84901234567", idNumber: null, idCardFrontUrl: null, idCardBackUrl: null, roomId: "room-1", zaloOaId: null, isOaFollower: false, status: "active", createdAt: motel.createdAt }],
+      "/api/manager/motels/motel-1/renters": [{ id: "renter-1", motelId: "motel-1", name: "Trần Thị B", phone: "84901234567", idNumber: null, idCardFrontUploaded: false, idCardBackUploaded: false, roomId: "room-1", zaloOaId: null, isOaFollower: false, status: "active", createdAt: motel.createdAt }],
       "/api/manager/motels/motel-1/billing/periods": [{ id: "period-1", motelId: "motel-1", month: 10, year: 2026, status: "sent", createdAt: motel.createdAt }],
       "/api/manager/motels/motel-1/billing/periods/period-1/invoices": [{ id: "invoice-1", billingPeriodId: "period-1", roomId: "room-1", roomName: "P.101", renterId: "renter-1", motelId: "motel-1", rentAmount: "3500000", electricityUsage: "20", electricityCost: "70000", waterUsage: "3", waterCost: "45000", otherFees: [], totalAmount: "3615000", qrCodeData: null, paymentStatus: "unpaid", paidAt: null, createdAt: motel.createdAt }],
     };

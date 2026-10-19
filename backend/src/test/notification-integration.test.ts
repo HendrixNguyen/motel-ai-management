@@ -11,15 +11,13 @@ import { notificationEvents } from "@/modules/notification/notification.schema";
 import { createRenterForMotel } from "@/modules/renter/renter.service";
 import { markInvoicePaid } from "@/modules/billing/billing.service";
 import { listExpiringContracts } from "@/modules/contract/contract.service";
-import { requestContractOtp } from "@/modules/contract/contract.service";
 import { resetNotificationRecipientResolver, setNotificationRecipientResolver, enqueueNotification } from "@/modules/notification/notification.service";
 import { getRenterNotificationRecipient } from "@/modules/renter/renter.service";
 import { createPostgresAdvisoryLeaseDb, runWithAdvisoryLease, type AdvisoryLeaseDb } from "@/modules/notification/scheduler.service";
 import postgres from "postgres";
-import { eq } from "drizzle-orm";
 
 setDefaultTimeout(120_000);
-beforeEach(async () => { resetNotificationRecipientResolver(); await resetDb(); });
+beforeEach(async () => { await resetDb(); setNotificationRecipientResolver(getRenterNotificationRecipient); });
 
 async function fixture() {
   const [manager] = await db.insert(managers).values({ email: `${crypto.randomUUID()}@example.com`, passwordHash: "hash", name: "M" }).returning();
@@ -36,7 +34,7 @@ async function keys() {
 describe("domain notification integration", () => {
   test("creates welcome event without exposing a provider route", async () => {
     const { manager, motel, room } = await fixture();
-    const renter = await createRenterForMotel(motel.id, manager.id, { name: "New", phone: "84123456786", roomId: room.id });
+    const renter = await createRenterForMotel(motel.id, manager.id, { name: "New", phone: "0912345678", roomId: room.id });
     expect(await keys()).toContain(`renter:${renter.id}:welcome`);
   });
 
@@ -100,12 +98,5 @@ describe("domain notification integration", () => {
     expect(runs).toBe(1);
   });
 
-  test("creates OTP event and keeps contract state safe when notification fails", async () => {
-    const { motel, room, renter } = await fixture();
-    const [contract] = await db.insert(contracts).values({ motelId: motel.id, renterId: renter.id, roomId: room.id, startDate: "2026-01-01", endDate: "2026-12-31", monthlyRent: "1", deposit: "0" }).returning();
-    await expect(requestContractOtp(contract!.id, renter.id, motel.id, async () => "123456")).rejects.toMatchObject({ code: "EXTERNAL_SERVICE_ERROR" });
-    const stored = await db.query.contracts.findFirst({ where: eq(contracts.id, contract!.id) });
-    expect(stored?.otpSentAt).toBeNull();
-    expect(await keys()).toHaveLength(0);
-  });
+
 });

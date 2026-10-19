@@ -22,7 +22,7 @@ export async function enforceRateLimit(key: string, limit: number, now = Date.no
   if (count > limit) throw AppError.rateLimited("Vui lòng thử lại sau", Math.max(1, Math.ceil((windowStart + WINDOW_MS - now) / 1000)));
 }
 
-function enforceLocalRateLimit(key: string, limit: number, now: number): void {
+export function enforceLocalRateLimit(key: string, limit: number, now: number): void {
   const current = localBuckets.get(key);
   if (!current || current.resetAt <= now) {
     if (localBuckets.size >= MAX_BUCKETS) localBuckets.delete(localBuckets.keys().next().value!);
