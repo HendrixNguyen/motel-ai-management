@@ -67,7 +67,7 @@ describe("overview dashboard", () => {
     const html = await renderPage({ motel: "motel-a" });
     expect(html).toContain('href="/renters?create=1&amp;motel=motel-a"');
     expect(html).toContain('href="/capture?motel=motel-a"');
-    expect(html).toContain('href="/billing/period-a?motel=motel-a"');
+    expect(html).toContain('href="/billing?motel=motel-a"');
     expect(html).toContain('href="/rooms?motel=motel-a"');
   });
 
@@ -109,6 +109,25 @@ describe("overview dashboard", () => {
     await expect(renderPage()).rejects.toBe(unauthorized);
   });
 
+  test("routes create-invoice quick action to the open draft period", async () => {
+    const draft = { ...period, id: "draft-period", month: 11, status: "draft" as const };
+    mocks.listBillingPeriods.mockResolvedValueOnce([draft]);
+    const html = await renderPage();
+    const createInvoiceIndex = html.indexOf(">Tạo hóa đơn</strong>");
+    const actionRow = html.slice(html.lastIndexOf("<a", createInvoiceIndex), html.indexOf("</a>", createInvoiceIndex));
+    expect(actionRow).toContain('href="/billing/draft-period?motel=motel-a"');
+  });
+
+  test("does not link create-invoice quick action to a closed latest period", async () => {
+    const closed = { ...period, id: "closed-period", month: 11, status: "closed" as const };
+    mocks.listBillingPeriods.mockResolvedValueOnce([closed]);
+    const html = await renderPage();
+    const createInvoiceIndex = html.indexOf(">Tạo hóa đơn</strong>");
+    const actionRow = html.slice(html.lastIndexOf("<a", createInvoiceIndex), html.indexOf("</a>", createInvoiceIndex));
+    expect(actionRow).toContain('href="/billing?motel=motel-a"');
+    expect(actionRow).not.toContain("closed-period");
+  });
+
   test("does not label an old open period as current when newer period is closed", async () => {
     const oldDraft = { ...period, id: "old-draft", month: 10, status: "draft" as const };
     const newestClosed = { ...period, id: "closed-period", month: 11, status: "closed" as const };
@@ -117,6 +136,9 @@ describe("overview dashboard", () => {
     expect(html).toContain("Chưa có kỳ hóa đơn");
     expect(html).not.toContain('href="/billing/old-draft/invoices?motel=motel-a"');
     expect(html).not.toContain('href="/billing/closed-period/invoices?motel=motel-a"');
+    const createInvoiceIndex = html.indexOf(">Tạo hóa đơn</strong>");
+    const actionRow = html.slice(html.lastIndexOf("<a", createInvoiceIndex), html.indexOf("</a>", createInvoiceIndex));
+    expect(actionRow).toContain('href="/billing?motel=motel-a"');
   });
 
   test("shows the newest active draft and not an older sent period as current", async () => {
@@ -127,6 +149,9 @@ describe("overview dashboard", () => {
     expect(html).toContain("Tháng 11/2026");
     expect(html).toContain('href="/billing/draft-period/invoices?motel=motel-a"');
     expect(html).not.toContain('href="/billing/sent-period/invoices?motel=motel-a"');
+    const createInvoiceIndex = html.indexOf(">Tạo hóa đơn</strong>");
+    const actionRow = html.slice(html.lastIndexOf("<a", createInvoiceIndex), html.indexOf("</a>", createInvoiceIndex));
+    expect(actionRow).toContain('href="/billing/draft-period?motel=motel-a"');
   });
 
   test("does not call a sent or closed period current when latest period is closed", async () => {

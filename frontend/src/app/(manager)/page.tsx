@@ -51,7 +51,8 @@ export default async function Overview({ searchParams }: { searchParams: Promise
   }
   const motelId = resolveMotelId(motels, await searchParams);
   if (!motelId) return <section className="min-w-0 space-y-6"><PageHeader title="Tổng quan" description="Việc cần làm hôm nay cho nhà trọ." /><MotelEditor empty /></section>;
-  const motel = motels.find((item) => item.id === motelId)!;
+  const motel = motels.find((item) => item.id === motelId);
+  if (!motel) return <section className="min-w-0 space-y-6"><PageHeader title="Tổng quan" description="Không tìm thấy nhà trọ đã chọn." /><ReadFailure resource="nhà trọ đã chọn" /></section>;
   const results = await Promise.allSettled([listRooms(motelId), listRenters(motelId), listBillingPeriods(motelId)] as const);
   const [roomsResult, rentersResult, periodsResult] = results;
   if (isReadFailure(roomsResult) || isReadFailure(rentersResult) || isReadFailure(periodsResult)) {
@@ -64,6 +65,7 @@ export default async function Overview({ searchParams }: { searchParams: Promise
   for (const room of rooms) counts[room.status] += 1;
   const latest = periods[0];
   const currentPeriod = latest?.status === "draft" || latest?.status === "sent" ? latest : undefined;
+  const createInvoicePeriod = latest?.status === "draft" ? latest : undefined;
   const invoices: InvoiceResponse[] = currentPeriod ? await listInvoices(motelId, currentPeriod.id) : [];
   const activeRenters = renters.filter((renter) => renter.status === "active");
   const occupancy = rooms.length ? Math.round(counts.occupied / rooms.length * 100) : 0;
@@ -77,7 +79,7 @@ export default async function Overview({ searchParams }: { searchParams: Promise
     </div></section>
     <section aria-labelledby="dashboard-actions" className="space-y-3"><h2 id="dashboard-actions" className="font-heading text-lg font-semibold text-text">Thao tác nhanh</h2><Card className="divide-y divide-border p-0">
       <Link href={motelHref("/capture", "", motelId)} className="flex min-h-14 min-w-0 items-center justify-between gap-4 p-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"><span><strong className="block text-text">Nhập chỉ số điện nước</strong><span className="text-sm text-text-muted">Mở danh sách kỳ ghi chỉ số</span></span><span aria-hidden="true" className="text-primary">→</span></Link>
-      <Link href={latest ? motelHref(`/billing/${latest.id}`, "", motelId) : motelHref("/billing", "", motelId)} className="flex min-h-14 min-w-0 items-center justify-between gap-4 p-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"><span><strong className="block text-text">Tạo hóa đơn</strong><span className="text-sm text-text-muted">{latest ? `Tháng ${String(latest.month).padStart(2, "0")}/${latest.year}` : "Tạo kỳ hóa đơn mới"}</span></span><span aria-hidden="true" className="text-primary">→</span></Link>
+      <Link href={createInvoicePeriod ? motelHref(`/billing/${createInvoicePeriod.id}`, "", motelId) : motelHref("/billing", "", motelId)} className="flex min-h-14 min-w-0 items-center justify-between gap-4 p-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"><span><strong className="block text-text">Tạo hóa đơn</strong><span className="text-sm text-text-muted">{createInvoicePeriod ? `Tháng ${String(createInvoicePeriod.month).padStart(2, "0")}/${createInvoicePeriod.year}` : "Tạo kỳ hóa đơn mới"}</span></span><span aria-hidden="true" className="text-primary">→</span></Link>
       <Link href={motelHref("/renters", "create=1", motelId)} className="flex min-h-14 min-w-0 items-center justify-between gap-4 p-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"><span><strong className="block text-text">Thêm khách thuê</strong><span className="text-sm text-text-muted">Tạo hồ sơ khách thuê mới</span></span><span aria-hidden="true" className="text-primary">→</span></Link>
     </Card></section>
     {currentPeriod && <InvoiceLedger invoices={invoices} motelId={motelId} periodId={currentPeriod.id} />}

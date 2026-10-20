@@ -34,5 +34,7 @@ test("dashboard shows operational tasks without horizontal overflow", async ({ p
   await expect(page.getByRole("main")).toContainText("Đã thanh toán");
   await expect(page.getByRole("link", { name: /Hóa đơn chưa thanh toán/ })).toHaveCount(0);
   await expect(page.getByRole("link", { name: "Thêm khách thuê", exact: true })).toBeVisible();
+  const createInvoiceRow = page.locator("a").filter({ has: page.getByText("Tạo hóa đơn", { exact: true }) });
+  await expect(createInvoiceRow).toHaveAttribute("href", "/billing?motel=6f1c1a52-0d4e-4a2b-9c3d-8e5f6a7b8c9d");
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(375);
 });

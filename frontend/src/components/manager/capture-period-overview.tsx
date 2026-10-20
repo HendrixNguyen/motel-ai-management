@@ -40,6 +40,6 @@ export default function CapturePeriodOverview({ period, motelId }: { period: Bil
       })}
     </ol>
 
-    {locked ? <p role="status" className="rounded-card border border-warning bg-warning-bg p-4 text-warning">Hàng đợi được khóa, không thử gửi lại.</p> : <Link href={`/billing/${period.id}?motel=${encodeURIComponent(motelId)}`} aria-disabled={done !== total} tabIndex={done === total ? undefined : -1} className={`flex min-h-[52px] w-full items-center justify-center rounded-input px-4 text-center font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${done === total ? "bg-primary text-surface" : "pointer-events-none bg-border text-text-muted"}`}>Hoàn tất &amp; tạo hóa đơn</Link>}
+    {locked ? <p role="status" className="rounded-card border border-warning bg-warning-bg p-4 text-warning">Hàng đợi được khóa, không thử gửi lại.</p> : total === 0 ? <p role="status" className="rounded-card border border-border bg-canvas p-4 text-text-muted">Chưa có phòng trong kỳ này; thêm phòng trước khi hoàn tất.</p> : <Link href={`/billing/${period.id}?motel=${encodeURIComponent(motelId)}`} aria-disabled={done !== total} tabIndex={done !== total ? -1 : undefined} className={`flex min-h-[52px] w-full items-center justify-center rounded-input px-4 text-center font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${done === total ? "bg-primary text-surface" : "pointer-events-none bg-border text-text-muted"}`}>Hoàn tất &amp; tạo hóa đơn</Link>}
   </section>;
 }

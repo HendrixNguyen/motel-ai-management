@@ -122,6 +122,14 @@ describe("capture entry Quiet Ledger surfaces", () => {
     expect(completeHtml).toContain('href="/billing/draft-1?motel=motel-1"');
   });
 
+  it("does not offer completion for an empty room list", async () => {
+    apiMocks.getBillingPeriod.mockResolvedValueOnce({ ...period, rooms: [] });
+    const html = await markup(CapturePeriodPage({ params: Promise.resolve({ periodId: "draft-1" }), searchParams: Promise.resolve({ motel: "motel-1" }) }));
+    expect(html).toContain("0/0 phòng đã nhập đủ điện và nước");
+    expect(html).toContain("Chưa có phòng trong kỳ này; thêm phòng trước khi hoàn tất.");
+    expect(html).not.toContain("Hoàn tất &amp; tạo hóa đơn");
+  });
+
   it("keeps completion disabled and names missing meters for rooms with no readings", async () => {
     apiMocks.getBillingPeriod.mockResolvedValueOnce({ ...period, rooms: [...period.rooms, { id: "room-3", name: "P.103", readings: [] }] });
     const html = await markup(CapturePeriodPage({
