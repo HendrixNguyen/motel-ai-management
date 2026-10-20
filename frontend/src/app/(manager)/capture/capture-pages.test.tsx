@@ -104,6 +104,24 @@ describe("capture entry Quiet Ledger surfaces", () => {
     expect(html).toContain('aria-disabled="true"');
   });
 
+  it("does not count malformed readings or unpersisted offline values as complete", async () => {
+    const onePersistedMeter = { ...period, rooms: [{ id: "room-1", name: "P.101", readings: [
+      { id: "e-1", roomId: "room-1", type: "electric" as const, previousReading: "100", currentReading: "101", readingDate: null, updatedAt: "v1" },
+    ] }] };
+    apiMocks.getBillingPeriod.mockResolvedValueOnce(onePersistedMeter);
+    const incompleteHtml = await markup(CapturePeriodPage({ params: Promise.resolve({ periodId: "draft-1" }), searchParams: Promise.resolve({ motel: "motel-1" }) }));
+    expect(incompleteHtml).toContain("0/1 phòng đã nhập đủ điện và nước");
+    expect(incompleteHtml).toContain('aria-disabled="true"');
+    const allPersisted = { ...period, rooms: [{ id: "room-1", name: "P.101", readings: [
+      { id: "e-1", roomId: "room-1", type: "electric" as const, previousReading: "100", currentReading: "101", readingDate: null, updatedAt: "v1" },
+      { id: "w-1", roomId: "room-1", type: "water" as const, previousReading: "20", currentReading: "21", readingDate: null, updatedAt: "v1" },
+    ] }] };
+    apiMocks.getBillingPeriod.mockResolvedValueOnce(allPersisted);
+    const completeHtml = await markup(CapturePeriodPage({ params: Promise.resolve({ periodId: "draft-1" }), searchParams: Promise.resolve({ motel: "motel-1" }) }));
+    expect(completeHtml).toContain("1/1 phòng đã nhập đủ điện và nước");
+    expect(completeHtml).toContain('href="/billing/draft-1?motel=motel-1"');
+  });
+
   it("keeps completion disabled and names missing meters for rooms with no readings", async () => {
     apiMocks.getBillingPeriod.mockResolvedValueOnce({ ...period, rooms: [...period.rooms, { id: "room-3", name: "P.103", readings: [] }] });
     const html = await markup(CapturePeriodPage({

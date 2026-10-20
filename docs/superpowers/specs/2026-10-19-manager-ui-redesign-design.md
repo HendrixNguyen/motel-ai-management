@@ -109,7 +109,7 @@ Phase completion requires existing behaviors preserved, no clipping/overflow at 
 
 ### Completion record
 
-Implementation is complete on `feat/manager-ui-redesign-implementation` and submitted as PR #21 targeting `feat/manager-ui-redesign`. Final frontend checks passed: typecheck, lint, build, 613 unit tests, and 105 fixture E2E tests. Coverage: 91.19% statements, 95.71% lines, 86.94% functions, and 86.05% branches. Real-stack QA E2E was not run because no safe QA target was configured; no QA/production changes or deployments occurred. Capture overview does not display per-period progress or queue summaries because the list API does not provide those values.
+Implementation is complete on `feat/manager-ui-redesign-implementation` and submitted as PR #21 targeting `feat/manager-ui-redesign`. Original frontend checks passed: typecheck, lint, build, 613 unit tests, and 105 fixture E2E tests. A review-fix pass then passed typecheck, lint, build, 618 unit tests, and 105 fixture E2E tests. Latest coverage: 91.16% statements, 95.72% lines, 86.94% functions, and 86.16% branches. Review fixes remove the duplicate dashboard unpaid metric, show distinct unpaid/overdue/paid states, scope current-period data to an active latest period, and validate exactly one persisted electric and water reading before capture completion. Real-stack QA E2E was not run because no safe QA target was configured; no QA/production changes or deployments occurred. Capture overview does not display per-period progress or queue summaries because the list API does not provide those values.
 
 
 - Shared Manager shell matches approved Quiet Ledger direction and all currently supported Manager routes use it consistently.

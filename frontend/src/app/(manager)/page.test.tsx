@@ -37,12 +37,22 @@ describe("overview dashboard", () => {
     expect(html).toContain("Tỷ lệ lấp đầy 50%");
   });
 
-  test("shows unpaid count and exact BigInt-safe unsettled amount, excluding paid invoices", async () => {
+  test("shows distinct invoice payment states and excludes paid rows", async () => {
     const html = await renderPage();
-    expect((html.match(/9\.007\.199\.254\.741\.693 ₫/g) ?? []).length).toBe(2);
-    expect(html).toContain("2 hóa đơn chưa thanh toán");
-    expect(html).toContain("9.007.199.254.741.693 ₫");
-    expect(html).not.toContain("9.007.199.254.742.193 ₫");
+    expect(html).toContain("Hóa đơn kỳ đang xử lý");
+    expect(html).toContain("2 hóa đơn chưa thu · 1 chưa thanh toán · 1 quá hạn");
+    expect(html).toContain("P.101");
+    expect(html).toContain("P.102");
+    expect(html).toContain("1 chưa thanh toán · 1 quá hạn");
+    expect(html).not.toContain("Hóa đơn chưa thanh toán");
+    expect(html).toContain("Quá hạn");
+    expect(html).toContain("Chưa thanh toán");
+    const overdueRow = html.slice(html.indexOf("P.102"), html.indexOf("P.103"));
+    expect(overdueRow).toContain("Quá hạn");
+    expect(overdueRow).not.toContain("Chưa thanh toán");
+    const paidRow = html.slice(html.indexOf("P.103"));
+    expect(paidRow).toContain("Đã thanh toán");
+    expect(paidRow).not.toContain("hóa đơn chưa thu");
   });
 
   test("shows current invoices as ledger rows and does not claim ticket administration", async () => {
@@ -97,6 +107,46 @@ describe("overview dashboard", () => {
     const unauthorized = new ApiError(401, "UNAUTHORIZED", "Đăng nhập lại");
     mocks.listMotels.mockRejectedValueOnce(unauthorized);
     await expect(renderPage()).rejects.toBe(unauthorized);
+  });
+
+  test("does not label an old open period as current when newer period is closed", async () => {
+    const oldDraft = { ...period, id: "old-draft", month: 10, status: "draft" as const };
+    const newestClosed = { ...period, id: "closed-period", month: 11, status: "closed" as const };
+    mocks.listBillingPeriods.mockResolvedValueOnce([newestClosed, oldDraft]);
+    const html = await renderPage();
+    expect(html).toContain("Chưa có kỳ hóa đơn");
+    expect(html).not.toContain('href="/billing/old-draft/invoices?motel=motel-a"');
+    expect(html).not.toContain('href="/billing/closed-period/invoices?motel=motel-a"');
+  });
+
+  test("shows the newest active draft and not an older sent period as current", async () => {
+    const draft = { ...period, id: "draft-period", month: 11, status: "draft" as const };
+    const sent = { ...period, id: "sent-period", month: 10, status: "sent" as const };
+    mocks.listBillingPeriods.mockResolvedValueOnce([draft, sent]);
+    const html = await renderPage();
+    expect(html).toContain("Tháng 11/2026");
+    expect(html).toContain('href="/billing/draft-period/invoices?motel=motel-a"');
+    expect(html).not.toContain('href="/billing/sent-period/invoices?motel=motel-a"');
+  });
+
+  test("does not call a sent or closed period current when latest period is closed", async () => {
+    const closed = { ...period, id: "closed-period", status: "closed" as const };
+    const sent = { ...period, id: "sent-period", status: "sent" as const };
+    mocks.listBillingPeriods.mockResolvedValueOnce([closed, sent]);
+    const html = await renderPage();
+    expect(html).toContain("Chưa có kỳ hóa đơn");
+    expect(html).not.toContain("Hóa đơn kỳ đang xử lý");
+    expect(html).not.toContain('href="/billing/closed-period/invoices?motel=motel-a"');
+    expect(html).not.toContain('href="/billing/sent-period/invoices?motel=motel-a"');
+  });
+
+  test("does not call a closed latest period current when no active periods exist", async () => {
+    const closed = { ...period, id: "closed-period", status: "closed" as const };
+    mocks.listBillingPeriods.mockResolvedValueOnce([closed]);
+    const html = await renderPage();
+    expect(html).toContain("Chưa có kỳ hóa đơn");
+    expect(html).not.toContain("Hóa đơn kỳ đang xử lý");
+    expect(html).not.toContain('href="/billing/closed-period/invoices?motel=motel-a"');
   });
 
   test("routes failed room, renter, period and invoice reads to the shared error boundary", async () => {

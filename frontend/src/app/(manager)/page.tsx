@@ -32,9 +32,11 @@ function isReadFailure<T>(value: PromiseSettledResult<T>): value is PromiseRejec
   return value.status === "rejected";
 }
 
-function InvoiceLedger({ invoices, unsettledCount, unsettledAmount, motelId, periodId }: { invoices: InvoiceResponse[]; unsettledCount: number; unsettledAmount: string; motelId: string; periodId: string }) {
+function InvoiceLedger({ invoices, motelId, periodId }: { invoices: InvoiceResponse[]; motelId: string; periodId: string }) {
+  const unpaidCount = invoices.filter((invoice) => invoice.paymentStatus === "unpaid").length;
+  const overdueCount = invoices.filter((invoice) => invoice.paymentStatus === "overdue").length;
   return <section aria-labelledby="dashboard-invoices" className="space-y-3">
-    <div className="flex flex-wrap items-end justify-between gap-2"><div><h2 id="dashboard-invoices" className="font-heading text-lg font-semibold text-text">Hóa đơn kỳ hiện tại</h2><p className="text-sm text-text-muted">{unsettledCount} hóa đơn chưa thanh toán · {formatVnd(unsettledAmount)}</p></div><Link className="inline-flex min-h-11 items-center font-semibold text-primary underline" href={motelHref(`/billing/${periodId}/invoices`, "", motelId)}>Xem tất cả hóa đơn</Link></div>
+    <div className="flex flex-wrap items-end justify-between gap-2"><div><h2 id="dashboard-invoices" className="font-heading text-lg font-semibold text-text">Hóa đơn kỳ đang xử lý</h2><p className="text-sm text-text-muted">{unpaidCount + overdueCount} hóa đơn chưa thu · {unpaidCount} chưa thanh toán · {overdueCount} quá hạn</p></div><Link className="inline-flex min-h-11 items-center font-semibold text-primary underline" href={motelHref(`/billing/${periodId}/invoices`, "", motelId)}>Xem tất cả hóa đơn</Link></div>
     <Card className="divide-y divide-border p-4">
       {invoices.length ? invoices.map((invoice) => <LedgerRow key={invoice.id} title={invoice.roomName} detail={<span className="flex flex-wrap items-center gap-2"><Badge tone={invoice.paymentStatus === "paid" ? "success" : invoice.paymentStatus === "overdue" ? "danger" : "warning"} label={invoice.paymentStatus === "paid" ? "Đã thanh toán" : invoice.paymentStatus === "overdue" ? "Quá hạn" : "Chưa thanh toán"} /></span>} value={<span className="whitespace-nowrap">{formatVnd(invoice.totalAmount)}</span>} />) : <p className="py-3 text-text-muted">Kỳ này chưa có hóa đơn.</p>}
     </Card>
@@ -61,26 +63,24 @@ export default async function Overview({ searchParams }: { searchParams: Promise
   const counts: Record<RoomStatus, number> = { occupied: 0, available: 0, maintenance: 0 };
   for (const room of rooms) counts[room.status] += 1;
   const latest = periods[0];
-  const invoices: InvoiceResponse[] = latest ? await listInvoices(motelId, latest.id) : [];
+  const currentPeriod = latest?.status === "draft" || latest?.status === "sent" ? latest : undefined;
+  const invoices: InvoiceResponse[] = currentPeriod ? await listInvoices(motelId, currentPeriod.id) : [];
   const activeRenters = renters.filter((renter) => renter.status === "active");
-  const unsettledInvoices = invoices.filter((invoice) => invoice.paymentStatus !== "paid");
-  const unsettledAmount = unsettledInvoices.reduce((total, invoice) => total + BigInt(invoice.totalAmount), 0n).toString();
   const occupancy = rooms.length ? Math.round(counts.occupied / rooms.length * 100) : 0;
-  const currentPeriod = latest ? `Tháng ${String(latest.month).padStart(2, "0")}/${latest.year}` : "Chưa có kỳ hóa đơn";
+  const currentPeriodLabel = currentPeriod ? `Tháng ${String(currentPeriod.month).padStart(2, "0")}/${currentPeriod.year}` : "Chưa có kỳ hóa đơn";
   return <section className="min-w-0 space-y-6">
-    <PageHeader title="Tổng quan" description={`Tình hình tại ${motel.name} · ${currentPeriod}.`} actions={<Link href={motelHref("/renters", "create=1", motelId)} className="inline-flex min-h-11 items-center rounded-input bg-primary px-4 py-2 font-semibold text-surface hover:bg-primary-strong focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">Thêm khách thuê</Link>} />
+    <PageHeader title="Tổng quan" description={`Tình hình tại ${motel.name} · ${currentPeriodLabel}.`} actions={<Link href={motelHref("/renters", "create=1", motelId)} className="inline-flex min-h-11 items-center rounded-input bg-primary px-4 py-2 font-semibold text-surface hover:bg-primary-strong focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">Thêm khách thuê</Link>} />
     <section aria-labelledby="dashboard-metrics" className="space-y-3"><h2 id="dashboard-metrics" className="font-heading text-lg font-semibold text-text">Tình hình phòng</h2><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
       <Metric label="Phòng đang thuê" value={`${counts.occupied}/${rooms.length}`} detail={`${counts.available} phòng trống · ${counts.maintenance} bảo trì · Tỷ lệ lấp đầy ${occupancy}%`} href={motelHref("/rooms", "", motelId)} />
       <Metric label="Phòng trống" value={String(counts.available)} detail={`Phòng đang thuê ${counts.occupied} · ${counts.maintenance} bảo trì`} href={motelHref("/rooms", "status=available", motelId)} />
       <Metric label="Khách đang ở" value={String(activeRenters.length)} detail="Khách thuê hoạt động" href={motelHref("/renters", "status=active", motelId)} />
-      {latest && <Metric label="Hóa đơn chưa thanh toán" value={String(unsettledInvoices.length)} detail={formatVnd(unsettledAmount)} href={motelHref(`/billing/${latest.id}/invoices`, "", motelId)} />}
     </div></section>
     <section aria-labelledby="dashboard-actions" className="space-y-3"><h2 id="dashboard-actions" className="font-heading text-lg font-semibold text-text">Thao tác nhanh</h2><Card className="divide-y divide-border p-0">
       <Link href={motelHref("/capture", "", motelId)} className="flex min-h-14 min-w-0 items-center justify-between gap-4 p-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"><span><strong className="block text-text">Nhập chỉ số điện nước</strong><span className="text-sm text-text-muted">Mở danh sách kỳ ghi chỉ số</span></span><span aria-hidden="true" className="text-primary">→</span></Link>
-      <Link href={latest ? motelHref(`/billing/${latest.id}`, "", motelId) : motelHref("/billing", "", motelId)} className="flex min-h-14 min-w-0 items-center justify-between gap-4 p-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"><span><strong className="block text-text">Tạo hóa đơn</strong><span className="text-sm text-text-muted">{latest ? currentPeriod : "Tạo kỳ hóa đơn mới"}</span></span><span aria-hidden="true" className="text-primary">→</span></Link>
+      <Link href={latest ? motelHref(`/billing/${latest.id}`, "", motelId) : motelHref("/billing", "", motelId)} className="flex min-h-14 min-w-0 items-center justify-between gap-4 p-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"><span><strong className="block text-text">Tạo hóa đơn</strong><span className="text-sm text-text-muted">{latest ? `Tháng ${String(latest.month).padStart(2, "0")}/${latest.year}` : "Tạo kỳ hóa đơn mới"}</span></span><span aria-hidden="true" className="text-primary">→</span></Link>
       <Link href={motelHref("/renters", "create=1", motelId)} className="flex min-h-14 min-w-0 items-center justify-between gap-4 p-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"><span><strong className="block text-text">Thêm khách thuê</strong><span className="text-sm text-text-muted">Tạo hồ sơ khách thuê mới</span></span><span aria-hidden="true" className="text-primary">→</span></Link>
     </Card></section>
-    {latest && <InvoiceLedger invoices={invoices} unsettledCount={unsettledInvoices.length} unsettledAmount={unsettledAmount} motelId={motelId} periodId={latest.id} />}
+    {currentPeriod && <InvoiceLedger invoices={invoices} motelId={motelId} periodId={currentPeriod.id} />}
     {rooms.length === 0 && <Card><h2 className="font-heading text-lg font-semibold text-text">Chưa có phòng trọ</h2><p className="mt-1 text-text-muted">Thêm phòng để bắt đầu theo dõi tình hình nhà trọ.</p><Link className="mt-3 inline-flex min-h-11 items-center font-semibold text-primary underline" href={motelHref("/rooms", "", motelId)}>Xem phòng trọ</Link></Card>}
   </section>;
 }

@@ -52,6 +52,7 @@ describe("M1 overview", () => {
     expect(html).toContain("Thêm khách thuê");
     expect(html.match(/aria-labelledby="dashboard-metrics"/g)).toHaveLength(1);
     expect(html).toContain("Tạo hóa đơn");
+    expect(html).not.toContain("Hóa đơn chưa thanh toán");
     expect(html).not.toMatch(/Doanh thu dự kiến|Tiền chưa thu|Sự cố chưa xử lý|Sự cố mới|Chốt số điện\/nước/);
     expect(fetchMock).toHaveBeenCalledTimes(5);
   });

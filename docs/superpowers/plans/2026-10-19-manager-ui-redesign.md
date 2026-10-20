@@ -185,8 +185,8 @@ Use one setup/foundation task first. After it passes review, Tasks 2–6 can be 
 ### Execution record
 
 - All seven tasks complete; implementation and whole-branch review complete.
-- Final full checks: frontend typecheck, lint, build, 613 unit tests, and 105 fixture E2E tests passed.
-- Coverage: statements 91.19%, lines 95.71%, functions 86.94%, branches 86.05%.
+- Original implementation checks: typecheck, lint, build, 613 unit tests, and 105 fixture E2E tests passed. Review-fix checks: typecheck/lint/build passed, 618 unit tests and 105 E2E tests passed.
+- Latest coverage: statements 91.16%, lines 95.72%, functions 86.94%, branches 86.16%.
 - Real-stack QA E2E not run because no safe QA target was configured. No QA/production changes or deployments.
 - `docs/frontend-ui-specs.md` records verified navigation and capture limitations. Capture list API has no per-period progress or offline queue summary; UI does not fabricate either.
 - Implementation commit `3c9588f` pushed; PR #21 open against `feat/manager-ui-redesign`.

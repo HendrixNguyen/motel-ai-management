@@ -11,7 +11,10 @@ export default function CapturePeriodOverview({ period, motelId }: { period: Bil
   const isRoomComplete = (readings: BillingPeriodDetailResponse["rooms"][number]["readings"]) => {
     const electricity = readings.filter((reading) => reading.type === "electric");
     const water = readings.filter((reading) => reading.type === "water");
-    return readings.length === 2 && electricity.length === 1 && water.length === 1 && electricity[0]!.currentReading !== null && water[0]!.currentReading !== null;
+    if (readings.length !== 2 || electricity.length !== 1 || water.length !== 1) return false;
+    const electric = electricity[0];
+    const waterReading = water[0];
+    return !!electric && !!waterReading && electric.currentReading !== null && waterReading.currentReading !== null;
   };
   const done = period.rooms.filter((room) => isRoomComplete(room.readings)).length;
   const locked = period.status !== "draft";
