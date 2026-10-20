@@ -56,22 +56,27 @@ describe("accessible shell controls", () => {
   });
   it("keeps compact billing navigation scoped and fully labelled while desktop keeps full text", () => {
     const html = renderToStaticMarkup(createElement(Sidebar));
-    const compactNav = html.match(/<div aria-label="Điều hướng gọn trên điện thoại"[^>]*>([\s\S]*?)<\/div><\/nav>/)?.[1];
+    const compactNav = html.match(/<div aria-label="Điều hướng gọn trên điện thoại"[^>]*>([\s\S]*?)<\/nav>/)?.[1];
     expect(compactNav).toBeDefined();
     expect(compactNav).toContain(`href="/billing?motel=${MOTEL_WITHOUT_EXTRAS.id}"`);
+    expect(compactNav).toContain(`href="/contracts?motel=${MOTEL_WITHOUT_EXTRAS.id}"`);
     expect(compactNav).toContain('aria-label="Tính tiền &amp; Hóa đơn"');
     expect(compactNav).toContain(">Hóa đơn<");
     expect(html).toMatch(/<nav aria-label="Điều hướng chính"[\s\S]*?Tính tiền &amp; Hóa đơn[\s\S]*?<\/nav>/);
     expect(html).toContain("class=\"fixed inset-x-0 bottom-0");
   });
-  it("renders five destinations per navigation and preserves motel scope", () => {
+  it("renders five primary mobile destinations, a scoped More route, and all six desktop destinations", () => {
     const html = renderToStaticMarkup(createElement(Sidebar));
     for (const path of ["/", "/motels", "/rooms", "/renters", "/billing"]) {
       expect(html).toContain(`href="${path}?motel=${MOTEL_WITHOUT_EXTRAS.id}"`);
     }
-    expect((html.match(/href="[^"]+\?motel=/g) ?? [])).toHaveLength(12);
+    expect((html.match(/href="[^\"]+\?motel=/g) ?? [])).toHaveLength(12);
     expect(html).toContain('aria-current="page"');
     expect(html).toContain('aria-label="Điều hướng chính trên điện thoại"');
+    expect(html).toContain('aria-label="Điều hướng gọn trên điện thoại"');
+    expect(html).toContain('aria-label="Thêm, các mục khác"');
+    expect(html).toContain('aria-controls="manager-more-routes"');
+    expect(html).toContain('aria-label="Các mục khác"');
   });
   it("uses the URL motel selection and renders labelled account controls", () => {
     const html = renderToStaticMarkup(createElement(TopBar, { manager: MANAGER_ME, motels: [MOTEL, MOTEL_WITHOUT_EXTRAS] }));
@@ -81,7 +86,9 @@ describe("accessible shell controls", () => {
     expect(html).toContain(MANAGER_ME.email);
     expect(html).toContain("Menu phụ");
     expect(html).toContain("Đăng xuất");
-    expect(html).toMatch(/<summary[^>]*aria-label="[^"]*Menu phụ[^"]*Tài khoản[^"]*"/);
+    expect(html).toMatch(/<button[^>]*aria-label="Menu phụ, Tài khoản"[^>]*aria-expanded="false"[^>]*aria-controls="manager-account-menu"/);
+    expect(html).toMatch(/<div[^>]*id="manager-account-menu"[^>]*role="group"[^>]*aria-label="Tùy chọn tài khoản"/);
+    expect(html).not.toContain('href="/contracts?');
   });
   it("renders shared page header actions and toast adapter", () => {
     const html = renderToStaticMarkup(createElement(ToastProvider, null, createElement(PageHeader, { title: "Tổng quan", description: "Hôm nay", actions: createElement("button", null, "Tạo") })));

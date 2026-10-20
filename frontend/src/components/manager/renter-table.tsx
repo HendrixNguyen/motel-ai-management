@@ -23,5 +23,5 @@ export default function RenterTable({ renters, rooms, roomNames, motelId, roomId
     { key: "start", label: "Ngày bắt đầu", render: () => "Chưa cập nhật" },
     { key: "actions", label: "Thao tác", render: (renter) => <div className="flex min-w-0 flex-wrap gap-2"><Link href={`/renters/${encodeURIComponent(renter.id)}?${query}`} aria-label={`Xem ${renter.name}`} className="inline-flex min-h-11 items-center rounded-input px-2 font-semibold text-primary underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">Xem chi tiết</Link><RenterEditor motelId={motelId} rooms={rooms} renter={renter} /></div> },
   ];
-  return <DataTable rows={renters} columns={columns} getRowId={(renter) => renter.id} searchText={(renter) => `${renter.name} ${renter.phone} ${renter.idNumber ?? ""} ${renter.roomId ? roomNames[renter.roomId] ?? "" : ""}`} caption="Danh sách khách thuê" />;
+  return <section aria-label="Danh sách khách thuê" className="min-w-0 rounded-card border border-border bg-surface p-3 sm:p-4"><DataTable rows={renters} columns={columns} getRowId={(renter) => renter.id} searchText={(renter) => `${renter.name} ${renter.phone} ${renter.idNumber ?? ""} ${renter.roomId ? roomNames[renter.roomId] ?? "" : ""}`} caption="Danh sách khách thuê" /></section>;
 }

@@ -5,6 +5,34 @@ async function manager(page: import("@playwright/test").Page) {
   await page.context().addCookies([{ name: "manager_session", value: "contract-ui", url: "http://localhost:3001", httpOnly: true, sameSite: "Lax" }]);
 }
 
+test("desktop Contracts destination appears once in primary navigation", async ({ page }) => {
+  await manager(page);
+  await page.setViewportSize({ width: 1280, height: 820 });
+  await page.goto(`/?motel=${MOTEL.id}`);
+  await expect(page.getByRole("complementary", { name: "Thanh điều hướng" }).getByRole("link", { name: "Hợp đồng", exact: true })).toHaveCount(1);
+  await page.getByLabel("Menu phụ, Tài khoản", { exact: true }).click();
+  await expect(page.getByRole("group", { name: "Tùy chọn tài khoản" }).getByRole("link", { name: "Hợp đồng" })).toHaveCount(0);
+});
+
+test("contract cards reflow without horizontal overflow across manager widths", async ({ page }) => {
+  await manager(page);
+  await page.goto(`/contracts?motel=${MOTEL.id}`);
+  for (const width of [360, 375, 430, 640, 768, 1024, 1440]) {
+    await page.setViewportSize({ width, height: 820 });
+    await expect(page.getByRole("heading", { name: "Hợp đồng" })).toBeVisible();
+    const main = await page.getByRole("main").boundingBox();
+    expect(main).not.toBeNull();
+    expect(main!.x).toBeGreaterThanOrEqual(0);
+    expect(main!.x + main!.width).toBeLessThanOrEqual(width);
+    const createButton = page.getByRole("button", { name: "Tạo hợp đồng", exact: true });
+    const createBounds = await createButton.boundingBox();
+    expect(createBounds).not.toBeNull();
+    expect(createBounds!.x).toBeGreaterThanOrEqual(main!.x);
+    expect(createBounds!.x + createBounds!.width).toBeLessThanOrEqual(main!.x + main!.width);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `horizontal overflow at ${width}px`).toBe(true);
+  }
+});
+
 test("manager can create a motel-scoped draft contract from active renter and room", async ({ page }) => {
   await manager(page);
   await page.goto(`/contracts?motel=${MOTEL.id}`);

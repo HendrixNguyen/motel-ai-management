@@ -23,6 +23,26 @@ test("renter rows stack at 360px and room-filter navigation survives detail and 
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
 
+test("renter cards reflow without horizontal overflow across manager widths", async ({ page }) => {
+  await page.goto(`/renters?motel=${MOTEL.id}`);
+  for (const width of [360, 375, 430, 640, 768, 1024, 1440]) {
+    await page.setViewportSize({ width, height: 820 });
+    const row = page.getByRole("row").filter({ hasText: RENTER.name });
+    await expect(row).toBeVisible();
+    const rowBounds = await row.boundingBox();
+    expect(rowBounds).not.toBeNull();
+    expect(rowBounds!.x).toBeGreaterThanOrEqual(0);
+    expect(rowBounds!.x + rowBounds!.width).toBeLessThanOrEqual(width);
+    for (const action of [row.getByRole("link", { name: `Xem ${RENTER.name}` }), row.getByRole("button", { name: `Chỉnh sửa ${RENTER.name}` })]) {
+      const actionBounds = await action.boundingBox();
+      expect(actionBounds).not.toBeNull();
+      expect(actionBounds!.x).toBeGreaterThanOrEqual(rowBounds!.x);
+      expect(actionBounds!.x + actionBounds!.width).toBeLessThanOrEqual(rowBounds!.x + rowBounds!.width);
+    }
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `horizontal overflow at ${width}px`).toBe(true);
+  }
+});
+
 test("keyboard action creates a relative magic-link POST, shows returned URL and copies it", async ({ page }) => {
   await page.addInitScript(() => {
     Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: async (value: string) => { document.documentElement.dataset.copied = value; } } });

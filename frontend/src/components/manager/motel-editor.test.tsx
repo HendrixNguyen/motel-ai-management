@@ -1,14 +1,13 @@
-import { fireEvent, render, within, waitFor, cleanup } from "@testing-library/react";
+// @vitest-environment jsdom
+import { act, cleanup, fireEvent, render, waitFor, within } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
 import { afterEach, beforeAll, beforeEach, describe, expect, test, vi } from "vitest";
-import { JSDOM } from "jsdom";
 import MotelEditor from "./motel-editor";
 
-const dom = new JSDOM("<!doctype html><html><body></body></html>", { url: "http://localhost/" });
-Object.defineProperties(globalThis, { window: { configurable: true, value: dom.window }, document: { configurable: true, value: dom.window.document }, navigator: { configurable: true, value: dom.window.navigator }, HTMLElement: { configurable: true, value: dom.window.HTMLElement }, Node: { configurable: true, value: dom.window.Node }, Event: { configurable: true, value: dom.window.Event }, CustomEvent: { configurable: true, value: dom.window.CustomEvent }, MouseEvent: { configurable: true, value: dom.window.MouseEvent }, IS_REACT_ACT_ENVIRONMENT: { configurable: true, writable: true, value: true } });
-beforeAll(() => { Object.defineProperty(globalThis, "IS_REACT_ACT_ENVIRONMENT", { configurable: true, value: true }); });
-dom.window.HTMLDialogElement.prototype.showModal = function() { this.open = true; };
-dom.window.HTMLDialogElement.prototype.close = function() { this.open = false; this.dispatchEvent(new dom.window.Event("close")); };
+beforeAll(() => {
+  HTMLDialogElement.prototype.showModal = function() { this.open = true; };
+  HTMLDialogElement.prototype.close = function() { this.open = false; this.dispatchEvent(new Event("close")); };
+});
 
 const mocks = vi.hoisted(() => ({ submit: vi.fn(), notify: vi.fn(), refresh: vi.fn(), replace: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: mocks.refresh, replace: mocks.replace }) }));
@@ -65,7 +64,38 @@ describe("MotelEditor workflow coverage", () => {
     fireEvent.submit(within(dialog).getByRole("button", { name: "Lưu thay đổi" }).closest("form")!);
     if (branch === "redirect") await waitFor(() => expect(mocks.replace).toHaveBeenCalledWith("/login"));
     if (branch === "reload") expect(await view.findByRole("button", { name: "Tải lại danh sách" })).toBeInTheDocument();
-    if (branch === "fields")     expect(await view.findByText("Tên không hợp lệ")).toBeInTheDocument();
+    if (branch === "fields") expect(await view.findByText("Tên không hợp lệ")).toBeInTheDocument();
+  });
+
+  test("recovers from a rejected save without leaking details or locking the form", async () => {
+    mocks.submit.mockRejectedValueOnce(new Error("private database.internal"));
+    const view = render(<MotelEditor motel={motel as never} />);
+    fireEvent.click(view.getByRole("button", { name: "Chỉnh sửa Nhà A" }));
+    const dialog = view.getByRole("dialog");
+    fireEvent.submit(within(dialog).getByRole("button", { name: "Lưu thay đổi" }).closest("form")!);
+    expect(await view.findByRole("alert")).toHaveTextContent("Không thể lưu nhà trọ. Vui lòng thử lại.");
+    expect(view.container.textContent).not.toContain("database.internal");
+    mocks.submit.mockResolvedValueOnce({ ok: false, status: 409, error: "Nhà trọ đang được sử dụng" });
+    fireEvent.submit(within(dialog).getByRole("button", { name: "Lưu thay đổi" }).closest("form")!);
+    await waitFor(() => expect(mocks.submit).toHaveBeenCalledTimes(2));
+  });
+
+  test("retains motel edit draft after conflict", async () => {
+    mocks.submit.mockResolvedValue({ ok: false, status: 409, error: "Nhà trọ đang được sử dụng" });
+    const view = render(<MotelEditor motel={motel as never} />);
+    fireEvent.click(view.getByRole("button", { name: "Chỉnh sửa Nhà A" }));
+    const dialog = view.getByRole("dialog");
+    const input = within(dialog).getByLabelText("Tên nhà trọ") as HTMLInputElement;
+    await act(async () => { fireEvent.change(input, { target: { value: "Bản nháp giữ lại" } }); });
+    expect(within(dialog).getByLabelText("Tên nhà trọ")).toHaveValue("Bản nháp giữ lại");
+    expect(input.value).toBe("Bản nháp giữ lại");
+    await act(async () => { fireEvent.submit(within(dialog).getByRole("button", { name: "Lưu thay đổi" }).closest("form")!); });
+    expect(mocks.submit).toHaveBeenCalledWith(expect.objectContaining({ name: "Bản nháp giữ lại" }));
+    await waitFor(() => {
+      expect(within(dialog).getByRole("alert")).toHaveTextContent("Nhà trọ đang được sử dụng");
+      expect(within(dialog).getByLabelText("Tên nhà trọ")).toHaveValue("Bản nháp giữ lại");
+    });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Đóng" }));
   });
 
   test("limits additional fee rows and returns to no-fee state", async () => {

@@ -10,7 +10,7 @@ import Loading from "@/app/(manager)/loading";
 import NotFound from "@/app/(manager)/not-found";
 import Button from "@/components/ui/button";
 import { ToastProvider } from "@/components/ui/toast";
-import { MOTEL, ROOMS, RENTERS } from "@/lib/api/__tests__/fixtures";
+import { INVOICE_OVERDUE, MOTEL, ROOMS, RENTERS } from "@/lib/api/__tests__/fixtures";
 
 vi.mock("server-only", () => ({}));
 vi.mock("next/headers", () => ({ cookies: async () => ({ toString: () => "manager_session=valid" }) }));
@@ -21,7 +21,10 @@ beforeEach(() => {
   fetchMock.mockReset();
   fetchMock.mockImplementation(async (url: string) => {
     const path = new URL(url).pathname;
-    return Response.json(path.endsWith("/rooms") ? ROOMS : path.endsWith("/renters") ? RENTERS : [MOTEL]);
+    if (path.endsWith("/rooms")) return Response.json(ROOMS);
+    if (path.endsWith("/renters")) return Response.json(RENTERS);
+    if (path.endsWith("/invoices")) return Response.json([INVOICE_OVERDUE]);
+    return Response.json([MOTEL]);
   });
 });
 
@@ -47,7 +50,6 @@ describe("manager fallback states", () => {
     expect(html).toContain("Không thể tải nội dung");
     expect(html).toContain("Thử lại");
     expect(html).not.toContain("secret database address");
-    // Exercise our button callback directly; the browser runner covers its DOM interaction.
     const action = ui.props.children.find((child: { type?: unknown }) => child.type === Button);
     const button = Button(action.props);
     button.props.onClick();

@@ -7,6 +7,7 @@ import Field from "@/components/ui/field";
 import Modal from "@/components/ui/modal";
 import { useToast } from "@/components/ui/toast";
 import type { RenterResponse, RoomResponse } from "@/lib/api/types";
+import { ApiError, GENERIC_ERROR_MESSAGE } from "@/lib/api/client";
 import { uploadRenterCccd } from "@/lib/api/renters.client";
 import { createRenterFormSession, type RenterFieldErrors } from "@/lib/renter-form";
 import FileUpload from "@/components/ui/file-upload";
@@ -16,15 +17,18 @@ export default function RenterEditor({ motelId, rooms, renter, initiallyOpen = f
 }) {
   const [currentSession, setCurrentSession] = useState<number | undefined>(initiallyOpen ? 1 : undefined);
   const session = useRef(initiallyOpen ? 1 : 0);
+  const [formKey, setFormKey] = useState(0);
   const router = useRouter();
   const notify = useToast();
+  const trigger = useRef<HTMLButtonElement>(null);
   const close = () => { session.current += 1; setCurrentSession(undefined); };
+  const closeFromDialog = () => { close(); trigger.current?.focus(); };
   return <>
-    <Button variant={renter ? "secondary" : "primary"} aria-label={renter ? `Chỉnh sửa ${renter.name}` : undefined}
-      onClick={() => { session.current += 1; setCurrentSession(session.current); }}>{renter ? "Chỉnh sửa" : "Thêm khách thuê"}</Button>
-    <Modal open={currentSession !== undefined} onClose={close} title={renter ? "Chỉnh sửa khách thuê" : "Thêm khách thuê"}
+    <button ref={trigger} type="button" className="inline-flex min-h-11 items-center rounded-input border border-border-strong bg-surface px-4 py-2.5 font-semibold text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary" aria-label={renter ? `Chỉnh sửa ${renter.name}` : undefined}
+      onClick={() => { session.current += 1; setFormKey((current) => current + 1); setCurrentSession(session.current); }}>{renter ? "Chỉnh sửa" : "Thêm khách thuê"}</button>
+    <Modal open={currentSession !== undefined} onClose={closeFromDialog} title={renter ? "Chỉnh sửa khách thuê" : "Thêm khách thuê"}
       description="Nhập thông tin liên hệ và chọn phòng nếu đã xếp phòng.">
-      {currentSession !== undefined && <RenterForm key={currentSession} motelId={motelId} rooms={rooms} renter={renter} onCancel={close}
+      {currentSession !== undefined && <RenterForm key={formKey} motelId={motelId} rooms={rooms} renter={renter} onCancel={closeFromDialog}
         onReload={() => { close(); router.refresh(); }} onUnauthorized={() => { close(); router.replace("/login"); router.refresh(); }}
         onSaved={() => {
           // A dismissed request may refresh rows; it cannot close a newer form.
@@ -66,7 +70,7 @@ function RenterForm({ motelId, rooms, renter, onCancel, onSaved, onReload, onUna
       setCccdStatus((current) => ({ ...current, [side]: true }));
       router.refresh();
     } catch (cause) {
-      setCccdError(cause instanceof Error ? cause.message : "Không thể tải ảnh CCCD");
+      setCccdError(cause instanceof ApiError && cause.status >= 400 && cause.status < 500 ? cause.message : "Không thể tải ảnh CCCD. Vui lòng thử lại.");
     } finally { setCccdPending(false); }
   }
 
@@ -74,12 +78,20 @@ function RenterForm({ motelId, rooms, renter, onCancel, onSaved, onReload, onUna
     event.preventDefault();
     if (pendingRef.current) return;
     pendingRef.current = true; setPending(true); setFields({}); setError(undefined); setStatus(undefined);
-    const result = await formSession.submit(draft);
-    pendingRef.current = false;
-    if (result.ok) { onSaved(); return; }
-    if (!active.current) return;
-    if (result.status === 401) { onUnauthorized(); return; }
-    setFields(result.fields ?? {}); setError(result.error); setStatus(result.status); setPending(false);
+    const submittedDraft = structuredClone(draft);
+    try {
+      const result = await formSession.submit(submittedDraft);
+      if (result.ok) { onSaved(); return; }
+      if (!active.current) return;
+      if (result.status === 401) { onUnauthorized(); return; }
+      setDraft(submittedDraft);
+      setFields(result.fields ?? {}); setError(result.error); setStatus(result.status);
+    } catch (cause) {
+      if (active.current) setError(cause instanceof ApiError && cause.status >= 400 && cause.status < 500 ? cause.message : GENERIC_ERROR_MESSAGE);
+    } finally {
+      pendingRef.current = false;
+      if (active.current) setPending(false);
+    }
   }
   return <form onSubmit={save} noValidate className="min-w-0 space-y-6">
     {(error || Object.keys(fields).length > 0) && <div ref={summary} role="alert" tabIndex={-1}
@@ -92,7 +104,7 @@ function RenterForm({ motelId, rooms, renter, onCancel, onSaved, onReload, onUna
     <fieldset disabled={pending} className="min-w-0 space-y-4">
       <legend className="sr-only">Thông tin khách thuê</legend>
       <Field id={id("name")} label="Họ tên" error={fields.name}>{(props) => <input {...props} name="name" autoComplete="name" required value={draft.name}
-        onChange={(event) => setDraft({ ...draft, name: event.target.value })} />}</Field>
+        onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))} />}</Field>
       <Field id={id("phone")} label="Số điện thoại" error={fields.phone} hint="Ví dụ 0901234567 hoặc +84 901 234 567">{(props) => <input {...props} name="phone" type="tel" autoComplete="tel" required value={draft.phone}
         onChange={(event) => setDraft({ ...draft, phone: event.target.value })} />}</Field>
       <Field id={id("idNumber")} label="Số CCCD (không bắt buộc)">{(props) => <input {...props} name="idNumber" type="text" inputMode="numeric" value={draft.idNumber}

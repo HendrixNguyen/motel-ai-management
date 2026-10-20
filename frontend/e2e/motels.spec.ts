@@ -16,6 +16,28 @@ test("motel grid uses live counts and stays inside 360px", async ({ page, contex
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
 
+test("motel cards reflow without horizontal overflow across manager widths", async ({ page, context }) => {
+  await signIn(context);
+  await page.goto("/motels");
+  for (const width of [360, 375, 430, 640, 768, 1024, 1440]) {
+    await page.setViewportSize({ width, height: 820 });
+    await expect(page.getByRole("heading", { name: MOTEL.name })).toBeVisible();
+    const card = page.getByRole("article").filter({ has: page.getByRole("heading", { name: MOTEL.name }) });
+    const cardBounds = await card.boundingBox();
+    expect(cardBounds).not.toBeNull();
+    expect(cardBounds!.x).toBeGreaterThanOrEqual(0);
+    expect(cardBounds!.x + cardBounds!.width).toBeLessThanOrEqual(width);
+    const actions = await card.getByRole("button").all();
+    for (const action of actions) {
+      const bounds = await action.boundingBox();
+      expect(bounds).not.toBeNull();
+      expect(bounds!.x).toBeGreaterThanOrEqual(cardBounds!.x);
+      expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(cardBounds!.x + cardBounds!.width);
+    }
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `horizontal overflow at ${width}px`).toBe(true);
+  }
+});
+
 test("empty motel list opens creation and announces field errors with a linked summary", async ({ page, context }) => {
   await signIn(context, "no-motels");
   await page.goto("/motels");

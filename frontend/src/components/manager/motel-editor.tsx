@@ -12,25 +12,27 @@ import { createMotelFormSession, type MotelFieldErrors } from "@/lib/motel-form"
 
 /** Only the mutation surface hydrates; motel cards and room counts are rendered by the server. */
 export default function MotelEditor({ motel, empty = false }: { motel?: MotelResponse; empty?: boolean }) {
-  const [currentSession, setCurrentSession] = useState<number>();
+  const [currentSession, setCurrentSession] = useState<{ id: number; formKey: number }>();
   const session = useRef(0);
   const router = useRouter();
   const notify = useToast();
   const open = currentSession !== undefined;
+  const trigger = useRef<HTMLButtonElement>(null);
 
-  function show() { session.current += 1; setCurrentSession(session.current); }
+  function show() { session.current += 1; setCurrentSession({ id: session.current, formKey: session.current }); }
   function close() { session.current += 1; setCurrentSession(undefined); }
+  function closeFromDialog() { close(); trigger.current?.focus(); }
 
   return <>
     {empty
       ? <EmptyState title="Chưa có nhà trọ" description="bấm Tạo nhà trọ để bắt đầu" actionLabel="Tạo nhà trọ" onAction={show} />
-      : <Button variant={motel ? "secondary" : "primary"} aria-label={motel ? `Chỉnh sửa ${motel.name}` : undefined} onClick={show}>{motel ? "Chỉnh sửa" : "Tạo nhà trọ"}</Button>}
-    <Modal open={open} onClose={close} title={motel ? "Chỉnh sửa nhà trọ" : "Tạo nhà trọ"}
+      : <button ref={trigger} type="button" className="inline-flex min-h-11 items-center rounded-input border border-border-strong bg-surface px-4 py-2.5 font-semibold text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary" aria-label={motel ? `Chỉnh sửa ${motel.name}` : undefined} onClick={show}>{motel ? "Chỉnh sửa" : "Tạo nhà trọ"}</button>}
+    <Modal open={open} onClose={closeFromDialog} title={motel ? "Chỉnh sửa nhà trọ" : "Tạo nhà trọ"}
       description={motel ? "Cập nhật thông tin, đơn giá, phí và tài khoản nhận tiền." : "Nhập thông tin và đơn giá điện nước của nhà trọ."}>
-      {open && <MotelForm key={currentSession} motel={motel} onCancel={close} onReload={() => { close(); router.refresh(); }}
+      {open && <MotelForm key={currentSession.formKey} motel={motel} onCancel={close} onReload={() => { close(); router.refresh(); }}
         onUnauthorized={() => { close(); router.replace("/login"); router.refresh(); }}
         onSaved={(updatedMotel) => {
-          if (session.current === currentSession) close();
+          if (session.current === currentSession.id) close();
           notify({ message: motel ? "Đã lưu thay đổi nhà trọ" : "Đã tạo nhà trọ" });
           window.dispatchEvent(new CustomEvent("motel-updated", { detail: updatedMotel }));
           router.refresh();
@@ -69,15 +71,22 @@ function MotelForm({ motel, onCancel, onSaved, onReload, onUnauthorized }: {
     setFields({});
     setError(undefined);
     setStatus(undefined);
-    const result = await formSession.submit(draft);
-    pendingRef.current = false;
-    if (result.ok) { if (result.motel) onSaved(result.motel); return; }
-    if (!active.current) return;
-    if (result.status === 401) { onUnauthorized(); return; }
-    setFields(result.fields ?? {});
-    setError(result.error);
-    setStatus(result.status);
-    setPending(false);
+    const submittedDraft = structuredClone(draft);
+    try {
+      const result = await formSession.submit(submittedDraft);
+      if (result.ok) { if (result.motel) onSaved(result.motel); return; }
+      if (!active.current) return;
+      if (result.status === 401) { onUnauthorized(); return; }
+      setDraft(submittedDraft);
+      setFields(result.fields ?? {});
+      setError(result.error);
+      setStatus(result.status);
+    } catch {
+      if (active.current) setError("Không thể lưu nhà trọ. Vui lòng thử lại.");
+    } finally {
+      pendingRef.current = false;
+      if (active.current) setPending(false);
+    }
   }
 
   function fieldLabel(key: string) {
@@ -101,12 +110,12 @@ function MotelForm({ motel, onCancel, onSaved, onReload, onUnauthorized }: {
     <fieldset disabled={pending} className="min-w-0 space-y-4">
       <legend className="sr-only">Thông tin nhà trọ và đơn giá</legend>
       <Field id={id("name")} label={fieldLabel("name")} error={fields.name}>{(props) => <input {...props} name="name" autoComplete="off" value={draft.name} required
-        onChange={(event) => setDraft({ ...draft, name: event.target.value })} />}</Field>
+        onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))} />}</Field>
       <Field id={id("address")} label={fieldLabel("address")} error={fields.address}>{(props) => <textarea {...props} name="address" rows={2}
-        className={`${props.className} py-2`} autoComplete="street-address" value={draft.address} onChange={(event) => setDraft({ ...draft, address: event.target.value })} />}</Field>
+        className={`${props.className} py-2`} autoComplete="street-address" value={draft.address} onChange={(event) => setDraft((current) => ({ ...current, address: event.target.value }))} />}</Field>
       <div className="grid min-w-0 gap-4 sm:grid-cols-2">
         {(["electricityPrice", "waterPrice"] as const).map((key) => <Field key={key} id={id(key)} label={fieldLabel(key)} error={fields[key]} hint="VND, ví dụ 3.500">{(props) => <input {...props}
-          name={key} type="text" inputMode="numeric" required value={draft[key]} onChange={(event) => setDraft({ ...draft, [key]: event.target.value })} />}</Field>)}
+          name={key} type="text" inputMode="numeric" required value={draft[key]} onChange={(event) => setDraft((current) => ({ ...current, [key]: event.target.value }))} />}</Field>)}
       </div>
     </fieldset>
 
