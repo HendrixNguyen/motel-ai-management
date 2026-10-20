@@ -3,13 +3,13 @@
 import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import Button from "@/components/ui/button";
-import EmptyState from "@/components/ui/empty-state";
 import Field from "@/components/ui/field";
 import Modal from "@/components/ui/modal";
 import { useToast } from "@/components/ui/toast";
 import type { RoomResponse, RoomStatus } from "@/lib/api/types";
 import { formatVnd, parseVndDigits } from "@/lib/format/vnd";
 import { roomStatusLabel } from "@/lib/format/status";
+import { ApiError, GENERIC_ERROR_MESSAGE } from "@/lib/api/client";
 import { createRoomFormSession, submitRoomStatus, type RoomFieldErrors } from "@/lib/room-form";
 
 type Mode = "edit" | "status";
@@ -18,23 +18,26 @@ type Mode = "edit" | "status";
 export default function RoomEditor({ motelId, room, empty = false }: { motelId: string; room?: RoomResponse; empty?: boolean }) {
   const [currentSession, setCurrentSession] = useState<{ id: number; mode: Mode }>();
   const session = useRef(0);
+  const trigger = useRef<HTMLButtonElement>(null);
   const router = useRouter();
   const notify = useToast();
-  const show = (mode: Mode = "edit") => { session.current += 1; setCurrentSession({ id: session.current, mode }); };
+  const show = (mode: Mode = "edit", source?: HTMLButtonElement) => { session.current += 1; if (source) trigger.current = source; setCurrentSession({ id: session.current, mode }); };
+  const captureTrigger = (event: React.MouseEvent<HTMLButtonElement>) => show("edit", event.currentTarget);
   const close = () => { session.current += 1; setCurrentSession(undefined); };
+  const closeFromDialog = () => { close(); trigger.current?.focus(); };
+  const cancel = () => { closeFromDialog(); };
   const statusMode = currentSession?.mode === "status";
 
   return <>
-    {empty ? <EmptyState title="Chưa có phòng trọ" description="Thêm phòng để quản lý giá thuê và khách thuê của nhà trọ."
-      actionLabel="Thêm phòng" onAction={() => show()} />
+    {empty ? <div className="min-w-0 rounded-card border border-border bg-surface p-6 text-center"><h2 className="font-heading text-lg font-semibold text-text">Chưa có phòng trọ</h2><p className="mx-auto mt-2 max-w-prose text-base leading-normal text-text-body">Thêm phòng để quản lý giá thuê và khách thuê của nhà trọ.</p><button type="button" className="mt-4 inline-flex min-h-11 items-center rounded-input border border-primary bg-primary px-4 py-2.5 font-semibold text-surface hover:bg-primary-strong focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary" onClick={captureTrigger}>Thêm phòng</button></div>
       : <div className="flex flex-wrap gap-2">
-        <Button variant={room ? "secondary" : "primary"} aria-label={room ? `Chỉnh sửa ${room.name}` : undefined}
-          onClick={() => show()}>{room ? "Chỉnh sửa" : "Thêm phòng"}</Button>
-        {room && <Button variant="ghost" aria-label={`Đổi trạng thái ${room.name}`} onClick={() => show("status")}>Đổi trạng thái</Button>}
+        <button type="button" className="inline-flex min-h-11 items-center rounded-input border border-border-strong bg-surface px-4 py-2.5 font-semibold text-text hover:bg-canvas focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary" aria-label={room ? `Chỉnh sửa ${room.name}` : undefined}
+          onClick={captureTrigger}>{room ? "Chỉnh sửa" : "Thêm phòng"}</button>
+        {room && <Button variant="ghost" aria-label={`Đổi trạng thái ${room.name}`} onClick={(event) => { trigger.current = event.currentTarget; show("status", event.currentTarget); }}>Đổi trạng thái</Button>}
       </div>}
-    <Modal open={currentSession !== undefined} onClose={close} title={statusMode ? "Đổi trạng thái phòng" : room ? "Chỉnh sửa phòng trọ" : "Thêm phòng trọ"}
+    <Modal open={currentSession !== undefined} onClose={closeFromDialog} title={statusMode ? "Đổi trạng thái phòng" : room ? "Chỉnh sửa phòng trọ" : "Thêm phòng trọ"}
       description={statusMode ? "Chọn trạng thái của phòng. Khách thuê và giá thuê được quản lý riêng." : "Nhập tên phòng, tầng và giá thuê cơ bản mỗi tháng."}>
-      {currentSession && <RoomForm key={currentSession.id} motelId={motelId} room={room} mode={currentSession.mode} onCancel={close}
+      {currentSession && <RoomForm key={currentSession.id} motelId={motelId} room={room} mode={currentSession.mode} onCancel={cancel}
         onReload={() => { close(); router.refresh(); }} onUnauthorized={() => { close(); router.replace("/login"); router.refresh(); }}
         onSaved={() => {
           // A dismissed pending response may refresh cards, but cannot close a newer form.
@@ -73,14 +76,19 @@ export function RoomForm({ motelId, room, mode, onCancel, onSaved, onReload, onU
     pendingRef.current = true;
     setPending(true);
     setFields({}); setError(undefined); setStatus(undefined);
-    const result = mode === "status" && original
-      ? await submitRoomStatus(motelId, original.id, statusDraft)
-      : await formSession.submit(draft);
-    pendingRef.current = false;
-    if (result.ok) { onSaved(); return; }
-    if (!active.current) return;
-    if (result.status === 401) { onUnauthorized(); return; }
-    setFields(result.fields ?? {}); setError(result.error); setStatus(result.status); setPending(false);
+    try {
+      const result = mode === "status" && original
+        ? await submitRoomStatus(motelId, original.id, statusDraft)
+        : await formSession.submit(draft);
+      if (result.ok) { onSaved(); return; }
+      if (result.status === 401) { onUnauthorized(); return; }
+      setFields(result.fields ?? {}); setError(result.error); setStatus(result.status);
+    } catch (cause) {
+      setError(cause instanceof ApiError && cause.status >= 400 && cause.status < 500 ? cause.message : GENERIC_ERROR_MESSAGE);
+    } finally {
+      pendingRef.current = false;
+      if (active.current) setPending(false);
+    }
   }
 
   return <form onSubmit={save} noValidate className="min-w-0 space-y-6">

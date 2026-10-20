@@ -50,6 +50,41 @@ afterEach(() => { vi.clearAllMocks(); });
   });
 });
 
+describe("period completion guard", () => {
+  const periodReadings: BillingPeriodDetailResponse = {
+    ...period,
+    rooms: [
+      { id: "room-1", name: "P.101", readings: [electric, water] },
+      { id: "room-2", name: "P.102", readings: [
+        { ...reading("electric", "120.00"), id: "room-2-electric", roomId: "room-2" },
+        { ...reading("water", "130.00"), id: "room-2-water", roomId: "room-2" },
+      ] },
+    ],
+  };
+
+  it("keeps completion disabled while any meter in another room is missing", async () => {
+    const incompletePeriod = { ...periodReadings, rooms: [periodReadings.rooms[0]!, { ...periodReadings.rooms[1]!, readings: [periodReadings.rooms[1]!.readings[0]!, { ...periodReadings.rooms[1]!.readings[1]!, currentReading: null }] }] };
+    const view = domSetup({ period: incompletePeriod, reading: water, roomReadings: [electric, water] });
+    await view.render({ period: incompletePeriod, reading: water, roomReadings: [electric, water] });
+    const input = view.host.querySelector('input[inputmode="decimal"]') as HTMLInputElement;
+    await act(async () => { input.value = "102.00"; input.dispatchEvent(new Event("input", { bubbles: true })); input.dispatchEvent(new Event("change", { bubbles: true })); });
+    const complete = Array.from(view.host.querySelectorAll("button")).find((button) => button.textContent?.includes("Hoàn tất")) as HTMLButtonElement;
+    expect(complete.disabled).toBe(true);
+    await view.cleanup();
+  });
+
+  it("enables completion only after active and every period reading are valid", async () => {
+    const completedPeriod = { ...periodReadings, rooms: periodReadings.rooms.map((room) => ({ ...room, readings: room.readings.map((item) => ({ ...item, currentReading: item.currentReading ?? "101.00" })) })) };
+    const view = domSetup({ period: completedPeriod, reading: water, roomReadings: [electric, water] });
+    await view.render({ period: completedPeriod, reading: water, roomReadings: [electric, water] });
+    const input = view.host.querySelector('input[inputmode="decimal"]') as HTMLInputElement;
+    await act(async () => { input.value = "102.00"; input.dispatchEvent(new Event("input", { bubbles: true })); input.dispatchEvent(new Event("change", { bubbles: true })); });
+    const complete = Array.from(view.host.querySelectorAll("button")).find((button) => button.textContent?.includes("Hoàn tất")) as HTMLButtonElement;
+    expect(complete.disabled).toBe(false);
+    await view.cleanup();
+  });
+});
+
 describe("capture preview rates", () => {
   it("locks finalized periods and prevents saving", async () => {
     const view = domSetup({ period: { ...period, status: "sent" } });

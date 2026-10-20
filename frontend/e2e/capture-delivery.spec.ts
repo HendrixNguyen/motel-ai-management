@@ -45,8 +45,11 @@ test.describe("capture queue delivery states", () => {
     await context.addCookies([{ name: "manager_session", value: "sent-capture", domain: "localhost", path: "/" }]);
     await page.goto(`/capture/${period}?motel=${motel}`);
     await expect(page.getByText(/Kỳ đã chốt/)).toBeVisible();
-    await expect(page.getByRole("link", { name: /Phòng P\.101/ })).toHaveAttribute("aria-disabled", "true");
-    await expect(page.getByRole("link", { name: /Phòng P\.101/ })).toHaveClass(/pointer-events-none/);
+    await expect(page.getByRole("link", { name: /Phòng P\.101/ })).toHaveCount(0);
+    await expect(page.getByText("Phòng P.101", { exact: false })).toBeVisible();
+    await expect(page.getByText("Hàng đợi được khóa, không thử gửi lại.", { exact: true })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Hoàn tất & tạo hóa đơn" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: /Phòng P\.101/ })).toHaveCount(0);
     await expect(page).not.toHaveURL(/room/);
   });
 });

@@ -98,10 +98,10 @@ describe("M1 overview", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
-  it("lets a failed room read reach the error boundary instead of reporting zero rooms", async () => {
+  it("lets a failed room read reach the error boundary without reporting zero rooms or exposing backend details", async () => {
     vi.stubGlobal("fetch", vi.fn(async (url: string) => new URL(url).pathname.endsWith("/motels")
       ? Response.json([MOTEL])
       : Response.json({ error: "private driver error", code: "INTERNAL_ERROR" }, { status: 500 })));
-    await expect(Overview({ searchParams: Promise.resolve({}) })).rejects.toThrow("Đã xảy ra lỗi hệ thống");
+    await expect(Overview({ searchParams: Promise.resolve({}) })).rejects.toThrow("Không thể tải phòng");
   });
 });

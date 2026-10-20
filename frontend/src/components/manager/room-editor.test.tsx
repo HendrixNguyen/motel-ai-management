@@ -68,6 +68,42 @@ const room: RoomResponse = { id: "room-1", motelId: "motel-1", name: "101", floo
     } finally { await view.cleanup(); }
   });
 
+  test("room trigger regains focus when dialog closes", async () => {
+    const view = setup();
+    try {
+      await view.render(createElement(RoomEditor, { motelId: "motel-1", room }));
+      const trigger = view.host.querySelector("button") as HTMLButtonElement;
+      await act(async () => { trigger.focus(); trigger.click(); });
+      await act(async () => (view.host.querySelector('button[aria-label="Đóng"]') as HTMLButtonElement)?.click());
+      expect(document.activeElement).toBe(trigger);
+    } finally { await view.cleanup(); }
+  });
+
+  test("room create submission rejection restores enabled state with safe error", async () => {
+    mocks.submitRoom.mockRejectedValue(new Error("private database host"));
+    const view = setup();
+    try {
+      await view.render(createElement(RoomEditor, { motelId: "motel-1" }));
+      await act(async () => (view.host.querySelector("button") as HTMLButtonElement).click());
+      await act(async () => (view.host.querySelector("form") as HTMLFormElement).dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })));
+      expect(view.host.querySelector("[role=alert]")?.textContent).toContain("Đã xảy ra lỗi hệ thống");
+      expect((view.host.querySelector("fieldset") as HTMLFieldSetElement).disabled).toBe(false);
+    } finally { await view.cleanup(); }
+  });
+
+  test("room status rejection restores enabled state with safe error", async () => {
+    mocks.submitRoomStatus.mockRejectedValue(new Error("private database host"));
+    const view = setup();
+    try {
+      await view.render(createElement(RoomEditor, { motelId: "motel-1", room }));
+      const trigger = [...view.host.querySelectorAll("button")].find((button) => button.textContent === "Đổi trạng thái")!;
+      await act(async () => trigger.click());
+      await act(async () => (view.host.querySelector("form") as HTMLFormElement).dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })));
+      expect(view.host.querySelector("[role=alert]")?.textContent).toContain("Đã xảy ra lỗi hệ thống");
+      expect((view.host.querySelector("fieldset") as HTMLFieldSetElement).disabled).toBe(false);
+    } finally { await view.cleanup(); }
+  });
+
   test("unauthorized status mutation closes modal and redirects", async () => {
     mocks.submitRoomStatus.mockResolvedValue({ ok: false, status: 401, error: "Unauthorized" });
     const view = setup();

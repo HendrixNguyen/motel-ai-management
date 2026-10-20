@@ -27,7 +27,7 @@ test("login through the proxy opens M1–M4 at 375px and logout protects the she
   await keyboardActivate(page, page.getByRole("button", { name: "Đăng nhập", exact: true }));
   await expect(page.getByRole("heading", { name: "Tổng quan", exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Tình hình phòng", exact: true })).toBeVisible();
-  await expect(page.getByText("Tỷ lệ lấp đầy 50%", { exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: /Phòng đang thuê 1\/2 .*Tỷ lệ lấp đầy 50%/ })).toBeVisible();
   expect((await context.cookies()).find((cookie) => cookie.name === "manager_session")?.httpOnly).toBe(true);
   const nav = page.getByRole("navigation", { name: "Điều hướng chính trên điện thoại" });
   await noPageOverflow(page);

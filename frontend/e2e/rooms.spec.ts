@@ -29,6 +29,36 @@ test("room filters survive reload and clearing them keeps motel scope at 360px",
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
 
+test("room cards and filters reflow without horizontal overflow across manager widths", async ({ page, context }) => {
+  await signIn(context);
+  await page.goto(`/rooms?motel=${MOTEL.id}`);
+  const room = page.getByRole("heading", { name: ROOM.name, exact: true });
+  for (const width of [360, 375, 430, 640, 768, 1024, 1440]) {
+    await page.setViewportSize({ width, height: 820 });
+    await expect(room).toBeVisible();
+    const main = await page.getByRole("main").boundingBox();
+    expect(main).not.toBeNull();
+    expect(main!.x).toBeGreaterThanOrEqual(0);
+    expect(main!.x + main!.width).toBeLessThanOrEqual(width);
+    const filters = await page.getByRole("searchbox", { name: "Tìm theo tên phòng" }).boundingBox();
+    expect(filters).not.toBeNull();
+    expect(filters!.x).toBeGreaterThanOrEqual(main!.x);
+    expect(filters!.x + filters!.width).toBeLessThanOrEqual(main!.x + main!.width);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `horizontal overflow at ${width}px`).toBe(true);
+  }
+});
+
+test("room dialog returns focus to its triggering edit control", async ({ page, context }) => {
+  await signIn(context);
+  await page.goto(`/rooms?motel=${MOTEL.id}`);
+  const trigger = page.getByRole("button", { name: `Chỉnh sửa ${ROOM.name}`, exact: true });
+  await trigger.focus();
+  await page.keyboard.press("Enter");
+  const dialog = page.getByRole("dialog", { name: "Chỉnh sửa phòng trọ" });
+  await dialog.getByRole("button", { name: "Đóng", exact: true }).click();
+  await expect(trigger).toBeFocused();
+});
+
 test("room creation focuses linked local errors then sends exact VND with floor zero", async ({ page, context }) => {
   await signIn(context);
   await page.setViewportSize({ width: 360, height: 740 });

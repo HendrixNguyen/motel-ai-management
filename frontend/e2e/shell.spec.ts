@@ -50,12 +50,12 @@ test("missing login fields are described inline before a request is made", async
 
 test("switching motel preserves the pathname and other search parameters", async ({ page, context }) => {
   await signIn(context);
-  await page.goto(`/rooms?motel=${MOTEL.id}&status=available`);
+  await page.goto(`/rooms?motel=${MOTEL.id}&status=active`);
   await page.getByRole("banner").getByRole("combobox", { name: "Nhà trọ", exact: true }).click();
   await page.getByRole("option", { name: MOTEL_WITHOUT_EXTRAS.name, exact: true }).click();
-  await expect(page).toHaveURL(`/rooms?motel=${MOTEL_WITHOUT_EXTRAS.id}&status=available`);
+  await expect(page).toHaveURL(`/rooms?motel=${MOTEL_WITHOUT_EXTRAS.id}&status=active`);
   await page.getByRole("navigation", { name: "Điều hướng chính trên điện thoại" }).getByRole("link", { name: "Khách thuê" }).click();
-  await expect(page).toHaveURL(`/renters?motel=${MOTEL_WITHOUT_EXTRAS.id}`);
+  await expect(page).toHaveURL(`/renters?motel=${MOTEL_WITHOUT_EXTRAS.id}&status=active`);
 });
 
 test("absent motel is replaced with the first owned motel", async ({ page, context }) => {
@@ -89,7 +89,8 @@ test("manager without motels can reach the shell without redirecting in a loop",
 test("logout clears the session through the proxy and returns to login", async ({ page, context }) => {
   await signIn(context);
   await page.goto(`/?motel=${MOTEL.id}`);
-  await page.getByLabel("Menu phụ, Tài khoản", { exact: true }).click();
+  const account = page.getByLabel("Menu phụ, Tài khoản", { exact: true });
+  await account.click();
   await expect(page.getByText(MANAGER_ME.email, { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Đăng xuất" }).click();
   await expect(page).toHaveURL("/login");
@@ -98,27 +99,89 @@ test("logout clears the session through the proxy and returns to login", async (
   await expect(page).toHaveURL("/login");
 });
 
+test("account menu closes on Escape and restores focus to its button", async ({ page, context }) => {
+  await signIn(context);
+  await page.goto(`/?motel=${MOTEL.id}`);
+  const trigger = page.getByLabel("Menu phụ, Tài khoản", { exact: true });
+  await trigger.focus();
+  await page.keyboard.press("Enter");
+  await expect(trigger).toHaveAttribute("aria-expanded", "true");
+  const logout = page.getByRole("button", { name: "Đăng xuất" });
+  await logout.focus();
+  await page.keyboard.press("Escape");
+  await expect(trigger).toHaveAttribute("aria-expanded", "false");
+  await expect(trigger).toBeFocused();
+});
+
 test("mobile navigation contains five reachable destinations and a labelled secondary menu", async ({ page, context }) => {
   await signIn(context);
   await page.goto(`/?motel=${MOTEL.id}`);
   const nav = page.getByRole("navigation", { name: "Điều hướng chính trên điện thoại" });
-  await expect(nav.getByRole("link")).toHaveCount(6);
-  await expect(page.getByText("Menu phụ", { exact: true })).toBeVisible();
-  const secondary = page.getByRole("link", { name: "Hợp đồng", exact: true }).last();
-  await page.getByText("Menu phụ", { exact: true }).click();
+  await expect(nav.getByRole("link")).toHaveCount(5);
+  const more = page.getByRole("button", { name: "Thêm, các mục khác" });
+  await expect(more).toBeVisible();
+  await expect(more).toHaveAttribute("aria-expanded", "false");
+  await more.focus();
+  await page.keyboard.press("Space");
+  await expect(more).toHaveAttribute("aria-expanded", "true");
+  await page.keyboard.press("Escape");
+  await expect(more).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(more).toHaveAttribute("aria-expanded", "true");
+  await page.keyboard.press("Escape");
+  await expect(more).toBeFocused();
+  await page.keyboard.press("Space");
+  await expect(more).toHaveAttribute("aria-expanded", "true");
+  const secondary = page.getByRole("group", { name: "Các mục khác" }).getByRole("link", { name: "Hợp đồng", exact: true });
+  await expect(secondary).toHaveAttribute("href", `/contracts?motel=${MOTEL.id}`);
+  await expect(secondary).not.toHaveAttribute("href", `/contracts?motel=${MOTEL.id}&status=active`);
   await expect(secondary).toBeVisible();
   await secondary.focus();
   await secondary.press("Enter");
-  await expect(page.getByRole("heading", { name: "Hợp đồng", exact: true })).toBeVisible();
+  await expect(page).toHaveURL(`/contracts?motel=${MOTEL.id}`);
+  await expect(page).not.toHaveURL(/status=active/);
+  await expect(page.getByRole("main")).toContainText("Hợp đồng");
+  await expect(more).toHaveAttribute("aria-expanded", "false");
   await page.goto(`/?motel=${MOTEL.id}`);
-  await expect.poll(() => nav.getByRole("link", { name: "Tổng quan", exact: true }).evaluate((element) => getComputedStyle(element).transitionDuration)).not.toBe("0s");
-  for (const [name, path] of [["Nhà trọ", "/motels"], ["Phòng trọ", "/rooms"], ["Khách thuê", "/renters"], ["Tổng quan", "/"]]) {
+  for (const width of [360, 375, 430, 640, 768, 1024, 1440]) {
+    await page.setViewportSize({ width, height: 800 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), `overflow at ${width}px`).toBe(true);
+    if (width < 1024) {
+      const mobileNav = page.getByRole("navigation", { name: "Điều hướng chính trên điện thoại" });
+      const controls = [...await mobileNav.getByRole("link").all(), await page.getByRole("button", { name: "Thêm, các mục khác" })];
+      const boxes = await Promise.all(controls.map((control) => control.boundingBox()));
+      expect(boxes.every((box) => box && box.width >= 44 && box.height >= 44), `touch target below 44px at ${width}px`).toBe(true);
+    }
+    if (width < 1024) {
+      const mobileNav = page.getByRole("navigation", { name: "Điều hướng chính trên điện thoại" });
+      await expect(mobileNav.getByRole("link")).toHaveCount(5);
+      const navBox = await mobileNav.boundingBox();
+      expect(navBox).not.toBeNull();
+      expect(navBox!.x).toBeGreaterThanOrEqual(0);
+      expect(navBox!.x + navBox!.width).toBeLessThanOrEqual(width);
+    } else {
+      const sidebar = page.getByRole("complementary", { name: "Thanh điều hướng" });
+      await expect(sidebar).toBeVisible();
+      await expect(sidebar).toHaveCSS("position", "sticky");
+      await expect(sidebar).toHaveCSS("width", "240px");
+      expect((await page.getByRole("main").boundingBox())!.x).toBeGreaterThanOrEqual(await sidebar.evaluate((node) => node.getBoundingClientRect().right));
+    }
+  }
+  await page.setViewportSize({ width: 375, height: 667 });
+  for (const [name, path] of [["Nhà trọ", "/motels"], ["Phòng trọ", "/rooms"], ["Khách thuê", "/renters"], ["Tính tiền & Hóa đơn", "/billing"], ["Tổng quan", "/"]]) {
     const link = nav.getByRole("link", { name, exact: true });
     await link.focus();
     await link.press("Enter");
     await expect(page.getByRole("heading", { name, exact: true })).toBeVisible();
     await expect(page).toHaveURL(`${path}?motel=${MOTEL.id}`);
+    await page.goto(`/?motel=${MOTEL.id}`);
   }
+  await more.focus();
+  await page.keyboard.press("Enter");
+  await page.keyboard.press("Tab");
+  await expect(page.getByRole("group", { name: "Các mục khác" }).getByRole("link", { name: "Hợp đồng" })).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(more).toBeFocused();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
 

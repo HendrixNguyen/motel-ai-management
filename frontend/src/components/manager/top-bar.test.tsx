@@ -28,14 +28,40 @@ describe("TopBar branch behavior", () => {
   test("capture queue cancellation prevents logout and clears pending", async () => {
     window.addEventListener("capture:logout", (event) => event.preventDefault(), { once: true });
     const view = render(<TopBar manager={manager} motels={motels} />);
+    fireEvent.click(view.getByLabelText("Menu phụ, Tài khoản"));
     fireEvent.click(view.getByRole("button", { name: "Đăng xuất" }));
     await waitFor(() => expect(mocks.logout).not.toHaveBeenCalled());
     expect(mocks.replace).not.toHaveBeenCalled();
     expect(view.getByRole("button", { name: "Đăng xuất" })).not.toBeDisabled();
   });
 
+  test("account menu does not duplicate the Contracts destination", async () => {
+    const view = render(<TopBar manager={manager} motels={motels} />);
+    fireEvent.click(view.getByLabelText("Menu phụ, Tài khoản"));
+    expect(view.queryByRole("link", { name: "Hợp đồng" })).toBeNull();
+  });
+
+  test("account menu closes on outside pointer interaction", async () => {
+    const view = render(<TopBar manager={manager} motels={motels} />);
+    const trigger = view.getByLabelText("Menu phụ, Tài khoản");
+    fireEvent.click(trigger);
+    fireEvent.pointerDown(document.body);
+    await waitFor(() => expect(trigger).toHaveAttribute("aria-expanded", "false"));
+  });
+
+  test("account menu closes on Escape and returns focus to trigger", async () => {
+    const view = render(<TopBar manager={manager} motels={motels} />);
+    const trigger = view.getByLabelText("Menu phụ, Tài khoản");
+    fireEvent.click(trigger);
+    expect(trigger).toHaveAttribute("aria-expanded", "true");
+    fireEvent.keyDown(document.querySelector("#manager-account-menu")!, { key: "Escape" });
+    await waitFor(() => expect(trigger).toHaveAttribute("aria-expanded", "false"));
+    expect(trigger).toHaveFocus();
+  });
+
   test("logout success redirects and refreshes; API error stays visible", async () => {
     const view = render(<TopBar manager={manager} motels={motels} />);
+    fireEvent.click(view.getByLabelText("Menu phụ, Tài khoản"));
     mocks.logout.mockResolvedValueOnce(undefined);
     fireEvent.click(view.getByRole("button", { name: "Đăng xuất" }));
     await waitFor(() => expect(mocks.replace).toHaveBeenCalledWith("/login"));

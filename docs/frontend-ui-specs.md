@@ -124,10 +124,13 @@ Draft periods allow meter edits and invoice generation. Sent periods are read-on
 
 ## 2. Manager App
 
-Shell: responsive. On wide screens, left sidebar `240px`, sticky. On phones, use compact
-navigation with no more than five primary destinations; expose remaining sections in a clearly
-labelled secondary menu. Top bar carries motel selector, notification inbox, and manager menu.
-Controls must work without hover.
+Shell: responsive. On wide screens (`1024px` and above), left sidebar `240px`, sticky. On
+narrower screens, fixed bottom navigation has five primary destinations; **Hợp đồng** is exposed
+through the labelled **Thêm** menu. The top bar carries motel selector, capture-queue warning when
+needed, and manager account/theme controls; no unsupported notification inbox is shown. Controls
+work without hover. Mobile navigation has five primary route links and one **Thêm** menu control; Contracts appears in
+that secondary menu. Navigation preserves motel scope and current query parameters between primary
+destinations; secondary destinations preserve motel scope and drop unrelated route-specific filters.
 
 Sidebar items: **Tổng quan**, **Nhà trọ**, **Phòng trọ**, **Khách thuê**, **Tính tiền &
 Hóa đơn**, **Hợp đồng**, **Sự cố & Yêu cầu**, **Cài đặt**.
@@ -155,8 +158,15 @@ delivered, not the section as what is.
 
 ### M1 — Overview `/`
 
-Four summary measures, shown as a compact list or restrained grid rather than interchangeable
-cards:
+The current screen uses a page heading with selected motel and current-period context, a primary
+**Thêm khách thuê** action, grouped room/renter/unsettled-invoice measures, compact quick-action
+ledger, and current-period invoice rows. Measures link to their supported detail routes. It shows
+room occupancy only with the room measure and computes unsettled invoice count/amount from the
+selected motel's latest period. It does not show a standalone occupancy tile, estimated revenue,
+or ticket metrics.
+
+Target behavior allows four summary measures, shown as a compact list or restrained grid rather
+than interchangeable cards:
 
 | Card              | Value                                                            | Sub-label                                         |
 | ----------------- | ---------------------------------------------------------------- | ------------------------------------------------- |
@@ -359,6 +369,14 @@ state (`Đang nhập` / `Chưa bắt đầu`). Sent and closed periods are not l
 to one renders it read-only with an explanatory banner.
 
 **`/capture/[periodId]`** — the walk queue:
+
+Current implementation limitation: the period endpoint includes complete room readings, so this
+screen derives completed room count only when both required meter types (electric and water) exist
+and each has a current reading. The list endpoint lacks that data, so `/capture` does not claim
+per-period room progress or sync state. A sent period renders room rows as non-interactive read-only
+content and states that queued writes are locked; no room links/buttons are rendered and queued
+writes are not retried. Offline/sync status appears only in the focused reading screen, not as live
+status on this period overview.
 
 - Header: `Tháng MM/YYYY`, sync-state chip, progress `7/24`
 - One row per room: room name, previous electricity and water readings inline, and a state
