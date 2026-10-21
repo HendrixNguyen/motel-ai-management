@@ -6,9 +6,14 @@ type Bucket = { count: number; resetAt: number };
 const localBuckets = new Map<string, Bucket>();
 const WINDOW_MS = 60_000;
 const MAX_BUCKETS = 10_000;
-const sharedStore = process.env.RATE_LIMIT_STORE ?? (process.env.NODE_ENV === "production" ? "postgres" : "local");
+const sharedStore =
+  process.env.RATE_LIMIT_STORE ?? (process.env.NODE_ENV === "production" ? "postgres" : "local");
 
-export async function enforceRateLimit(key: string, limit: number, now = Date.now()): Promise<void> {
+export async function enforceRateLimit(
+  key: string,
+  limit: number,
+  now = Date.now(),
+): Promise<void> {
   if (sharedStore === "local") return enforceLocalRateLimit(key, limit, now);
   const windowStart = Math.floor(now / WINDOW_MS) * WINDOW_MS;
   const [row] = await db.execute<{ count: number }>(sql`
@@ -19,7 +24,11 @@ export async function enforceRateLimit(key: string, limit: number, now = Date.no
     RETURNING request_count AS count
   `);
   const count = Number(row?.count ?? 0);
-  if (count > limit) throw AppError.rateLimited("Vui lòng thử lại sau", Math.max(1, Math.ceil((windowStart + WINDOW_MS - now) / 1000)));
+  if (count > limit)
+    throw AppError.rateLimited(
+      "Vui lòng thử lại sau",
+      Math.max(1, Math.ceil((windowStart + WINDOW_MS - now) / 1000)),
+    );
 }
 
 export function enforceLocalRateLimit(key: string, limit: number, now: number): void {
@@ -29,8 +38,14 @@ export function enforceLocalRateLimit(key: string, limit: number, now: number): 
     localBuckets.set(key, { count: 1, resetAt: now + WINDOW_MS });
     return;
   }
-  if (current.count >= limit) throw AppError.rateLimited("Vui lòng thử lại sau", Math.max(1, Math.ceil((current.resetAt - now) / 1000)));
+  if (current.count >= limit)
+    throw AppError.rateLimited(
+      "Vui lòng thử lại sau",
+      Math.max(1, Math.ceil((current.resetAt - now) / 1000)),
+    );
   current.count += 1;
 }
 
-export function resetRateLimits(): void { localBuckets.clear(); }
+export function resetRateLimits(): void {
+  localBuckets.clear();
+}

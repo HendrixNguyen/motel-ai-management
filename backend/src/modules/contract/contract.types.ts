@@ -29,7 +29,10 @@ export interface ContractResponse {
   termsVersion: string;
   consentAcceptedAt: string | null;
   consentMethod: "session_consent" | null;
-  consentEvidence: { termsVersion: string; acceptedTermsSnapshot: Record<string, unknown> | null } | null;
+  consentEvidence: {
+    termsVersion: string;
+    acceptedTermsSnapshot: Record<string, unknown> | null;
+  } | null;
   managerSentAt: string | null;
   otpSentAt: string | null;
   otpSignedAt: string | null;
@@ -49,11 +52,6 @@ export interface CreateContractInput {
 export type UpdateContractInput = Partial<
   Pick<
     CreateContractInput,
-    | "startDate"
-    | "endDate"
-    | "monthlyRent"
-    | "deposit"
-    | "clauses"
-    | "templateId"
+    "startDate" | "endDate" | "monthlyRent" | "deposit" | "clauses" | "templateId"
   >
 >;

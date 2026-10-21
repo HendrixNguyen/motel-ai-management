@@ -1,14 +1,18 @@
 import type { RenterAuthPayload } from "@/middleware/renter-auth";
 import type { VndString } from "@/shared/money";
 
-export interface RenterSession extends RenterAuthPayload {}
+export type RenterSession = RenterAuthPayload;
 
 export interface RenterPortalProfile {
   id: string;
   name: string;
   phone: string;
   room: { id: string; name: string; floor: number | null } | null;
-  motel: { id: string; name: string; bankAccount: { bankCode: string; accountNumber: string; accountName: string } | null };
+  motel: {
+    id: string;
+    name: string;
+    bankAccount: { bankCode: string; accountNumber: string; accountName: string } | null;
+  };
   activeContract: {
     id: string;
     roomId: string;

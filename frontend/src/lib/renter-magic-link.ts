@@ -11,12 +11,19 @@ export function createMagicLinkSession(motelId: string, renterId: string) {
       const { url } = await createRenterMagicLink(motelId, renterId);
       return { ok: true, url };
     } catch (error) {
-      return { ok: false, status: error instanceof ApiError ? error.status : 0,
-        error: error instanceof ApiError ? error.message : GENERIC_ERROR_MESSAGE };
+      return {
+        ok: false,
+        status: error instanceof ApiError ? error.status : 0,
+        error: error instanceof ApiError ? error.message : GENERIC_ERROR_MESSAGE,
+      };
     }
   }
-  return { submit(): Promise<MagicLinkResult> {
-    pending ??= create().finally(() => { pending = undefined; });
-    return pending;
-  } };
+  return {
+    submit(): Promise<MagicLinkResult> {
+      pending ??= create().finally(() => {
+        pending = undefined;
+      });
+      return pending;
+    },
+  };
 }

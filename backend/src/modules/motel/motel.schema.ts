@@ -1,12 +1,4 @@
-import {
-  index,
-  jsonb,
-  numeric,
-  pgTable,
-  text,
-  timestamp,
-  uuid,
-} from "drizzle-orm/pg-core";
+import { index, jsonb, numeric, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 import { managers } from "@/modules/auth/auth.schema";
 import { MONEY_PRECISION } from "@/shared/money";
 
@@ -38,10 +30,7 @@ export const motels = pgTable(
     }).notNull(),
     /** VND per m3. */
     waterPrice: numeric("water_price", { precision: MONEY_PRECISION, scale: 0 }).notNull(),
-    otherFees: jsonb("other_fees")
-      .$type<MotelFee[]>()
-      .notNull()
-      .default([]),
+    otherFees: jsonb("other_fees").$type<MotelFee[]>().notNull().default([]),
     bankAccount: jsonb("bank_account").$type<BankAccount | null>(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },

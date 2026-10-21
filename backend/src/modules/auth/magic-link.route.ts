@@ -11,7 +11,12 @@ import { enforceRateLimit } from "@/shared/rate-limit";
 const COOKIE_NAME = "renter_session";
 
 function clientKey(request: Request): string {
-  return env.trustedProxyHeader && env.trustedProxyAssertionHeader && env.trustedProxyAssertionValue && request.headers.get(env.trustedProxyAssertionHeader) === env.trustedProxyAssertionValue ? request.headers.get(env.trustedProxyHeader)?.split(",")[0]?.trim() || "unknown" : "unknown";
+  return env.trustedProxyHeader &&
+    env.trustedProxyAssertionHeader &&
+    env.trustedProxyAssertionValue &&
+    request.headers.get(env.trustedProxyAssertionHeader) === env.trustedProxyAssertionValue
+    ? request.headers.get(env.trustedProxyHeader)?.split(",")[0]?.trim() || "unknown"
+    : "unknown";
 }
 
 export const magicLinkRoutes = new Elysia({ name: "magic-link-routes" })
@@ -21,8 +26,8 @@ export const magicLinkRoutes = new Elysia({ name: "magic-link-routes" })
     "/renter/magic-links/exchange",
     async ({ body, renterJwt, cookie, set, request }) => {
       const ip = clientKey(request);
-        await enforceRateLimit(`magic-exchange:ip:${ip}`, 10);
-        await enforceRateLimit(`magic-exchange:token:${body.token}`, 3);
+      await enforceRateLimit(`magic-exchange:ip:${ip}`, 10);
+      await enforceRateLimit(`magic-exchange:token:${body.token}`, 3);
 
       const renter = await consumeMagicLink(body.token);
       if (renter.status !== "active") {
@@ -44,7 +49,17 @@ export const magicLinkRoutes = new Elysia({ name: "magic-link-routes" })
       body: t.Object({ token: t.String() }),
     },
   )
-  .use(renterAuth).post("/renter/logout", async ({ cookie, set, auth }) => { await removePushSubscriptionsForRenter(auth!.renterId, auth!.motelId); cookie[COOKIE_NAME]?.remove(); set.status = 204; return ""; }, { detail: { security: [{ renterAuth: [] }] } })
+  .use(renterAuth)
+  .post(
+    "/renter/logout",
+    async ({ cookie, set, auth }) => {
+      await removePushSubscriptionsForRenter(auth!.renterId, auth!.motelId);
+      cookie[COOKIE_NAME]?.remove();
+      set.status = 204;
+      return "";
+    },
+    { detail: { security: [{ renterAuth: [] }] } },
+  )
   .group("/renter/magic-links", (app) =>
     app.use(renterAuth).post(
       "/resend",

@@ -22,12 +22,12 @@ export default defineConfig({
     tsconfigPaths: true,
   },
   test: {
-    include: ["src/**/*.test.ts", "src/**/*.test.tsx"],
+    include: ["test/**/*.test.ts", "test/**/*.test.tsx"],
     exclude: [...configDefaults.exclude, "e2e/**"],
     coverage: {
       provider: "v8",
       thresholds: { statements: 90 },
-      exclude: ["src/**/*.test.ts", "src/**/*.test.tsx", "src/**/fixtures/**", "e2e/**"],
+      exclude: ["test/**/*.test.ts", "test/**/*.test.tsx", "test/**/fixtures/**", "e2e/**"],
     },
   },
 });

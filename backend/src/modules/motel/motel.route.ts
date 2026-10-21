@@ -1,13 +1,7 @@
 import { Elysia, t } from "elysia";
 import { cookie } from "@elysiajs/cookie";
 import { managerAuth } from "@/middleware/manager-auth";
-import {
-  createMotel,
-  deleteMotel,
-  getMotel,
-  listMotels,
-  updateMotel,
-} from "./motel.service";
+import { createMotel, deleteMotel, getMotel, listMotels, updateMotel } from "./motel.service";
 import type { CreateMotelInput, UpdateMotelInput } from "./motel.types";
 
 /**

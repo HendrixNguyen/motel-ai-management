@@ -6,7 +6,9 @@ const configErrors = validateLiveQaConfig(process.env);
 test.beforeEach(async ({ page, request }) => {
   expect(configErrors, "Live QA preflight rejected configuration").toEqual([]);
   const response = await request.get(`${process.env.BACKEND_URL}/api/auth/me`);
-  expect(response.status(), "A reachable live backend must reject an anonymous identity read").toBe(401);
+  expect(response.status(), "A reachable live backend must reject an anonymous identity read").toBe(
+    401,
+  );
   await page.goto("/login");
   await page.getByLabel("Email", { exact: true }).fill(process.env.E2E_LOGIN_EMAIL!);
   await page.getByLabel("Mật khẩu", { exact: true }).fill(process.env.E2E_LOGIN_PASSWORD!);
@@ -20,10 +22,20 @@ test("contract create/send UI is blocked: controls absent", async ({ page }) => 
   await expect(page.getByRole("button", { name: /Tạo hợp đồng|Gửi hợp đồng/ })).toHaveCount(0);
   test.info().annotations.push({
     type: "blocked",
-    description: "Contract create/send controls are absent; billing/payment journey remains unverified.",
+    description:
+      "Contract create/send controls are absent; billing/payment journey remains unverified.",
   });
 });
 
-test("billing and payment journey", { annotation: { type: "skip", description: "Skipped: no safe UI setup or confirmed QA credentials/isolation." } }, async () => {
-  // skipped: no safe UI setup or confirmed QA credentials/isolation
-});
+test(
+  "billing and payment journey",
+  {
+    annotation: {
+      type: "skip",
+      description: "Skipped: no safe UI setup or confirmed QA credentials/isolation.",
+    },
+  },
+  async () => {
+    // skipped: no safe UI setup or confirmed QA credentials/isolation
+  },
+);

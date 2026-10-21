@@ -2,7 +2,10 @@ import postgres from "postgres";
 import { connectionString } from "@/db";
 
 export interface AdvisoryLeaseDb {
-  runWithLease<T>(key: number, task: () => Promise<T>): Promise<{ acquired: true; value: T } | { acquired: false }>;
+  runWithLease<T>(
+    key: number,
+    task: () => Promise<T>,
+  ): Promise<{ acquired: true; value: T } | { acquired: false }>;
 }
 
 type PostgresClient = ReturnType<typeof postgres>;
@@ -11,7 +14,10 @@ export function createPostgresAdvisoryLeaseDb(client: PostgresClient): AdvisoryL
   return {
     async runWithLease(key, task) {
       return client.begin(async (session) => {
-        const [row] = await session.unsafe<{ acquired: boolean }[]>("select pg_try_advisory_lock($1) as acquired", [key]);
+        const [row] = await session.unsafe<{ acquired: boolean }[]>(
+          "select pg_try_advisory_lock($1) as acquired",
+          [key],
+        );
         if (!row?.acquired) return { acquired: false } as const;
         try {
           return { acquired: true, value: await task() } as const;
@@ -26,7 +32,11 @@ export function createPostgresAdvisoryLeaseDb(client: PostgresClient): AdvisoryL
 const postgresClient = postgres(connectionString, { max: 1, onnotice: () => {} });
 export const postgresAdvisoryLeaseDb = createPostgresAdvisoryLeaseDb(postgresClient);
 
-export async function runWithAdvisoryLease<T>(leaseDb: AdvisoryLeaseDb, key: number, task: () => Promise<T>): Promise<{ acquired: true; value: T } | { acquired: false }> {
+export async function runWithAdvisoryLease<T>(
+  leaseDb: AdvisoryLeaseDb,
+  key: number,
+  task: () => Promise<T>,
+): Promise<{ acquired: true; value: T } | { acquired: false }> {
   return leaseDb.runWithLease(key, task);
 }
 
@@ -44,7 +54,12 @@ export interface ExpirySchedulerDeps {
   leaseKey?: number;
 }
 
-export async function runExpirySchedulerOnce({ clock = () => new Date(), leaseDb = postgresAdvisoryLeaseDb, run, leaseKey = 8_417_203 }: ExpirySchedulerDeps): Promise<{ acquired: boolean; count?: number }> {
+export async function runExpirySchedulerOnce({
+  clock = () => new Date(),
+  leaseDb = postgresAdvisoryLeaseDb,
+  run,
+  leaseKey = 8_417_203,
+}: ExpirySchedulerDeps): Promise<{ acquired: boolean; count?: number }> {
   if (!run) throw new Error("Expiry scheduler task is required");
   const result = await runWithAdvisoryLease(leaseDb, leaseKey, () => run(clock()));
   return result.acquired ? { acquired: true, count: result.value } : { acquired: false };
