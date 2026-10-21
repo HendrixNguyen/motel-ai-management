@@ -1,4 +1,9 @@
-import type { BankAccountInput, CreateMotelInput, MotelResponse, UpdateMotelInput } from "@/lib/api/types";
+import type {
+  BankAccountInput,
+  CreateMotelInput,
+  MotelResponse,
+  UpdateMotelInput,
+} from "@/lib/api/types";
 import { ApiError, GENERIC_ERROR_MESSAGE } from "@/lib/api/client";
 import { createMotel, updateMotel } from "@/lib/api/motels.client";
 import { formatVndPlain, parseVndDigits } from "@/lib/format/vnd";
@@ -14,7 +19,9 @@ export type MotelDraft = {
 };
 export type MotelFieldErrors = Record<string, string>;
 type PreparedMotel<T> = { ok: true; input: T } | { ok: false; fields: MotelFieldErrors };
-type MotelSubmitResult = { ok: true; motel?: MotelResponse } | { ok: false; fields?: MotelFieldErrors; error?: string; status?: number };
+type MotelSubmitResult =
+  | { ok: true; motel?: MotelResponse }
+  | { ok: false; fields?: MotelFieldErrors; error?: string; status?: number };
 
 export function createMotelDraft(motel?: MotelResponse): MotelDraft {
   return {
@@ -22,9 +29,12 @@ export function createMotelDraft(motel?: MotelResponse): MotelDraft {
     address: motel?.address ?? "",
     electricityPrice: motel ? formatVndPlain(motel.electricityPrice) : "",
     waterPrice: motel ? formatVndPlain(motel.waterPrice) : "",
-    otherFees: motel?.otherFees.map((fee) => ({ name: fee.name, amount: formatVndPlain(fee.amount) })) ?? [],
+    otherFees:
+      motel?.otherFees.map((fee) => ({ name: fee.name, amount: formatVndPlain(fee.amount) })) ?? [],
     bankEnabled: Boolean(motel?.bankAccount),
-    bankAccount: motel?.bankAccount ? { ...motel.bankAccount } : { bankCode: "", accountNumber: "", accountName: "" },
+    bankAccount: motel?.bankAccount
+      ? { ...motel.bankAccount }
+      : { bankCode: "", accountNumber: "", accountName: "" },
   };
 }
 
@@ -39,8 +49,14 @@ export function createMotelFormSession(motel?: MotelResponse) {
 
 /** Local validation owns field errors; the API carries no field-level details (D8). */
 export function prepareMotelInput(draft: MotelDraft): PreparedMotel<CreateMotelInput>;
-export function prepareMotelInput(draft: MotelDraft, original: MotelResponse): PreparedMotel<UpdateMotelInput>;
-export function prepareMotelInput(draft: MotelDraft, original?: MotelResponse): PreparedMotel<CreateMotelInput | UpdateMotelInput> {
+export function prepareMotelInput(
+  draft: MotelDraft,
+  original: MotelResponse,
+): PreparedMotel<UpdateMotelInput>;
+export function prepareMotelInput(
+  draft: MotelDraft,
+  original?: MotelResponse,
+): PreparedMotel<CreateMotelInput | UpdateMotelInput> {
   const fields: MotelFieldErrors = {};
   function amount(value: string, field: string): string {
     const digits = parseVndDigits(value);
@@ -70,7 +86,11 @@ export function prepareMotelInput(draft: MotelDraft, original?: MotelResponse): 
         accountNumber: draft.bankAccount.accountNumber.trim(),
         accountName: draft.bankAccount.accountName.trim(),
       };
-      const labels = { bankCode: "Nhập mã ngân hàng", accountNumber: "Nhập số tài khoản", accountName: "Nhập tên chủ tài khoản" };
+      const labels = {
+        bankCode: "Nhập mã ngân hàng",
+        accountNumber: "Nhập số tài khoản",
+        accountName: "Nhập tên chủ tài khoản",
+      };
       for (const key of ["bankCode", "accountNumber", "accountName"] as const) {
         if (!input.bankAccount[key]) fields[`bankAccount.${key}`] = labels[key];
       }
@@ -82,16 +102,33 @@ export function prepareMotelInput(draft: MotelDraft, original?: MotelResponse): 
   const patch: UpdateMotelInput = {};
   if (input.name !== original.name) patch.name = input.name;
   if (input.address !== original.address) patch.address = input.address;
-  if (input.electricityPrice !== original.electricityPrice) patch.electricityPrice = input.electricityPrice;
+  if (input.electricityPrice !== original.electricityPrice)
+    patch.electricityPrice = input.electricityPrice;
   if (input.waterPrice !== original.waterPrice) patch.waterPrice = input.waterPrice;
   const fees = input.otherFees ?? [];
-  if (fees.length !== original.otherFees.length || fees.some((fee, index) => fee.name !== original.otherFees[index]?.name || fee.amount !== original.otherFees[index]?.amount)) patch.otherFees = fees;
+  if (
+    fees.length !== original.otherFees.length ||
+    fees.some(
+      (fee, index) =>
+        fee.name !== original.otherFees[index]?.name ||
+        fee.amount !== original.otherFees[index]?.amount,
+    )
+  )
+    patch.otherFees = fees;
   const bank = input.bankAccount ?? null;
-  if (bank?.bankCode !== original.bankAccount?.bankCode || bank?.accountNumber !== original.bankAccount?.accountNumber || bank?.accountName !== original.bankAccount?.accountName) patch.bankAccount = bank;
+  if (
+    bank?.bankCode !== original.bankAccount?.bankCode ||
+    bank?.accountNumber !== original.bankAccount?.accountNumber ||
+    bank?.accountName !== original.bankAccount?.accountName
+  )
+    patch.bankAccount = bank;
   return { ok: true, input: patch };
 }
 
-export async function submitMotel(draft: MotelDraft, original?: MotelResponse): Promise<MotelSubmitResult> {
+export async function submitMotel(
+  draft: MotelDraft,
+  original?: MotelResponse,
+): Promise<MotelSubmitResult> {
   try {
     if (original) {
       const prepared = prepareMotelInput(draft, original);

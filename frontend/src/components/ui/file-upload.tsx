@@ -1,11 +1,20 @@
 "use client";
 
-import { useRef, useState, type ChangeEvent, type DragEvent, type InputHTMLAttributes } from "react";
+import {
+  useRef,
+  useState,
+  type ChangeEvent,
+  type DragEvent,
+  type InputHTMLAttributes,
+} from "react";
 import Field from "./field";
 import ImagePreview from "./image-preview";
 
 const ACCEPTED = ["image/jpeg", "image/png"];
-type Props = Omit<InputHTMLAttributes<HTMLInputElement>, "id" | "type" | "accept" | "onChange" | "onError"> & {
+type Props = Omit<
+  InputHTMLAttributes<HTMLInputElement>,
+  "id" | "type" | "accept" | "onChange" | "onError"
+> & {
   id: string;
   label: string;
   error?: string;
@@ -21,14 +30,30 @@ type Props = Omit<InputHTMLAttributes<HTMLInputElement>, "id" | "type" | "accept
 };
 
 function formatLimit(bytes: number): string {
-  return bytes % (1024 * 1024) === 0 ? `${bytes / (1024 * 1024)} MiB` : `${Math.round(bytes / 1_000_000)} MB`;
+  return bytes % (1024 * 1024) === 0
+    ? `${bytes / (1024 * 1024)} MiB`
+    : `${Math.round(bytes / 1_000_000)} MB`;
 }
 
 function isAcceptedFile(file: File, maxBytes = 10 * 1024 * 1024): boolean {
   return ACCEPTED.includes(file.type) && file.size <= maxBytes;
 }
 
-function FileUpload({ id, label, error, hint, maxBytes = 10 * 1024 * 1024, onFiles, onError, onRetry, pending = false, retry, previewUrl, onRemovePreview, ...props }: Props) {
+function FileUpload({
+  id,
+  label,
+  error,
+  hint,
+  maxBytes = 10 * 1024 * 1024,
+  onFiles,
+  onError,
+  onRetry,
+  pending = false,
+  retry,
+  previewUrl,
+  onRemovePreview,
+  ...props
+}: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
   const dragDepth = useRef(0);
@@ -76,25 +101,52 @@ function FileUpload({ id, label, error, hint, maxBytes = 10 * 1024 * 1024, onFil
     if (!pending) handleFiles(Array.from(event.dataTransfer.files));
   };
 
-  return <Field id={id} label={label} hint={hint ?? `Ảnh JPEG hoặc PNG, tối đa ${limit}`} error={error}>
-    {(control) => <div
-      onDragEnter={onDragEnter}
-      onDragOver={onDragOver}
-      onDragLeave={onDragLeave}
-      onDrop={onDrop}
-      className={`rounded-card border-2 border-dashed p-3 transition-colors ${dragging ? "border-primary bg-canvas" : "border-border-strong"} ${pending ? "opacity-60" : ""}`}
-      data-dragging={dragging}
-    >
-      <input {...control} {...props} id={id} ref={inputRef} type="file" accept={ACCEPTED.join(",")} onChange={handleChange} disabled={pending} className="sr-only" />
-      {previewUrl && <ImagePreview src={previewUrl} alt={label} onRemove={onRemovePreview} />}
-      <p className="text-sm text-text-muted">Kéo thả ảnh vào đây</p>
-      <button type="button" disabled={pending} onClick={() => inputRef.current?.click()} className="mt-2 min-h-11 rounded-input border border-border-strong bg-surface px-4 font-semibold text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:opacity-60">
-        {previewUrl ? "Thay ảnh" : "Chọn ảnh"}
-      </button>
-      {pending && <p aria-live="polite" className="mt-2 text-sm">Đang tải lên…</p>}
-      {retry && <button type="button" onClick={onRetry} className="mt-2 min-h-11 px-3 underline">Thử lại</button>}
-    </div>}
-  </Field>;
+  return (
+    <Field id={id} label={label} hint={hint ?? `Ảnh JPEG hoặc PNG, tối đa ${limit}`} error={error}>
+      {(control) => (
+        <div
+          onDragEnter={onDragEnter}
+          onDragOver={onDragOver}
+          onDragLeave={onDragLeave}
+          onDrop={onDrop}
+          className={`rounded-card border-2 border-dashed p-3 transition-colors ${dragging ? "border-primary bg-canvas" : "border-border-strong"} ${pending ? "opacity-60" : ""}`}
+          data-dragging={dragging}
+        >
+          <input
+            {...control}
+            {...props}
+            id={id}
+            ref={inputRef}
+            type="file"
+            accept={ACCEPTED.join(",")}
+            onChange={handleChange}
+            disabled={pending}
+            className="sr-only"
+          />
+          {previewUrl && <ImagePreview src={previewUrl} alt={label} onRemove={onRemovePreview} />}
+          <p className="text-sm text-text-muted">Kéo thả ảnh vào đây</p>
+          <button
+            type="button"
+            disabled={pending}
+            onClick={() => inputRef.current?.click()}
+            className="mt-2 min-h-11 rounded-input border border-border-strong bg-surface px-4 font-semibold text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:opacity-60"
+          >
+            {previewUrl ? "Thay ảnh" : "Chọn ảnh"}
+          </button>
+          {pending && (
+            <p aria-live="polite" className="mt-2 text-sm">
+              Đang tải lên…
+            </p>
+          )}
+          {retry && (
+            <button type="button" onClick={onRetry} className="mt-2 min-h-11 px-3 underline">
+              Thử lại
+            </button>
+          )}
+        </div>
+      )}
+    </Field>
+  );
 }
 
 FileUpload.isAcceptedFile = isAcceptedFile;

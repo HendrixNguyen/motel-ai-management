@@ -17,28 +17,28 @@
  * is drawn with. The token table in `docs/frontend-ui-specs.md` says which is which.
  */
 @theme inline {
-  --color-accent: #E9B949;
-  --color-primary: #087E8B;
-  --color-primary-strong: #06636D;
-  --color-success: #176F4E;
-  --color-success-bg: #E4F3EC;
-  --color-warning: #7A5A12;
-  --color-warning-bg: #F7F0D8;
-  --color-danger: #A83E3E;
-  --color-danger-bg: #F8E7E5;
-  --color-text: #172B3A;
-  --color-text-ink: #172B3A;
+  --color-accent: #e9b949;
+  --color-primary: #087e8b;
+  --color-primary-strong: #06636d;
+  --color-success: #176f4e;
+  --color-success-bg: #e4f3ec;
+  --color-warning: #7a5a12;
+  --color-warning-bg: #f7f0d8;
+  --color-danger: #a83e3e;
+  --color-danger-bg: #f8e7e5;
+  --color-text: #172b3a;
+  --color-text-ink: #172b3a;
   --color-text-body: #294252;
   --color-text-muted: #496170;
-  --color-border: #D8E1E6;
-  --color-border-strong: #6B7E88;
-  --color-surface: #FFFFFF;
-  --color-canvas: #F3F6F8;
-  --color-surface-raised: #EAF0F3;
-  --color-primary-fixed: #DBEEF0;
-  --color-on-primary-fixed: #123D43;
-  --color-on-primary: #FFFFFF;
-  --color-on-surface: #172B3A;
+  --color-border: #d8e1e6;
+  --color-border-strong: #6b7e88;
+  --color-surface: #ffffff;
+  --color-canvas: #f3f6f8;
+  --color-surface-raised: #eaf0f3;
+  --color-primary-fixed: #dbeef0;
+  --color-on-primary-fixed: #123d43;
+  --color-on-primary: #ffffff;
+  --color-on-surface: #172b3a;
   --color-focus: var(--color-primary);
   --color-status-success: var(--color-success);
   --color-status-warning: var(--color-warning);
@@ -72,7 +72,9 @@ html {
 }
 
 html[data-theme="dark"] body,
-html[data-theme="system"] body { color-scheme: dark; }
+html[data-theme="system"] body {
+  color-scheme: dark;
+}
 
 dialog:not([open]) {
   display: none;
@@ -97,18 +99,36 @@ dialog[open][data-dialog] [data-dialog-content] {
 }
 
 @keyframes dialog-enter {
-  from { opacity: 0; scale: 0.98; }
-  to { opacity: 1; scale: 1; }
+  from {
+    opacity: 0;
+    scale: 0.98;
+  }
+  to {
+    opacity: 1;
+    scale: 1;
+  }
 }
 
 @keyframes toast-enter {
-  from { opacity: 0; translate: 0 -0.5rem; }
-  to { opacity: 1; translate: 0 0; }
+  from {
+    opacity: 0;
+    translate: 0 -0.5rem;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
 }
 
 @keyframes page-enter {
-  from { opacity: 0; translate: 0 0.25rem; }
-  to { opacity: 1; translate: 0 0; }
+  from {
+    opacity: 0;
+    translate: 0 0.25rem;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
 }
 
 html[data-theme="light"] {
@@ -124,13 +144,14 @@ html:not([data-theme="dark"]) {
   outline-offset: var(--focus-ring-offset);
 }
 
-main [id], main :where(a, button, input, select, textarea, summary) {
-   scroll-margin-top: 6rem;
- }
+main [id],
+main :where(a, button, input, select, textarea, summary) {
+  scroll-margin-top: 6rem;
+}
 
- .shell-safe-area {
-   padding-bottom: env(safe-area-inset-bottom);
- }
+.shell-safe-area {
+  padding-bottom: env(safe-area-inset-bottom);
+}
 
 body {
   min-width: 320px;
@@ -146,65 +167,70 @@ body {
   background: var(--color-primary);
 }
 
-button, a, input, select, textarea, summary {
+button,
+a,
+input,
+select,
+textarea,
+summary {
   -webkit-tap-highlight-color: transparent;
 }
 
 html[data-theme="dark"] {
-  --color-accent: #E3C56A;
-  --color-primary: #69C1C8;
-  --color-primary-strong: #A0DCE0;
-  --color-success: #77C6A2;
-  --color-success-bg: #173E32;
-  --color-warning: #E3C56A;
-  --color-warning-bg: #4A3B1A;
-  --color-danger: #E38A82;
-  --color-danger-bg: #4B2528;
-  --color-text: #E8F0F3;
-  --color-text-ink: #172B3A;
-  --color-text-body: #C8D6DC;
-  --color-text-muted: #AABCC4;
-  --color-border: #344B57;
-    --color-border-strong: #8EAFB5;
-  --color-surface: #1B303C;
-  --color-canvas: #10232E;
-  --color-surface-raised: #243D49;
-  --color-primary-fixed: #25474C;
-  --color-on-primary-fixed: #E5F4F5;
-  --color-on-primary: #10232E;
-  --color-on-surface: #E8F0F3;
-  --color-accent: #E3C56A;
+  --color-accent: #e3c56a;
+  --color-primary: #69c1c8;
+  --color-primary-strong: #a0dce0;
+  --color-success: #77c6a2;
+  --color-success-bg: #173e32;
+  --color-warning: #e3c56a;
+  --color-warning-bg: #4a3b1a;
+  --color-danger: #e38a82;
+  --color-danger-bg: #4b2528;
+  --color-text: #e8f0f3;
+  --color-text-ink: #172b3a;
+  --color-text-body: #c8d6dc;
+  --color-text-muted: #aabcc4;
+  --color-border: #344b57;
+  --color-border-strong: #8eafb5;
+  --color-surface: #1b303c;
+  --color-canvas: #10232e;
+  --color-surface-raised: #243d49;
+  --color-primary-fixed: #25474c;
+  --color-on-primary-fixed: #e5f4f5;
+  --color-on-primary: #10232e;
+  --color-on-surface: #e8f0f3;
+  --color-accent: #e3c56a;
 }
 
 html[data-theme="dark"] body {
   color-scheme: dark;
 }
 
-  @media (prefers-color-scheme: dark) {
+@media (prefers-color-scheme: dark) {
   html[data-theme="system"] {
-    --color-accent: #E3C56A;
-    --color-primary: #69C1C8;
-    --color-primary-strong: #A0DCE0;
-    --color-success: #77C6A2;
-    --color-success-bg: #173E32;
-    --color-warning: #E3C56A;
-    --color-warning-bg: #4A3B1A;
-    --color-danger: #E38A82;
-    --color-danger-bg: #4B2528;
-    --color-text: #E8F0F3;
-    --color-text-ink: #172B3A;
-    --color-text-body: #C8D6DC;
-    --color-text-muted: #AABCC4;
-    --color-border: #344B57;
-  --color-border-strong: #8EAFB5;
-    --color-surface: #1B303C;
-    --color-canvas: #10232E;
-    --color-surface-raised: #243D49;
-    --color-primary-fixed: #25474C;
-    --color-on-primary-fixed: #E5F4F5;
-    --color-on-primary: #10232E;
-    --color-on-surface: #E8F0F3;
-    --color-accent: #E3C56A;
+    --color-accent: #e3c56a;
+    --color-primary: #69c1c8;
+    --color-primary-strong: #a0dce0;
+    --color-success: #77c6a2;
+    --color-success-bg: #173e32;
+    --color-warning: #e3c56a;
+    --color-warning-bg: #4a3b1a;
+    --color-danger: #e38a82;
+    --color-danger-bg: #4b2528;
+    --color-text: #e8f0f3;
+    --color-text-ink: #172b3a;
+    --color-text-body: #c8d6dc;
+    --color-text-muted: #aabcc4;
+    --color-border: #344b57;
+    --color-border-strong: #8eafb5;
+    --color-surface: #1b303c;
+    --color-canvas: #10232e;
+    --color-surface-raised: #243d49;
+    --color-primary-fixed: #25474c;
+    --color-on-primary-fixed: #e5f4f5;
+    --color-on-primary: #10232e;
+    --color-on-surface: #e8f0f3;
+    --color-accent: #e3c56a;
   }
 }
 
@@ -215,7 +241,9 @@ html[data-theme="dark"] body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
+  *,
+  *::before,
+  *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     scroll-behavior: auto !important;

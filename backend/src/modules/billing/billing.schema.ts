@@ -100,10 +100,7 @@ export const invoices = pgTable(
     waterUsage: numeric("water_usage", { precision: 12, scale: 2 }).notNull(),
     waterCost: numeric("water_cost", { precision: 14, scale: 0 }).notNull(),
     /** Snapshot of the motel's otherFees, so a later edit never changes a sent bill. */
-    otherFees: jsonb("other_fees")
-      .$type<MotelFee[]>()
-      .notNull()
-      .default([]),
+    otherFees: jsonb("other_fees").$type<MotelFee[]>().notNull().default([]),
     totalAmount: numeric("total_amount", { precision: 14, scale: 0 }).notNull(),
     /** VietQR payload string. */
     qrCodeData: text("qr_code_data"),
@@ -118,9 +115,7 @@ export const invoices = pgTable(
     index("invoices_renter_id_idx").on(t.renterId),
     index("invoices_motel_id_idx").on(t.motelId),
     // One invoice per room per period. Regeneration replaces the row.
-     uniqueIndex("invoices_period_room_uq").on(t.billingPeriodId, t.roomId),
-      uniqueIndex("invoices_id_renter_motel_uq").on(t.id, t.renterId, t.motelId),
-
+    uniqueIndex("invoices_period_room_uq").on(t.billingPeriodId, t.roomId),
+    uniqueIndex("invoices_id_renter_motel_uq").on(t.id, t.renterId, t.motelId),
   ],
-
 );

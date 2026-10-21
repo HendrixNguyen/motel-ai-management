@@ -8,26 +8,44 @@ test.beforeAll(() => {
   // Build before this suite: CSS comes from the real Tailwind production output,
   // and includes every scanned primitive even before a product screen uses it.
   const cssDirectory = join(process.cwd(), ".next/static/chunks");
-  const css = readdirSync(cssDirectory).filter((file) => file.endsWith(".css")).map((file) => readFileSync(join(cssDirectory, file), "utf8")).join("\n");
-  const script = execFileSync(process.env.BUN_EXECUTABLE ?? "bun", ["build", "e2e/fixtures/component-kit.tsx", "--target=browser", "--format=iife"], { encoding: "utf8", maxBuffer: 5 * 1024 * 1024 });
+  const css = readdirSync(cssDirectory)
+    .filter((file) => file.endsWith(".css"))
+    .map((file) => readFileSync(join(cssDirectory, file), "utf8"))
+    .join("\n");
+  const script = execFileSync(
+    process.env.BUN_EXECUTABLE ?? "bun",
+    ["build", "e2e/fixtures/component-kit.tsx", "--target=browser", "--format=iife"],
+    { encoding: "utf8", maxBuffer: 5 * 1024 * 1024 },
+  );
   html = `<!doctype html><html lang="vi"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${css}</style><body class="bg-canvas text-text-body"><div id="kit"></div><script>${script.replace(/<\/script/gi, "<\\/script")}</script></body></html>`;
 });
 
 test.beforeEach(async ({ page }) => {
-  await page.route("**/__component-kit", (route) => route.fulfill({ contentType: "text/html; charset=utf-8", body: html }));
+  await page.route("**/__component-kit", (route) =>
+    route.fulfill({ contentType: "text/html; charset=utf-8", body: html }),
+  );
   await page.goto("/__component-kit");
 });
 
-for (const [trigger, title] of [["Mở modal", "Sửa phòng"], ["Mở drawer", "Chi tiết khách thuê"]]) {
-  test(`${trigger} traps focus and returns focus after Escape or explicit close`, async ({ page }) => {
+for (const [trigger, title] of [
+  ["Mở modal", "Sửa phòng"],
+  ["Mở drawer", "Chi tiết khách thuê"],
+]) {
+  test(`${trigger} traps focus and returns focus after Escape or explicit close`, async ({
+    page,
+  }) => {
     const button = page.getByRole("button", { name: trigger, exact: true });
     const dialog = page.getByRole("dialog", { name: title });
     await button.click();
     await expect(dialog).toBeVisible();
-    await expect.poll(() => dialog.evaluate((element) => getComputedStyle(element).animationName)).not.toBe("none");
+    await expect
+      .poll(() => dialog.evaluate((element) => getComputedStyle(element).animationName))
+      .not.toBe("none");
     for (let i = 0; i < 5; i++) {
       await page.keyboard.press("Tab");
-      expect(await dialog.evaluate((element) => element.contains(document.activeElement))).toBe(true);
+      expect(await dialog.evaluate((element) => element.contains(document.activeElement))).toBe(
+        true,
+      );
     }
     await page.keyboard.press("Escape");
     await expect(dialog).not.toBeVisible();
@@ -51,7 +69,10 @@ test("table searches internally, sorts BigInt money, and paginates", async ({ pa
   const rows = page.locator("tbody tr");
   await expect(rows).toHaveCount(2);
   await page.getByRole("button", { name: "Tiền thuê — Sắp xếp" }).click();
-  await expect(page.getByRole("columnheader", { name: "Tiền thuê — Sắp xếp" })).toHaveAttribute("aria-sort", "ascending");
+  await expect(page.getByRole("columnheader", { name: "Tiền thuê — Sắp xếp" })).toHaveAttribute(
+    "aria-sort",
+    "ascending",
+  );
   await expect(rows.first()).toContainText("Chi");
   await expect(rows.last()).toContainText("Bình");
   await page.getByRole("button", { name: "Trang sau" }).click();
@@ -72,7 +93,10 @@ test("tabs use ARIA relationships and roving keyboard navigation", async ({ page
   const panelId = await firstTab.getAttribute("aria-controls");
   expect(panelId).toMatch(/-one-panel$/);
   await expect(firstTab).toHaveAttribute("id", new RegExp(`-${"one"}-tab$`));
-  await expect(page.locator(`#${panelId}`)).toHaveAttribute("aria-labelledby", await firstTab.getAttribute("id") ?? "");
+  await expect(page.locator(`#${panelId}`)).toHaveAttribute(
+    "aria-labelledby",
+    (await firstTab.getAttribute("id")) ?? "",
+  );
   await tabs.nth(0).focus();
   await page.keyboard.press("ArrowRight");
   await expect(tabs.nth(1)).toBeFocused();
@@ -82,23 +106,50 @@ test("tabs use ARIA relationships and roving keyboard navigation", async ({ page
   await expect(tabs.nth(0)).toBeFocused();
 });
 
-test("accordion keeps closed content relationship and progress exposes normalized semantics", async ({ page }) => {
+test("accordion keeps closed content relationship and progress exposes normalized semantics", async ({
+  page,
+}) => {
   const trigger = page.getByRole("button", { name: "Chi tiết", exact: true });
   await expect(trigger).toHaveAttribute("aria-controls", "details-content");
   await expect(page.locator("#details-content")).toBeHidden();
   await trigger.click();
   await expect(page.locator("#details-content")).toBeVisible();
-  await expect(page.getByRole("progressbar", { name: "Hoàn tất" })).toHaveAttribute("aria-valuenow", "40");
+  await expect(page.getByRole("progressbar", { name: "Hoàn tất" })).toHaveAttribute(
+    "aria-valuenow",
+    "40",
+  );
 });
 
 test("copy success and failure produce truthful visible feedback", async ({ page }) => {
-  await page.evaluate(() => { Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: async (value: string) => { (window as unknown as { copied: string }).copied = value; } } }); });
+  await page.evaluate(() => {
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: {
+        writeText: async (value: string) => {
+          (window as unknown as { copied: string }).copied = value;
+        },
+      },
+    });
+  });
   await page.getByRole("button", { name: "Sao chép", exact: true }).click();
   await expect(page.getByRole("status").filter({ hasText: "Đã sao chép" })).toBeVisible();
-  expect(await page.evaluate(() => (window as unknown as { copied: string }).copied)).toBe("https://example.test/r/token");
-  await page.evaluate(() => { Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: async () => { throw new Error("Permission denied"); } } }); });
+  expect(await page.evaluate(() => (window as unknown as { copied: string }).copied)).toBe(
+    "https://example.test/r/token",
+  );
+  await page.evaluate(() => {
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: {
+        writeText: async () => {
+          throw new Error("Permission denied");
+        },
+      },
+    });
+  });
   await page.getByRole("button", { name: "Sao chép", exact: true }).click();
-  await expect(page.getByText("Không thể sao chép. Hãy chọn và sao chép nội dung thủ công.")).toBeVisible();
+  await expect(
+    page.getByText("Không thể sao chép. Hãy chọn và sao chép nội dung thủ công."),
+  ).toBeVisible();
   await expect(page.getByText("Đã sao chép", { exact: true })).not.toBeVisible();
 });
 
@@ -107,7 +158,9 @@ test("toast auto-dismisses normal messages and preserves critical errors", async
   const normal = page.getByRole("status", { name: "Đã lưu phòng" });
   await expect(normal).toBeVisible();
   await expect(normal).toHaveAttribute("aria-live", "polite");
-  await expect.poll(() => normal.evaluate((element) => getComputedStyle(element).animationName)).not.toBe("none");
+  await expect
+    .poll(() => normal.evaluate((element) => getComputedStyle(element).animationName))
+    .not.toBe("none");
   await expect(normal).toHaveAttribute("aria-atomic", "true");
   await expect(normal).toHaveAccessibleName("Đã lưu phòng");
   await expect(normal.locator("p")).toHaveAttribute("id", /toast-message-\d+/);
@@ -127,7 +180,9 @@ test("toast auto-dismisses normal messages and preserves critical errors", async
   await expect(critical).toBeHidden();
 });
 
-test("confirm dialog cancels, closes on Escape, and exposes pending confirmation", async ({ page }) => {
+test("confirm dialog cancels, closes on Escape, and exposes pending confirmation", async ({
+  page,
+}) => {
   const trigger = page.getByRole("button", { name: "Xác nhận xóa", exact: true });
   await trigger.click();
   const dialog = page.getByRole("dialog", { name: "Xóa phòng" });
@@ -149,8 +204,12 @@ test("dialogs and toasts fit and remain interactive across viewport themes", asy
   for (const width of [360, 375, 430, 1280]) {
     for (const theme of ["light", "dark"] as const) {
       await page.setViewportSize({ width, height: 740 });
-      await page.evaluate((value) => { document.documentElement.dataset.theme = value; }, theme);
-      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+      await page.evaluate((value) => {
+        document.documentElement.dataset.theme = value;
+      }, theme);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
+        width,
+      );
 
       const modalTrigger = page.getByRole("button", { name: "Mở modal", exact: true });
       await modalTrigger.click();
@@ -163,10 +222,13 @@ test("dialogs and toasts fit and remain interactive across viewport themes", asy
       const input = modal.getByRole("textbox", { name: "Tên phòng" });
       const inputBox = await input.boundingBox();
       expect(inputBox).not.toBeNull();
-      const inputReceivesPointer = await page.evaluate(({ x, y }) => document.elementFromPoint(x, y) instanceof HTMLInputElement, {
-        x: inputBox!.x + inputBox!.width / 2,
-        y: inputBox!.y + inputBox!.height / 2,
-      });
+      const inputReceivesPointer = await page.evaluate(
+        ({ x, y }) => document.elementFromPoint(x, y) instanceof HTMLInputElement,
+        {
+          x: inputBox!.x + inputBox!.width / 2,
+          y: inputBox!.y + inputBox!.height / 2,
+        },
+      );
       expect(inputReceivesPointer).toBe(true);
       await input.click();
       await expect(input).toBeFocused();
@@ -201,31 +263,68 @@ test("dialogs and toasts fit and remain interactive across viewport themes", asy
 test("mobile table rows and reduced motion stay usable without overflow", async ({ page }) => {
   await page.setViewportSize({ width: 360, height: 667 });
   await page.emulateMedia({ reducedMotion: "no-preference" });
-  await page.evaluate(() => { document.documentElement.dataset.theme = "light"; });
+  await page.evaluate(() => {
+    document.documentElement.dataset.theme = "light";
+  });
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.getByRole("button", { name: "Mở modal", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Sửa phòng" });
-  await expect.poll(() => dialog.evaluate((element) => getComputedStyle(element).animationName)).toBe("none");
+  await expect
+    .poll(() => dialog.evaluate((element) => getComputedStyle(element).animationName))
+    .toBe("none");
   await page.keyboard.press("Escape");
   await page.getByRole("button", { name: "Thông báo", exact: true }).click();
-  await expect.poll(() => page.getByRole("status", { name: "Đã lưu phòng" }).evaluate((element) => getComputedStyle(element).animationName)).toBe("none");
+  await expect
+    .poll(() =>
+      page
+        .getByRole("status", { name: "Đã lưu phòng" })
+        .evaluate((element) => getComputedStyle(element).animationName),
+    )
+    .toBe("none");
   await page.getByRole("status", { name: "Đã lưu phòng" }).getByRole("button").click();
-  expect(await page.locator('[role="status"] [aria-hidden="true"]').evaluate((element) => getComputedStyle(element).animationName)).toBe("none");
+  expect(
+    await page
+      .locator('[role="status"] [aria-hidden="true"]')
+      .evaluate((element) => getComputedStyle(element).animationName),
+  ).toBe("none");
   await page.emulateMedia({ reducedMotion: "no-preference" });
-  expect(await page.locator("tbody tr").first().evaluate((element) => getComputedStyle(element).display)).toBe("block");
+  expect(
+    await page
+      .locator("tbody tr")
+      .first()
+      .evaluate((element) => getComputedStyle(element).display),
+  ).toBe("block");
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   for (const button of await page.getByRole("button").all()) {
     const rect = await button.boundingBox();
-    if (rect) { expect(rect.height).toBeGreaterThanOrEqual(44); expect(rect.width).toBeGreaterThanOrEqual(44); }
+    if (rect) {
+      expect(rect.height).toBeGreaterThanOrEqual(44);
+      expect(rect.width).toBeGreaterThanOrEqual(44);
+    }
   }
   const trigger = page.getByRole("button", { name: "Mở drawer", exact: true });
   await page.keyboard.press("Tab");
-  while (!(await trigger.evaluate((element) => element === document.activeElement))) await page.keyboard.press("Tab");
+  while (!(await trigger.evaluate((element) => element === document.activeElement)))
+    await page.keyboard.press("Tab");
   expect(await trigger.evaluate((element) => getComputedStyle(element).boxShadow)).not.toBe("none");
   await trigger.click();
-  expect(await page.getByRole("dialog").evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+  expect(
+    await page
+      .getByRole("dialog")
+      .evaluate((element) => element.scrollWidth <= element.clientWidth),
+  ).toBe(true);
   await page.keyboard.press("Escape");
   await page.setViewportSize({ width: 1280, height: 800 });
-  expect(await page.locator("tbody tr").first().evaluate((element) => getComputedStyle(element).display)).toBe("table-row");
-  expect(await page.locator('td[data-label="Tiền thuê"]').first().evaluate((element) => getComputedStyle(element).fontVariantNumeric)).toContain("tabular-nums");
+  expect(
+    await page
+      .locator("tbody tr")
+      .first()
+      .evaluate((element) => getComputedStyle(element).display),
+  ).toBe("table-row");
+  expect(
+    await page
+      .locator('td[data-label="Tiền thuê"]')
+      .first()
+      .evaluate((element) => getComputedStyle(element).fontVariantNumeric),
+  ).toContain("tabular-nums");
 });

@@ -92,9 +92,11 @@ export const contracts = pgTable(
     uniqueIndex("contracts_room_active_uq")
       .on(t.roomId)
       .where(sql`${t.status} = 'active'`),
-      check("contracts_end_after_start", sql`${t.endDate} > ${t.startDate}`),
-      check("contracts_otp_attempts_range", sql`${t.otpAttempts} between 0 and 3`),
-      check("contracts_consent_evidence_complete", sql`(${t.consentMethod} is null and ${t.acceptedTermsVersion} is null and ${t.acceptedTermsSnapshot} is null and ${t.consentAcceptedAt} is null) or (${t.consentMethod} = 'session_consent' and ${t.acceptedTermsVersion} is not null and ${t.acceptedTermsSnapshot} is not null and ${t.consentAcceptedAt} is not null)`),
-
+    check("contracts_end_after_start", sql`${t.endDate} > ${t.startDate}`),
+    check("contracts_otp_attempts_range", sql`${t.otpAttempts} between 0 and 3`),
+    check(
+      "contracts_consent_evidence_complete",
+      sql`(${t.consentMethod} is null and ${t.acceptedTermsVersion} is null and ${t.acceptedTermsSnapshot} is null and ${t.consentAcceptedAt} is null) or (${t.consentMethod} = 'session_consent' and ${t.acceptedTermsVersion} is not null and ${t.acceptedTermsSnapshot} is not null and ${t.consentAcceptedAt} is not null)`,
+    ),
   ],
 );

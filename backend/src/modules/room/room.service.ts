@@ -32,11 +32,24 @@ const UNIQUE_VIOLATION = "23505";
 /** SQLSTATE for `foreign_key_violation`. */
 const FOREIGN_KEY_VIOLATION = "23503";
 
-export interface RenterRoomProjection { id: string; name: string; floor: number | null }
-export interface BillingRoomProjection { id: string; name: string }
+export interface RenterRoomProjection {
+  id: string;
+  name: string;
+  floor: number | null;
+}
+export interface BillingRoomProjection {
+  id: string;
+  name: string;
+}
 
-export async function getRoomForRenter(roomId: string, motelId: string): Promise<RenterRoomProjection | null> {
-  const row = await db.query.rooms.findFirst({ where: and(eq(rooms.id, roomId), eq(rooms.motelId, motelId)), columns: { id: true, name: true, floor: true } });
+export async function getRoomForRenter(
+  roomId: string,
+  motelId: string,
+): Promise<RenterRoomProjection | null> {
+  const row = await db.query.rooms.findFirst({
+    where: and(eq(rooms.id, roomId), eq(rooms.motelId, motelId)),
+    columns: { id: true, name: true, floor: true },
+  });
   return row ?? null;
 }
 
@@ -57,13 +70,8 @@ export async function countRoomsForMotel(motelId: string): Promise<number> {
   return db.$count(rooms, eq(rooms.motelId, motelId));
 }
 
-export async function countOccupiedRoomsForMotel(
-  motelId: string,
-): Promise<number> {
-  return db.$count(
-    rooms,
-    and(eq(rooms.motelId, motelId), eq(rooms.status, "occupied")),
-  );
+export async function countOccupiedRoomsForMotel(motelId: string): Promise<number> {
+  return db.$count(rooms, and(eq(rooms.motelId, motelId), eq(rooms.status, "occupied")));
 }
 
 /**
@@ -140,10 +148,8 @@ export async function listRooms(
   await resolveOwnedMotel(motelId, managerId);
 
   const conditions = [eq(rooms.motelId, motelId)];
-  if (filters.floor !== undefined)
-    conditions.push(eq(rooms.floor, filters.floor));
-  if (filters.status !== undefined)
-    conditions.push(eq(rooms.status, filters.status));
+  if (filters.floor !== undefined) conditions.push(eq(rooms.floor, filters.floor));
+  if (filters.status !== undefined) conditions.push(eq(rooms.status, filters.status));
   // An empty `?search=` is not a filter; treating it as `%` would quietly answer a question the
   // caller did not ask.
   if (filters.search !== undefined && filters.search !== "") {
@@ -182,9 +188,7 @@ export async function createRoom(
     return toResponse(row!);
   } catch (error) {
     if (isDuplicateRoomName(error)) {
-      throw AppError.conflict(
-        `Phòng "${input.name}" đã tồn tại trong nhà trọ này`,
-      );
+      throw AppError.conflict(`Phòng "${input.name}" đã tồn tại trong nhà trọ này`);
     }
     throw error;
   }
@@ -220,8 +224,7 @@ export async function updateRoom(
 
   const patch: RoomPatch = {};
   if (input.name !== undefined) patch.name = input.name;
-  if (input.basePrice !== undefined)
-    patch.basePrice = parseAmount(input.basePrice);
+  if (input.basePrice !== undefined) patch.basePrice = parseAmount(input.basePrice);
   if (input.floor !== undefined) patch.floor = input.floor;
   if (input.status !== undefined) patch.status = input.status;
 
@@ -229,17 +232,11 @@ export async function updateRoom(
   if (Object.keys(patch).length === 0) return toResponse(owned);
 
   try {
-    const [row] = await db
-      .update(rooms)
-      .set(patch)
-      .where(eq(rooms.id, roomId))
-      .returning();
+    const [row] = await db.update(rooms).set(patch).where(eq(rooms.id, roomId)).returning();
     return toResponse(row!);
   } catch (error) {
     if (isDuplicateRoomName(error) && input.name !== undefined) {
-      throw AppError.conflict(
-        `Phòng "${input.name}" đã tồn tại trong nhà trọ này`,
-      );
+      throw AppError.conflict(`Phòng "${input.name}" đã tồn tại trong nhà trọ này`);
     }
     throw error;
   }

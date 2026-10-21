@@ -1,4 +1,10 @@
-export function openDialogSession(dialog: Pick<HTMLDialogElement, "open" | "showModal" | "close" | "addEventListener" | "removeEventListener">, trigger: Pick<HTMLElement, "focus"> | null) {
+export function openDialogSession(
+  dialog: Pick<
+    HTMLDialogElement,
+    "open" | "showModal" | "close" | "addEventListener" | "removeEventListener"
+  >,
+  trigger: Pick<HTMLElement, "focus"> | null,
+) {
   let restored = false;
   const restore = () => {
     if (restored) return;

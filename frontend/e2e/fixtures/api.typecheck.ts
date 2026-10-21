@@ -1,4 +1,4 @@
-import { MOTEL, RENTER, ROOM } from "../../src/lib/api/__tests__/fixtures";
+import { MOTEL, RENTER, ROOM } from "../../test/lib/api/fixtures";
 import type { ApiFixtures } from "./api";
 
 const roomPath = `PATCH /api/manager/motels/${MOTEL.id}/rooms/${ROOM.id}` as const;
