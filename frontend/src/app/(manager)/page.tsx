@@ -19,7 +19,28 @@ function Metric({ label, value, detail, href }: { label: string; value: string; 
 export default async function Overview({ searchParams }: { searchParams: Promise<MotelSearchParams> }) {
   const motels = await listMotels();
   const motelId = resolveMotelId(motels, await searchParams);
-  if (!motelId) return <section className="space-y-6"><PageHeader title="Tổng quan" description="Việc cần làm hôm nay cho nhà trọ." /><MotelEditor empty /></section>;
+  if (!motelId) {
+    if (motels.length === 0) return <section className="space-y-6"><PageHeader title="Tổng quan" description="Việc cần làm hôm nay cho nhà trọ." /><MotelEditor empty /></section>;
+    const cards = await Promise.all(motels.map(async (motel) => ({ motel, roomCount: (await listRooms(motel.id).catch(() => [])).length })));
+    return <section className="space-y-6">
+      <PageHeader title="Tổng quan" description="Chọn một nhà trọ để bắt đầu quản lý hoặc theo dõi." actions={<MotelEditor />} />
+      <div className="grid min-w-0 gap-4 md:grid-cols-2 xl:grid-cols-3">
+        {cards.map(({ motel, roomCount }) => <Card as="article" key={motel.id} aria-labelledby={`motel-${motel.id}`} className="flex flex-col p-4 sm:p-6">
+          <div className="flex items-start justify-between gap-2">
+            <h2 id={`motel-${motel.id}`} className="font-heading text-lg font-semibold text-text [overflow-wrap:anywhere]">{motel.name}</h2>
+            <span className="inline-flex shrink-0 rounded-full bg-primary-fixed px-3 py-0.5 text-xs font-semibold text-on-primary-fixed tabular-nums">{roomCount} phòng</span>
+          </div>
+          <p className="mt-2 text-sm text-text-muted [overflow-wrap:anywhere]">{motel.address || "Chưa có địa chỉ"}</p>
+          <div className="mt-auto flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
+            <MotelEditor motel={motel} />
+            <Link href={motelHref("/", "", motel.id)} className="inline-flex min-h-11 items-center justify-center rounded-input bg-primary px-4 font-semibold text-surface hover:bg-primary-strong focus-visible:outline-2 focus-visible:outline-primary">
+              Vào quản lý
+            </Link>
+          </div>
+        </Card>)}
+      </div>
+    </section>;
+  }
 
   const [rooms, renters, periods] = await Promise.all([listRooms(motelId), listRenters(motelId), listBillingPeriods(motelId)]);
   const counts: Record<RoomStatus, number> = { occupied: 0, available: 0, maintenance: 0 };

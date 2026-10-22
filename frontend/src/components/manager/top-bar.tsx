@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import CaptureQueueWarning from "@/components/manager/capture-queue-warning";
 import { ApiError, GENERIC_ERROR_MESSAGE } from "@/lib/api/client";
@@ -20,6 +20,7 @@ export default function TopBar({ manager, motels }: { manager: ManagerMeResponse
   const [switching, startTransition] = useTransition();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string>();
+  const accountRef = useRef<HTMLDetailsElement>(null);
   const search = searchParams.toString();
   useEffect(() => {
     const update = (event: Event) => {
@@ -32,6 +33,21 @@ export default function TopBar({ manager, motels }: { manager: ManagerMeResponse
   useEffect(() => {
     if (motels.length && !searchParams.has("motel")) router.replace(motelHref(pathname, search, motels[0]!.id));
   }, [motels, pathname, router, search, searchParams]);
+  useEffect(() => {
+    function dismiss(event: MouseEvent | KeyboardEvent) {
+      const account = accountRef.current;
+      if (!account?.open) return;
+      if (event instanceof KeyboardEvent && event.key !== "Escape") return;
+      if (event instanceof MouseEvent && account.contains(event.target as Node)) return;
+      account.open = false;
+    }
+    document.addEventListener("mousedown", dismiss);
+    document.addEventListener("keydown", dismiss);
+    return () => {
+      document.removeEventListener("mousedown", dismiss);
+      document.removeEventListener("keydown", dismiss);
+    };
+  }, []);
 
   async function handleLogout() {
     if (pending) return;
@@ -51,25 +67,30 @@ export default function TopBar({ manager, motels }: { manager: ManagerMeResponse
   }
 
   return (
-    <header className="border-b border-border bg-surface px-4 py-3 lg:px-8">
-      <div className="mx-auto flex max-w-6xl items-end gap-4">
-        <div className="hidden min-w-0 flex-1 lg:block"><p className="text-xs font-semibold text-text-muted">KHÔNG GIAN VẬN HÀNH</p><p className="mt-1 truncate font-heading text-lg font-semibold text-text">Theo dõi nhà trọ, hóa đơn và khách thuê</p></div>
-        <div className="min-w-0 flex-1 lg:max-w-sm">
-          <label htmlFor="motel-selector" className="mb-2 block text-sm font-semibold text-text">Nhà trọ</label>
-           <MotelSwitcher motels={motelItems} selectedId={selected} disabled={switching} onChange={(id) => { const event = new CustomEvent("capture:motel-switch", { cancelable: true, detail: id }); window.dispatchEvent(event); if (!event.defaultPrevented) startTransition(() => router.replace(motelHref(pathname, search, id))); }} />
+    <header className="border-b border-border bg-canvas px-4 py-3 sm:px-6 lg:px-8">
+      <div className="flex w-full items-center justify-between gap-4">
+        <div className="hidden min-w-0 flex-1 lg:block">
+          <p className="text-xs font-semibold uppercase tracking-wider text-text-muted">Không gian vận hành</p>
+          <p className="mt-0.5 truncate font-heading text-base font-semibold text-text">Theo dõi nhà trọ, hóa đơn và khách thuê</p>
         </div>
-        <details className="relative shrink-0 lg:ml-auto">
-          <summary aria-label="Menu phụ, Tài khoản" className="flex min-h-11 cursor-pointer items-center rounded-input border border-border-strong px-3 text-sm font-semibold text-text hover:bg-canvas focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">
-            <span className="lg:hidden">Menu phụ</span><span className="hidden lg:inline">Tài khoản</span>
-          </summary>
-          <div className="absolute right-0 z-30 mt-2 w-64 max-w-[calc(100vw-2rem)] space-y-4 rounded-card border border-border bg-surface p-4 shadow-lg">
-             <p className="text-sm wrap-anywhere">{manager.email}</p>
-             <ThemeSelect />
-             {error && <p role="alert" className="text-sm text-danger">{error}</p>}
-
-            <Button variant="secondary" onClick={handleLogout} pending={pending} pendingLabel="Đang đăng xuất…" className="w-full">Đăng xuất</Button>
+        <div className="flex flex-1 items-center justify-end gap-3 sm:gap-4 lg:flex-initial">
+          <div className="w-full min-w-[12rem] sm:w-64">
+            <label htmlFor="motel-selector" className="sr-only">Nhà trọ</label>
+            <MotelSwitcher motels={motelItems} selectedId={selected} disabled={switching} onChange={(id) => { const event = new CustomEvent("capture:motel-switch", { cancelable: true, detail: id }); window.dispatchEvent(event); if (!event.defaultPrevented) startTransition(() => router.replace(motelHref(pathname, search, id))); }} />
           </div>
-        </details>
+          <details ref={accountRef} className="relative shrink-0">
+            <summary aria-label="Menu phụ, Tài khoản" className="flex min-h-11 cursor-pointer items-center rounded-input border border-border-strong px-3 text-sm font-semibold text-text hover:bg-canvas focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">
+              <span className="lg:hidden">Menu phụ</span><span className="hidden lg:inline">Tài khoản</span>
+            </summary>
+            <div className="absolute right-0 z-30 mt-2 w-64 max-w-[calc(100vw-2rem)] space-y-4 rounded-card border border-border bg-surface p-4 shadow-lg">
+              <p className="text-sm wrap-anywhere">{manager.email}</p>
+              <ThemeSelect />
+              {error && <p role="alert" className="text-sm text-danger">{error}</p>}
+
+              <Button variant="secondary" onClick={handleLogout} pending={pending} pendingLabel="Đang đăng xuất…" className="w-full">Đăng xuất</Button>
+            </div>
+          </details>
+        </div>
       </div>
       {selected && <CaptureQueueWarning managerId={manager.id} motelId={selected} />}
     </header>

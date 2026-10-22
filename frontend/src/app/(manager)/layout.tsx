@@ -17,7 +17,7 @@ export default async function ManagerLayout({ children }: { children: React.Reac
      <>
        <CaptureServiceWorker />
        <a href="#main-content" className="sr-only z-30 rounded-input bg-primary p-3 text-surface focus:not-sr-only focus:fixed focus:left-4 focus:top-4">Đến nội dung chính</a>
-       <ManagerShell sidebar={<Sidebar />} header={<Suspense fallback={<div className="h-24 border-b border-border bg-surface" role="status">Đang tải điều hướng…</div>}><TopBar manager={manager} motels={motels} /></Suspense>}>
+       <ManagerShell sidebar={<Sidebar />} header={<Suspense fallback={<div className="h-24 border-b border-border bg-canvas" role="status">Đang tải điều hướng…</div>}><TopBar manager={manager} motels={motels} /></Suspense>}>
          {children}
        </ManagerShell>
      </>

@@ -1,14 +1,14 @@
-import type { CreateRenterInput, RenterResponse, UpdateRenterInput } from "@/lib/api/types";
+import type { CreateRenterInput, RenterResponse, RenterStatus, UpdateRenterInput } from "@/lib/api/types";
 import { ApiError, GENERIC_ERROR_MESSAGE } from "@/lib/api/client";
 import { createRenter, updateRenter } from "@/lib/api/renters.client";
 
-export type RenterDraft = { name: string; phone: string; idNumber: string; roomId: string };
+export type RenterDraft = { name: string; phone: string; idNumber: string; roomId: string; status?: RenterStatus };
 export type RenterFieldErrors = Record<string, string>;
 export type RenterSubmitResult = { ok: true } | { ok: false; fields?: RenterFieldErrors; error?: string; status?: number };
 type Prepared<T> = { ok: true; input: T } | { ok: false; fields: RenterFieldErrors };
 
 export function createRenterDraft(renter?: RenterResponse): RenterDraft {
-  return { name: renter?.name ?? "", phone: renter?.phone ?? "", idNumber: renter?.idNumber ?? "", roomId: renter?.roomId ?? "" };
+  return { name: renter?.name ?? "", phone: renter?.phone ?? "", idNumber: renter?.idNumber ?? "", roomId: renter?.roomId ?? "", status: renter?.status ?? "active" };
 }
 
 export function prepareRenterInput(draft: RenterDraft): Prepared<CreateRenterInput>;
@@ -28,6 +28,7 @@ export function prepareRenterInput(draft: RenterDraft, renter?: RenterResponse):
   if (input.phone !== renter.phone) patch.phone = input.phone;
   if (input.idNumber !== renter.idNumber) patch.idNumber = input.idNumber;
   if (input.roomId !== renter.roomId) patch.roomId = input.roomId;
+  if (draft.status && draft.status !== renter.status) patch.status = draft.status;
   return { ok: true, input: patch };
 }
 

@@ -90,11 +90,19 @@ describe("M1 overview", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
-  it.each(["foreign", "", [MOTEL.id, MOTEL_WITHOUT_EXTRAS.id]])("rejects invalid motel scope %j before reading rooms", async (motel) => {
+  it.each(["foreign", [MOTEL.id, MOTEL_WITHOUT_EXTRAS.id]])("rejects invalid motel scope %j before reading rooms", async (motel) => {
     const fetchMock = vi.fn().mockResolvedValue(Response.json([MOTEL]));
     vi.stubGlobal("fetch", fetchMock);
     await expect(Overview({ searchParams: Promise.resolve({ motel }) })).rejects.toThrow("NEXT_NOT_FOUND");
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows all motels when motel scope is empty string (chưa chọn trọ)", async () => {
+    const { html } = await markup({ motel: "" });
+    expect(html).toContain("Chọn một nhà trọ để bắt đầu quản lý hoặc theo dõi.");
+    expect(html).toContain(MOTEL.name);
+    expect(html).toContain(MOTEL_WITHOUT_EXTRAS.name);
+    expect(html).toContain("Vào quản lý");
   });
 
   it("lets a failed room read reach the error boundary instead of reporting zero rooms", async () => {

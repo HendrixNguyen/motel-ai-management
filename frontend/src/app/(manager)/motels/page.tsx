@@ -8,7 +8,8 @@ import Card from "@/components/ui/card";
 
 export default async function Motels({ searchParams }: { searchParams: Promise<MotelSearchParams> }) {
   const motels = await listMotels();
-  resolveMotelId(motels, await searchParams);
+  const query = await searchParams;
+  if (query.motel && query.motel !== "") resolveMotelId(motels, query);
   // The API has no count endpoint. One unfiltered rooms read per motel is acceptable at MVP
   // scale (10–40 rooms); replace it with backend aggregation if the portfolio grows.
   const cards = await Promise.all(motels.map(async (motel) => ({ motel, roomCount: (await listRooms(motel.id)).length })));

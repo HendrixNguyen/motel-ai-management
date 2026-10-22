@@ -85,6 +85,11 @@ function RenterForm({ motelId, rooms, renter, onCancel, onSaved, onReload, onUna
         {draft.roomId && !rooms.some((room) => room.id === draft.roomId) && <option value={draft.roomId}>Phòng chưa cập nhật</option>}
         {rooms.map((room) => <option key={room.id} value={room.id}>{room.name}</option>)}
       </select>}</Field>
+      {renter && <Field id={id("status")} label="Trạng thái khách thuê">{(props) => <select {...props} name="status" value={draft.status ?? "active"}
+        onChange={(event) => setDraft({ ...draft, status: event.target.value as "active" | "inactive" })}>
+        <option value="active">Đang thuê</option>
+        <option value="inactive">Ngừng thuê (Đã rời đi)</option>
+      </select>}</Field>}
     </fieldset>
     <div className="flex flex-wrap justify-end gap-2 border-t border-border pt-4 pb-[env(safe-area-inset-bottom)]">
       <Button variant="secondary" disabled={pending} onClick={onCancel}>Hủy</Button>

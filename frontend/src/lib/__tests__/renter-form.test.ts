@@ -13,6 +13,7 @@ describe("renter create/edit", () => {
   it("only patches changes, preserves unchanged image keys and explicitly unassigns/clears", () => {
     expect(prepareRenterInput({ ...createRenterDraft(RENTER), phone: "+84 901 234 567" }, RENTER)).toEqual({ ok: true, input: {} });
     expect(prepareRenterInput({ ...createRenterDraft(RENTER), idNumber: "", roomId: "" }, RENTER)).toEqual({ ok: true, input: { idNumber: null, roomId: null } });
+    expect(prepareRenterInput({ ...createRenterDraft(RENTER), status: "inactive" }, RENTER)).toEqual({ ok: true, input: { status: "inactive" } });
   });
   it("reports required fields before any mutation", async () => {
     const fetch = vi.fn(); vi.stubGlobal("fetch", fetch);

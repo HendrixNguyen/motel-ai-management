@@ -98,6 +98,34 @@ test("logout clears the session through the proxy and returns to login", async (
   await expect(page).toHaveURL("/login");
 });
 
+test("theme dropdown closes on selection and outside click", async ({ page, context }) => {
+  await signIn(context);
+  await page.goto(`/?motel=${MOTEL.id}`);
+  await page.getByLabel("Menu phụ, Tài khoản", { exact: true }).click();
+  const theme = page.getByRole("combobox", { name: "Giao diện", exact: true });
+  await theme.click();
+  await page.getByRole("option", { name: "Tối", exact: true }).click();
+  await expect(theme).toHaveAttribute("aria-expanded", "false");
+  await theme.click();
+  await page.locator("main").click();
+  await expect(theme).toHaveAttribute("aria-expanded", "false");
+});
+
+test("account disclosure closes on outside click and Escape but remains open for inside clicks", async ({ page, context }) => {
+  await signIn(context);
+  await page.goto(`/?motel=${MOTEL.id}`);
+  const account = page.getByLabel("Menu phụ, Tài khoản", { exact: true });
+  await account.click();
+  await expect(page.getByText(MANAGER_ME.email, { exact: true })).toBeVisible();
+  await page.getByText(MANAGER_ME.email, { exact: true }).click();
+  await expect(page.getByText(MANAGER_ME.email, { exact: true })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.getByText(MANAGER_ME.email, { exact: true })).toBeHidden();
+  await account.click();
+  await page.locator("main").click();
+  await expect(page.getByText(MANAGER_ME.email, { exact: true })).toBeHidden();
+});
+
 test("mobile navigation contains five reachable destinations and a labelled secondary menu", async ({ page, context }) => {
   await signIn(context);
   await page.goto(`/?motel=${MOTEL.id}`);
@@ -115,6 +143,28 @@ test("mobile navigation contains five reachable destinations and a labelled seco
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
 
+test("manager shell has aligned, usable geometry at phone and desktop widths", async ({ page, context }) => {
+  await signIn(context);
+  for (const width of [375, 768, 1440, 1920]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto(`/?motel=${MOTEL.id}`);
+    const header = page.getByRole("banner");
+    const main = page.getByRole("main");
+    const selector = header.getByRole("combobox", { name: "Nhà trọ", exact: true });
+    const selectorBox = await selector.boundingBox();
+    expect(selectorBox?.width).toBeGreaterThanOrEqual(width >= 1024 ? 180 : 44);
+    expect(selectorBox?.height).toBeLessThanOrEqual(width >= 1024 ? 64 : 112);
+    const headerBox = await header.boundingBox();
+    const mainBox = await main.boundingBox();
+    expect(headerBox?.height).toBeLessThanOrEqual(width >= 1024 ? 120 : 112);
+    if (width >= 1024) {
+      expect(Math.abs(headerBox!.x - mainBox!.x)).toBeLessThanOrEqual(2);
+      expect(await main.evaluate((element) => getComputedStyle(element).maxWidth)).toBe("none");
+    }
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+  }
+});
+
 test("desktop sidebar is sticky, 240px wide, and main content clears it", async ({ page, context }) => {
   await signIn(context);
   await page.setViewportSize({ width: 1280, height: 800 });
@@ -130,4 +180,19 @@ test("desktop sidebar is sticky, 240px wide, and main content clears it", async 
   expect(mainBox).not.toBeNull();
   expect(mainBox!.x).toBeGreaterThanOrEqual(sidebarRight);
   expect(await main.evaluate((element) => getComputedStyle(element.parentElement!.parentElement!.parentElement!).display)).toBe("flex");
+
+  // App name is visible
+  await expect(sidebar.getByText("Nhà Số Gọn")).toBeVisible();
+
+  // Test sidebar collapse toggle
+  const collapseButton = sidebar.getByRole("button", { name: "Thu gọn thanh điều hướng" });
+  await collapseButton.click();
+  await expect(sidebar.getByRole("button", { name: "Mở rộng thanh điều hướng" })).toBeVisible();
+  expect(await sidebar.evaluate((element) => element.getBoundingClientRect().width)).toBeLessThanOrEqual(80);
+  await expect(sidebar.getByText("Nhà Số Gọn")).toBeHidden();
+
+  // Expand back
+  await sidebar.getByRole("button", { name: "Mở rộng thanh điều hướng" }).click();
+  expect(await sidebar.evaluate((element) => element.getBoundingClientRect().width)).toEqual(240);
+  await expect(sidebar.getByText("Nhà Số Gọn")).toBeVisible();
 });

@@ -17,7 +17,10 @@ describe("resolveMotelId", () => {
   it("allows a manager with no motels to reach the empty state", () => {
     expect(resolveMotelId([], {})).toBeUndefined();
   });
-  it.each([{ motel: "foreign" }, { motel: "" }, { motel: ["owned-first", "foreign"] }])("denies an invalid explicit selection $motel", ({ motel }) => {
+  it("returns undefined when explicit selection is empty string (chưa chọn trọ)", () => {
+    expect(resolveMotelId(motels, { motel: "" })).toBeUndefined();
+  });
+  it.each([{ motel: "foreign" }, { motel: ["owned-first", "foreign"] }])("denies an invalid explicit selection $motel", ({ motel }) => {
     expect(() => resolveMotelId(motels, { motel })).toThrow("NEXT_NOT_FOUND");
   });
   it("denies an explicit selection even when the manager owns no motels", () => {

@@ -125,7 +125,13 @@ Draft periods allow meter edits and invoice generation. Sent periods are read-on
 Shell: responsive. On wide screens, left sidebar `240px`, sticky. On phones, use compact
 navigation with no more than five primary destinations; expose remaining sections in a clearly
 labelled secondary menu. Top bar carries motel selector, notification inbox, and manager menu.
-Controls must work without hover.
+Controls must work without hover. At desktop widths, header and main content share aligned gutters
+and use available width beside the sidebar; do not impose a centered content cap that leaves a
+large empty band. The motel selector remains a horizontal control at least `180px` wide and
+`44px` high in its normal desktop state. Header controls use theme tokens and never stay white
+when dark theme is active. The account disclosure closes on outside click and Escape, without
+closing when a user clicks inside; its theme selector closes on selection, outside click, and
+Escape while retaining keyboard operation.
 
 Sidebar items: **Tổng quan**, **Nhà trọ**, **Phòng trọ**, **Khách thuê**, **Tính tiền &
 Hóa đơn**, **Hợp đồng**, **Sự cố & Yêu cầu**, **Cài đặt**.
