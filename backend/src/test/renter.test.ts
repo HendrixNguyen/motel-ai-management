@@ -3,6 +3,7 @@ import { app } from "@/app";
 import { db } from "@/db";
 import { resetDb } from "@/db/test-db";
 import { registerManager } from "@/modules/auth/auth.service";
+import { resetRateLimits } from "@/shared/rate-limit";
 import { billingPeriods, invoices } from "@/modules/billing/billing.schema";
 import { contracts } from "@/modules/contract/contract.schema";
 import { renters } from "@/modules/renter/renter.schema";
@@ -12,7 +13,7 @@ import { rooms } from "@/modules/room/room.schema";
 // Bun's 5 s default, and worse once a long run has churned the system catalogs.
 setDefaultTimeout(20_000);
 
-beforeEach(resetDb);
+beforeEach(async () => { resetRateLimits(); await resetDb(); });
 
 const PASSWORD = "aaaaaaaaaa";
 const ISO_8601 = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/;
@@ -31,8 +32,10 @@ interface RenterPayload {
   name: string;
   phone: string;
   idNumber: string | null;
-  idCardFrontUrl: string | null;
-  idCardBackUrl: string | null;
+  legacyIdCardFrontUrl: string | null;
+  legacyIdCardBackUrl: string | null;
+  idCardFrontUploaded: boolean;
+  idCardBackUploaded: boolean;
   roomId: string | null;
   zaloOaId: string | null;
   isOaFollower: boolean;
@@ -417,21 +420,20 @@ describe("POST /api/manager/motels/:motelId/renters", () => {
     expect(body.createdAt).toMatch(ISO_8601);
   });
 
-  test("roomId, status and the document fields are stored as given", async () => {
+  test("manager JSON cannot inject CCCD image URLs", async () => {
     const a = await login("a@example.com");
     const motel = await createMotel(a.cookie);
     const room = await createRoom(a.cookie, motel.id);
 
-    const body = await createRenter(a.cookie, motel.id, {
-      roomId: room.id,
-      idNumber: "079088012345",
-      idCardFrontUrl: "https://r2.example.com/front.jpg",
-      idCardBackUrl: "https://r2.example.com/back.jpg",
+    const res = await api("POST", `/manager/motels/${motel.id}/renters`, {
+      cookie: a.cookie,
+      body: { name: "Nguyễn Văn A", phone: "0901234567", roomId: room.id, idNumber: "079088012345", idCardFrontUrl: "https://attacker.example/front.jpg", idCardBackUrl: "https://attacker.example/back.jpg" },
     });
-    expect(body.roomId).toBe(room.id);
-    expect(body.idNumber).toBe("079088012345");
-    expect(body.idCardFrontUrl).toBe("https://r2.example.com/front.jpg");
-    expect(body.idCardBackUrl).toBe("https://r2.example.com/back.jpg");
+    expect(res.status).toBe(201);
+    const body = (await res.json()) as RenterPayload;
+    expect(body.idCardFrontUploaded).toBe(false);
+    expect(body.idCardBackUploaded).toBe(false);
+    expect(JSON.stringify(body)).not.toContain("attacker.example");
   });
 
   test("roomId and status default to the column defaults", async () => {
@@ -757,26 +759,20 @@ describe("GET /api/manager/motels/:motelId/renters/:renterId", () => {
 });
 
 describe("PATCH /api/manager/motels/:motelId/renters/:renterId", () => {
-  test("updates the name, the CCCD and both card urls", async () => {
+  test("ignores caller-supplied CCCD image URLs and never returns them", async () => {
     const a = await login("a@example.com");
     const motel = await createMotel(a.cookie);
     const renter = await createRenter(a.cookie, motel.id);
 
     const res = await api("PATCH", `/manager/motels/${motel.id}/renters/${renter.id}`, {
       cookie: a.cookie,
-      body: {
-        name: "Nguyễn Văn B",
-        idNumber: "079088012345",
-        idCardFrontUrl: "https://r2.example.com/front.jpg",
-        idCardBackUrl: "https://r2.example.com/back.jpg",
-      },
+      body: { name: "Nguyễn Văn B", idNumber: "079088012345", idCardFrontUrl: "https://attacker.example/front.jpg", idCardBackUrl: "https://attacker.example/back.jpg" },
     });
     expect(res.status).toBe(200);
     const body = (await res.json()) as RenterPayload;
-    expect(body.name).toBe("Nguyễn Văn B");
-    expect(body.idNumber).toBe("079088012345");
-    expect(body.idCardFrontUrl).toBe("https://r2.example.com/front.jpg");
-    expect(body.idCardBackUrl).toBe("https://r2.example.com/back.jpg");
+    expect(body.idCardFrontUploaded).toBe(false);
+    expect(body.idCardBackUploaded).toBe(false);
+    expect(JSON.stringify(body)).not.toContain("attacker.example");
   });
 
   test("normalises the phone before writing it", async () => {

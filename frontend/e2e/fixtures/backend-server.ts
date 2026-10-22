@@ -8,6 +8,7 @@ export function createFixtureBackend(onMissingFixture: (failure: Error) => void 
   queueMicrotask(() => { throw failure; });
 }) {
   const states = new Map<string, { motels: MotelResponse[]; rooms: RoomResponse[]; renters: RenterResponse[]; invoices: InvoiceResponse[]; proofs: Map<string, { id: string; invoiceId: string; renterId: string; status: "pending" | "approved" | "rejected"; contentType: "image/jpeg"; size: number; submittedAt: string; reviewedAt: string | null; reviewedByManagerId: string | null; rejectionReason: string | null; signedUrl: string }> }>();
+  const templateStore = new Map<string, { id: string; motelId: string; name: string; clauses: { title: string; content: string }[]; isDefault: boolean; createdAt: string }>();
   const signedRenters = new Map<string, string>();
   const magicLinks = new Map([
     ["flow-token", { expiresAt: Date.now() + 24 * 60 * 60 * 1000 }],
@@ -15,7 +16,6 @@ export function createFixtureBackend(onMissingFixture: (failure: Error) => void 
     ["expired-token", { expiresAt: Date.now() - 60 * 60 * 1000 }],
   ]);
   const exchangedTokens = new Set<string>();
-  const otpAttempts = new Map<string, number>();
   const stateFor = (session: string) => {
     if (!states.has(session)) states.set(session, {
       motels: session.startsWith("no-motels") ? [] : structuredClone([MOTEL, MOTEL_WITHOUT_EXTRAS]),
@@ -48,7 +48,7 @@ export function createFixtureBackend(onMissingFixture: (failure: Error) => void 
         const body = await input<{ email: string; password: string }>();
         if (body.email !== MANAGER_ME.email || body.password !== "password123") return error(400, "VALIDATION_ERROR", "Email hoặc mật khẩu không đúng");
         response.setHeader("set-cookie", `manager_session=login-${crypto.randomUUID()}; Path=/; HttpOnly; SameSite=Lax`);
-        return json(MANAGER_AUTH);
+        return json({ ...MANAGER_AUTH, id: "manager-a" });
       }
       if (method === "POST" && path === "/api/auth/logout") {
         response.writeHead(204, { "set-cookie": "manager_session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0" }); return response.end();
@@ -64,25 +64,36 @@ export function createFixtureBackend(onMissingFixture: (failure: Error) => void 
       if (path.startsWith("/api/renter/")) {
         if (renterSession !== "fixture") return unauthorized();
         if (path === "/api/renter/logout" && method === "POST") { response.writeHead(204, { "set-cookie": "renter_session=; Path=/; Max-Age=0" }); return response.end(); }
+        if (path === "/api/renter/push/key" && method === "GET") return json({ enabled: false, publicKey: null });
+        if (path === "/api/renter/push/subscription" && method === "GET") return json({ subscription: null });
+        if (path === "/api/renter/push/subscription" && method === "POST") return json({ registered: true, subscriptionId: "push-subscription" });
+        if (path === "/api/renter/push/subscription" && method === "DELETE") return json({ removed: true });
         if (path === "/api/renter/me") return json({ id: "renter", name: "An", phone: "84901234567", room: { id: "room", name: "P.101", floor: 1 }, motel: { id: "motel", name: "Nhà trọ Minh Anh" }, activeContract: null });
         if (method === "GET" && path === "/api/renter/billing/periods") return json([{ id: "period", month: 10, year: 2026, status: "sent", createdAt: "2026-10-01T00:00:00.000Z" }]);
         if (method === "GET" && path.match(/^\/api\/renter\/billing\/periods\/[^/]+\/invoices$/)) return json([{ id: "invoice", billingPeriodId: "period", month: 10, year: 2026, roomId: "room", roomName: "P.101", rentAmount: "3500000", electricityUsage: "20.00", electricityCost: "70000", waterUsage: "3.00", waterCost: "45000", otherFees: [{ name: "Vệ sinh", amount: "50000" }], totalAmount: "3665000", qrCodeData: "000201010212", paymentStatus: "unpaid", paidAt: null, createdAt: "2026-10-01T00:00:00.000Z" }]);
         if (method === "GET" && path.match(/^\/api\/renter\/invoices\/[^/]+$/)) return json({ id: "invoice", billingPeriodId: "period", month: 10, year: 2026, roomId: "room", roomName: "P.101", rentAmount: "3500000", electricityUsage: "20.00", electricityCost: "70000", waterUsage: "3.00", waterCost: "45000", otherFees: [{ name: "Vệ sinh", amount: "50000" }], totalAmount: "3665000", qrCodeData: "000201010212", paymentStatus: "unpaid", paidAt: null, createdAt: "2026-10-01T00:00:00.000Z" });
-        if (path === "/api/renter/contracts/contract/sign-request" && method === "POST") return json({ sentAt: new Date().toISOString() });
-        if (path === "/api/renter/contracts/contract/verify" && method === "POST") {
-          const body = await input<{ otp: string }>();
-          const attempts = otpAttempts.get(renterSession) ?? 0;
-          if (attempts >= 3) return error(401, "OTP_INVALID", "Mã OTP không đúng hoặc đã hết lượt thử");
-          if (body.otp !== "123456") { otpAttempts.set(renterSession, attempts + 1); return error(401, "OTP_INVALID", "Mã OTP không đúng hoặc đã hết lượt thử"); }
-          const otpSignedAt = new Date().toISOString(); signedRenters.set(renterSession, otpSignedAt); return json({ otpSignedAt, status: "active" });
+        if (path === "/api/renter/contracts/contract/consent" && method === "POST") {
+          const body = await input<{ consent: boolean; termsVersion: string }>();
+          if (body.consent !== true || body.termsVersion !== "a".repeat(64)) return error(409, "CONFLICT", "Điều khoản đã thay đổi");
+          const consentAcceptedAt = new Date().toISOString(); signedRenters.set(renterSession, consentAcceptedAt);
+          return json({ id: "contract", status: "active", consentAcceptedAt, consentMethod: "session_consent", consentEvidence: { termsVersion: body.termsVersion, acceptedTermsSnapshot: { termsVersion: body.termsVersion } } });
         }
-        if (path === "/api/renter/contract" && method === "GET") { const otpSignedAt = signedRenters.get(renterSession) ?? null; return json({ id: "contract", status: otpSignedAt ? "active" : "draft", monthlyRent: "3500000", deposit: "3500000", startDate: "2026-10-01", endDate: "2027-09-30", clauses: [{ title: "Điều khoản", content: "Nội dung" }], otpSignedAt }); }
+        if (path === "/api/renter/contract" && method === "GET") { const consentAcceptedAt = signedRenters.get(renterSession) ?? null; return json({ id: "contract", status: consentAcceptedAt ? "active" : "draft", motelId: "motel", renterId: "renter", roomId: "room", monthlyRent: "3500000", deposit: "3500000", startDate: "2026-10-01", endDate: "2027-09-30", clauses: [{ title: "Điều khoản", content: "Nội dung" }], termsVersion: "a".repeat(64), consentAcceptedAt, consentMethod: consentAcceptedAt ? "session_consent" : null, consentEvidence: consentAcceptedAt ? { termsVersion: "a".repeat(64), acceptedTermsSnapshot: { termsVersion: "a".repeat(64) } } : null, otpSentAt: null, otpSignedAt: null, createdAt: "2026-10-01T00:00:00.000Z" }); }
         if (method === "GET" && path.match(/^\/api\/renter\/invoices\/[^/]+\/payment-proof$/)) return json(null);
         if (method === "GET" && path === "/api/renter/tickets") return json([]);
         if (path === "/api/renter/tickets" && method === "POST") { const body = await input<{ category: string; description: string }>(); return json({ id: "ticket", category: body.category, description: body.description, status: "open", createdAt: new Date().toISOString() }, 201); }
       }
       if (!managerSession) return unauthorized();
       if (method === "GET" && path === "/api/auth/me") return managerSession === "me-expired" ? unauthorized() : json(MANAGER_ME);
+      if (method === "GET" && path.match(/^\/api\/manager\/motels\/[^/]+\/contracts$/)) return json(managerSession.startsWith("contract-") ? [{ id: managerSession === "contract-active" ? "contract-active" : "contract-draft", motelId: MOTEL.id, renterId: RENTERS[0]!.id, roomId: ROOMS[0]!.id, startDate: "2026-01-01", endDate: "2027-01-01", monthlyRent: "3500000", deposit: "1000000", clauses: [{ title: "Tiền thuê", content: "Đúng hạn" }], otpSentAt: null, otpSignedAt: null, status: managerSession === "contract-active" ? "active" : "draft", createdAt: "2026-01-01T00:00:00.000Z" }] : []);
+      if (method === "GET" && path.match(/^\/api\/manager\/motels\/[^/]+\/contracts\/contract-draft$/) && managerSession === "contract-draft") return json({ id: "contract-draft", motelId: MOTEL.id, renterId: RENTERS[0]!.id, roomId: ROOMS[0]!.id, startDate: "2026-01-01", endDate: "2027-01-01", monthlyRent: "3500000", deposit: "1000000", clauses: [{ title: "Tiền thuê", content: "Đúng hạn" }], otpSentAt: null, otpSignedAt: null, status: "draft", createdAt: "2026-01-01T00:00:00.000Z" });
+      if (method === "GET" && path.match(/^\/api\/manager\/motels\/[^/]+\/contract-templates$/)) { const created = templateStore.get(managerSession); return json([{ id: "contract-template", motelId: MOTEL.id, name: "Chuẩn", clauses: [{ title: "Tiền thuê", content: "Đúng hạn" }], isDefault: true, createdAt: "2026-01-01T00:00:00.000Z" }, ...(created ? [created] : [])]); }
+      if (method === "PATCH" && path.match(/^\/api\/manager\/motels\/[^/]+\/contracts\/contract-draft$/) && managerSession === "contract-draft") { const body = await input<Record<string, unknown>>(); return json({ id: "contract-draft", motelId: MOTEL.id, renterId: RENTERS[0]!.id, roomId: ROOMS[0]!.id, startDate: "2026-01-01", endDate: "2027-01-01", monthlyRent: "3500000", deposit: "1000000", clauses: [{ title: "Tiền thuê", content: "Đúng hạn" }], otpSentAt: null, otpSignedAt: null, status: "draft", createdAt: "2026-01-01T00:00:00.000Z", ...body }); }
+      if (method === "POST" && path.match(/^\/api\/manager\/motels\/[^/]+\/contracts\/contract-active\/terminate$/) && managerSession === "contract-active") return json({ id: "contract-active", motelId: MOTEL.id, renterId: RENTERS[0]!.id, roomId: ROOMS[0]!.id, startDate: "2026-01-01", endDate: "2027-01-01", monthlyRent: "3500000", deposit: "1000000", clauses: [{ title: "Tiền thuê", content: "Đúng hạn" }], otpSentAt: null, otpSignedAt: null, status: "terminated", createdAt: "2026-01-01T00:00:00.000Z" });
+      if (method === "POST" && path.match(/^\/api\/manager\/motels\/[^/]+\/contracts$/)) { const body = await input<Record<string, unknown>>(); return json({ id: "contract-created", motelId: MOTEL.id, ...body, otpSentAt: null, otpSignedAt: null, status: "draft", createdAt: new Date().toISOString() }, 201); }
+      if (method === "POST" && path.match(/^\/api\/manager\/motels\/[^/]+\/contract-templates$/)) { const body = await input<{ name: string; clauses: { title: string; content: string }[] }>(); const created = { id: "contract-template-created", motelId: MOTEL.id, ...body, isDefault: false, createdAt: new Date().toISOString() }; templateStore.set(managerSession, created); return json(created, 201); }
+      if (method === "PATCH" && path.match(/^\/api\/manager\/motels\/[^/]+\/contract-templates\/contract-template-created$/)) { const body = await input<{ name: string; clauses?: { title: string; content: string }[] }>(); const updated = { ...(templateStore.get(managerSession) ?? { id: "contract-template-created", motelId: MOTEL.id, name: "Hợp đồng mới", clauses: [{ title: "Tiền cọc", content: "Hoàn lại khi bàn giao phòng" }], isDefault: false, createdAt: "2026-01-01T00:00:00.000Z" }), ...body }; templateStore.set(managerSession, updated); return json(updated); }
+      if (method === "DELETE" && path.match(/^\/api\/manager\/motels\/[^/]+\/contract-templates\/contract-template-created$/)) { templateStore.delete(managerSession); return json({ deleted: true }); }
       const state = stateFor(managerSession);
       if (method === "GET" && path.match(/^\/api\/manager\/motels\/[^/]+\/billing\/periods$/)) return json([CAPTURE_PERIOD]);
       if (method === "GET" && path.match(/^\/api\/manager\/motels\/[^/]+\/billing\/periods\/[^/]+$/)) return json(managerSession === "sent-capture" ? { ...CAPTURE_PERIOD_DETAIL, status: "sent" } : CAPTURE_PERIOD_DETAIL);
@@ -179,7 +190,7 @@ export function createFixtureBackend(onMissingFixture: (failure: Error) => void 
             }
             const create = body as CreateRenterInput;
             const renter: RenterResponse = { id: crypto.randomUUID(), motelId: motel.id, name: create.name, phone: create.phone,
-              idNumber: create.idNumber ?? null, roomId: create.roomId ?? null, idCardFrontUrl: create.idCardFrontUrl ?? null, idCardBackUrl: create.idCardBackUrl ?? null,
+              idNumber: create.idNumber ?? null, roomId: create.roomId ?? null, idCardFrontUploaded: false, idCardBackUploaded: false,
               zaloOaId: null, isOaFollower: false, status: "active", createdAt: new Date().toISOString() };
             state.renters.push(renter); return json(renter, 201);
           }

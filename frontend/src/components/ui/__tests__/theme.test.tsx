@@ -13,7 +13,9 @@ describe("theme foundation", () => {
   });
 
   test("renders system without browser state", () => {
-    expect(markup(<ThemeSelect />)).toContain('value="system"');
+    const html = markup(<ThemeSelect />);
+    expect(html).toContain('for="theme-select-button"');
+    expect(html).toContain("Sáng");
   });
 
   test("normalizes invalid stored values to system", () => {
@@ -64,10 +66,10 @@ describe("theme foundation", () => {
     expect(media.addEventListener).toHaveBeenCalledTimes(1);
   });
 
-  test("early script defaults to light and only uses explicit stored theme", () => {
+  test("early script handles system theme with matchMedia", () => {
     expect(themeInitScript).toContain("motel-theme");
-    expect(themeInitScript).toContain("s==='light'||s==='dark'?s:'light'");
-    expect(themeInitScript).not.toContain("matchMedia");
+    expect(themeInitScript).toContain("matchMedia");
+    expect(themeInitScript).toContain("prefers-color-scheme: dark");
   });
 
   test("foundation CSS scopes scroll margin and includes safe area", async () => {

@@ -9,7 +9,7 @@ import {
 import { getMotel, listMotels } from "@/lib/api/motels";
 import { createRoom, deleteRoom, updateRoom } from "@/lib/api/rooms.client";
 import { getRoom, listRooms } from "@/lib/api/rooms";
-import { createRenter, createRenterMagicLink, deleteRenter, updateRenter } from "@/lib/api/renters.client";
+import { createRenter, createRenterMagicLink, deleteRenter, updateRenter, getRenterCccdUrl, uploadRenterCccd } from "@/lib/api/renters.client";
 import { getRenter, listRenters } from "@/lib/api/renters";
 import { login, logout, register } from "@/lib/api/auth.client";
 import {
@@ -85,6 +85,9 @@ function calls(): string[] {
 
 beforeEach(() => {
   fetchMock.mockReset();
+  const session = { getItem: vi.fn(() => null), setItem: vi.fn(), removeItem: vi.fn() };
+  vi.stubGlobal("sessionStorage", session);
+  vi.stubGlobal("window", { sessionStorage: session });
   env.redirects.length = 0;
   process.env.BACKEND_URL = BACKEND_URL;
 });
@@ -250,6 +253,15 @@ describe("writes (client components, relative URL through the proxy)", () => {
     expect(JSON.parse(String(lastInit().body))).toEqual({ waterPrice: "16000" });
   });
 
+  it("encodes motel IDs in update and delete paths", async () => {
+    fetchMock.mockResolvedValue(jsonResponse(MOTEL));
+    await updateMotel("id/with space", { waterPrice: "16000" });
+    expect(lastUrl()).toBe("/api/manager/motels/id%2Fwith%20space");
+    fetchMock.mockResolvedValue(new Response(null, { status: 204 }));
+    await deleteMotel("id/with space");
+    expect(lastUrl()).toBe("/api/manager/motels/id%2Fwith%20space");
+  });
+
   it("deletes a motel and resolves undefined on the 204", async () => {
     fetchMock.mockResolvedValue(new Response(null, { status: 204 }));
 
@@ -289,6 +301,27 @@ describe("writes (client components, relative URL through the proxy)", () => {
     fetchMock.mockResolvedValueOnce(new Response(null, { status: 204 }));
     await expect(deleteRenter(MOTEL_ID, RENTER_ID)).resolves.toBeUndefined();
     expect(lastInit().method).toBe("DELETE");
+  });
+
+  it("encodes manager-only CCCD upload/read routes and uses multipart field file", async () => {
+    const file = new File(["cccd"], "front.jpg", { type: "image/jpeg" });
+    fetchMock.mockResolvedValue(jsonResponse({ uploaded: true, side: "front" }, 201));
+    await uploadRenterCccd("motel / one", "renter/id", "front", file);
+    expect(lastUrl()).toBe("/api/manager/motels/motel%20%2F%20one/renters/renter%2Fid/cccd/front");
+    expect(lastInit().credentials).toBe("same-origin");
+    expect(lastInit().method).toBe("POST");
+    expect((lastInit().body as FormData).get("file")).toBe(file);
+    fetchMock.mockResolvedValue(jsonResponse({ url: "https://signed.example/photo" }));
+    await getRenterCccdUrl("motel / one", "renter/id", "back");
+    expect(lastUrl()).toBe("/api/manager/motels/motel%20%2F%20one/renters/renter%2Fid/cccd/back");
+    expect(lastInit().credentials).toBe("same-origin");
+  });
+
+  it("turns CCCD upload and signed preview error envelopes into readable errors", async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ error: "Quota exceeded" }, 502));
+    await expect(uploadRenterCccd("m", "r", "front", new File(["x"], "f.jpg", { type: "image/jpeg" }))).rejects.toThrow("Quota exceeded");
+    fetchMock.mockResolvedValue(jsonResponse({}, 503));
+    await expect(getRenterCccdUrl("m", "r", "back")).rejects.toThrow("Không thể mở ảnh CCCD");
   });
 
   it("creates a magic link for a renter", async () => {
@@ -333,10 +366,16 @@ describe("writes (client components, relative URL through the proxy)", () => {
     expect(Object.keys(MANAGER_ME)).not.toContain("name");
   });
 
-  it("logs out and resolves undefined on the 204", async () => {
+  it("logs out and clears only the authenticated manager's capture queue", async () => {
     fetchMock.mockResolvedValue(new Response(null, { status: 204 }));
+    const browserSession = { getItem: () => "manager-1", removeItem: vi.fn() };
+    vi.stubGlobal("window", { sessionStorage: browserSession });
+    vi.stubGlobal("sessionStorage", browserSession);
+    const clear = vi.spyOn(await import("@/lib/capture/queue"), "clearCaptureQueue");
 
     await expect(logout()).resolves.toBeUndefined();
+    expect(clear).toHaveBeenCalledWith("manager-1");
+    expect(sessionStorage.removeItem).toHaveBeenCalledWith("manager-id");
 
     expect(lastUrl()).toBe("/api/auth/logout");
     expect(lastInit().method).toBe("POST");

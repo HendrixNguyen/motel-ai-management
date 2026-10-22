@@ -178,7 +178,7 @@ describe("manager contracts", () => {
       ).status,
     ).toBe(200);
   });
-  test("send stamps otpSentAt only after notification succeeds", async () => {
+  test("manager send records delivery time only after notification enqueue succeeds", async () => {
     const s = await setup();
     const created = await api(
       "POST",
@@ -203,7 +203,7 @@ describe("manager contracts", () => {
       expect(
         (await db.query.contracts.findFirst({
           where: (c, { eq }) => eq(c.id, id),
-        }))!.otpSentAt,
+        }))!.managerSentAt,
       ).not.toBeNull();
   });
 });

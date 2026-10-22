@@ -3,6 +3,11 @@ import { FakeStorageAdapter, StorageError, validateStorageInput } from "@/shared
 import { R2StorageAdapter } from "@/shared/storage.r2";
 
 describe("storage validation", () => {
+  test("validates images against resource-specific byte limits", async () => {
+    const jpeg = new Uint8Array([0xff, 0xd8, 0xff]);
+    await expect(validateStorageInput({ objectKey: "motel/one/cccd", body: jpeg, contentType: "image/jpeg", maxBytes: 5_000_000 })).resolves.toBeInstanceOf(Uint8Array);
+    await expect(validateStorageInput({ objectKey: "motel/one/cccd", body: new Uint8Array(5_000_001), contentType: "image/jpeg", maxBytes: 5_000_000 })).rejects.toThrow("5 MB");
+  });
   test("accepts JPEG, PNG, and PDF magic bytes", async () => {
     for (const [contentType, bytes] of [
       ["image/jpeg", new Uint8Array([0xff, 0xd8, 0xff, 0xe0])],
@@ -52,6 +57,18 @@ describe("FakeStorageAdapter", () => {
     await expect(failing.delete("motel/one/file")).rejects.not.toThrow("bucket=secret");
     await expect(failing.createSignedDownload("motel/one/file", 60)).rejects.toThrow(StorageError);
     await expect(failing.createSignedDownload("motel/one/file", 60)).rejects.not.toThrow("accessKey=private");
+  });
+
+  test("R2 adapter sanitizes failed S3 upload, delete, and presign operations", async () => {
+    const input = { objectKey: "motel/one/file", body: new Uint8Array([0xff, 0xd8, 0xff]), contentType: "image/jpeg" } as const;
+    const client = { send: async () => { throw new Error("accessKey=private secret=hidden"); } } as never;
+    const upload = new R2StorageAdapter({ accountId: "acct", accessKeyId: "key", secretAccessKey: "secret", bucket: "bucket", publicUrl: "" }, client);
+    await expect(upload.put(input)).rejects.toThrow("storage failure");
+    await expect(upload.put(input)).rejects.not.toThrow("private");
+    await expect(upload.delete(input.objectKey)).rejects.toThrow("storage failure");
+    const signer = new R2StorageAdapter({ accountId: "acct", accessKeyId: "key", secretAccessKey: "secret", bucket: "bucket", publicUrl: "" }, {} as never, async () => { throw new Error("secret signer"); });
+    await expect(signer.createSignedDownload(input.objectKey, 10)).rejects.toThrow("storage failure");
+    await expect(signer.createSignedDownload("../unsafe", 10)).rejects.toBeInstanceOf(StorageError);
   });
 
   test("R2 adapter uses S3-compatible operations without leaking credentials", async () => {

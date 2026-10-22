@@ -7,12 +7,13 @@ import { motels } from "@/modules/motel/motel.schema";
 import { rooms } from "@/modules/room/room.schema";
 import { renters } from "@/modules/renter/renter.schema";
 import { contracts } from "@/modules/contract/contract.schema";
+import { resetRateLimits } from "@/shared/rate-limit";
 
 // `resetDb` drops the schema and re-applies every migration, which takes seconds — past
 // Bun's 5 s default, and worse once a long run has churned the system catalogs.
 setDefaultTimeout(20_000);
 
-beforeEach(resetDb);
+beforeEach(async () => { resetRateLimits(); await resetDb(); });
 
 const PASSWORD = "aaaaaaaaaa";
 const ISO_8601 = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/;

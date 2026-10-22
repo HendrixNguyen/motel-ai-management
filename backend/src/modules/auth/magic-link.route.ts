@@ -5,6 +5,7 @@ import { env } from "@/config";
 import { renterAuth } from "@/middleware/renter-auth";
 import { consumeMagicLink, issueMagicLink } from "@/shared/magic-link";
 import { AppError } from "@/shared/errors";
+import { removePushSubscriptionsForRenter } from "@/modules/notification/notification.service";
 import { enforceRateLimit } from "@/shared/rate-limit";
 
 const COOKIE_NAME = "renter_session";
@@ -43,7 +44,7 @@ export const magicLinkRoutes = new Elysia({ name: "magic-link-routes" })
       body: t.Object({ token: t.String() }),
     },
   )
-  .post("/renter/logout", ({ cookie, set }) => { cookie[COOKIE_NAME]?.remove(); set.status = 204; return ""; }, { detail: { security: [{ renterAuth: [] }] } })
+  .use(renterAuth).post("/renter/logout", async ({ cookie, set, auth }) => { await removePushSubscriptionsForRenter(auth!.renterId, auth!.motelId); cookie[COOKIE_NAME]?.remove(); set.status = 204; return ""; }, { detail: { security: [{ renterAuth: [] }] } })
   .group("/renter/magic-links", (app) =>
     app.use(renterAuth).post(
       "/resend",

@@ -51,7 +51,7 @@ describe("accessible shell controls", () => {
     expect(renderToStaticMarkup(createElement(PortalShell as React.ElementType, { header: createElement("header") }, createElement("main", null, "portal")))).toContain("portal");
   });
   it("renders motel switcher and bottom nav as accessible compositions", () => {
-    expect(renderToStaticMarkup(createElement(MotelSwitcher, { motels: [MOTEL], selectedId: MOTEL.id, onChange: () => {} }))).toContain('aria-label="Nhà trọ"');
+    expect(renderToStaticMarkup(createElement(MotelSwitcher, { motels: [MOTEL], selectedId: MOTEL.id, onChange: () => {} }))).toContain('for="motel-selector-button"');
     expect(renderToStaticMarkup(createElement(BottomNav as React.ElementType, null, createElement("a", { href: "/" }, "Trang chủ")))).toContain("Trang chủ");
   });
   it("keeps compact billing navigation scoped and fully labelled while desktop keeps full text", () => {
@@ -69,14 +69,15 @@ describe("accessible shell controls", () => {
     for (const path of ["/", "/motels", "/rooms", "/renters", "/billing"]) {
       expect(html).toContain(`href="${path}?motel=${MOTEL_WITHOUT_EXTRAS.id}"`);
     }
-    expect((html.match(/href="[^"]+\?motel=/g) ?? [])).toHaveLength(10);
+    expect((html.match(/href="[^"]+\?motel=/g) ?? [])).toHaveLength(12);
     expect(html).toContain('aria-current="page"');
     expect(html).toContain('aria-label="Điều hướng chính trên điện thoại"');
   });
   it("uses the URL motel selection and renders labelled account controls", () => {
     const html = renderToStaticMarkup(createElement(TopBar, { manager: MANAGER_ME, motels: [MOTEL, MOTEL_WITHOUT_EXTRAS] }));
     expect(html).toContain('for="motel-selector"');
-    expect(html).toContain(`value="${MOTEL_WITHOUT_EXTRAS.id}" selected=""`);
+    expect(html).toContain('for="motel-selector-button"');
+    expect(html).toContain(MOTEL_WITHOUT_EXTRAS.name);
     expect(html).toContain(MANAGER_ME.email);
     expect(html).toContain("Menu phụ");
     expect(html).toContain("Đăng xuất");
@@ -91,7 +92,7 @@ describe("accessible shell controls", () => {
   });
   it("disables the motel selector when no motel exists", () => {
     const html = renderToStaticMarkup(createElement(TopBar, { manager: MANAGER_ME, motels: [] }));
-    expect(html).toMatch(/<select[^>]*disabled=""/);
+    expect(html).toContain('disabled=""');
     expect(html).toContain("Chưa có nhà trọ");
   });
 });

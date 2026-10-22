@@ -72,7 +72,18 @@ a `CHECK` constraint, so it cannot test the thing most likely to break.
   against the current migration set, so a constraint added since the last run is enforced
   rather than silently absent
 - `resetDb()` throws unless the pool is pointed at `TEST_DATABASE_URL`. It destroys a
-  schema, and a real database must not be reachable from it
+  schema, and a real database must not be reachable from it. It terminates existing sessions
+  to that configured test database before rebuilding schemas; keep other processes away from
+  `TEST_DATABASE_URL` while tests run.
+- Integration test files reset this shared database, so they must run serially. Use
+  `bun run test` (the package script passes `--parallel=1`); bypassing the package script
+  requires `bun test --parallel=1`, never bare `bun test` or `--parallel`.
+- `rate-limit-migration.test.ts` creates and drops temporary databases. Full suite runs need
+  `MIGRATION_TEST_ADMIN_URL` pointing at a disposable local PostgreSQL admin database with
+  `CREATEDB` permission. These tests create databases named `migration_<random>` and remove
+  those they create in `afterAll`; after an interrupted run, manually remove only orphaned
+  `migration_*` databases from that disposable test instance. Never point this URL at a
+  shared or production server.
 
 Never point `TEST_DATABASE_URL` at a database holding data you care about. The test suite
 destroys the schema it is given.
@@ -91,7 +102,8 @@ destroys the schema it is given.
 | Billing rules | meter's `basePrice` is never read by the calculation |
 | Renter payment | one-proof invariant, JPEG/PNG byte and 5,000,000-byte payment-proof limit, proof state transitions, manager-only approval/cash payment, signed URL TTL, renter paid-mutation denial |
 | Notifications | push subscription ownership/deduplication, Web Push-first ordering, bounded retries, permanent-failure fallback, stable event-key idempotency, redacted payloads |
-| Meter capture | an offline entry survives a reload and syncs on reconnect (browser-level test) |
+| Meter capture | manager ownership, motel+period scoping, wrong-manager rejection, stale-motel queue clearing on switch, logout cleanup, draft-only enqueue, and offline reload/reconnect sync (unit + browser-level tests) |
+| Manager contracts | active-renter/room motel scoping, decimal-safe VND normalization, valid dates, draft-only PATCH fields, cross-motel template rejection, and lifecycle transitions (unit + HTTP + E2E) |
 
 ## What not to test
 
@@ -144,13 +156,7 @@ login/logout responses set and clear an `httpOnly` cookie through the actual Nex
 server is test infrastructure only and is never started by the application's dev/start commands.
 Do not reuse an unrelated Next dev server for these tests: its backend setting may differ.
 
-The `real-stack` project uses a live QA frontend/backend and is gated on `E2E_REAL=1`; exact
-`E2E_QA_ALLOWED_ORIGINS` allowlisting and `E2E_QA_ENVIRONMENT=qa` are required. Read-only checks
-need only the QA URL and explicit environment marker. Mutating specs additionally require
-`E2E_QA_MUTATIONS=1`, dedicated manager credentials/ID, and a dedicated manager-owned
-`E2E_QA_MOTEL_ID`; they create run-tagged room and renter records through UI and leave tagged
-audit history. No traces, screenshots, video, or request/response bodies are retained for live runs. That invocation runs the live project instead
-of the fixture project and does not start the fake backend.
+The `real-stack` project uses a live backend and is gated on `E2E_REAL=1`. Mutation-capable runs additionally require `E2E_QA_MUTATIONS=1`, `E2E_QA_ENVIRONMENT=qa`, explicit `E2E_FRONTEND_URL` and `BACKEND_URL`, dedicated `E2E_LOGIN_EMAIL` / `E2E_LOGIN_PASSWORD`, exact origin allowlist `E2E_QA_ALLOWED_ORIGINS` (comma-separated full origins including scheme and port), and `E2E_QA_MANAGER_ID` / `E2E_QA_MOTEL_ID` identifying dedicated disposable QA identity and motel. The suite rejects production markers and hosts outside that allowlist before UI navigation or writes. Use only an isolated QA manager/motel; leave tagged test data when cleanup would mutate history. Live traces, screenshots, and video are disabled to avoid retaining credentials or renter data. This invocation runs the live project instead of the fixture project and does not start the fake backend.
 
 **Hermetic is not the same as runnable.** The fixture-backed suite needs no database or real backend,
 but it still needs a browser that can start. On a minimal Linux image Chromium dies at launch with

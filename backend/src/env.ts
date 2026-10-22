@@ -22,6 +22,7 @@ export interface Env {
   trustedProxyHeader: string | null;
   trustedProxyAssertionHeader: string | null;
   trustedProxyAssertionValue: string | null;
+  webPush: { publicKey: string; privateKey: string; subject: string } | null;
   managerJwtSecret: string;
   renterSessionSecret: string;
   r2: {
@@ -131,6 +132,8 @@ export function parseEnv(input: Record<string, string | undefined>): Env {
   if (!Number.isInteger(port) || port <= 0)
     throw new AppError("VALIDATION_ERROR", `PORT không hợp lệ: ${input.PORT}`);
 
+  const r2Bucket = required(input, "R2_BUCKET");
+  if (r2Bucket === "public" || /placeholder|replace-me/i.test(r2Bucket)) throw new AppError("VALIDATION_ERROR", "R2_BUCKET phải là bucket riêng tư đã cấu hình");
   return {
     nodeEnv,
     rateLimitStore,
@@ -148,9 +151,10 @@ export function parseEnv(input: Record<string, string | undefined>): Env {
       accountId: required(input, "R2_ACCOUNT_ID"),
       accessKeyId: required(input, "R2_ACCESS_KEY_ID"),
       secretAccessKey: required(input, "R2_SECRET_ACCESS_KEY"),
-      bucket: input.R2_BUCKET ?? "motel-uploads",
+      bucket: input.R2_BUCKET ?? required(input, "R2_BUCKET"),
       publicUrl: input.R2_PUBLIC_URL ?? "",
     },
+    webPush: input.VAPID_PUBLIC_KEY && input.VAPID_PRIVATE_KEY ? { publicKey: input.VAPID_PUBLIC_KEY, privateKey: input.VAPID_PRIVATE_KEY, subject: input.VAPID_SUBJECT ?? `mailto:admin@${new URL(publicHttpsUrl(input, "FRONTEND_URL", nodeEnv, "http://localhost:3001")).hostname}` } : null,
     zalo: {
       oaId: required(input, "ZALO_OA_ID"),
       oaSecret: required(input, "ZALO_OA_SECRET"),

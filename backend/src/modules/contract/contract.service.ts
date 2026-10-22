@@ -1,5 +1,5 @@
 import { and, asc, desc, eq, sql } from "drizzle-orm";
-import { randomInt } from "node:crypto";
+import { createHash } from "node:crypto";
 import { db, type Db } from "@/db";
 import {
   resolveOwnedMotel,
@@ -7,6 +7,7 @@ import {
   resolveRenterInMotel,
 } from "@/middleware/tenancy";
 import { getRoomName } from "@/modules/room/room.service";
+import { getRenterForConsent } from "@/modules/renter/renter.service";
 import { parseAmount, type VndString } from "@/shared/money";
 import { AppError } from "@/shared/errors";
 import { contracts, contractTemplates } from "./contract.schema";
@@ -39,6 +40,11 @@ function contractResponse(
     monthlyRent: row.monthlyRent as VndString,
     deposit: row.deposit as VndString,
     clauses: row.clauses,
+    termsVersion: createHash("sha256").update(JSON.stringify({ renterId: row.renterId, roomId: row.roomId, motelId: row.motelId, startDate: row.startDate, endDate: row.endDate, monthlyRent: row.monthlyRent, deposit: row.deposit, clauses: row.clauses })).digest("hex"),
+    consentAcceptedAt: row.consentAcceptedAt?.toISOString() ?? null,
+    consentMethod: row.consentMethod as "session_consent" | null,
+    consentEvidence: row.consentAcceptedAt ? { termsVersion: row.acceptedTermsVersion!, acceptedTermsSnapshot: row.acceptedTermsSnapshot } : null,
+    managerSentAt: row.managerSentAt?.toISOString() ?? null,
     otpSentAt: row.otpSentAt?.toISOString() ?? null,
     otpSignedAt: row.otpSignedAt?.toISOString() ?? null,
     status: row.status,
@@ -249,6 +255,7 @@ export async function updateContract(
   const current = await ownedContract(motelId, contractId, managerId);
   if (current.status !== "draft")
     throw AppError.conflict("Chỉ có thể chỉnh sửa hợp đồng nháp");
+  if (current.consentAcceptedAt) throw AppError.conflict("Hợp đồng đã được người thuê xác nhận; không thể sửa điều khoản");
   if (input.startDate || input.endDate) validateContractDates(input.startDate ?? current.startDate, input.endDate ?? current.endDate);
   if (input.monthlyRent !== undefined) input = { ...input, monthlyRent: parseAmount(input.monthlyRent) };
   if (input.deposit !== undefined) input = { ...input, deposit: parseAmount(input.deposit) };
@@ -284,21 +291,6 @@ export async function terminateContract(
     .returning();
   return contractResponse(row!);
 }
-const OTP_TTL_MS = 5 * 60 * 1000;
-const OTP_COOLDOWN_MS = 5 * 60 * 1000;
-const MAX_OTP_ATTEMPTS = 3;
-
-type OtpGenerator = () => string | Promise<string>;
-type OtpSender = (input: { contractId: string; renterId: string; motelId: string; otp: string; expiresAt: string }) => Promise<void>;
-let renterOtpSender: OtpSender = async ({ contractId, renterId, motelId, otp, expiresAt }) => {
-  await enqueueNotification({ eventKey: `contract:${contractId}:otp:${expiresAt}`, renterId, motelId, templateId: "otp", payload: { contractId, expiresAt, otp: "[REDACTED]" }, transientSecret: { otp } });
-};
-export function setRenterOtpSender(sender: OtpSender | undefined): void { renterOtpSender = sender ?? (async ({ contractId, renterId, motelId, otp, expiresAt }) => { await enqueueNotification({ eventKey: `contract:${contractId}:otp:${expiresAt}`, renterId, motelId, templateId: "otp", payload: { contractId, expiresAt, otp: "[REDACTED]" }, transientSecret: { otp } }); }); }
-
-function generateOtp() {
-  return randomInt(0, 1_000_000).toString().padStart(6, "0");
-}
-
 async function renterContract(contractId: string, renterId: string, motelId: string) {
   const row = await db.query.contracts.findFirst({ where: and(eq(contracts.id, contractId), eq(contracts.renterId, renterId), eq(contracts.motelId, motelId)) });
   if (!row) throw AppError.notFound("Không tìm thấy hợp đồng");
@@ -309,51 +301,32 @@ export async function getRenterContract(contractId: string, renterId: string, mo
   return contractResponse(await renterContract(contractId, renterId, motelId));
 }
 
+export async function acceptRenterContractConsent(contractId: string, renterId: string, motelId: string, termsVersion: string) {
+  return db.transaction(async (tx) => {
+    await tx.execute(sql`SELECT id FROM contracts WHERE id = ${contractId} AND renter_id = ${renterId} AND motel_id = ${motelId} FOR UPDATE`);
+    const current = await tx.query.contracts.findFirst({ where: and(eq(contracts.id, contractId), eq(contracts.renterId, renterId), eq(contracts.motelId, motelId)) });
+    if (!current) throw AppError.notFound("Không tìm thấy hợp đồng");
+    const currentVersion = createHash("sha256").update(JSON.stringify({ renterId: current.renterId, roomId: current.roomId, motelId: current.motelId, startDate: current.startDate, endDate: current.endDate, monthlyRent: current.monthlyRent, deposit: current.deposit, clauses: current.clauses })).digest("hex");
+    if (current.consentAcceptedAt && current.acceptedTermsVersion === termsVersion && currentVersion === termsVersion) return contractResponse(current);
+    if (current.status !== "draft") throw AppError.conflict("Hợp đồng không ở trạng thái chờ ký");
+    if (currentVersion !== termsVersion) throw AppError.conflict("Điều khoản hợp đồng đã thay đổi. Tải lại để xem bản mới.");
+    const renter = await getRenterForConsent(renterId, motelId);
+    if (!renter || !renter.idNumber || !renter.cccdFrontUploaded || !renter.cccdBackUploaded) throw AppError.conflict("Chủ nhà cần hoàn tất thông tin CCCD trước khi ký.");
+    const acceptedAt = new Date();
+    const snapshot = { contractId: current.id, renterId: current.renterId, motelId: current.motelId, roomId: current.roomId, startDate: current.startDate, endDate: current.endDate, monthlyRent: current.monthlyRent, deposit: current.deposit, clauses: current.clauses };
+    const [updated] = await tx.update(contracts).set({ status: "active", consentAcceptedAt: acceptedAt, consentMethod: "session_consent", acceptedTermsVersion: currentVersion, acceptedTermsSnapshot: snapshot, otpHash: null, otpExpiresAt: null }).where(and(eq(contracts.id, contractId), eq(contracts.status, "draft"))).returning();
+    if (!updated) throw AppError.conflict("Hợp đồng đã được cập nhật");
+    return contractResponse(updated);
+  });
+}
+
 export async function getLatestRenterContract(renterId: string, motelId: string) {
   const [row] = await db.select().from(contracts).where(and(eq(contracts.renterId, renterId), eq(contracts.motelId, motelId))).orderBy(desc(contracts.createdAt), desc(contracts.id)).limit(1);
   if (!row) throw AppError.notFound("Không tìm thấy hợp đồng");
   return contractResponse(row);
 }
 
-export async function requestContractOtp(contractId: string, renterId: string, motelId: string, generator: OtpGenerator = generateOtp) {
-  const otp = await generator();
-  const now = new Date();
-  const hash = await Bun.password.hash(otp, { algorithm: "argon2id" });
-  const expires = new Date(now.getTime() + OTP_TTL_MS);
-  const staged = await db.transaction(async (tx) => {
-    await tx.execute(sql`SELECT id FROM contracts WHERE id = ${contractId} AND renter_id = ${renterId} AND motel_id = ${motelId} FOR UPDATE`);
-    const current = await tx.query.contracts.findFirst({ where: and(eq(contracts.id, contractId), eq(contracts.renterId, renterId), eq(contracts.motelId, motelId)) });
-    if (!current) throw AppError.notFound("Không tìm thấy hợp đồng");
-    if (current.status !== "draft") throw AppError.conflict("Hợp đồng không ở trạng thái chờ ký");
-    if (current.otpSentAt && Date.now() - current.otpSentAt.getTime() < OTP_COOLDOWN_MS) throw AppError.rateLimited("Vui lòng thử lại sau", Math.ceil((OTP_COOLDOWN_MS - (Date.now() - current.otpSentAt.getTime())) / 1000));
-    const [row] = await tx.update(contracts).set({ otpHash: hash, otpSentAt: now, otpExpiresAt: expires, otpAttempts: "0" }).where(and(eq(contracts.id, contractId), eq(contracts.status, "draft"))).returning();
-    if (!row) throw AppError.conflict("Hợp đồng không ở trạng thái chờ ký");
-    return { row, previous: current };
-  });
-   try {
-      await renterOtpSender({ contractId, renterId, motelId, otp, expiresAt: expires.toISOString() });
-    } catch {
-     await db.update(contracts).set({ otpHash: staged.previous.otpHash, otpSentAt: staged.previous.otpSentAt, otpExpiresAt: staged.previous.otpExpiresAt, otpAttempts: staged.previous.otpAttempts }).where(and(eq(contracts.id, contractId), eq(contracts.otpHash, hash), eq(contracts.otpSentAt, now), eq(contracts.otpExpiresAt, expires)));
-     throw new AppError("EXTERNAL_SERVICE_ERROR", "Không thể gửi mã xác thực");
-   }
 
-   return { sentAt: now.toISOString() };
-}
-
-
-export async function verifyContractOtp(contractId: string, renterId: string, motelId: string, otp: string) {
-  const current = await db.query.contracts.findFirst({ where: and(eq(contracts.id, contractId), eq(contracts.renterId, renterId), eq(contracts.motelId, motelId)) });
-  if (!current) throw AppError.notFound("Không tìm thấy hợp đồng");
-  if (current.status !== "draft") throw AppError.conflict("Hợp đồng không ở trạng thái chờ ký");
-  if (!current.otpExpiresAt || current.otpExpiresAt <= new Date()) throw new AppError("OTP_EXPIRED", "Mã xác thực đã hết hạn");
-  const [claimed] = await db.update(contracts).set({ otpAttempts: sql`${contracts.otpAttempts} + 1` }).where(and(eq(contracts.id, contractId), eq(contracts.status, "draft"), sql`${contracts.otpAttempts} < ${MAX_OTP_ATTEMPTS}`, sql`${contracts.otpExpiresAt} > now()`)).returning();
-  if (!claimed || !current.otpHash || !(await Bun.password.verify(otp, current.otpHash))) throw new AppError("OTP_INVALID", "Mã xác thực không hợp lệ");
-  return db.transaction(async (tx) => {
-    const [row] = await tx.update(contracts).set({ status: "active", otpSignedAt: new Date(), otpHash: null, otpExpiresAt: null }).where(and(eq(contracts.id, contractId), eq(contracts.status, "draft"))).returning();
-    if (!row) throw AppError.conflict("Hợp đồng đã được ký");
-    return contractResponse(row);
-  });
-}
 
 export async function sendContract(
   motelId: string,
@@ -361,15 +334,12 @@ export async function sendContract(
   managerId: string,
 ) {
   const current = await ownedContract(motelId, contractId, managerId);
-  if (current.status !== "draft")
-    throw AppError.conflict("Chỉ có thể gửi hợp đồng nháp");
+  if (current.status !== "draft") throw AppError.conflict("Chỉ có thể gửi hợp đồng nháp");
   await enqueueNotification({ eventKey: `contract:${contractId}:sent`, renterId: current.renterId, motelId, templateId: "contract", payload: { contractId } });
-  const [row] = await db
-    .update(contracts)
-    .set({ managerSentAt: new Date() })
-    .where(eq(contracts.id, contractId))
-    .returning();
-  return contractResponse(row!);
+  const sentAt = new Date();
+  const [row] = await db.update(contracts).set({ managerSentAt: sentAt }).where(and(eq(contracts.id, contractId), eq(contracts.status, "draft"))).returning();
+  if (!row) throw AppError.conflict("Hợp đồng đã thay đổi");
+  return contractResponse(row);
 }
 
 export interface ExpiringContract { id: string; renterId: string; motelId: string; endDate: string; eventKey: string; }

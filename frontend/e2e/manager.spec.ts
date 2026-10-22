@@ -57,7 +57,8 @@ test("motel and room create/edit persist through refresh and scope the renter fo
   await keyboardActivate(page, motelDialog.getByRole("button", { name: "Tạo nhà trọ", exact: true }));
   await expect(motelDialog).not.toBeVisible();
   await expect(page.getByRole("heading", { name: "Nhà trọ mới", exact: true })).toBeVisible();
-  const motelId = await page.getByRole("combobox", { name: "Nhà trọ", exact: true }).inputValue();
+  const motelHeading = page.locator('h2:has-text("Nhà trọ mới")').first();
+  const motelId = (await motelHeading.getAttribute("id"))?.replace("motel-", "") ?? "";
   await page.getByRole("button", { name: "Chỉnh sửa Nhà trọ mới", exact: true }).click();
   const editMotel = page.getByRole("dialog", { name: "Chỉnh sửa nhà trọ", exact: true });
   await editMotel.getByLabel("Tên nhà trọ", { exact: true }).fill("Nhà trọ đã lưu");

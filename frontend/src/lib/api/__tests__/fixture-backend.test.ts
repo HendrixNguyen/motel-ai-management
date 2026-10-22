@@ -26,7 +26,7 @@ describe("the fixture backend used by manager E2E", () => {
     const created = await request(renters, "a", "POST", input);
     expect(created.status).toBe(201);
     const renter = await created.json() as RenterResponse;
-    expect(renter).toMatchObject({ ...input, motelId: MOTEL.id, status: "active", isOaFollower: false, idCardFrontUrl: null, idCardBackUrl: null });
+    expect(renter).toMatchObject({ ...input, motelId: MOTEL.id, status: "active", isOaFollower: false, idCardFrontUploaded: false, idCardBackUploaded: false });
     expect((await (await request(renters, "a")).json() as RenterResponse[]).some((row) => row.id === renter.id)).toBe(true);
     expect((await (await request(renters, "b")).json() as RenterResponse[]).some((row) => row.id === renter.id)).toBe(false);
     await request(`${renters}/${renter.id}`, "a", "PATCH", { name: "Tên đã lưu", idNumber: null, roomId: null });

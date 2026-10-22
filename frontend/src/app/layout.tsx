@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Be_Vietnam_Pro, Noto_Sans } from "next/font/google";
 import "./globals.css";
 import ThemeInit from "@/components/ui/theme-init";
+import ServiceWorkerRegister from "@/components/pwa/service-worker-register";
 
 /**
  * `subsets` picks which of the family's own subset files are *preloaded*. The Vietnamese
@@ -36,6 +37,7 @@ export const metadata: Metadata = {
   },
   description: "Quản lý nhà trọ gọn hơn mỗi ngày.",
   icons: { icon: "/brand/favicon.svg" },
+  manifest: "/manifest.webmanifest",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -47,6 +49,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     >
       <body className="flex min-h-full flex-col bg-canvas text-text-body font-sans">
         <ThemeInit />
+        <ServiceWorkerRegister />
         {children}
       </body>
     </html>

@@ -11,7 +11,7 @@ export default function NavigationLink({ href, children, compact = false, label 
   const active = href === "/" ? pathname === "/" : pathname === href || pathname?.startsWith(`${href}/`);
   return (
     <Link href={motelHref(href, "", searchParams?.get("motel") ?? undefined)} aria-label={label} aria-current={active ? "page" : undefined}
-      data-motion="navigation-link" className={`flex min-h-11 min-w-0 items-center gap-2 rounded-input px-2 py-2 font-semibold transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${compact ? "flex-col justify-center gap-0 text-[0.7rem] leading-tight" : "px-4 text-base"} ${active ? "bg-primary text-surface" : "text-text-body hover:bg-canvas active:bg-border"} motion-reduce:transition-none`}>
+      data-motion="navigation-link" className={`flex min-h-11 min-w-0 items-center gap-2 rounded-input px-2 py-2 font-semibold transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${compact ? "flex-col justify-center gap-0 text-[0.7rem] leading-tight" : "px-4 text-base"} ${active ? "bg-primary text-surface" : compact ? "text-text-body hover:bg-canvas active:bg-border" : "text-white/85 hover:bg-white/10 active:bg-white/15"} motion-reduce:transition-none`}>
       {children}
     </Link>
   );

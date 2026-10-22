@@ -1,0 +1,96 @@
+{
+  "id": "d71d9b74-46b2-4ac7-94d3-bf9ad3e2a221",
+  "prevId": "37ba9eae-6141-4f0c-9286-64929f526491",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.renters": {
+      "name": "renters", "schema": "",
+      "columns": {
+        "id": {"name":"id","type":"uuid","primaryKey":true,"notNull":true,"default":"gen_random_uuid()"},
+        "motel_id": {"name":"motel_id","type":"uuid","primaryKey":false,"notNull":true},
+        "name": {"name":"name","type":"text","primaryKey":false,"notNull":true},
+        "phone": {"name":"phone","type":"text","primaryKey":false,"notNull":true},
+        "id_number": {"name":"id_number","type":"text","primaryKey":false,"notNull":false},
+        "legacy_id_card_front_url": {"name":"legacy_id_card_front_url","type":"text","primaryKey":false,"notNull":false},
+        "legacy_id_card_back_url": {"name":"legacy_id_card_back_url","type":"text","primaryKey":false,"notNull":false},
+        "id_card_front_object_key": {"name":"id_card_front_object_key","type":"text","primaryKey":false,"notNull":false},
+        "id_card_front_content_type": {"name":"id_card_front_content_type","type":"text","primaryKey":false,"notNull":false},
+        "id_card_front_size": {"name":"id_card_front_size","type":"integer","primaryKey":false,"notNull":false},
+        "id_card_front_checksum": {"name":"id_card_front_checksum","type":"text","primaryKey":false,"notNull":false},
+        "id_card_back_object_key": {"name":"id_card_back_object_key","type":"text","primaryKey":false,"notNull":false},
+        "id_card_back_content_type": {"name":"id_card_back_content_type","type":"text","primaryKey":false,"notNull":false},
+        "id_card_back_size": {"name":"id_card_back_size","type":"integer","primaryKey":false,"notNull":false},
+        "id_card_back_checksum": {"name":"id_card_back_checksum","type":"text","primaryKey":false,"notNull":false},
+        "room_id": {"name":"room_id","type":"uuid","primaryKey":false,"notNull":false},
+        "zalo_oa_id": {"name":"zalo_oa_id","type":"text","primaryKey":false,"notNull":false},
+        "is_oa_follower": {"name":"is_oa_follower","type":"boolean","primaryKey":false,"notNull":true,"default":false},
+        "status": {"name":"status","type":"renter_status","typeSchema":"public","primaryKey":false,"notNull":true,"default":"'active'"},
+        "created_at": {"name":"created_at","type":"timestamp with time zone","primaryKey":false,"notNull":true,"default":"now()"}
+      },
+      "indexes": {
+        "renters_motel_id_idx":{"name":"renters_motel_id_idx","columns":[{"expression":"motel_id","isExpression":false,"asc":true,"nulls":"last"}],"isUnique":false,"concurrently":false,"method":"btree","with":{}},
+        "renters_room_id_idx":{"name":"renters_room_id_idx","columns":[{"expression":"room_id","isExpression":false,"asc":true,"nulls":"last"}],"isUnique":false,"concurrently":false,"method":"btree","with":{}},
+        "renters_motel_id_phone_uq":{"name":"renters_motel_id_phone_uq","columns":[{"expression":"motel_id","isExpression":false,"asc":true,"nulls":"last"},{"expression":"phone","isExpression":false,"asc":true,"nulls":"last"}],"isUnique":true,"concurrently":false,"method":"btree","with":{}}
+      },
+      "foreignKeys": {
+        "renters_motel_id_motels_id_fk":{"name":"renters_motel_id_motels_id_fk","tableFrom":"renters","tableTo":"motels","columnsFrom":["motel_id"],"columnsTo":["id"],"onDelete":"no action","onUpdate":"no action"},
+        "renters_room_id_rooms_id_fk":{"name":"renters_room_id_rooms_id_fk","tableFrom":"renters","tableTo":"rooms","columnsFrom":["room_id"],"columnsTo":["id"],"onDelete":"no action","onUpdate":"no action"}
+      },
+      "compositePrimaryKeys":{},"uniqueConstraints":{},"policies":{},
+      "checkConstraints":{
+        "renters_phone_normalised":{"name":"renters_phone_normalised","value":"\"renters\".\"phone\" ~ '^84[0-9]{9}$'"},
+        "renters_cccd_front_metadata_check":{"name":"renters_cccd_front_metadata_check","value":"(id_card_front_object_key is null and id_card_front_content_type is null and id_card_front_size is null and id_card_front_checksum is null) or (id_card_front_object_key is not null and id_card_front_content_type in ('image/jpeg', 'image/png') and id_card_front_size between 1 and 5000000 and length(trim(id_card_front_checksum)) > 0)"},
+        "renters_cccd_back_metadata_check":{"name":"renters_cccd_back_metadata_check","value":"(id_card_back_object_key is null and id_card_back_content_type is null and id_card_back_size is null and id_card_back_checksum is null) or (id_card_back_object_key is not null and id_card_back_content_type in ('image/jpeg', 'image/png') and id_card_back_size between 1 and 5000000 and length(trim(id_card_back_checksum)) > 0)"},
+        "renters_legacy_cccd_not_exposed":{"name":"renters_legacy_cccd_not_exposed","value":"\"renters\".\"legacy_id_card_front_url\" is null and \"renters\".\"legacy_id_card_back_url\" is null"}
+      },"isRLSEnabled":false
+    },
+    "public.contracts": {
+      "name":"contracts","schema":"",
+      "columns":{
+        "id":{"name":"id","type":"uuid","primaryKey":true,"notNull":true,"default":"gen_random_uuid()"},
+        "renter_id":{"name":"renter_id","type":"uuid","primaryKey":false,"notNull":true},
+        "room_id":{"name":"room_id","type":"uuid","primaryKey":false,"notNull":true},
+        "motel_id":{"name":"motel_id","type":"uuid","primaryKey":false,"notNull":true},
+        "template_id":{"name":"template_id","type":"uuid","primaryKey":false,"notNull":false},
+        "start_date":{"name":"start_date","type":"date","primaryKey":false,"notNull":true},
+        "end_date":{"name":"end_date","type":"date","primaryKey":false,"notNull":true},
+        "monthly_rent":{"name":"monthly_rent","type":"numeric(14, 0)","primaryKey":false,"notNull":true},
+        "deposit":{"name":"deposit","type":"numeric(14, 0)","primaryKey":false,"notNull":true,"default":"'0'"},
+        "clauses":{"name":"clauses","type":"jsonb","primaryKey":false,"notNull":false},
+        "manager_sent_at":{"name":"manager_sent_at","type":"timestamp with time zone","primaryKey":false,"notNull":false},
+        "otp_sent_at":{"name":"otp_sent_at","type":"timestamp with time zone","primaryKey":false,"notNull":false},
+        "otp_hash":{"name":"otp_hash","type":"text","primaryKey":false,"notNull":false},
+        "otp_expires_at":{"name":"otp_expires_at","type":"timestamp with time zone","primaryKey":false,"notNull":false},
+        "otp_attempts":{"name":"otp_attempts","type":"numeric(1, 0)","primaryKey":false,"notNull":true,"default":"'0'"},
+        "otp_signed_at":{"name":"otp_signed_at","type":"timestamp with time zone","primaryKey":false,"notNull":false},
+        "accepted_terms_version":{"name":"accepted_terms_version","type":"text","primaryKey":false,"notNull":false},
+        "accepted_terms_snapshot":{"name":"accepted_terms_snapshot","type":"jsonb","primaryKey":false,"notNull":false},
+        "consent_method":{"name":"consent_method","type":"text","primaryKey":false,"notNull":false},
+        "consent_accepted_at":{"name":"consent_accepted_at","type":"timestamp with time zone","primaryKey":false,"notNull":false},
+        "status":{"name":"status","type":"contract_status","typeSchema":"public","primaryKey":false,"notNull":true,"default":"'draft'"},
+        "created_at":{"name":"created_at","type":"timestamp with time zone","primaryKey":false,"notNull":true,"default":"now()"}
+      },
+      "indexes":{
+        "contracts_renter_id_idx":{"name":"contracts_renter_id_idx","columns":[{"expression":"renter_id","isExpression":false,"asc":true,"nulls":"last"}],"isUnique":false,"concurrently":false,"method":"btree","with":{}},
+        "contracts_room_id_idx":{"name":"contracts_room_id_idx","columns":[{"expression":"room_id","isExpression":false,"asc":true,"nulls":"last"}],"isUnique":false,"concurrently":false,"method":"btree","with":{}},
+        "contracts_motel_id_idx":{"name":"contracts_motel_id_idx","columns":[{"expression":"motel_id","isExpression":false,"asc":true,"nulls":"last"}],"isUnique":false,"concurrently":false,"method":"btree","with":{}},
+        "contracts_room_active_uq":{"name":"contracts_room_active_uq","columns":[{"expression":"room_id","isExpression":false,"asc":true,"nulls":"last"}],"isUnique":true,"concurrently":false,"method":"btree","with":{},"where":"\"contracts\".\"status\" = 'active'"}
+      },
+      "foreignKeys":{
+        "contracts_motel_id_motels_id_fk":{"name":"contracts_motel_id_motels_id_fk","tableFrom":"contracts","tableTo":"motels","columnsFrom":["motel_id"],"columnsTo":["id"],"onDelete":"no action","onUpdate":"no action"},
+        "contracts_renter_id_renters_id_fk":{"name":"contracts_renter_id_renters_id_fk","tableFrom":"contracts","tableTo":"renters","columnsFrom":["renter_id"],"columnsTo":["id"],"onDelete":"no action","onUpdate":"no action"},
+        "contracts_room_id_rooms_id_fk":{"name":"contracts_room_id_rooms_id_fk","tableFrom":"contracts","tableTo":"rooms","columnsFrom":["id"],"columnsTo":["id"],"onDelete":"no action","onUpdate":"no action"},
+        "contracts_template_id_contract_templates_id_fk":{"name":"contracts_template_id_contract_templates_id_fk","tableFrom":"contracts","tableTo":"contract_templates","columnsFrom":["template_id"],"columnsTo":["id"],"onDelete":"no action","onUpdate":"no action"}
+      },
+      "compositePrimaryKeys":{},"uniqueConstraints":{},"policies":{},
+      "checkConstraints":{
+        "contracts_end_after_start":{"name":"contracts_end_after_start","value":"\"contracts\".\"end_date\" > \"contracts\".\"start_date\""},
+        "contracts_otp_attempts_range":{"name":"contracts_otp_attempts_range","value":"\"contracts\".\"otp_attempts\" between 0 and 3"},
+        "contracts_consent_evidence_complete":{"name":"contracts_consent_evidence_complete","value":"(consent_method is null and accepted_terms_version is null and accepted_terms_snapshot is null and consent_accepted_at is null) or (consent_method = 'session_consent' and accepted_terms_version is not null and accepted_terms_snapshot is not null and consent_accepted_at is not null)"}
+      },"isRLSEnabled":false
+    }
+  },
+  "enums":{},"schemas":{},"sequences":{},"roles":{},"policies":{},"views":{},
+  "_meta":{"schemas":{},"tables":{},"columns":{}}
+}
