@@ -2,6 +2,8 @@ import { app } from "@/app";
 import { env } from "@/config";
 import { seedData } from "@/db/seed";
 import { enqueueContractExpiryReminders } from "@/modules/notification/expiry.service";
+import { deliverNotification } from "@/modules/notification/notification.service";
+import { runNotificationDeliveryOnce } from "@/modules/notification/delivery.service";
 import {
   nextExpiryRunAt,
   postgresAdvisoryLeaseDb,
@@ -45,6 +47,13 @@ if (env.nodeEnv !== "test") {
   };
   void run();
   schedule();
+  const deliver = () => {
+    void runNotificationDeliveryOnce(deliverNotification).finally(() => {
+      const timer = setTimeout(deliver, 5000);
+      timer.unref();
+    });
+  };
+  deliver();
 }
 
 app.listen(env.port);

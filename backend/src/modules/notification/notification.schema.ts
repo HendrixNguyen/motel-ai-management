@@ -28,7 +28,12 @@ export const zaloOaMotelMappings = pgTable(
   ],
 );
 
-export const notificationEventChannel = pgEnum("notification_event_channel", ["oa_message", "zns"]);
+export const notificationEventChannel = pgEnum("notification_event_channel", [
+  "oa_message",
+  "zns",
+  "web_push",
+  "manual",
+]);
 export const notificationEventStatus = pgEnum("notification_event_status", [
   "pending",
   "sent",

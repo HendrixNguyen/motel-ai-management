@@ -7,6 +7,7 @@ import { consumeMagicLink, issueMagicLink } from "@/shared/magic-link";
 import { AppError } from "@/shared/errors";
 import { removePushSubscriptionsForRenter } from "@/modules/notification/notification.service";
 import { enforceRateLimit } from "@/shared/rate-limit";
+import { requestRenterLogin } from "./renter-login-request.service";
 
 const COOKIE_NAME = "renter_session";
 
@@ -20,6 +21,7 @@ function clientKey(request: Request): string {
 }
 
 export const magicLinkRoutes = new Elysia({ name: "magic-link-routes" })
+  .post("/renter/login-requests", async ({ body, request }) => requestRenterLogin(body.motelCode, body.phone, clientKey(request)), { body: t.Object({ motelCode: t.String({ minLength: 20, maxLength: 128 }), phone: t.String({ minLength: 8, maxLength: 16 }) }) })
   .use(cookie())
   .use(jwt({ name: "renterJwt", secret: env.renterSessionSecret, exp: "24h" }))
   .post(

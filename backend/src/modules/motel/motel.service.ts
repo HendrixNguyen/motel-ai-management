@@ -1,4 +1,5 @@
 import { asc, eq } from "drizzle-orm";
+import { randomBytes } from "node:crypto";
 import { db } from "@/db";
 import { resolveOwnedMotel, type MotelRow } from "@/middleware/tenancy";
 import { AppError } from "@/shared/errors";
@@ -43,6 +44,30 @@ export interface RenterMotelProjection {
   bankAccount: BankAccount | null;
 }
 
+export interface PublicRecoveryMotel {
+  id: string;
+  managerId: string;
+  publicAccessCode: string;
+}
+
+export async function findMotelByPublicAccessCode(
+  code: string,
+): Promise<PublicRecoveryMotel | null> {
+  const row = await db.query.motels.findFirst({
+    where: eq(motels.publicAccessCode, code),
+    columns: { id: true, managerId: true, publicAccessCode: true },
+  });
+  return row ?? null;
+}
+
+export async function getMotelPublicAccessCode(
+  motelId: string,
+  managerId: string,
+): Promise<string> {
+  const motel = await resolveOwnedMotel(motelId, managerId);
+  return motel.publicAccessCode;
+}
+
 export async function getMotelForRenter(motelId: string): Promise<RenterMotelProjection | null> {
   const row = await db.query.motels.findFirst({
     where: eq(motels.id, motelId),
@@ -71,6 +96,7 @@ export async function createMotel(
     .insert(motels)
     .values({
       managerId,
+      publicAccessCode: randomBytes(24).toString("base64url"),
       name: input.name,
       address: input.address ?? null,
       electricityPrice: parseAmount(input.electricityPrice),

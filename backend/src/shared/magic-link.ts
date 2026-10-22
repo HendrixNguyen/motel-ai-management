@@ -1,5 +1,6 @@
 import { and, eq, gt, isNull } from "drizzle-orm";
 import { randomBytes } from "crypto";
+import { hashMagicLinkToken } from "./magic-link-token";
 import { env } from "@/config";
 import { db } from "@/db";
 import { magicLinks } from "@/modules/auth/auth.schema";
@@ -26,7 +27,7 @@ export async function issueMagicLink(
 
   await db.insert(magicLinks).values({
     renterId,
-    token,
+    tokenHash: hashMagicLinkToken(token),
     expiresAt,
   });
 
@@ -43,7 +44,7 @@ export async function consumeMagicLink(token: string): Promise<RenterRow> {
     .set({ consumedAt: now })
     .where(
       and(
-        eq(magicLinks.token, token),
+        eq(magicLinks.tokenHash, hashMagicLinkToken(token)),
         isNull(magicLinks.consumedAt),
         gt(magicLinks.expiresAt, now),
       ),

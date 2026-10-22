@@ -10,6 +10,12 @@ import type {
   RenterTicket,
 } from "./types";
 
+export function requestRenterLogin(motelCode: string, phone: string) {
+  return apiSend<{ message: string }>("/api/renter/login-requests", "POST", {
+    motelCode,
+    phone,
+  });
+}
 export function exchangeRenterMagicLink(token: string) {
   return apiSend<{ renterId: string; motelId: string }>(
     "/api/renter/magic-links/exchange",
@@ -41,6 +47,9 @@ export function removeRenterPushSubscription(endpoint: string) {
 }
 export function listRenterPeriods() {
   return apiGet<RenterPeriod[]>("/api/renter/billing/periods");
+}
+export function listRenterUnpaidInvoices() {
+  return apiGet<RenterInvoiceSummary[]>("/api/renter/billing/unpaid-invoices");
 }
 export function listRenterInvoices(periodId: string) {
   return apiGet<RenterInvoiceSummary[]>(

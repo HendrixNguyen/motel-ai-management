@@ -3,6 +3,7 @@ import {
   listRenterInvoicesForPeriod,
   listBillingPeriodsForRenter,
   getRenterInvoiceDetail,
+  listUnpaidInvoicesForRenter,
 } from "@/modules/billing/billing.service";
 import { db } from "@/db";
 import { getRoomForRenter } from "@/modules/room/room.service";
@@ -39,6 +40,10 @@ export async function listRenterPeriods(session: RenterSession): Promise<RenterP
   return listBillingPeriodsForRenter(session.motelId, session.renterId);
 }
 
+export async function listRenterUnpaidInvoices(session: RenterSession): Promise<RenterInvoice[]> {
+  return listUnpaidInvoicesForRenter(session.renterId, session.motelId);
+}
+
 export async function listRenterInvoices(
   session: RenterSession,
   periodId: string,
@@ -52,8 +57,7 @@ export async function getRenterInvoice(
   session: RenterSession,
   invoiceId: string,
 ): Promise<RenterInvoice> {
-  const detail = await getRenterInvoiceDetail(session.renterId, session.motelId, invoiceId);
-  if (!detail) throw AppError.notFound("Không tìm thấy hóa đơn");
-  const motel = await getMotelForRenter(session.motelId);
-  return { ...detail, bankAccount: motel?.bankAccount ?? null };
+  const invoice = await getRenterInvoiceDetail(session.renterId, session.motelId, invoiceId);
+  if (!invoice) throw AppError.notFound("Không tìm thấy hóa đơn");
+  return invoice;
 }

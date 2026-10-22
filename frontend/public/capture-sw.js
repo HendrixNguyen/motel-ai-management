@@ -34,12 +34,14 @@ self.addEventListener("push", (event) => {
     typeof payload.body === "string"
       ? payload.body.slice(0, 160)
       : "Hóa đơn của bạn có cập nhật mới.";
+  const candidate = typeof payload.path === "string" ? payload.path : "";
   const path =
-    typeof payload.path === "string" &&
-    payload.path.startsWith("/portal/") &&
-    !payload.path.startsWith("//")
-      ? payload.path
-      : "/portal/bills";
+    candidate.startsWith("/portal/bills/") &&
+    !candidate.includes("//") &&
+    !candidate.includes("?") &&
+    !candidate.includes("#")
+      ? candidate
+      : "/portal";
   event.waitUntil(
     self.registration.showNotification(title, {
       body,
@@ -52,8 +54,8 @@ self.addEventListener("push", (event) => {
 });
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const path = event.notification.data?.path;
-  if (typeof path !== "string" || !path.startsWith("/portal/")) return;
+const path = event.notification.data?.path;
+   if (typeof path !== "string" || !path.startsWith("/portal") || path.startsWith("//") || path.includes("?") || path.includes("#")) return;
   const target = new URL(path, self.location.origin).href;
   event.waitUntil(
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {

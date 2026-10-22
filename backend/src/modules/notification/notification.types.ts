@@ -5,6 +5,7 @@ export type NotificationInput = {
   renterId: string;
   motelId: string;
   templateId?: string;
+  channel?: "zns" | "web_push" | "manual";
   payload: Record<string, unknown>;
   transientSecret?: Record<string, unknown>;
 };

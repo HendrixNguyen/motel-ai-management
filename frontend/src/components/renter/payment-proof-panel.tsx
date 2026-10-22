@@ -1,14 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError } from "@/lib/api/client";
 import { getRenterPaymentProof, submitRenterPaymentProof } from "@/lib/api/renter";
 import type { PaymentProofStatus, RenterPaymentProof } from "@/lib/api/types";
-import {
-  paymentProofLabel,
-  validatePaymentProofBytes,
-  PAYMENT_PROOF_MAX_BYTES,
-} from "@/lib/payment-proof";
+import { paymentProofLabel, PAYMENT_PROOF_SOURCE_MAX_BYTES } from "@/lib/payment-proof";
+import { convertPaymentProofImage, PAYMENT_PROOF_ACCEPT } from "@/lib/payment-proof-image";
 import ImagePreview from "@/components/ui/image-preview";
 import FileUpload from "@/components/ui/file-upload";
 
@@ -19,7 +16,7 @@ export default function PaymentProofPanel({
 }: {
   invoiceId: string;
   paymentStatus: "unpaid" | "paid" | "overdue";
-  paymentMethod?: "bank_transfer" | "cash" | null;
+  paymentMethod: "bank_transfer" | "cash" | null;
 }) {
   const [proof, setProof] = useState<RenterPaymentProof | null>(null);
   const [file, setFile] = useState<File>();
@@ -27,6 +24,8 @@ export default function PaymentProofPanel({
   const [error, setError] = useState<string>();
   const [uploadError, setUploadError] = useState<string>();
   const [pending, setPending] = useState(false);
+  const [converting, setConverting] = useState(false);
+  const selectionId = useRef(0);
   const [loading, setLoading] = useState(true);
   const [loadFailed, setLoadFailed] = useState(false);
 
@@ -48,13 +47,16 @@ export default function PaymentProofPanel({
     },
     [invoiceId],
   );
+
   useEffect(() => {
     const controller = new AbortController();
     queueMicrotask(() => void refreshProof(controller.signal));
     return () => controller.abort();
   }, [refreshProof]);
+
   useEffect(
     () => () => {
+      selectionId.current += 1;
       if (preview) URL.revokeObjectURL(preview);
     },
     [preview],
@@ -89,6 +91,7 @@ export default function PaymentProofPanel({
         )}
       </section>
     );
+
   if (paymentStatus === "paid")
     return (
       <section
@@ -109,6 +112,7 @@ export default function PaymentProofPanel({
     );
 
   async function choose(next: File | undefined) {
+    const currentId = ++selectionId.current;
     setError(undefined);
     setFile(undefined);
     if (preview) URL.revokeObjectURL(preview);
@@ -117,14 +121,21 @@ export default function PaymentProofPanel({
       setUploadError(undefined);
       return;
     }
-    const result = await validatePaymentProofBytes(next);
-    if (!result.ok) {
-      setError(result.error);
-      return;
+    setConverting(true);
+    try {
+      const converted = await convertPaymentProofImage(next);
+      if (currentId !== selectionId.current) return;
+      setFile(converted);
+      setPreview(URL.createObjectURL(converted));
+    } catch (cause) {
+      if (currentId === selectionId.current) {
+        setError(cause instanceof Error ? cause.message : "Không thể xử lý ảnh.");
+      }
+    } finally {
+      if (currentId === selectionId.current) setConverting(false);
     }
-    setFile(next);
-    setPreview(URL.createObjectURL(next));
   }
+
   async function submit() {
     if (!file || pending) return;
     setPending(true);
@@ -144,9 +155,11 @@ export default function PaymentProofPanel({
       setPending(false);
     }
   }
+
   const status: PaymentProofStatus | undefined = proof?.status;
   const rejectionReason = proof?.rejectionReason;
   const canReplace = status === "rejected";
+
   return (
     <section
       aria-labelledby="payment-proof-title"
@@ -157,7 +170,8 @@ export default function PaymentProofPanel({
           Chứng từ chuyển khoản
         </h2>
         <p className="mt-1 text-sm text-text-muted">
-          Gửi một ảnh JPG hoặc PNG, tối đa 5 MB. Chủ nhà sẽ kiểm tra và xác nhận.
+          Gửi một ảnh JPEG, PNG, WebP hoặc HEIC tối đa 20 MB. Ảnh WebP/HEIC được chuyển sang JPEG tối
+          đa 5 MB khi trình duyệt hỗ trợ. Chủ nhà sẽ kiểm tra và xác nhận.
         </p>
       </div>
       {status && (
@@ -174,8 +188,9 @@ export default function PaymentProofPanel({
           <FileUpload
             id="payment-proof-file"
             label={canReplace ? "Ảnh chứng từ thay thế" : "Ảnh chứng từ"}
-            maxBytes={PAYMENT_PROOF_MAX_BYTES}
-            pending={pending}
+            maxBytes={PAYMENT_PROOF_SOURCE_MAX_BYTES}
+            accept={PAYMENT_PROOF_ACCEPT}
+            pending={pending || converting}
             previewUrl={preview}
             onRemovePreview={() => {
               setFile(undefined);
@@ -187,15 +202,14 @@ export default function PaymentProofPanel({
             onFiles={(files) => {
               void choose(files[0]);
             }}
-            capture="environment"
           />
           <button
             type="button"
             onClick={() => void submit()}
-            disabled={!file || pending}
+            disabled={!file || pending || converting}
             className="min-h-11 w-full rounded-input bg-primary px-4 py-2 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {pending ? "Đang gửi…" : "Gửi chứng từ"}
+            {converting ? "Đang chuyển đổi ảnh…" : pending ? "Đang gửi…" : "Gửi chứng từ"}
           </button>
         </>
       )}

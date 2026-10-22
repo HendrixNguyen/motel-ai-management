@@ -10,7 +10,7 @@ import {
 import Field from "./field";
 import ImagePreview from "./image-preview";
 
-const ACCEPTED = ["image/jpeg", "image/png"];
+const DEFAULT_ACCEPTED = ["image/jpeg", "image/png"];
 type Props = Omit<
   InputHTMLAttributes<HTMLInputElement>,
   "id" | "type" | "accept" | "onChange" | "onError"
@@ -20,6 +20,7 @@ type Props = Omit<
   error?: string;
   hint?: string;
   maxBytes?: number;
+  accept?: string;
   onFiles: (files: File[]) => void;
   onError?: (message: string) => void;
   onRetry?: () => void;
@@ -35,8 +36,14 @@ function formatLimit(bytes: number): string {
     : `${Math.round(bytes / 1_000_000)} MB`;
 }
 
-function isAcceptedFile(file: File, maxBytes = 10 * 1024 * 1024): boolean {
-  return ACCEPTED.includes(file.type) && file.size <= maxBytes;
+function isAcceptedFile(
+  file: File,
+  maxBytes = 10 * 1024 * 1024,
+  accepted = DEFAULT_ACCEPTED,
+): boolean {
+  return (
+    (accepted as readonly string[]).includes(file.type) && file.size > 0 && file.size <= maxBytes
+  );
 }
 
 function FileUpload({
@@ -45,6 +52,7 @@ function FileUpload({
   error,
   hint,
   maxBytes = 10 * 1024 * 1024,
+  accept = DEFAULT_ACCEPTED.join(","),
   onFiles,
   onError,
   onRetry,
@@ -58,14 +66,19 @@ function FileUpload({
   const [dragging, setDragging] = useState(false);
   const dragDepth = useRef(0);
   const limit = formatLimit(maxBytes);
+  const allowed = accept ? accept.split(",").map((item) => item.trim()) : DEFAULT_ACCEPTED;
 
   const handleFiles = (files: File[]) => {
     if (files.length !== 1) {
       onError?.("Chọn một ảnh cho mỗi trường tải lên");
       return;
     }
-    if (!isAcceptedFile(files[0]!, maxBytes)) {
-      onError?.(`Chỉ nhận ảnh JPEG hoặc PNG tối đa ${limit}`);
+    if (!isAcceptedFile(files[0]!, maxBytes, allowed)) {
+      onError?.(
+        accept === DEFAULT_ACCEPTED.join(",")
+          ? `Chỉ nhận ảnh JPEG hoặc PNG tối đa ${limit}`
+          : `Chỉ nhận ảnh được hỗ trợ tối đa ${limit}`,
+      );
       return;
     }
     onError?.("");
@@ -74,22 +87,20 @@ function FileUpload({
 
   const handleChange = (event: ChangeEvent<HTMLInputElement>) => {
     handleFiles(Array.from(event.currentTarget.files ?? []));
-    event.currentTarget.value = "";
   };
 
   const onDragEnter = (event: DragEvent<HTMLDivElement>) => {
     event.preventDefault();
-    if (pending || !Array.from(event.dataTransfer.types).includes("Files")) return;
     dragDepth.current += 1;
     setDragging(true);
   };
 
   const onDragOver = (event: DragEvent<HTMLDivElement>) => {
-    if (Array.from(event.dataTransfer.types).includes("Files")) event.preventDefault();
+    event.preventDefault();
   };
 
   const onDragLeave = (event: DragEvent<HTMLDivElement>) => {
-    if (!Array.from(event.dataTransfer.types).includes("Files")) return;
+    event.preventDefault();
     dragDepth.current = Math.max(0, dragDepth.current - 1);
     if (dragDepth.current === 0) setDragging(false);
   };
@@ -118,7 +129,7 @@ function FileUpload({
             id={id}
             ref={inputRef}
             type="file"
-            accept={ACCEPTED.join(",")}
+            accept={accept}
             onChange={handleChange}
             disabled={pending}
             className="sr-only"
@@ -150,4 +161,5 @@ function FileUpload({
 }
 
 FileUpload.isAcceptedFile = isAcceptedFile;
+
 export default FileUpload;

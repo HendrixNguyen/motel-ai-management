@@ -203,6 +203,20 @@ describe("renter portal reads", () => {
     expect(body[0]).not.toHaveProperty("managerNote");
   });
 
+  test("lists only own unpaid invoices from all sent billing periods", async () => {
+    const data = await seed();
+    const cookie = await sessionCookie(data.renterA.id);
+    const response = await app.handle(
+      new Request("http://localhost/api/renter/billing/unpaid-invoices", {
+        headers: { cookie },
+      }),
+    );
+    expect(response.status).toBe(200);
+    expect(asRecords(await response.json()).map((invoice) => invoice.id)).toEqual([
+      data.invoiceA.id,
+    ]);
+  });
+
   test("rejects foreign period IDs and cannot mutate payment state", async () => {
     const data = await seed();
     const cookie = await sessionCookie(data.renterA.id);

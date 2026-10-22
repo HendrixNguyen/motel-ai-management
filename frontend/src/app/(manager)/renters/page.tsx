@@ -8,6 +8,7 @@ import RenterEditor from "@/components/manager/renter-editor";
 import { resolveMotelId, type MotelSearchParams } from "@/lib/motel-selection";
 import PageHeader from "@/components/ui/page-header";
 import Card from "@/components/ui/card";
+import LoginRequestQueue from "@/components/manager/login-request-queue";
 
 export default async function Renters({
   searchParams,
@@ -47,6 +48,7 @@ export default async function Renters({
           initiallyOpen={params.create === "1"}
         />
       </div>
+      <LoginRequestQueue motelId={motelId} />
       {roomId && (
         <div className="flex min-w-0 flex-wrap items-center gap-3 text-base text-text-body">
           <p className="[overflow-wrap:anywhere]">Phòng: {roomNames[roomId] ?? "Chưa cập nhật"}</p>

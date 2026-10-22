@@ -455,12 +455,9 @@ technical error text. This route is never linked directly from the app UI.
 
 ### R1 — Trang chủ `/portal`
 
-Current-invoice card:
-
-- `Hóa đơn Tháng MM/YYYY`
-- Total, large, tabular numerals
-- Status badge: `Chưa thanh toán` (warning), `Đã thanh toán` (success), `Quá hạn` (danger)
-- Primary CTA **Xem mã VietQR** → invoice detail
+Current and unpaid invoices:
+- Displays pending/overdue invoices across sent periods with direct "Xem QR" and "Gửi chứng từ" actions.
+- Lists billing periods linking to `/portal/bills?period=...`.
 
 Invoices have no due-date field; do not display or imply one.
 
@@ -500,7 +497,7 @@ Payment block:
 - Transfer description shown verbatim, with a copy button
 - Instruction: open your banking app and scan, or transfer manually with the exact
   description so the manager can match it
-- Payment proof: one current JPEG/PNG image, maximum 5,000,000 bytes (5 MB), with states **Đang chờ duyệt**, **Đã duyệt**, and **Bị từ chối**. Rejected proof remains visible as history, shows safe manager reason, and allows one replacement current proof; pending/approved and paid invoices disable upload.
+- Payment proof: one current JPEG/PNG image, maximum 5,000,000 bytes (5 MB), with states **Đang chờ duyệt**, **Đã duyệt**, and **Bị từ chối**. WebP/HEIC/HEIF files are accepted in file input and converted to JPEG in browser where supported. Rejected proof remains visible as history, shows safe manager reason, and allows one replacement current proof; pending/approved and paid invoices disable upload.
 - Renter has no **Đã thanh toán** action. Payment becomes paid only after manager bank-proof approval or explicit cash confirmation.
 
 If `motel.bankAccount` is null the payment block is replaced by "Chưa cập nhật thông tin

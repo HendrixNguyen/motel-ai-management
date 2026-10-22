@@ -272,6 +272,54 @@ export async function listRenterInvoicesForPeriod(
   }));
 }
 
+export async function listUnpaidInvoicesForRenter(
+  renterId: string,
+  motelId: string,
+  limit = 20,
+): Promise<RenterInvoiceProjection[]> {
+  const rows = await db
+    .select({ invoice: invoices, month: billingPeriods.month, year: billingPeriods.year })
+    .from(invoices)
+    .innerJoin(
+      billingPeriods,
+      and(
+        eq(billingPeriods.id, invoices.billingPeriodId),
+        eq(billingPeriods.motelId, motelId),
+      ),
+    )
+    .where(
+      and(
+        eq(invoices.renterId, renterId),
+        eq(invoices.motelId, motelId),
+        inArray(invoices.paymentStatus, ["unpaid", "overdue"]),
+        sql`${billingPeriods.status} <> 'draft'`,
+      ),
+    )
+    .orderBy(desc(billingPeriods.year), desc(billingPeriods.month), desc(invoices.createdAt))
+    .limit(Math.max(1, Math.min(limit, 50)));
+  const rooms = await listRoomsForBilling(motelId);
+  return rows.map(({ invoice, month, year }) => ({
+    id: invoice.id,
+    billingPeriodId: invoice.billingPeriodId,
+    month,
+    year,
+    roomId: invoice.roomId,
+    roomName: rooms.find((room) => room.id === invoice.roomId)?.name ?? "",
+    rentAmount: invoice.rentAmount,
+    electricityUsage: invoice.electricityUsage,
+    electricityCost: invoice.electricityCost,
+    waterUsage: invoice.waterUsage,
+    waterCost: invoice.waterCost,
+    otherFees: invoice.otherFees,
+    totalAmount: invoice.totalAmount,
+    qrCodeData: invoice.qrCodeData,
+    paymentStatus: invoice.paymentStatus,
+    paymentMethod: invoice.paymentMethod as "bank_transfer" | "cash" | null,
+    paidAt: invoice.paidAt?.toISOString() ?? null,
+    createdAt: invoice.createdAt.toISOString(),
+  }));
+}
+
 export async function listBillingPeriodsForRenter(
   motelId: string,
   renterId: string,
@@ -668,17 +716,24 @@ export async function sendBillingPeriod(
     const rows = await tx.query.invoices.findMany({
       where: eq(invoices.billingPeriodId, periodId),
     });
-    return { updated, rows };
+    for (const invoice of rows) {
+      await enqueueNotification(
+        {
+          eventKey: `invoice:${invoice.id}:bill-ready`,
+          renterId: invoice.renterId,
+          motelId,
+          channel: "web_push",
+          payload: {
+            title: "Hóa đơn mới",
+            body: "Bạn có hóa đơn mới cần xem.",
+            path: `/portal/bills/${invoice.id}`,
+          },
+        },
+        tx,
+      );
+    }
+    return { updated };
   });
-  for (const invoice of result.rows) {
-    await enqueueNotification({
-      eventKey: `billing:${periodId}:sent:${invoice.renterId}`,
-      renterId: invoice.renterId,
-      motelId,
-      templateId: "bill",
-      payload: { invoiceId: invoice.id, totalAmount: invoice.totalAmount },
-    }).catch(() => undefined);
-  }
   return periodResponse(result.updated);
 }
 

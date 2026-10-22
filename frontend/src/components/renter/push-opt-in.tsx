@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { ApiError } from "@/lib/api/client";
 import Button from "@/components/ui/button";
 import {
   getRenterPushKey,
@@ -51,14 +52,21 @@ export default function PushOptIn() {
           update("denied");
           return;
         }
-        const registration = await navigator.serviceWorker.ready;
+        const registration = await Promise.race([
+          navigator.serviceWorker.ready,
+          new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error("service worker timeout")), 5000),
+          ),
+        ]);
         const current = await registration.pushManager.getSubscription();
         if (current && saved.subscription?.endpoint === current.endpoint) update("on");
         else if (current) {
           update("error");
         } else update("off");
       })
-      .catch(() => update("error"));
+      .catch((error) =>
+        update(error instanceof ApiError && error.code === "UNAUTHORIZED" ? "unavailable" : "error"),
+      );
     return () => {
       active = false;
     };
@@ -79,7 +87,12 @@ export default function PushOptIn() {
         setState("off");
         return;
       }
-      const registration = await navigator.serviceWorker.ready;
+      const registration = await Promise.race([
+        navigator.serviceWorker.ready,
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error("service worker timeout")), 5000),
+        ),
+      ]);
       const subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: decodeKey(publicKey),

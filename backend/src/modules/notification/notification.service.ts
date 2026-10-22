@@ -1,4 +1,4 @@
-import { and, eq, isNull, lte, or, sql } from "drizzle-orm";
+import { and, asc, eq, isNull, lte, or, sql } from "drizzle-orm";
 import { createRequire } from "node:module";
 import type webPush from "web-push";
 import { env } from "@/config";
@@ -102,10 +102,18 @@ export async function sendPushToRenter(
   } catch {
     return false;
   }
+  const candidatePath = payload.path ?? "/portal";
+  const path =
+    candidatePath.startsWith("/portal/bills/") &&
+    !candidatePath.includes("//") &&
+    !candidatePath.includes("?") &&
+    !candidatePath.includes("#")
+      ? candidatePath
+      : "/portal";
   const data = JSON.stringify({
     title: payload.title.slice(0, 80),
     body: payload.body.slice(0, 160),
-    path: payload.path?.startsWith("/portal/bills/") ? payload.path : "/portal/bills",
+    path,
     tag: payload.tag?.slice(0, 100),
   });
   const results = await Promise.all(
@@ -287,11 +295,13 @@ export async function enqueueNotification(
   input: NotificationInput,
   executor: NotificationExecutor = db,
 ): Promise<NotificationEvent> {
-  if (!recipientResolver)
-    throw AppError.externalService("Notification recipient resolver chưa được cấu hình");
-  const recipient = await recipientResolver(input.renterId, input.motelId);
-  if (!recipient) throw AppError.notFound("Không tìm thấy người thuê");
-  const channel = "zns" as const;
+  if (input.channel !== "web_push" && input.channel !== "manual") {
+    if (!recipientResolver)
+      throw AppError.externalService("Notification recipient resolver chưa được cấu hình");
+    const recipient = await recipientResolver(input.renterId, input.motelId);
+    if (!recipient) throw AppError.notFound("Không tìm thấy người thuê");
+  }
+  const channel = input.channel ?? "zns";
   const [row] = await executor
     .insert(notificationEvents)
     .values({
@@ -318,8 +328,12 @@ export async function enqueueNotification(
   return existing;
 }
 
+export async function listDueNotificationIds(limit = 20): Promise<string[]> {
+  const rows = await db.query.notificationEvents.findMany({ where: and(eq(notificationEvents.status, "pending"), or(isNull(notificationEvents.nextRetryAt), lte(notificationEvents.nextRetryAt, new Date())), or(isNull(notificationEvents.leaseUntil), lte(notificationEvents.leaseUntil, new Date()))), columns: { id: true }, orderBy: [asc(notificationEvents.createdAt)], limit: Math.max(1, Math.min(limit, 50)) });
+  return rows.map((row) => row.id);
+}
+
 export async function deliverNotification(eventId: string): Promise<NotificationEvent> {
-  if (!provider) throw AppError.externalService("Zalo chưa được cấu hình");
   const now = new Date();
   const leaseId = crypto.randomUUID();
   const [claimed] = await db
@@ -352,6 +366,73 @@ export async function deliverNotification(eventId: string): Promise<Notification
           .returning()
       )[0],
     );
+  if (event.channel === "manual") {
+    return db
+      .update(notificationEvents)
+      .set({
+        status: "failed",
+        failureClass: "permanent",
+        failureReason: "manual_action_required",
+        leaseId: null,
+        leaseUntil: null,
+        updatedAt: new Date(),
+      })
+      .where(and(eq(notificationEvents.id, event.id), eq(notificationEvents.leaseId, leaseId)))
+      .returning()
+      .then(([row]) => row ?? event);
+  }
+  if (event.channel === "web_push") {
+    try {
+      const delivered = await sendPushToRenter(event.renterId, event.motelId, {
+        title: String(event.payload.title ?? "Hóa đơn mới"),
+        body: String(event.payload.body ?? "Bạn có hóa đơn mới cần xem."),
+        path: String(event.payload.path ?? "/portal"),
+        tag: event.eventKey,
+      });
+      if (delivered) {
+        return db
+          .update(notificationEvents)
+          .set({
+            status: "sent",
+            providerId: "web-push",
+            sentAt: new Date(),
+            updatedAt: new Date(),
+            leaseId: null,
+            leaseUntil: null,
+          })
+          .where(and(eq(notificationEvents.id, event.id), eq(notificationEvents.leaseId, leaseId)))
+          .returning()
+          .then(([row]) => row ?? event);
+      }
+      return db
+        .update(notificationEvents)
+        .set({
+          status: "failed",
+          failureClass: "permanent",
+          failureReason: "manual_action_required",
+          leaseId: null,
+          leaseUntil: null,
+          updatedAt: new Date(),
+        })
+        .where(and(eq(notificationEvents.id, event.id), eq(notificationEvents.leaseId, leaseId)))
+        .returning()
+        .then(([row]) => row ?? event);
+    } catch {
+      return db
+        .update(notificationEvents)
+        .set({
+          status: "failed",
+          failureClass: "permanent",
+          failureReason: "manual_action_required",
+          leaseId: null,
+          leaseUntil: null,
+          updatedAt: new Date(),
+        })
+        .where(and(eq(notificationEvents.id, event.id), eq(notificationEvents.leaseId, leaseId)))
+        .returning()
+        .then(([row]) => row ?? event);
+    }
+  }
   if (!recipientResolver) {
     await releaseLease();
     throw AppError.externalService("Notification recipient resolver chưa được cấu hình");
@@ -368,6 +449,10 @@ export async function deliverNotification(eventId: string): Promise<Notification
     throw AppError.notFound(
       released ? "Không tìm thấy người thuê" : "Không tìm thấy sự kiện thông báo",
     );
+  }
+  if (!provider) {
+    await releaseLease();
+    throw AppError.externalService("Zalo chưa được cấu hình");
   }
   const transientSecret = secrets.get(event.id);
   if (

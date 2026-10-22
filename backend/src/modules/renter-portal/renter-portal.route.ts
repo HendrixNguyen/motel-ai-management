@@ -6,6 +6,7 @@ import {
   listRenterInvoices,
   listRenterPeriods,
   getRenterInvoice,
+  listRenterUnpaidInvoices,
 } from "./renter-portal.service";
 
 const periodParams = t.Object({ periodId: t.String({ format: "uuid" }) });
@@ -20,6 +21,11 @@ export const renterPortalRoutes = new Elysia({ name: "renter-portal-routes" })
   .get("/renter/billing/periods", ({ auth }) => listRenterPeriods(requireRenterAuth(auth)), {
     detail: { security: [{ renterAuth: [] }] },
   })
+  .get(
+    "/renter/billing/unpaid-invoices",
+    ({ auth }) => listRenterUnpaidInvoices(requireRenterAuth(auth)),
+    { detail: { security: [{ renterAuth: [] }] } },
+  )
   .get(
     "/renter/billing/periods/:periodId/invoices",
     ({ auth, params }) => listRenterInvoices(requireRenterAuth(auth), params.periodId),

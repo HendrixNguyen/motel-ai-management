@@ -1,10 +1,14 @@
 import { serverGetRenter } from "@/lib/api/renter.server";
-import type { RenterPeriod } from "@/lib/api/types";
+import type { RenterInvoiceSummary, RenterPeriod } from "@/lib/api/types";
 import Link from "next/link";
 import PushOptIn from "@/components/renter/push-opt-in";
+import { formatVnd } from "@/lib/format/vnd";
 
 export default async function RenterHomePage() {
-  const periods = await serverGetRenter<RenterPeriod[]>("/api/renter/billing/periods");
+  const [periods, unpaid] = await Promise.all([
+    serverGetRenter<RenterPeriod[]>("/api/renter/billing/periods"),
+    serverGetRenter<RenterInvoiceSummary[]>("/api/renter/billing/unpaid-invoices"),
+  ]);
   return (
     <section className="space-y-6">
       <div className="rounded-card bg-primary p-5 text-surface">
@@ -14,6 +18,39 @@ export default async function RenterHomePage() {
           Chọn kỳ để xem chi tiết tiền thuê và chỉ số.
         </p>
       </div>
+      {unpaid.length > 0 && (
+        <section aria-labelledby="unpaid-invoices-heading" className="space-y-3">
+          <h2 id="unpaid-invoices-heading" className="font-heading text-lg font-semibold text-text">
+            Hóa đơn cần thanh toán
+          </h2>
+          {unpaid.map((invoice) => (
+            <article key={invoice.id} className="rounded-card border border-border bg-surface p-4">
+              <p className="font-semibold text-text">
+                Phòng {invoice.roomName} · Tháng {String(invoice.month).padStart(2, "0")}/
+                {invoice.year}
+              </p>
+              <p className="mt-1 text-sm text-text-muted">
+                {formatVnd(invoice.totalAmount)} ·{" "}
+                {invoice.paymentStatus === "overdue" ? "Quá hạn" : "Chưa thanh toán"}
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <Link
+                  className="min-h-11 rounded-input border border-border px-4 py-2 font-semibold text-primary"
+                  href={`/portal/bills/${invoice.id}`}
+                >
+                  Xem QR
+                </Link>
+                <Link
+                  className="min-h-11 rounded-input bg-primary px-4 py-2 font-semibold text-white"
+                  href={`/portal/bills/${invoice.id}#payment-proof-title`}
+                >
+                  Gửi chứng từ
+                </Link>
+              </div>
+            </article>
+          ))}
+        </section>
+      )}
       {periods.length ? (
         <div className="space-y-3">
           {periods.map((period) => (
