@@ -1,11 +1,7 @@
 import { and, asc, desc, eq, sql } from "drizzle-orm";
 import { createHash } from "node:crypto";
 import { db, type Db } from "@/db";
-import {
-  resolveOwnedMotel,
-  resolveRoomInMotel,
-  resolveRenterInMotel,
-} from "@/middleware/tenancy";
+import { resolveOwnedMotel, resolveRoomInMotel, resolveRenterInMotel } from "@/middleware/tenancy";
 import { getRoomName } from "@/modules/room/room.service";
 import { getRenterForConsent } from "@/modules/renter/renter.service";
 import { parseAmount, type VndString } from "@/shared/money";
@@ -21,14 +17,10 @@ import type {
   UpdateContractTemplateInput,
 } from "./contract.types";
 
-function templateResponse(
-  row: typeof contractTemplates.$inferSelect,
-): ContractTemplateResponse {
+function templateResponse(row: typeof contractTemplates.$inferSelect): ContractTemplateResponse {
   return { ...row, createdAt: row.createdAt.toISOString() };
 }
-function contractResponse(
-  row: typeof contracts.$inferSelect,
-): ContractResponse {
+function contractResponse(row: typeof contracts.$inferSelect): ContractResponse {
   return {
     id: row.id,
     motelId: row.motelId,
@@ -40,10 +32,28 @@ function contractResponse(
     monthlyRent: row.monthlyRent as VndString,
     deposit: row.deposit as VndString,
     clauses: row.clauses,
-    termsVersion: createHash("sha256").update(JSON.stringify({ renterId: row.renterId, roomId: row.roomId, motelId: row.motelId, startDate: row.startDate, endDate: row.endDate, monthlyRent: row.monthlyRent, deposit: row.deposit, clauses: row.clauses })).digest("hex"),
+    termsVersion: createHash("sha256")
+      .update(
+        JSON.stringify({
+          renterId: row.renterId,
+          roomId: row.roomId,
+          motelId: row.motelId,
+          startDate: row.startDate,
+          endDate: row.endDate,
+          monthlyRent: row.monthlyRent,
+          deposit: row.deposit,
+          clauses: row.clauses,
+        }),
+      )
+      .digest("hex"),
     consentAcceptedAt: row.consentAcceptedAt?.toISOString() ?? null,
     consentMethod: row.consentMethod as "session_consent" | null,
-    consentEvidence: row.consentAcceptedAt ? { termsVersion: row.acceptedTermsVersion!, acceptedTermsSnapshot: row.acceptedTermsSnapshot } : null,
+    consentEvidence: row.consentAcceptedAt
+      ? {
+          termsVersion: row.acceptedTermsVersion!,
+          acceptedTermsSnapshot: row.acceptedTermsSnapshot,
+        }
+      : null,
     managerSentAt: row.managerSentAt?.toISOString() ?? null,
     otpSentAt: row.otpSentAt?.toISOString() ?? null,
     otpSignedAt: row.otpSignedAt?.toISOString() ?? null,
@@ -58,9 +68,7 @@ function validateContractDates(startDate: string, endDate: string) {
     throw AppError.badRequest("Ngày kết thúc phải sau ngày bắt đầu");
 }
 
-function validateTemplate(
-  input: ContractTemplateInput | UpdateContractTemplateInput,
-) {
+function validateTemplate(input: ContractTemplateInput | UpdateContractTemplateInput) {
   if (input.name !== undefined && !input.name.trim())
     throw AppError.badRequest("Tên mẫu hợp đồng không được để trống");
   if (
@@ -76,17 +84,9 @@ async function clearDefault(
   await tx
     .update(contractTemplates)
     .set({ isDefault: false })
-    .where(
-      and(
-        eq(contractTemplates.motelId, motelId),
-        eq(contractTemplates.isDefault, true),
-      ),
-    );
+    .where(and(eq(contractTemplates.motelId, motelId), eq(contractTemplates.isDefault, true)));
 }
-export async function listContractTemplates(
-  motelId: string,
-  managerId: string,
-) {
+export async function listContractTemplates(motelId: string, managerId: string) {
   await resolveOwnedMotel(motelId, managerId);
   return (
     await db
@@ -117,17 +117,10 @@ export async function createContractTemplate(
   });
   return templateResponse(result[0]!);
 }
-export async function getContractTemplate(
-  motelId: string,
-  templateId: string,
-  managerId: string,
-) {
+export async function getContractTemplate(motelId: string, templateId: string, managerId: string) {
   await resolveOwnedMotel(motelId, managerId);
   const row = await db.query.contractTemplates.findFirst({
-    where: and(
-      eq(contractTemplates.id, templateId),
-      eq(contractTemplates.motelId, motelId),
-    ),
+    where: and(eq(contractTemplates.id, templateId), eq(contractTemplates.motelId, motelId)),
   });
   if (!row) throw AppError.notFound("Không tìm thấy mẫu hợp đồng");
   return templateResponse(row);
@@ -163,16 +156,10 @@ export async function deleteContractTemplate(
   await getContractTemplate(motelId, templateId, managerId);
   if (await db.$count(contracts, eq(contracts.templateId, templateId)))
     throw AppError.conflict("Không thể xóa mẫu hợp đồng đang được sử dụng");
-  await db
-    .delete(contractTemplates)
-    .where(eq(contractTemplates.id, templateId));
+  await db.delete(contractTemplates).where(eq(contractTemplates.id, templateId));
 }
 
-async function ownedContract(
-  motelId: string,
-  contractId: string,
-  managerId: string,
-) {
+async function ownedContract(motelId: string, contractId: string, managerId: string) {
   await resolveOwnedMotel(motelId, managerId);
   const row = await db.query.contracts.findFirst({
     where: and(eq(contracts.id, contractId), eq(contracts.motelId, motelId)),
@@ -199,13 +186,9 @@ export async function createContract(
         ),
       })
     : await db.query.contractTemplates.findFirst({
-        where: and(
-          eq(contractTemplates.motelId, motelId),
-          eq(contractTemplates.isDefault, true),
-        ),
+        where: and(eq(contractTemplates.motelId, motelId), eq(contractTemplates.isDefault, true)),
       });
-  if (input.templateId && !template)
-    throw AppError.notFound("Không tìm thấy mẫu hợp đồng");
+  if (input.templateId && !template) throw AppError.notFound("Không tìm thấy mẫu hợp đồng");
   const [row] = await db
     .insert(contracts)
     .values({
@@ -239,11 +222,7 @@ export async function listContracts(
       .orderBy(desc(contracts.createdAt), desc(contracts.id))
   ).map(contractResponse);
 }
-export async function getContract(
-  motelId: string,
-  contractId: string,
-  managerId: string,
-) {
+export async function getContract(motelId: string, contractId: string, managerId: string) {
   return contractResponse(await ownedContract(motelId, contractId, managerId));
 }
 export async function updateContract(
@@ -253,11 +232,13 @@ export async function updateContract(
   input: UpdateContractInput,
 ) {
   const current = await ownedContract(motelId, contractId, managerId);
-  if (current.status !== "draft")
-    throw AppError.conflict("Chỉ có thể chỉnh sửa hợp đồng nháp");
-  if (current.consentAcceptedAt) throw AppError.conflict("Hợp đồng đã được người thuê xác nhận; không thể sửa điều khoản");
-  if (input.startDate || input.endDate) validateContractDates(input.startDate ?? current.startDate, input.endDate ?? current.endDate);
-  if (input.monthlyRent !== undefined) input = { ...input, monthlyRent: parseAmount(input.monthlyRent) };
+  if (current.status !== "draft") throw AppError.conflict("Chỉ có thể chỉnh sửa hợp đồng nháp");
+  if (current.consentAcceptedAt)
+    throw AppError.conflict("Hợp đồng đã được người thuê xác nhận; không thể sửa điều khoản");
+  if (input.startDate || input.endDate)
+    validateContractDates(input.startDate ?? current.startDate, input.endDate ?? current.endDate);
+  if (input.monthlyRent !== undefined)
+    input = { ...input, monthlyRent: parseAmount(input.monthlyRent) };
   if (input.deposit !== undefined) input = { ...input, deposit: parseAmount(input.deposit) };
   if (input.templateId) {
     const template = await db.query.contractTemplates.findFirst({
@@ -276,11 +257,7 @@ export async function updateContract(
     .returning();
   return contractResponse(row!);
 }
-export async function terminateContract(
-  motelId: string,
-  contractId: string,
-  managerId: string,
-) {
+export async function terminateContract(motelId: string, contractId: string, managerId: string) {
   const current = await ownedContract(motelId, contractId, managerId);
   if (current.status !== "active")
     throw AppError.conflict("Chỉ có thể chấm dứt hợp đồng đang hoạt động");
@@ -292,7 +269,13 @@ export async function terminateContract(
   return contractResponse(row!);
 }
 async function renterContract(contractId: string, renterId: string, motelId: string) {
-  const row = await db.query.contracts.findFirst({ where: and(eq(contracts.id, contractId), eq(contracts.renterId, renterId), eq(contracts.motelId, motelId)) });
+  const row = await db.query.contracts.findFirst({
+    where: and(
+      eq(contracts.id, contractId),
+      eq(contracts.renterId, renterId),
+      eq(contracts.motelId, motelId),
+    ),
+  });
   if (!row) throw AppError.notFound("Không tìm thấy hợp đồng");
   return row;
 }
@@ -301,56 +284,145 @@ export async function getRenterContract(contractId: string, renterId: string, mo
   return contractResponse(await renterContract(contractId, renterId, motelId));
 }
 
-export async function acceptRenterContractConsent(contractId: string, renterId: string, motelId: string, termsVersion: string) {
+export async function acceptRenterContractConsent(
+  contractId: string,
+  renterId: string,
+  motelId: string,
+  termsVersion: string,
+) {
   return db.transaction(async (tx) => {
-    await tx.execute(sql`SELECT id FROM contracts WHERE id = ${contractId} AND renter_id = ${renterId} AND motel_id = ${motelId} FOR UPDATE`);
-    const current = await tx.query.contracts.findFirst({ where: and(eq(contracts.id, contractId), eq(contracts.renterId, renterId), eq(contracts.motelId, motelId)) });
+    await tx.execute(
+      sql`SELECT id FROM contracts WHERE id = ${contractId} AND renter_id = ${renterId} AND motel_id = ${motelId} FOR UPDATE`,
+    );
+    const current = await tx.query.contracts.findFirst({
+      where: and(
+        eq(contracts.id, contractId),
+        eq(contracts.renterId, renterId),
+        eq(contracts.motelId, motelId),
+      ),
+    });
     if (!current) throw AppError.notFound("Không tìm thấy hợp đồng");
-    const currentVersion = createHash("sha256").update(JSON.stringify({ renterId: current.renterId, roomId: current.roomId, motelId: current.motelId, startDate: current.startDate, endDate: current.endDate, monthlyRent: current.monthlyRent, deposit: current.deposit, clauses: current.clauses })).digest("hex");
-    if (current.consentAcceptedAt && current.acceptedTermsVersion === termsVersion && currentVersion === termsVersion) return contractResponse(current);
+    const currentVersion = createHash("sha256")
+      .update(
+        JSON.stringify({
+          renterId: current.renterId,
+          roomId: current.roomId,
+          motelId: current.motelId,
+          startDate: current.startDate,
+          endDate: current.endDate,
+          monthlyRent: current.monthlyRent,
+          deposit: current.deposit,
+          clauses: current.clauses,
+        }),
+      )
+      .digest("hex");
+    if (
+      current.consentAcceptedAt &&
+      current.acceptedTermsVersion === termsVersion &&
+      currentVersion === termsVersion
+    )
+      return contractResponse(current);
     if (current.status !== "draft") throw AppError.conflict("Hợp đồng không ở trạng thái chờ ký");
-    if (currentVersion !== termsVersion) throw AppError.conflict("Điều khoản hợp đồng đã thay đổi. Tải lại để xem bản mới.");
+    if (currentVersion !== termsVersion)
+      throw AppError.conflict("Điều khoản hợp đồng đã thay đổi. Tải lại để xem bản mới.");
     const renter = await getRenterForConsent(renterId, motelId);
-    if (!renter || !renter.idNumber || !renter.cccdFrontUploaded || !renter.cccdBackUploaded) throw AppError.conflict("Chủ nhà cần hoàn tất thông tin CCCD trước khi ký.");
+    if (!renter || !renter.idNumber || !renter.cccdFrontUploaded || !renter.cccdBackUploaded)
+      throw AppError.conflict("Chủ nhà cần hoàn tất thông tin CCCD trước khi ký.");
     const acceptedAt = new Date();
-    const snapshot = { contractId: current.id, renterId: current.renterId, motelId: current.motelId, roomId: current.roomId, startDate: current.startDate, endDate: current.endDate, monthlyRent: current.monthlyRent, deposit: current.deposit, clauses: current.clauses };
-    const [updated] = await tx.update(contracts).set({ status: "active", consentAcceptedAt: acceptedAt, consentMethod: "session_consent", acceptedTermsVersion: currentVersion, acceptedTermsSnapshot: snapshot, otpHash: null, otpExpiresAt: null }).where(and(eq(contracts.id, contractId), eq(contracts.status, "draft"))).returning();
+    const snapshot = {
+      contractId: current.id,
+      renterId: current.renterId,
+      motelId: current.motelId,
+      roomId: current.roomId,
+      startDate: current.startDate,
+      endDate: current.endDate,
+      monthlyRent: current.monthlyRent,
+      deposit: current.deposit,
+      clauses: current.clauses,
+    };
+    const [updated] = await tx
+      .update(contracts)
+      .set({
+        status: "active",
+        consentAcceptedAt: acceptedAt,
+        consentMethod: "session_consent",
+        acceptedTermsVersion: currentVersion,
+        acceptedTermsSnapshot: snapshot,
+        otpHash: null,
+        otpExpiresAt: null,
+      })
+      .where(and(eq(contracts.id, contractId), eq(contracts.status, "draft")))
+      .returning();
     if (!updated) throw AppError.conflict("Hợp đồng đã được cập nhật");
     return contractResponse(updated);
   });
 }
 
 export async function getLatestRenterContract(renterId: string, motelId: string) {
-  const [row] = await db.select().from(contracts).where(and(eq(contracts.renterId, renterId), eq(contracts.motelId, motelId))).orderBy(desc(contracts.createdAt), desc(contracts.id)).limit(1);
+  const [row] = await db
+    .select()
+    .from(contracts)
+    .where(and(eq(contracts.renterId, renterId), eq(contracts.motelId, motelId)))
+    .orderBy(desc(contracts.createdAt), desc(contracts.id))
+    .limit(1);
   if (!row) throw AppError.notFound("Không tìm thấy hợp đồng");
   return contractResponse(row);
 }
 
-
-
-export async function sendContract(
-  motelId: string,
-  contractId: string,
-  managerId: string,
-) {
+export async function sendContract(motelId: string, contractId: string, managerId: string) {
   const current = await ownedContract(motelId, contractId, managerId);
   if (current.status !== "draft") throw AppError.conflict("Chỉ có thể gửi hợp đồng nháp");
-  await enqueueNotification({ eventKey: `contract:${contractId}:sent`, renterId: current.renterId, motelId, templateId: "contract", payload: { contractId } });
+  await enqueueNotification({
+    eventKey: `contract:${contractId}:sent`,
+    renterId: current.renterId,
+    motelId,
+    templateId: "contract",
+    payload: { contractId },
+  });
   const sentAt = new Date();
-  const [row] = await db.update(contracts).set({ managerSentAt: sentAt }).where(and(eq(contracts.id, contractId), eq(contracts.status, "draft"))).returning();
+  const [row] = await db
+    .update(contracts)
+    .set({ managerSentAt: sentAt })
+    .where(and(eq(contracts.id, contractId), eq(contracts.status, "draft")))
+    .returning();
   if (!row) throw AppError.conflict("Hợp đồng đã thay đổi");
   return contractResponse(row);
 }
 
-export interface ExpiringContract { id: string; renterId: string; motelId: string; endDate: string; eventKey: string; }
-export async function listExpiringContracts(now: Date, until: Date, windowDays: number): Promise<ExpiringContract[]> {
-  const rows = await db.query.contracts.findMany({ where: and(eq(contracts.status, "active"), sql`${contracts.endDate} >= ${now.toISOString().slice(0, 10)}`, sql`${contracts.endDate} <= ${until.toISOString().slice(0, 10)}`) });
-  return rows.map((contract) => ({ id: contract.id, renterId: contract.renterId, motelId: contract.motelId, endDate: contract.endDate, eventKey: `contract:${contract.id}:expiry:${contract.endDate}:${windowDays}` }));
+export interface ExpiringContract {
+  id: string;
+  renterId: string;
+  motelId: string;
+  endDate: string;
+  eventKey: string;
+}
+export async function listExpiringContracts(
+  now: Date,
+  until: Date,
+  windowDays: number,
+): Promise<ExpiringContract[]> {
+  const rows = await db.query.contracts.findMany({
+    where: and(
+      eq(contracts.status, "active"),
+      sql`${contracts.endDate} >= ${now.toISOString().slice(0, 10)}`,
+      sql`${contracts.endDate} <= ${until.toISOString().slice(0, 10)}`,
+    ),
+  });
+  return rows.map((contract) => ({
+    id: contract.id,
+    renterId: contract.renterId,
+    motelId: contract.motelId,
+    endDate: contract.endDate,
+    eventKey: `contract:${contract.id}:expiry:${contract.endDate}:${windowDays}`,
+  }));
 }
 
 type ContractReader = Pick<Db, "select">;
 
-export async function listBillableContractsForMotel(motelId: string, reader: ContractReader = db): Promise<
+export async function listBillableContractsForMotel(
+  motelId: string,
+  reader: ContractReader = db,
+): Promise<
   Array<{
     id: string;
     roomId: string;
@@ -369,14 +441,10 @@ export async function listBillableContractsForMotel(motelId: string, reader: Con
     .where(and(eq(contracts.motelId, motelId), eq(contracts.status, "active")))
     .orderBy(asc(contracts.roomId), asc(contracts.id));
 }
-export async function countContractTemplatesForMotel(
-  motelId: string,
-): Promise<number> {
+export async function countContractTemplatesForMotel(motelId: string): Promise<number> {
   return db.$count(contractTemplates, eq(contractTemplates.motelId, motelId));
 }
-export async function hasActiveContractForRoom(
-  roomId: string,
-): Promise<boolean> {
+export async function hasActiveContractForRoom(roomId: string): Promise<boolean> {
   return (
     (await db.$count(
       contracts,
@@ -406,7 +474,11 @@ export async function getActiveContractForRenter(
     })
     .from(contracts)
     .where(
-      and(eq(contracts.renterId, renterId), ...(motelId ? [eq(contracts.motelId, motelId)] : []), eq(contracts.status, "active")),
+      and(
+        eq(contracts.renterId, renterId),
+        ...(motelId ? [eq(contracts.motelId, motelId)] : []),
+        eq(contracts.status, "active"),
+      ),
     )
     .orderBy(desc(contracts.createdAt), desc(contracts.id))
     .limit(1);

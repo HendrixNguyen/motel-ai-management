@@ -1,19 +1,9 @@
 import { Elysia, t } from "elysia";
 import { cookie } from "@elysiajs/cookie";
 import { managerAuth } from "@/middleware/manager-auth";
-import {
-  createRoom,
-  deleteRoom,
-  getRoom,
-  listRooms,
-  updateRoom,
-} from "./room.service";
+import { createRoom, deleteRoom, getRoom, listRooms, updateRoom } from "./room.service";
 import { INT4_MAX, INT4_MIN, roomStatus } from "./room.schema";
-import type {
-  CreateRoomInput,
-  ListRoomsFilters,
-  UpdateRoomInput,
-} from "./room.types";
+import type { CreateRoomInput, ListRoomsFilters, UpdateRoomInput } from "./room.types";
 
 /**
  * `motelId` and `roomId` are `uuid` columns, so a path segment that is not a uuid has to fail

@@ -1,5 +1,10 @@
 import { apiSend } from "./client";
-import type { CreateRenterInput, MagicLinkResponse, RenterResponse, UpdateRenterInput } from "./types";
+import type {
+  CreateRenterInput,
+  MagicLinkResponse,
+  RenterResponse,
+  UpdateRenterInput,
+} from "./types";
 
 /**
  * Renter mutations, in the browser. See `motels.client.ts` for why these are split out.
@@ -10,7 +15,7 @@ const RENTERS = (motelId: string): string =>
   `/api/manager/motels/${encodeURIComponent(motelId)}/renters`;
 
 /**
-  * Files a renter and answers 201 with the created row (`renter.route.ts:101-114`).
+ * Files a renter and answers 201 with the created row (`renter.route.ts:101-114`).
  *
  * There is no `status` in the input, and not by accident: a renter starts `active`
  * (`renter.types.ts:19-24`), and accepting `inactive` at creation would let a tenancy exist that
@@ -20,10 +25,7 @@ const RENTERS = (motelId: string): string =>
  * (`renter.service.ts:218`) — so a manager who typed `0901234567` and one who typed `84901234567` are
  * shown the same string, and it is the number that is actually stored.
  */
-export function createRenter(
-  motelId: string,
-  input: CreateRenterInput,
-): Promise<RenterResponse> {
+export function createRenter(motelId: string, input: CreateRenterInput): Promise<RenterResponse> {
   return apiSend<RenterResponse>(RENTERS(motelId), "POST", input);
 }
 
@@ -52,20 +54,39 @@ export function updateRenter(
  * A soft delete: it sets `status = inactive` and keeps the financial history, so the renter's invoices
  * remain readable after they leave.
  */
-export function uploadRenterCccd(motelId: string, renterId: string, side: "front" | "back", file: File): Promise<{ side: "front" | "back"; uploaded: true; contentType: string; size: number }> {
+export function uploadRenterCccd(
+  motelId: string,
+  renterId: string,
+  side: "front" | "back",
+  file: File,
+): Promise<{ side: "front" | "back"; uploaded: true; contentType: string; size: number }> {
   const form = new FormData();
   form.append("file", file);
-  return fetch(`${RENTERS(motelId)}/${encodeURIComponent(renterId)}/cccd/${side}`, { method: "POST", credentials: "same-origin", headers: { accept: "application/json" }, body: form }).then(async (response) => {
+  return fetch(`${RENTERS(motelId)}/${encodeURIComponent(renterId)}/cccd/${side}`, {
+    method: "POST",
+    credentials: "same-origin",
+    headers: { accept: "application/json" },
+    body: form,
+  }).then(async (response) => {
     const value = await response.json();
-    if (!response.ok) throw new Error(typeof value?.error === "string" ? value.error : "Không thể tải ảnh CCCD");
+    if (!response.ok)
+      throw new Error(typeof value?.error === "string" ? value.error : "Không thể tải ảnh CCCD");
     return value;
   });
 }
 
-export function getRenterCccdUrl(motelId: string, renterId: string, side: "front" | "back"): Promise<{ side: "front" | "back"; url: string; contentType: string; size: number }> {
-  return fetch(`${RENTERS(motelId)}/${encodeURIComponent(renterId)}/cccd/${side}`, { credentials: "same-origin", headers: { accept: "application/json" } }).then(async (response) => {
+export function getRenterCccdUrl(
+  motelId: string,
+  renterId: string,
+  side: "front" | "back",
+): Promise<{ side: "front" | "back"; url: string; contentType: string; size: number }> {
+  return fetch(`${RENTERS(motelId)}/${encodeURIComponent(renterId)}/cccd/${side}`, {
+    credentials: "same-origin",
+    headers: { accept: "application/json" },
+  }).then(async (response) => {
     const value = await response.json();
-    if (!response.ok) throw new Error(typeof value?.error === "string" ? value.error : "Không thể mở ảnh CCCD");
+    if (!response.ok)
+      throw new Error(typeof value?.error === "string" ? value.error : "Không thể mở ảnh CCCD");
     return value;
   });
 }

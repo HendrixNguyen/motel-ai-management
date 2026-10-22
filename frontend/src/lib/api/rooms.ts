@@ -22,7 +22,10 @@ const ROOMS = (motelId: string): string =>
  * the service filters on `!== undefined` (`:114`), so a truthiness test on the way out would answer
  * with every floor.
  */
-export function listRooms(motelId: string, filters: ListRoomsFilters = {}): Promise<RoomResponse[]> {
+export function listRooms(
+  motelId: string,
+  filters: ListRoomsFilters = {},
+): Promise<RoomResponse[]> {
   const query = new URLSearchParams();
   if (filters.floor !== undefined) query.set("floor", String(filters.floor));
   if (filters.status !== undefined) query.set("status", filters.status);
@@ -34,7 +37,5 @@ export function listRooms(motelId: string, filters: ListRoomsFilters = {}): Prom
 
 /** `GET /api/manager/motels/:motelId/rooms/:roomId` — `room.route.ts:110`. */
 export function getRoom(motelId: string, roomId: string): Promise<RoomResponse> {
-  return serverGet<RoomResponse>(
-    `${ROOMS(motelId)}/${encodeURIComponent(roomId)}`,
-  );
+  return serverGet<RoomResponse>(`${ROOMS(motelId)}/${encodeURIComponent(roomId)}`);
 }

@@ -27,7 +27,9 @@ export function listRenters(
   if (filters.search !== undefined && filters.search !== "") query.set("search", filters.search);
 
   const search = query.toString();
-  return serverGet<RenterResponse[]>(search === "" ? RENTERS(motelId) : `${RENTERS(motelId)}?${search}`);
+  return serverGet<RenterResponse[]>(
+    search === "" ? RENTERS(motelId) : `${RENTERS(motelId)}?${search}`,
+  );
 }
 
 /**
@@ -39,7 +41,5 @@ export function listRenters(
  * really has.
  */
 export function getRenter(motelId: string, renterId: string): Promise<RenterDetailResponse> {
-  return serverGet<RenterDetailResponse>(
-    `${RENTERS(motelId)}/${encodeURIComponent(renterId)}`,
-  );
+  return serverGet<RenterDetailResponse>(`${RENTERS(motelId)}/${encodeURIComponent(renterId)}`);
 }

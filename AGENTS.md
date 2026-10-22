@@ -51,7 +51,7 @@ cd backend
 bun run dev                 # --watch src/index.ts, PORT (default 3000)
 bun run typecheck           # tsc --noEmit
 bun test                    # everything; needs a live PostgreSQL, see below
-bun test src/test/money.test.ts   # one file — the only clean way to isolate from the DB
+bun test test/money.test.ts   # one file — the only clean way to isolate from the DB
 bun test -t "test name"           # name filter — still loads every test file
 bun run db:generate && bun run db:migrate
 bun run db:studio
@@ -88,7 +88,7 @@ Verify in this order: backend `typecheck` → `test`; frontend `typecheck` → `
 - **`bun test` loads every test file even when all of them are filtered out.** The database
   is therefore required for *any* `bun test` run, not just integration tests — without it you
   get `connect ECONNREFUSED 127.0.0.1:5432` plus one bogus failure. Pass an explicit file path
-  (`bun test src/test/money.test.ts`) to run a pure test cleanly.
+  (`bun test test/money.test.ts`) to run a pure test cleanly.
 - `docker-compose.yml` provides postgres 16 and `scripts/init-db.sql` creates `motel_test`. PostgreSQL healthchecks with `pg_isready` before backend startup; backend startup runs `bun run db:migrate` before `bun run start` and restarts unless stopped. This auto-migration flow is for one backend replica only; production multi-replica rollouts require a separate one-shot migration job before replicas start.
   **Its credentials disagree with `.env.example`**: compose sets `POSTGRES_PASSWORD=password`
   while `.env.example` uses `postgres:postgres`. Align them or authentication fails.
@@ -168,7 +168,7 @@ Modular monolith (ADR-0004). Each domain under `backend/src/modules/<domain>/` o
   session cookie and a real foreign id, in both directions.
 - A behaviour change without a test is an unfinished change.
 - A test that cannot fail is worse than no test — delete it and write a real one.
-- Tests live in `backend/src/test/*.test.ts`.
+- Tests live in `backend/test/*.test.ts`.
 
 ## Docs are part of the change
 

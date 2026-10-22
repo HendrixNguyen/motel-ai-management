@@ -25,9 +25,14 @@ export interface StorageAdapter {
 }
 
 export function normalizeStorageKey(objectKey: string): string {
-  if (!objectKey || objectKey.startsWith("/") || objectKey.includes("//")) throw new StorageError("Object key không hợp lệ");
+  if (!objectKey || objectKey.startsWith("/") || objectKey.includes("//"))
+    throw new StorageError("Object key không hợp lệ");
   const segments = objectKey.split("/");
-  if (segments.some((segment) => !segment || segment === "." || segment === "..") || !segments.every((segment) => /^[-a-zA-Z0-9_]+$/.test(segment))) throw new StorageError("Object key không hợp lệ");
+  if (
+    segments.some((segment) => !segment || segment === "." || segment === "..") ||
+    !segments.every((segment) => /^[-a-zA-Z0-9_]+$/.test(segment))
+  )
+    throw new StorageError("Object key không hợp lệ");
   return objectKey;
 }
 
@@ -39,12 +44,19 @@ export class StorageError extends Error {
 }
 
 function magicMatches(bytes: Uint8Array, contentType: StorageContentType): boolean {
-  if (contentType === "image/jpeg") return bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
-  if (contentType === "image/png") return bytes.slice(0, 8).every((byte, index) => byte === [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a][index]);
+  if (contentType === "image/jpeg")
+    return bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
+  if (contentType === "image/png")
+    return bytes
+      .slice(0, 8)
+      .every((byte, index) => byte === [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a][index]);
   return new TextDecoder().decode(bytes.slice(0, 5)) === "%PDF-";
 }
 
-export async function readStorageBody(body: StoragePutInput["body"], maxBytes = MAX_STORAGE_BYTES): Promise<Uint8Array> {
+export async function readStorageBody(
+  body: StoragePutInput["body"],
+  maxBytes = MAX_STORAGE_BYTES,
+): Promise<Uint8Array> {
   if (body instanceof Uint8Array) return body;
   const reader = body.getReader();
   const chunks: Uint8Array[] = [];
@@ -53,23 +65,31 @@ export async function readStorageBody(body: StoragePutInput["body"], maxBytes = 
     const result = await reader.read();
     if (result.done) break;
     size += result.value.byteLength;
-    if (size > maxBytes) throw new StorageError(`Tệp vượt quá giới hạn ${maxBytes === 5_000_000 ? "5 MB" : "10 MB"}`);
+    if (size > maxBytes)
+      throw new StorageError(`Tệp vượt quá giới hạn ${maxBytes === 5_000_000 ? "5 MB" : "10 MB"}`);
     chunks.push(result.value);
   }
   const output = new Uint8Array(size);
   let offset = 0;
-  for (const chunk of chunks) { output.set(chunk, offset); offset += chunk.byteLength; }
+  for (const chunk of chunks) {
+    output.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
   return output;
 }
 
 export async function validateStorageInput(input: StoragePutInput): Promise<Uint8Array> {
   normalizeStorageKey(input.objectKey);
-  if (!SUPPORTED_CONTENT_TYPES.includes(input.contentType)) throw new StorageError("MIME không được hỗ trợ");
+  if (!SUPPORTED_CONTENT_TYPES.includes(input.contentType))
+    throw new StorageError("MIME không được hỗ trợ");
   const maxBytes = input.maxBytes ?? MAX_STORAGE_BYTES;
-  if (!Number.isInteger(maxBytes) || maxBytes < 1 || maxBytes > MAX_STORAGE_BYTES) throw new StorageError("Giới hạn tệp không hợp lệ");
+  if (!Number.isInteger(maxBytes) || maxBytes < 1 || maxBytes > MAX_STORAGE_BYTES)
+    throw new StorageError("Giới hạn tệp không hợp lệ");
   const bytes = await readStorageBody(input.body, maxBytes);
-  if (bytes.byteLength > maxBytes) throw new StorageError(`Tệp vượt quá giới hạn ${maxBytes === 5_000_000 ? "5 MB" : "10 MB"}`);
-  if (!magicMatches(bytes, input.contentType)) throw new StorageError("MIME không khớp nội dung tệp");
+  if (bytes.byteLength > maxBytes)
+    throw new StorageError(`Tệp vượt quá giới hạn ${maxBytes === 5_000_000 ? "5 MB" : "10 MB"}`);
+  if (!magicMatches(bytes, input.contentType))
+    throw new StorageError("MIME không khớp nội dung tệp");
   return bytes;
 }
 
@@ -80,7 +100,12 @@ export class FakeStorageAdapter implements StorageAdapter {
     if (this.options.failure) throw new StorageError("storage failure");
     const bytes = await validateStorageInput(input);
     const objectKey = normalizeStorageKey(input.objectKey);
-    const object = { objectKey, size: bytes.byteLength, checksum: createHash("sha256").update(bytes).digest("hex"), contentType: input.contentType };
+    const object = {
+      objectKey,
+      size: bytes.byteLength,
+      checksum: createHash("sha256").update(bytes).digest("hex"),
+      contentType: input.contentType,
+    };
     this.objects.set(objectKey, object);
     return object;
   }
@@ -92,7 +117,8 @@ export class FakeStorageAdapter implements StorageAdapter {
     if (this.options.failure) throw new StorageError("storage failure");
     const key = normalizeStorageKey(objectKey);
     if (!this.objects.has(key)) throw new StorageError("Không tìm thấy tệp");
-    if (!Number.isInteger(expiresInSeconds) || expiresInSeconds < 1 || expiresInSeconds > 900) throw new StorageError("TTL không hợp lệ");
+    if (!Number.isInteger(expiresInSeconds) || expiresInSeconds < 1 || expiresInSeconds > 900)
+      throw new StorageError("TTL không hợp lệ");
     return `fake://private/${encodeURIComponent(key)}?expires=${expiresInSeconds}`;
   }
 }

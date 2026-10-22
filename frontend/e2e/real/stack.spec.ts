@@ -6,13 +6,25 @@ const authenticatedErrors = validateLiveQaConfig(process.env, "authenticated");
 const mutationErrors = validateLiveQaConfig(process.env, "mutating");
 
 test.beforeAll(async ({ request }) => {
-  expect(configErrors, `Live QA preflight rejected configuration: ${configErrors.join("; ")}`).toEqual([]);
+  expect(
+    configErrors,
+    `Live QA preflight rejected configuration: ${configErrors.join("; ")}`,
+  ).toEqual([]);
   const response = await request.get(`${process.env.E2E_FRONTEND_URL}/api/auth/me`);
-  expect(response.status(), "A reachable QA frontend proxy must reject an anonymous identity read").toBe(401);
+  expect(
+    response.status(),
+    "A reachable QA frontend proxy must reject an anonymous identity read",
+  ).toBe(401);
 });
 
-test("live manager login forwards httpOnly cookie, opens shell and logs out", async ({ page, context }) => {
-  test.skip(authenticatedErrors.length > 0, `Live QA authenticated preflight rejected configuration: ${authenticatedErrors.join("; ")}`);
+test("live manager login forwards httpOnly cookie, opens shell and logs out", async ({
+  page,
+  context,
+}) => {
+  test.skip(
+    authenticatedErrors.length > 0,
+    `Live QA authenticated preflight rejected configuration: ${authenticatedErrors.join("; ")}`,
+  );
   const diagnostics = collectSafeDiagnostics(page);
   await page.goto("/login");
   await signIn(page);
@@ -20,7 +32,7 @@ test("live manager login forwards httpOnly cookie, opens shell and logs out", as
   expect(cookie?.httpOnly).toBe(true);
   const identity = await page.request.get("/api/auth/me");
   expect(identity.status()).toBe(200);
-  const identityBody = await identity.json() as { id?: string };
+  const identityBody = (await identity.json()) as { id?: string };
   if (process.env.E2E_QA_MANAGER_ID) expect(identityBody.id).toBe(process.env.E2E_QA_MANAGER_ID);
   await page.getByLabel("Menu phụ, Tài khoản", { exact: true }).click();
   await page.getByRole("button", { name: "Đăng xuất", exact: true }).click();
@@ -34,18 +46,28 @@ test("live manager login forwards httpOnly cookie, opens shell and logs out", as
 
 test.describe("QA UI mutations", () => {
   test.beforeEach(async ({ page }) => {
-    test.skip(mutationErrors.length > 0, `Live QA mutation preflight rejected configuration: ${mutationErrors.join("; ")}`);
+    test.skip(
+      mutationErrors.length > 0,
+      `Live QA mutation preflight rejected configuration: ${mutationErrors.join("; ")}`,
+    );
     await page.goto("/login");
     await signIn(page);
     const response = await page.request.get("/api/auth/me");
-    const identity = await response.json() as { id?: string };
-    expect(identity.id, "Login must match dedicated E2E_QA_MANAGER_ID").toBe(process.env.E2E_QA_MANAGER_ID);
+    const identity = (await response.json()) as { id?: string };
+    expect(identity.id, "Login must match dedicated E2E_QA_MANAGER_ID").toBe(
+      process.env.E2E_QA_MANAGER_ID,
+    );
     const motels = await page.request.get("/api/manager/motels");
-    const motelRows = await motels.json() as Array<{ id: string }>;
-    expect(motelRows.some((motel) => motel.id === process.env.E2E_QA_MOTEL_ID), "Dedicated QA motel must be owned by authenticated QA manager").toBe(true);
+    const motelRows = (await motels.json()) as Array<{ id: string }>;
+    expect(
+      motelRows.some((motel) => motel.id === process.env.E2E_QA_MOTEL_ID),
+      "Dedicated QA motel must be owned by authenticated QA manager",
+    ).toBe(true);
   });
 
-  test("creates run-scoped room and renter in dedicated QA motel, then persists after reload", async ({ page }) => {
+  test("creates run-scoped room and renter in dedicated QA motel, then persists after reload", async ({
+    page,
+  }) => {
     const runId = `${new Date().toISOString().replace(/\D/g, "").slice(0, 14)}-${crypto.randomUUID().slice(0, 8)}`;
     const roomName = `QA-${runId}`;
     const renterName = `QA Renter ${runId}`;
@@ -54,7 +76,9 @@ test.describe("QA UI mutations", () => {
 
     const motelId = process.env.E2E_QA_MOTEL_ID!;
     await page.goto(`/rooms?motel=${encodeURIComponent(motelId)}`);
-    await expect(page.getByRole("banner").getByRole("combobox", { name: "Nhà trọ", exact: true })).toHaveAttribute("data-value", motelId);
+    await expect(
+      page.getByRole("banner").getByRole("combobox", { name: "Nhà trọ", exact: true }),
+    ).toHaveAttribute("data-value", motelId);
     await page.getByRole("button", { name: "Thêm phòng", exact: true }).click();
     const roomDialog = page.getByRole("dialog");
     await roomDialog.getByLabel("Tên phòng", { exact: true }).fill(roomName);
@@ -70,7 +94,9 @@ test.describe("QA UI mutations", () => {
     const renterDialog = page.getByRole("dialog");
     await renterDialog.getByLabel("Họ tên", { exact: true }).fill(renterName);
     await renterDialog.getByLabel("Số điện thoại", { exact: true }).fill(phone);
-    await renterDialog.getByRole("combobox", { name: "Phòng (không bắt buộc)", exact: true }).selectOption({ label: roomName });
+    await renterDialog
+      .getByRole("combobox", { name: "Phòng (không bắt buộc)", exact: true })
+      .selectOption({ label: roomName });
     await renterDialog.getByRole("button", { name: "Thêm khách thuê", exact: true }).click();
     await expect(page.getByText(renterName, { exact: true })).toBeVisible();
     await page.reload();
@@ -81,8 +107,13 @@ test.describe("QA UI mutations", () => {
 
 function collectSafeDiagnostics(page: import("@playwright/test").Page): string[] {
   const diagnostics: string[] = [];
-  page.on("console", (message) => { if (message.type() === "error") diagnostics.push(redactLiveQaDiagnostic(message.text(), "console")); });
-  page.on("pageerror", (error) => diagnostics.push(redactLiveQaDiagnostic(error.message, "pageerror")));
+  page.on("console", (message) => {
+    if (message.type() === "error")
+      diagnostics.push(redactLiveQaDiagnostic(message.text(), "console"));
+  });
+  page.on("pageerror", (error) =>
+    diagnostics.push(redactLiveQaDiagnostic(error.message, "pageerror")),
+  );
   page.on("requestfailed", (request) => {
     const failure = request.failure();
     const url = request.url();
@@ -91,7 +122,15 @@ function collectSafeDiagnostics(page: import("@playwright/test").Page): string[]
     diagnostics.push(redactLiveQaDiagnostic(url, "requestfailed"));
   });
   page.on("response", (response) => {
-    if (response.status() >= 400) diagnostics.push(redactLiveQaDiagnostic(response.url(), "response", response.status(), response.request().method()));
+    if (response.status() >= 400)
+      diagnostics.push(
+        redactLiveQaDiagnostic(
+          response.url(),
+          "response",
+          response.status(),
+          response.request().method(),
+        ),
+      );
   });
   return diagnostics;
 }

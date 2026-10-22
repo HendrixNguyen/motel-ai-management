@@ -68,44 +68,40 @@ export async function seedData() {
   await db.delete(managers);
 
   // 1. Create manager
-  await db
-    .insert(managers)
-    .values({
-      id: MANAGER_ID,
-      email: "manager@example.com",
-      passwordHash: await Bun.password.hash("password", {
-        algorithm: "argon2id",
-      }),
-      name: "Quản lý Mặt Bằng",
-      phone: "0901234567",
-    });
+  await db.insert(managers).values({
+    id: MANAGER_ID,
+    email: "manager@example.com",
+    passwordHash: await Bun.password.hash("password", {
+      algorithm: "argon2id",
+    }),
+    name: "Quản lý Mặt Bằng",
+    phone: "0901234567",
+  });
 
   console.log("✓ Created manager");
 
   // 2. Create motel
-  await db
-    .insert(motels)
-    .values({
-      id: MOTEL_ID,
-      managerId: MANAGER_ID,
-      name: "KTX Nhà Trọ Việt",
-      address: "123 Nguyễn Văn Cừ, Quận 5, TP.HCM",
-      electricityPrice: parseAmount("3000"), // 3000 VND/kWh
-      waterPrice: parseAmount("15000"), // 15000 VND/m³
-      otherFees: JSON.parse(
-        JSON.stringify([
-          { name: "Internet", amount: parseAmount("100000") },
-          { name: "Vệ sinh", amount: parseAmount("50000") },
-        ])
-      ),
-      bankAccount: JSON.parse(
-        JSON.stringify({
-          bankCode: "004",
-          accountNumber: "123456789",
-          accountName: "Công ty TNHH Nhà Trọ Việt",
-        })
-      ),
-    });
+  await db.insert(motels).values({
+    id: MOTEL_ID,
+    managerId: MANAGER_ID,
+    name: "KTX Nhà Trọ Việt",
+    address: "123 Nguyễn Văn Cừ, Quận 5, TP.HCM",
+    electricityPrice: parseAmount("3000"), // 3000 VND/kWh
+    waterPrice: parseAmount("15000"), // 15000 VND/m³
+    otherFees: JSON.parse(
+      JSON.stringify([
+        { name: "Internet", amount: parseAmount("100000") },
+        { name: "Vệ sinh", amount: parseAmount("50000") },
+      ]),
+    ),
+    bankAccount: JSON.parse(
+      JSON.stringify({
+        bankCode: "004",
+        accountNumber: "123456789",
+        accountName: "Công ty TNHH Nhà Trọ Việt",
+      }),
+    ),
+  });
 
   console.log("✓ Created motel");
 
@@ -145,10 +141,7 @@ export async function seedData() {
     },
   ] satisfies (typeof rooms.$inferInsert)[];
 
-  const insertedRooms = await db
-    .insert(rooms)
-    .values(roomsData)
-    .returning();
+  const insertedRooms = await db.insert(rooms).values(roomsData).returning();
 
   console.log("✓ Created rooms");
 
@@ -186,38 +179,33 @@ export async function seedData() {
     },
   ] satisfies (typeof renters.$inferInsert)[];
 
-  const insertedRenters = await db
-    .insert(renters)
-    .values(rentersData)
-    .returning();
+  const insertedRenters = await db.insert(renters).values(rentersData).returning();
 
   console.log("✓ Created renters");
 
   // 5. Create contract template
-  await db
-    .insert(contractTemplates)
-    .values({
-      id: CONTRACT_TEMPLATE_ID,
-      motelId: MOTEL_ID,
-      name: "Mẫu hợp đồng tiêu chuẩn",
-      clauses: JSON.parse(
-        JSON.stringify([
-          {
-            title: "Thời hạn hợp đồng",
-            content: "Hợp đồng có thời hạn từ ngày ký đến ngày 31/12/2026.",
-          },
-          {
-            title: "Tiền phòng",
-            content: "Tiền phòng thanh toán hàng tháng trước ngày 5.",
-          },
-          {
-            title: "Sử dụng nội thất",
-            content: "Người thuê phải bảo quản và bảo tồn nội thất theo đúng mục đích.",
-          },
-        ])
-      ),
-      isDefault: true,
-    });
+  await db.insert(contractTemplates).values({
+    id: CONTRACT_TEMPLATE_ID,
+    motelId: MOTEL_ID,
+    name: "Mẫu hợp đồng tiêu chuẩn",
+    clauses: JSON.parse(
+      JSON.stringify([
+        {
+          title: "Thời hạn hợp đồng",
+          content: "Hợp đồng có thời hạn từ ngày ký đến ngày 31/12/2026.",
+        },
+        {
+          title: "Tiền phòng",
+          content: "Tiền phòng thanh toán hàng tháng trước ngày 5.",
+        },
+        {
+          title: "Sử dụng nội thất",
+          content: "Người thuê phải bảo quản và bảo tồn nội thất theo đúng mục đích.",
+        },
+      ]),
+    ),
+    isDefault: true,
+  });
 
   console.log("✓ Created contract template");
 
@@ -247,7 +235,7 @@ export async function seedData() {
             title: "Sử dụng nội thất",
             content: "Người thuê phải bảo quản và bảo tồn nội thất theo đúng mục đích.",
           },
-        ])
+        ]),
       ),
       status: "active",
     },
@@ -275,7 +263,7 @@ export async function seedData() {
             title: "Sử dụng nội thất",
             content: "Người thuê phải bảo quản và bảo tồn nội thất theo đúng mục đích.",
           },
-        ])
+        ]),
       ),
       status: "active",
     },
@@ -303,16 +291,13 @@ export async function seedData() {
             title: "Sử dụng nội thất",
             content: "Người thuê phải bảo quản và bảo tồn nội thất theo đúng mục đích.",
           },
-        ])
+        ]),
       ),
       status: "active",
     },
   ] satisfies (typeof contracts.$inferInsert)[];
 
-  const insertedContracts = await db
-    .insert(contracts)
-    .values(contractsData)
-    .returning();
+  const insertedContracts = await db.insert(contracts).values(contractsData).returning();
 
   console.log("✓ Created contracts");
 
@@ -526,10 +511,7 @@ export async function seedData() {
   ] satisfies (typeof meterReadings.$inferInsert)[];
 
   const allMeterReadings = [...septemberReadings, ...octoberReadings];
-  const insertedMeterReadings = await db
-    .insert(meterReadings)
-    .values(allMeterReadings)
-    .returning();
+  const insertedMeterReadings = await db.insert(meterReadings).values(allMeterReadings).returning();
 
   console.log("✓ Created meter readings");
 
@@ -550,7 +532,7 @@ export async function seedData() {
         JSON.stringify([
           { name: "Internet", amount: parseAmount("100000") },
           { name: "Vệ sinh", amount: parseAmount("50000") },
-        ])
+        ]),
       ),
       totalAmount: parseAmount("2231000"), // 2000000 + 151500 + 79500 + 100000 + 50000
       qrCodeData:
@@ -573,7 +555,7 @@ export async function seedData() {
         JSON.stringify([
           { name: "Internet", amount: parseAmount("100000") },
           { name: "Vệ sinh", amount: parseAmount("50000") },
-        ])
+        ]),
       ),
       totalAmount: parseAmount("1970250"), // 1800000 + 122250 + 48000 + 100000 + 50000
       qrCodeData:
@@ -595,7 +577,7 @@ export async function seedData() {
         JSON.stringify([
           { name: "Internet", amount: parseAmount("100000") },
           { name: "Vệ sinh", amount: parseAmount("50000") },
-        ])
+        ]),
       ),
       totalAmount: parseAmount("1864500"), // 1500000 + 136500 + 78000 + 100000 + 50000
       qrCodeData:
@@ -604,10 +586,7 @@ export async function seedData() {
     },
   ] satisfies (typeof invoices.$inferInsert)[];
 
-  const insertedInvoices = await db
-    .insert(invoices)
-    .values(invoicesData)
-    .returning();
+  const insertedInvoices = await db.insert(invoices).values(invoicesData).returning();
 
   console.log("✓ Created invoices");
 
@@ -638,10 +617,7 @@ export async function seedData() {
     },
   ] satisfies (typeof helpTickets.$inferInsert)[];
 
-  const insertedHelpTickets = await db
-    .insert(helpTickets)
-    .values(helpTicketsData)
-    .returning();
+  const insertedHelpTickets = await db.insert(helpTickets).values(helpTicketsData).returning();
 
   console.log("✓ Created help tickets");
 
@@ -655,8 +631,9 @@ export async function seedData() {
       templateId: null,
       payload: JSON.parse(
         JSON.stringify({
-          message: "Hóa đơn điện nước tháng 9/2026 đã được gửi. Vui lòng kiểm tra và thanh toán trước ngày 5/10/2026."
-        })
+          message:
+            "Hóa đơn điện nước tháng 9/2026 đã được gửi. Vui lòng kiểm tra và thanh toán trước ngày 5/10/2026.",
+        }),
       ),
       status: "sent",
       failureReason: null,
@@ -673,8 +650,8 @@ export async function seedData() {
           amount: "1970250",
           month: "9",
           year: "2026",
-          room: "P.102"
-        })
+          room: "P.102",
+        }),
       ),
       status: "failed",
       failureReason: "ZNS template not approved",
@@ -688,8 +665,8 @@ export async function seedData() {
       templateId: null,
       payload: JSON.parse(
         JSON.stringify({
-          message: "Chào mừng bạn đến với KTX Nhà Trọ Việt! Vui lòng hoàn thiện hồ sơ thuê trọ."
-        })
+          message: "Chào mừng bạn đến với KTX Nhà Trọ Việt! Vui lòng hoàn thiện hồ sơ thuê trọ.",
+        }),
       ),
       status: "pending",
       failureReason: null,

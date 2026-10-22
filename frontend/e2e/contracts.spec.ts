@@ -1,20 +1,36 @@
 import { expect, test } from "@playwright/test";
-import { MOTEL, RENTERS, ROOMS } from "../src/lib/api/__tests__/fixtures";
+import { MOTEL, RENTERS, ROOMS } from "../test/lib/api/fixtures";
 
 async function manager(page: import("@playwright/test").Page) {
-  await page.context().addCookies([{ name: "manager_session", value: "contract-ui", url: "http://localhost:3001", httpOnly: true, sameSite: "Lax" }]);
+  await page.context().addCookies([
+    {
+      name: "manager_session",
+      value: "contract-ui",
+      url: "http://localhost:3001",
+      httpOnly: true,
+      sameSite: "Lax",
+    },
+  ]);
 }
 
 test("desktop Contracts destination appears once in primary navigation", async ({ page }) => {
   await manager(page);
   await page.setViewportSize({ width: 1280, height: 820 });
   await page.goto(`/?motel=${MOTEL.id}`);
-  await expect(page.getByRole("complementary", { name: "Thanh điều hướng" }).getByRole("link", { name: "Hợp đồng", exact: true })).toHaveCount(1);
+  await expect(
+    page
+      .getByRole("complementary", { name: "Thanh điều hướng" })
+      .getByRole("link", { name: "Hợp đồng", exact: true }),
+  ).toHaveCount(1);
   await page.getByLabel("Menu phụ, Tài khoản", { exact: true }).click();
-  await expect(page.getByRole("group", { name: "Tùy chọn tài khoản" }).getByRole("link", { name: "Hợp đồng" })).toHaveCount(0);
+  await expect(
+    page.getByRole("group", { name: "Tùy chọn tài khoản" }).getByRole("link", { name: "Hợp đồng" }),
+  ).toHaveCount(0);
 });
 
-test("contract cards reflow without horizontal overflow across manager widths", async ({ page }) => {
+test("contract cards reflow without horizontal overflow across manager widths", async ({
+  page,
+}) => {
   await manager(page);
   await page.goto(`/contracts?motel=${MOTEL.id}`);
   for (const width of [360, 375, 430, 640, 768, 1024, 1440]) {
@@ -29,11 +45,16 @@ test("contract cards reflow without horizontal overflow across manager widths", 
     expect(createBounds).not.toBeNull();
     expect(createBounds!.x).toBeGreaterThanOrEqual(main!.x);
     expect(createBounds!.x + createBounds!.width).toBeLessThanOrEqual(main!.x + main!.width);
-    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `horizontal overflow at ${width}px`).toBe(true);
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+      `horizontal overflow at ${width}px`,
+    ).toBe(true);
   }
 });
 
-test("manager can create a motel-scoped draft contract from active renter and room", async ({ page }) => {
+test("manager can create a motel-scoped draft contract from active renter and room", async ({
+  page,
+}) => {
   await manager(page);
   await page.goto(`/contracts?motel=${MOTEL.id}`);
   await expect(page.getByRole("heading", { name: "Hợp đồng" })).toBeVisible();
@@ -49,12 +70,22 @@ test("manager can create a motel-scoped draft contract from active renter and ro
   await dialog.getByRole("button", { name: "Tạo hợp đồng nháp", exact: true }).click();
   await expect(dialog).toBeHidden();
   await expect(page.getByText("Bản nháp", { exact: true }).first()).toBeVisible();
-  await expect(page.getByRole("button", { name: "Sửa bản nháp", exact: true }).first()).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Sửa bản nháp", exact: true }).first(),
+  ).toBeVisible();
   await expect(page.getByText("Đã tạo hợp đồng nháp", { exact: true })).toBeVisible();
 });
 
 test("active contract detail shows clause snapshot and confirms termination", async ({ page }) => {
-  await page.context().addCookies([{ name: "manager_session", value: "contract-active", url: "http://localhost:3001", httpOnly: true, sameSite: "Lax" }]);
+  await page.context().addCookies([
+    {
+      name: "manager_session",
+      value: "contract-active",
+      url: "http://localhost:3001",
+      httpOnly: true,
+      sameSite: "Lax",
+    },
+  ]);
   await page.goto(`/contracts?motel=${MOTEL.id}`);
   await expect(page.getByText("Trần Thị B", { exact: true })).toBeVisible();
   await expect(page.getByText("Đang hiệu lực", { exact: true })).toBeVisible();
@@ -67,7 +98,15 @@ test("active contract detail shows clause snapshot and confirms termination", as
 });
 
 test("manager can edit an existing draft without changing renter or room", async ({ page }) => {
-  await page.context().addCookies([{ name: "manager_session", value: "contract-draft", url: "http://localhost:3001", httpOnly: true, sameSite: "Lax" }]);
+  await page.context().addCookies([
+    {
+      name: "manager_session",
+      value: "contract-draft",
+      url: "http://localhost:3001",
+      httpOnly: true,
+      sameSite: "Lax",
+    },
+  ]);
   await page.goto(`/contracts?motel=${MOTEL.id}`);
   await page.getByRole("button", { name: "Sửa bản nháp", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Chỉnh sửa hợp đồng nháp" });
@@ -84,7 +123,9 @@ test("manager can create a scoped template from the template dialog", async ({ p
   const dialog = page.getByRole("dialog", { name: "Mẫu hợp đồng" });
   await dialog.getByLabel("Tên mẫu", { exact: true }).fill("Hợp đồng mới");
   await dialog.getByLabel("Tiêu đề điều khoản", { exact: true }).fill("Tiền cọc");
-  await dialog.getByLabel("Nội dung điều khoản", { exact: true }).fill("Hoàn lại khi bàn giao phòng");
+  await dialog
+    .getByLabel("Nội dung điều khoản", { exact: true })
+    .fill("Hoàn lại khi bàn giao phòng");
   await dialog.getByRole("button", { name: "Lưu mẫu", exact: true }).click();
   await expect(dialog.getByText("Hợp đồng mới", { exact: true })).toBeVisible();
   await dialog.getByRole("button", { name: "Sửa mẫu Hợp đồng mới", exact: true }).click();

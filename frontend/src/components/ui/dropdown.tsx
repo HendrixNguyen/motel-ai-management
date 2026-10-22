@@ -34,22 +34,40 @@ export default function Dropdown({
   const activeIndex = options.findIndex((option) => option.value === value);
   const selectedValueRef = useRef(value);
   const disabledRef = useRef(disabled);
-  const moveActive = useCallback((direction: -1 | 1) => {
-    if (!options.length) return;
-    const next = activeIndex < 0 ? (direction > 0 ? 0 : options.length - 1) : (activeIndex + direction + options.length) % options.length;
-    onChange(options[next]!.value);
-    listRef.current?.querySelector<HTMLElement>(`[data-option-index="${next}"]`)?.scrollIntoView({ block: "nearest" });
-  }, [activeIndex, onChange, options]);
+  const moveActive = useCallback(
+    (direction: -1 | 1) => {
+      if (!options.length) return;
+      const next =
+        activeIndex < 0
+          ? direction > 0
+            ? 0
+            : options.length - 1
+          : (activeIndex + direction + options.length) % options.length;
+      onChange(options[next]!.value);
+      listRef.current
+        ?.querySelector<HTMLElement>(`[data-option-index="${next}"]`)
+        ?.scrollIntoView({ block: "nearest" });
+    },
+    [activeIndex, onChange, options],
+  );
   const listboxId = id ? `${id}-listbox` : undefined;
 
   const close = useCallback(() => setIsOpen(false), []);
   const toggle = useCallback(() => setIsOpen((prev) => !prev), []);
 
-  useEffect(() => { selectedValueRef.current = value; disabledRef.current = disabled; }, [value, disabled]);
+  useEffect(() => {
+    selectedValueRef.current = value;
+    disabledRef.current = disabled;
+  }, [value, disabled]);
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       const target = event.target as Node;
-      if (selectedValueRef.current !== selectedOption?.value || disabledRef.current || (!buttonRef.current?.contains(target) && !listRef.current?.contains(target))) close();
+      if (
+        selectedValueRef.current !== selectedOption?.value ||
+        disabledRef.current ||
+        (!buttonRef.current?.contains(target) && !listRef.current?.contains(target))
+      )
+        close();
     }
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") close();
@@ -79,7 +97,11 @@ export default function Dropdown({
         onClick={toggle}
         className={`min-h-11 w-full min-w-0 rounded-input border border-border-strong bg-surface px-3 text-base text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary flex items-center justify-between gap-2 disabled:opacity-50 disabled:cursor-not-allowed ${isOpen ? "border-primary" : ""}`}
       >
-        <span className={`min-w-0 flex-1 text-left [overflow-wrap:anywhere] ${value ? "text-text" : "text-text-muted"}`}>{value ? selectedOption?.label ?? placeholder : placeholder}</span>
+        <span
+          className={`min-w-0 flex-1 text-left [overflow-wrap:anywhere] ${value ? "text-text" : "text-text-muted"}`}
+        >
+          {value ? (selectedOption?.label ?? placeholder) : placeholder}
+        </span>
         <svg
           className={`ml-2 h-4 w-4 text-text-muted flex-shrink-0 transition-transform duration-150 ${isOpen ? "rotate-180" : ""}`}
           viewBox="0 0 24 24"
@@ -99,10 +121,27 @@ export default function Dropdown({
           role="listbox"
           aria-labelledby={buttonId}
           tabIndex={-1}
-          onKeyDown={(event) => { if (event.key === "ArrowDown") { event.preventDefault(); moveActive(1); } if (event.key === "ArrowUp") { event.preventDefault(); moveActive(-1); } }}
+          onKeyDown={(event) => {
+            if (event.key === "ArrowDown") {
+              event.preventDefault();
+              moveActive(1);
+            }
+            if (event.key === "ArrowUp") {
+              event.preventDefault();
+              moveActive(-1);
+            }
+          }}
           className="absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-card border border-border bg-surface py-1 shadow-lg"
         >
-          <li role="option" aria-selected={!value} onClick={() => { onChange(""); close(); }} className={`px-3 py-2 text-base [overflow-wrap:anywhere] cursor-pointer ${!value ? "bg-primary text-primary-fixed" : "text-text hover:bg-canvas"}`}>
+          <li
+            role="option"
+            aria-selected={!value}
+            onClick={() => {
+              onChange("");
+              close();
+            }}
+            className={`px-3 py-2 text-base [overflow-wrap:anywhere] cursor-pointer ${!value ? "bg-primary text-primary-fixed" : "text-text hover:bg-canvas"}`}
+          >
             {placeholder}
           </li>
           {options.map((option) => (
@@ -111,7 +150,10 @@ export default function Dropdown({
               role="option"
               aria-selected={option.value === value}
               data-option-index={options.indexOf(option)}
-              onClick={() => { onChange(option.value); close(); }}
+              onClick={() => {
+                onChange(option.value);
+                close();
+              }}
               className={`px-3 py-2 text-base [overflow-wrap:anywhere] cursor-pointer ${option.value === value ? "bg-primary text-primary-fixed" : "text-text hover:bg-canvas"}`}
             >
               {option.label}

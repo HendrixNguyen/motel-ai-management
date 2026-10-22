@@ -27,8 +27,7 @@ const MAX_AMOUNT = 10n ** BigInt(MONEY_PRECISION) - 1n;
 
 export function parseVnd(input: string | number): string {
   const raw = typeof input === "number" ? String(input) : input.trim();
-  if (!VND.test(raw))
-    throw AppError.badRequest(`Số tiền không hợp lệ: ${input}`);
+  if (!VND.test(raw)) throw AppError.badRequest(`Số tiền không hợp lệ: ${input}`);
   return BigInt(raw).toString();
 }
 
@@ -59,11 +58,11 @@ export function parseAmount(input: string): string {
 }
 
 export function formatVnd(amount: string): string {
-  return `${BigInt(amount).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".")} ₫`;
+  return `${BigInt(amount)
+    .toString()
+    .replace(/\B(?=(\d{3})+(?!\d))/g, ".")} ₫`;
 }
 
 export function sumVnd(...amounts: string[]): string {
-  return amounts
-    .reduce((total, amount) => total + BigInt(parseVnd(amount)), 0n)
-    .toString();
+  return amounts.reduce((total, amount) => total + BigInt(parseVnd(amount)), 0n).toString();
 }

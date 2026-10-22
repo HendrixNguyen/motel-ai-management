@@ -17,11 +17,7 @@ import {
 } from "./renter.service";
 import { StorageError, validateStorageInput, type StorageAdapter } from "@/shared/storage";
 import { renterStatus } from "./renter.schema";
-import type {
-  CreateRenterInput,
-  ListRentersFilters,
-  UpdateRenterInput,
-} from "./renter.types";
+import type { CreateRenterInput, ListRentersFilters, UpdateRenterInput } from "./renter.types";
 
 /**
  * `motelId` and `renterId` are `uuid` columns, so a path segment that is not a uuid has to fail
@@ -78,19 +74,39 @@ const createBody = t.Object({
 });
 
 let cccdStorage: StorageAdapter | undefined;
-export function configureCccdStorage(storage: StorageAdapter): void { cccdStorage = storage; }
-function requireCccdStorage(): StorageAdapter { if (!cccdStorage) throw AppError.externalService("Lưu trữ tệp chưa được cấu hình"); return cccdStorage; }
+export function configureCccdStorage(storage: StorageAdapter): void {
+  cccdStorage = storage;
+}
+function requireCccdStorage(): StorageAdapter {
+  if (!cccdStorage) throw AppError.externalService("Lưu trữ tệp chưa được cấu hình");
+  return cccdStorage;
+}
 
-async function deleteUnreferencedCccdObject(storage: StorageAdapter, objectKey: string): Promise<void> {
+async function deleteUnreferencedCccdObject(
+  storage: StorageAdapter,
+  objectKey: string,
+): Promise<void> {
   const [front, back] = await Promise.all([
-    db.query.renters.findFirst({ where: eq(renters.idCardFrontObjectKey, objectKey), columns: { id: true } }),
-    db.query.renters.findFirst({ where: eq(renters.idCardBackObjectKey, objectKey), columns: { id: true } }),
+    db.query.renters.findFirst({
+      where: eq(renters.idCardFrontObjectKey, objectKey),
+      columns: { id: true },
+    }),
+    db.query.renters.findFirst({
+      where: eq(renters.idCardBackObjectKey, objectKey),
+      columns: { id: true },
+    }),
   ]);
   if (!front && !back) await storage.delete(objectKey).catch(() => undefined);
 }
 
-const cccdParams = t.Object({ motelId: t.String({ format: "uuid" }), renterId: t.String({ format: "uuid" }), side: t.Union([t.Literal("front"), t.Literal("back")]) });
-const cccdUploadBody = t.Object({ file: t.File({ type: ["image/jpeg", "image/png"], maxSize: "5m" }) });
+const cccdParams = t.Object({
+  motelId: t.String({ format: "uuid" }),
+  renterId: t.String({ format: "uuid" }),
+  side: t.Union([t.Literal("front"), t.Literal("back")]),
+});
+const cccdUploadBody = t.Object({
+  file: t.File({ type: ["image/jpeg", "image/png"], maxSize: "5m" }),
+});
 
 const updateBody = t.Object({
   name: t.Optional(t.String({ minLength: 1 })),
@@ -151,37 +167,74 @@ export const renterRoutes = new Elysia({ name: "renter-routes" })
       detail: { security: [{ managerAuth: [] }] },
     },
   )
-  .post("/manager/motels/:motelId/renters/:renterId/cccd/:side", async ({ params, body, auth, set }) => {
-    const file = (body as { file: File }).file;
-    if (file.size > 5_000_000) throw AppError.badRequest("Tệp vượt quá giới hạn 5 MB");
-    const bytes = new Uint8Array(await file.arrayBuffer());
-    const side = params.side as RenterCccdSide;
-    const objectKey = `motels/${params.motelId}/renters/${params.renterId}/cccd/${side}/${crypto.randomUUID()}`;
-    let stored: Awaited<ReturnType<StorageAdapter["put"]>>;
-    try {
-      await validateStorageInput({ objectKey, body: bytes, contentType: file.type as "image/jpeg" | "image/png", maxBytes: 5_000_000 });
-      stored = await requireCccdStorage().put({ objectKey, body: bytes, contentType: file.type as "image/jpeg" | "image/png", maxBytes: 5_000_000 });
-    } catch (error) {
-      if (error instanceof StorageError) throw AppError.badRequest(error.message);
-      throw AppError.externalService();
-    }
-    try {
-      const { oldObjectKey } = await setRenterCccdMetadata(params.renterId, params.motelId, auth!.userId, side, { ...stored, contentType: stored.contentType as "image/jpeg" | "image/png" });
-      if (oldObjectKey) await deleteUnreferencedCccdObject(requireCccdStorage(), oldObjectKey);
-      set.status = 201;
-      return { side, uploaded: true, contentType: stored.contentType, size: stored.size };
-    } catch (error) {
-      await deleteUnreferencedCccdObject(requireCccdStorage(), stored.objectKey);
-      throw error;
-    }
-  }, { params: cccdParams, body: cccdUploadBody, detail: { security: [{ managerAuth: [] }] } })
-  .get("/manager/motels/:motelId/renters/:renterId/cccd/:side", async ({ params, auth }) => {
-    const side = params.side as RenterCccdSide;
-    const metadata = await getRenterCccdMetadata(params.renterId, params.motelId, auth!.userId, side);
-    if (!metadata) throw AppError.notFound("Không tìm thấy ảnh CCCD");
-    try { return { side, url: await requireCccdStorage().createSignedDownload(metadata.objectKey, 300), contentType: metadata.contentType, size: metadata.size }; }
-    catch { throw AppError.externalService(); }
-  }, { params: cccdParams, detail: { security: [{ managerAuth: [] }] } })
+  .post(
+    "/manager/motels/:motelId/renters/:renterId/cccd/:side",
+    async ({ params, body, auth, set }) => {
+      const file = (body as { file: File }).file;
+      if (file.size > 5_000_000) throw AppError.badRequest("Tệp vượt quá giới hạn 5 MB");
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      const side = params.side as RenterCccdSide;
+      const objectKey = `motels/${params.motelId}/renters/${params.renterId}/cccd/${side}/${crypto.randomUUID()}`;
+      let stored: Awaited<ReturnType<StorageAdapter["put"]>>;
+      try {
+        await validateStorageInput({
+          objectKey,
+          body: bytes,
+          contentType: file.type as "image/jpeg" | "image/png",
+          maxBytes: 5_000_000,
+        });
+        stored = await requireCccdStorage().put({
+          objectKey,
+          body: bytes,
+          contentType: file.type as "image/jpeg" | "image/png",
+          maxBytes: 5_000_000,
+        });
+      } catch (error) {
+        if (error instanceof StorageError) throw AppError.badRequest(error.message);
+        throw AppError.externalService();
+      }
+      try {
+        const { oldObjectKey } = await setRenterCccdMetadata(
+          params.renterId,
+          params.motelId,
+          auth!.userId,
+          side,
+          { ...stored, contentType: stored.contentType as "image/jpeg" | "image/png" },
+        );
+        if (oldObjectKey) await deleteUnreferencedCccdObject(requireCccdStorage(), oldObjectKey);
+        set.status = 201;
+        return { side, uploaded: true, contentType: stored.contentType, size: stored.size };
+      } catch (error) {
+        await deleteUnreferencedCccdObject(requireCccdStorage(), stored.objectKey);
+        throw error;
+      }
+    },
+    { params: cccdParams, body: cccdUploadBody, detail: { security: [{ managerAuth: [] }] } },
+  )
+  .get(
+    "/manager/motels/:motelId/renters/:renterId/cccd/:side",
+    async ({ params, auth }) => {
+      const side = params.side as RenterCccdSide;
+      const metadata = await getRenterCccdMetadata(
+        params.renterId,
+        params.motelId,
+        auth!.userId,
+        side,
+      );
+      if (!metadata) throw AppError.notFound("Không tìm thấy ảnh CCCD");
+      try {
+        return {
+          side,
+          url: await requireCccdStorage().createSignedDownload(metadata.objectKey, 300),
+          contentType: metadata.contentType,
+          size: metadata.size,
+        };
+      } catch {
+        throw AppError.externalService();
+      }
+    },
+    { params: cccdParams, detail: { security: [{ managerAuth: [] }] } },
+  )
   .delete(
     "/manager/motels/:motelId/renters/:renterId",
     async ({ params, auth, set }) => {
