@@ -48,6 +48,7 @@ export interface UpdateMotelInput {
 
 export interface MotelResponse {
   id: string;
+  publicAccessCode: string;
   managerId: string;
   name: string;
   address: string | null;

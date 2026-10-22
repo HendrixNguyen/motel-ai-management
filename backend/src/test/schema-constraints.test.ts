@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, setDefaultTimeout, test } from "bun:test";
+import { createHash } from "node:crypto";
 import { sql } from "drizzle-orm";
 import { db } from "@/db";
 import { resetDb } from "@/db/test-db";
@@ -30,8 +31,9 @@ async function seed() {
     passwordHash: "x",
     name: "A",
   });
-  await db.insert(motels).values({
+    await db.insert(motels).values({
     id: motelId,
+    publicAccessCode: "abcdefghijklmnopqrstuvwx12345678",
     managerId,
     name: "M",
     electricityPrice: "3500",
@@ -281,9 +283,9 @@ describe("schema constraints", () => {
 
   test("a magic link token is unique", async () => {
     const { renterId } = await seedRenter();
-    const values = { renterId, token: "token-abc", expiresAt: new Date("2026-10-05T00:00:00Z") };
+    const values = { renterId, tokenHash: createHash("sha256").update("token-abc").digest("hex"), expiresAt: new Date("2026-10-05T00:00:00Z") };
     const [link] = await db.insert(magicLinks).values(values).returning();
-    expect(link!.token).toBe("token-abc");
+    expect(link!.tokenHash).toBe(values.tokenHash);
     await expect(db.insert(magicLinks).values(values).execute()).rejects.toThrow();
   });
 });

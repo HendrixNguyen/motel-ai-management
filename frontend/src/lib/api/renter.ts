@@ -1,6 +1,7 @@
 import { apiGet, apiSend } from "./client";
 import type { CreateRenterTicketInput, RenterContract, RenterInvoiceDetail, RenterInvoiceSummary, RenterPeriod, RenterPortalProfile, RenterPaymentProof, RenterTicket } from "./types";
 
+export function requestRenterLogin(motelCode: string, phone: string) { return apiSend<{ message: string }>("/api/renter/login-requests", "POST", { motelCode, phone }); }
 export function exchangeRenterMagicLink(token: string) { return apiSend<{ renterId: string; motelId: string }>("/api/renter/magic-links/exchange", "POST", { token }); }
 export function logoutRenter() { return apiSend<void>("/api/renter/logout", "POST"); }
 export function getRenterMe() { return apiGet<RenterPortalProfile>("/api/renter/me"); }
@@ -9,6 +10,7 @@ export function getRenterPushSubscription() { return apiGet<{ subscription: { en
 export function saveRenterPushSubscription(subscription: PushSubscriptionJSON) { return apiSend<{ registered: boolean; subscriptionId: string }>("/api/renter/push/subscription", "POST", subscription); }
 export function removeRenterPushSubscription(endpoint: string) { return apiSend<{ removed: boolean }>("/api/renter/push/subscription", "DELETE", { endpoint }); }
 export function listRenterPeriods() { return apiGet<RenterPeriod[]>("/api/renter/billing/periods"); }
+export function listRenterUnpaidInvoices() { return apiGet<RenterInvoiceSummary[]>("/api/renter/billing/unpaid-invoices"); }
 export function listRenterInvoices(periodId: string) { return apiGet<RenterInvoiceSummary[]>(`/api/renter/billing/periods/${encodeURIComponent(periodId)}/invoices`); }
 export function getRenterInvoice(invoiceId: string) { return apiGet<RenterInvoiceDetail>(`/api/renter/invoices/${encodeURIComponent(invoiceId)}`); }
 export function getRenterPaymentProof(invoiceId: string) { return apiGet<RenterPaymentProof | null>(`/api/renter/invoices/${encodeURIComponent(invoiceId)}/payment-proof`); }

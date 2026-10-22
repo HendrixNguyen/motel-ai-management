@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { ApiError } from "@/lib/api/client";
 import Button from "@/components/ui/button";
 import { getRenterPushKey, getRenterPushSubscription, removeRenterPushSubscription, saveRenterPushSubscription } from "@/lib/api/renter";
 
@@ -22,12 +23,12 @@ export default function PushOptIn() {
       const [config, saved] = await Promise.all([getRenterPushKey(), getRenterPushSubscription()]);
       if (!config.enabled || !config.publicKey) { update("off"); return; }
       if (Notification.permission === "denied") { update("denied"); return; }
-      const registration = await navigator.serviceWorker.ready;
+      const registration = await Promise.race([navigator.serviceWorker.ready, new Promise<never>((_, reject) => setTimeout(() => reject(new Error("service worker timeout")), 5000))]);
       const current = await registration.pushManager.getSubscription();
       if (current && saved.subscription?.endpoint === current.endpoint) update("on");
       else if (current) { update("error"); }
       else update("off");
-    }).catch(() => update("error"));
+    }).catch((error) => update(error instanceof ApiError && error.code === "UNAUTHORIZED" ? "unavailable" : "error"));
     return () => { active = false; };
   }, []);
 
@@ -37,7 +38,7 @@ export default function PushOptIn() {
       if (Notification.permission !== "granted" && await Notification.requestPermission() !== "granted") { setState(Notification.permission === "denied" ? "denied" : "off"); return; }
       const { publicKey, enabled } = await getRenterPushKey();
       if (!enabled || !publicKey) { setState("off"); return; }
-      const registration = await navigator.serviceWorker.ready;
+      const registration = await Promise.race([navigator.serviceWorker.ready, new Promise<never>((_, reject) => setTimeout(() => reject(new Error("service worker timeout")), 5000))]);
       const subscription = await registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: decodeKey(publicKey) });
       try { await saveRenterPushSubscription(subscription.toJSON()); }
       catch (error) { await subscription.unsubscribe(); throw error; }

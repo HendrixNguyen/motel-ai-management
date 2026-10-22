@@ -3,14 +3,14 @@
 import { useRef, useState, type ChangeEvent, type DragEvent, type InputHTMLAttributes } from "react";
 import Field from "./field";
 import ImagePreview from "./image-preview";
-
-const ACCEPTED = ["image/jpeg", "image/png"];
+const DEFAULT_ACCEPTED = ["image/jpeg", "image/png"];
 type Props = Omit<InputHTMLAttributes<HTMLInputElement>, "id" | "type" | "accept" | "onChange" | "onError"> & {
   id: string;
   label: string;
   error?: string;
   hint?: string;
   maxBytes?: number;
+  accept?: string;
   onFiles: (files: File[]) => void;
   onError?: (message: string) => void;
   onRetry?: () => void;
@@ -24,23 +24,24 @@ function formatLimit(bytes: number): string {
   return bytes % (1024 * 1024) === 0 ? `${bytes / (1024 * 1024)} MiB` : `${Math.round(bytes / 1_000_000)} MB`;
 }
 
-function isAcceptedFile(file: File, maxBytes = 10 * 1024 * 1024): boolean {
-  return ACCEPTED.includes(file.type) && file.size <= maxBytes;
+function isAcceptedFile(file: File, maxBytes = 10 * 1024 * 1024, accepted = DEFAULT_ACCEPTED): boolean {
+  return (accepted as readonly string[]).includes(file.type) && file.size > 0 && file.size <= maxBytes;
 }
 
-function FileUpload({ id, label, error, hint, maxBytes = 10 * 1024 * 1024, onFiles, onError, onRetry, pending = false, retry, previewUrl, onRemovePreview, ...props }: Props) {
+function FileUpload({ id, label, error, hint, maxBytes = 10 * 1024 * 1024, accept = DEFAULT_ACCEPTED.join(","), onFiles, onError, onRetry, pending = false, retry, previewUrl, onRemovePreview, ...props }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
   const dragDepth = useRef(0);
   const limit = formatLimit(maxBytes);
+  const allowed = accept ? accept.split(",").map((item) => item.trim()) : DEFAULT_ACCEPTED;
 
   const handleFiles = (files: File[]) => {
     if (files.length !== 1) {
       onError?.("Chọn một ảnh cho mỗi trường tải lên");
       return;
     }
-    if (!isAcceptedFile(files[0]!, maxBytes)) {
-      onError?.(`Chỉ nhận ảnh JPEG hoặc PNG tối đa ${limit}`);
+    if (!isAcceptedFile(files[0]!, maxBytes, allowed)) {
+      onError?.(accept === DEFAULT_ACCEPTED.join(",") ? `Chỉ nhận ảnh JPEG hoặc PNG tối đa ${limit}` : `Chỉ nhận ảnh được hỗ trợ tối đa ${limit}`);
       return;
     }
     onError?.("");
@@ -85,7 +86,7 @@ function FileUpload({ id, label, error, hint, maxBytes = 10 * 1024 * 1024, onFil
       className={`rounded-card border-2 border-dashed p-3 transition-colors ${dragging ? "border-primary bg-canvas" : "border-border-strong"} ${pending ? "opacity-60" : ""}`}
       data-dragging={dragging}
     >
-      <input {...control} {...props} id={id} ref={inputRef} type="file" accept={ACCEPTED.join(",")} onChange={handleChange} disabled={pending} className="sr-only" />
+      <input {...control} {...props} id={id} ref={inputRef} type="file" accept={accept} onChange={handleChange} disabled={pending} className="sr-only" />
       {previewUrl && <ImagePreview src={previewUrl} alt={label} onRemove={onRemovePreview} />}
       <p className="text-sm text-text-muted">Kéo thả ảnh vào đây</p>
       <button type="button" disabled={pending} onClick={() => inputRef.current?.click()} className="mt-2 min-h-11 rounded-input border border-border-strong bg-surface px-4 font-semibold text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:opacity-60">

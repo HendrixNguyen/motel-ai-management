@@ -13,7 +13,7 @@ export const zaloOaMotelMappings = pgTable("zalo_oa_motel_mappings", {
   check("zalo_oa_motel_mappings_oa_id_nonempty", sql`length(trim(${table.oaId})) > 0`),
 ]);
 
-export const notificationEventChannel = pgEnum("notification_event_channel", ["oa_message", "zns"]);
+export const notificationEventChannel = pgEnum("notification_event_channel", ["oa_message", "zns", "web_push", "manual"]);
 export const notificationEventStatus = pgEnum("notification_event_status", ["pending", "sent", "failed"]);
 export const notificationFailureClass = pgEnum("notification_failure_class", ["transient", "permanent"]);
 

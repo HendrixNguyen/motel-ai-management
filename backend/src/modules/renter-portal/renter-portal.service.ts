@@ -1,4 +1,4 @@
-import { hasRenterInvoicePeriod, listRenterInvoicesForPeriod, listBillingPeriodsForRenter, getRenterInvoiceDetail } from "@/modules/billing/billing.service";
+import { hasRenterInvoicePeriod, listRenterInvoicesForPeriod, listBillingPeriodsForRenter, getRenterInvoiceDetail, listUnpaidInvoicesForRenter } from "@/modules/billing/billing.service";
 import { db } from "@/db";
 import { getRoomForRenter } from "@/modules/room/room.service";
 import { getMotelForRenter } from "@/modules/motel/motel.service";
@@ -26,6 +26,10 @@ export async function getRenterMe(session: RenterSession): Promise<RenterPortalP
 
 export async function listRenterPeriods(session: RenterSession): Promise<RenterPeriod[]> {
   return listBillingPeriodsForRenter(session.motelId, session.renterId);
+}
+
+export async function listRenterUnpaidInvoices(session: RenterSession): Promise<RenterInvoice[]> {
+  return listUnpaidInvoicesForRenter(session.renterId, session.motelId);
 }
 
 export async function listRenterInvoices(session: RenterSession, periodId: string): Promise<RenterInvoice[]> {

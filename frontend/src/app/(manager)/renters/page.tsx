@@ -8,6 +8,7 @@ import RenterEditor from "@/components/manager/renter-editor";
 import { resolveMotelId, type MotelSearchParams } from "@/lib/motel-selection";
 import PageHeader from "@/components/ui/page-header";
 import Card from "@/components/ui/card";
+import LoginRequestQueue from "@/components/manager/login-request-queue";
 
 export default async function Renters({ searchParams }: { searchParams: Promise<MotelSearchParams> }) {
   const motels = await listMotels();
@@ -20,6 +21,7 @@ export default async function Renters({ searchParams }: { searchParams: Promise<
   return <section className="min-w-0 space-y-6">
     <PageHeader title="Khách thuê" description="Thông tin liên hệ, phòng thuê và hồ sơ của khách thuê." />
     <div className="flex justify-end"><RenterEditor key={`${motelId}:${params.create === "1"}`} motelId={motelId} rooms={rooms} initiallyOpen={params.create === "1"} /></div>
+    <LoginRequestQueue motelId={motelId} />
     {roomId && <div className="flex min-w-0 flex-wrap items-center gap-3 text-base text-text-body">
       <p className="[overflow-wrap:anywhere]">Phòng: {roomNames[roomId] ?? "Chưa cập nhật"}</p>
       <Link href={`/renters?${new URLSearchParams({ motel: motelId })}`} className="inline-flex min-h-11 items-center rounded-input px-2 font-semibold text-primary underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">Xem tất cả khách thuê</Link>

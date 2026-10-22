@@ -27,8 +27,8 @@ beforeEach(resetDb);
 async function seed() {
   const manager = await registerManager({ email: "portal@example.com", password: "aaaaaaaa", name: "Manager" });
   const [motelA, motelB] = await db.insert(motels).values([
-    { managerId: manager.id, name: "Nhà A", electricityPrice: "3500", waterPrice: "25000", bankAccount: { bankCode: "970422", accountNumber: "123456", accountName: "NHA A" } },
-    { managerId: manager.id, name: "Nhà B", electricityPrice: "3500", waterPrice: "25000" },
+    { managerId: manager.id, publicAccessCode: "public-access-code-a-1234567890", name: "Nhà A", electricityPrice: "3500", waterPrice: "25000", bankAccount: { bankCode: "970422", accountNumber: "123456", accountName: "NHA A" } },
+    { managerId: manager.id, publicAccessCode: "public-access-code-b-1234567890", name: "Nhà B", electricityPrice: "3500", waterPrice: "25000" },
   ]).returning();
   const [roomA, roomB, roomC] = await db.insert(rooms).values([
     { motelId: motelA!.id, name: "P.101", floor: 1, basePrice: "5000000" },
@@ -88,6 +88,14 @@ describe("renter portal reads", () => {
     ]));
     expect(body[0]).not.toHaveProperty("motelId");
     expect(body[0]).not.toHaveProperty("managerNote");
+  });
+
+  test("lists only own unpaid invoices from all sent billing periods", async () => {
+    const data = await seed();
+    const cookie = await sessionCookie(data.renterA.id);
+    const response = await app.handle(new Request("http://localhost/api/renter/billing/unpaid-invoices", { headers: { cookie } }));
+    expect(response.status).toBe(200);
+    expect(asRecords(await response.json()).map((invoice) => invoice.id)).toEqual([data.invoiceA.id]);
   });
 
   test("rejects foreign period IDs and cannot mutate payment state", async () => {

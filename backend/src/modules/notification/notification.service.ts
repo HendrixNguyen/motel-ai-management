@@ -1,4 +1,4 @@
-import { and, eq, isNull, lte, or, sql } from "drizzle-orm";
+import { and, asc, eq, isNull, lte, or, sql } from "drizzle-orm";
 import { createRequire } from "node:module";
 import type webPush from "web-push";
 import { env } from "@/config";
@@ -45,7 +45,9 @@ export async function sendPushToRenter(renterId: string, motelId: string, payloa
   const webPush = webPushClient;
   if (!webPush) return false;
   try { webPush.setVapidDetails(webPushConfig.subject, webPushConfig.publicKey, webPushConfig.privateKey); } catch { return false; }
-  const data = JSON.stringify({ title: payload.title.slice(0, 80), body: payload.body.slice(0, 160), path: payload.path?.startsWith("/portal/bills/") ? payload.path : "/portal/bills", tag: payload.tag?.slice(0, 100) });
+  const candidatePath = payload.path ?? "/portal";
+  const path = candidatePath.startsWith("/portal/bills/") && !candidatePath.includes("//") && !candidatePath.includes("?") && !candidatePath.includes("#") ? candidatePath : "/portal";
+  const data = JSON.stringify({ title: payload.title.slice(0, 80), body: payload.body.slice(0, 160), path, tag: payload.tag?.slice(0, 100) });
   const results = await Promise.all(subscriptions.map(async (subscription) => {
     try {
       await webPush.sendNotification({ endpoint: subscription.endpoint, keys: { p256dh: subscription.p256dh, auth: subscription.auth } }, data, { TTL: 3600 });
@@ -112,10 +114,12 @@ function failureKind(error: unknown): { transient: boolean; reason: RetryFailure
 type NotificationExecutor = Pick<Db, "insert" | "query">;
 
 export async function enqueueNotification(input: NotificationInput, executor: NotificationExecutor = db): Promise<NotificationEvent> {
-  if (!recipientResolver) throw AppError.externalService("Notification recipient resolver chưa được cấu hình");
-  const recipient = await recipientResolver(input.renterId, input.motelId);
-  if (!recipient) throw AppError.notFound("Không tìm thấy người thuê");
-  const channel = "zns" as const;
+  if (input.channel !== "web_push" && input.channel !== "manual") {
+    if (!recipientResolver) throw AppError.externalService("Notification recipient resolver chưa được cấu hình");
+    const recipient = await recipientResolver(input.renterId, input.motelId);
+    if (!recipient) throw AppError.notFound("Không tìm thấy người thuê");
+  }
+  const channel = input.channel ?? "zns";
   const [row] = await executor.insert(notificationEvents).values({ eventKey: input.eventKey, renterId: input.renterId, motelId: input.motelId, channel, templateId: input.templateId, payload: redactPayload(input.payload) }).onConflictDoNothing({ target: notificationEvents.eventKey }).returning();
   if (row) { if (input.transientSecret) { secrets.set(row.id, input.transientSecret); secretsAvailableAtEnqueue.add(row.id); } return row; }
   const existing = await executor.query.notificationEvents.findFirst({ where: eq(notificationEvents.eventKey, input.eventKey) });
@@ -123,8 +127,12 @@ export async function enqueueNotification(input: NotificationInput, executor: No
   return existing;
 }
 
+export async function listDueNotificationIds(limit = 20): Promise<string[]> {
+  const rows = await db.query.notificationEvents.findMany({ where: and(eq(notificationEvents.status, "pending"), or(isNull(notificationEvents.nextRetryAt), lte(notificationEvents.nextRetryAt, new Date())), or(isNull(notificationEvents.leaseUntil), lte(notificationEvents.leaseUntil, new Date()))), columns: { id: true }, orderBy: [asc(notificationEvents.createdAt)], limit: Math.max(1, Math.min(limit, 50)) });
+  return rows.map((row) => row.id);
+}
+
 export async function deliverNotification(eventId: string): Promise<NotificationEvent> {
-  if (!provider) throw AppError.externalService("Zalo chưa được cấu hình");
   const now = new Date();
   const leaseId = crypto.randomUUID();
   const [claimed] = await db.update(notificationEvents).set({ leaseId, leaseUntil: new Date(Date.now() + 30_000), updatedAt: now }).where(and(eq(notificationEvents.id, eventId), eq(notificationEvents.status, "pending"), or(isNull(notificationEvents.nextRetryAt), lte(notificationEvents.nextRetryAt, now)), or(isNull(notificationEvents.leaseUntil), lte(notificationEvents.leaseUntil, now)))).returning();
@@ -135,21 +143,24 @@ export async function deliverNotification(eventId: string): Promise<Notification
   }
   const event = claimed;
   const releaseLease = async (): Promise<boolean> => Boolean((await db.update(notificationEvents).set({ leaseId: null, leaseUntil: null, updatedAt: new Date() }).where(and(eq(notificationEvents.id, event.id), eq(notificationEvents.leaseId, leaseId))).returning())[0]);
+  if (event.channel === "manual") return db.update(notificationEvents).set({ status: "failed", failureClass: "permanent", failureReason: "manual_action_required", leaseId: null, leaseUntil: null, updatedAt: new Date() }).where(and(eq(notificationEvents.id, event.id), eq(notificationEvents.leaseId, leaseId))).returning().then(([row]) => row ?? event);
+  if (event.channel === "web_push") {
+    try {
+      const delivered = await sendPushToRenter(event.renterId, event.motelId, { title: String(event.payload.title ?? "Hóa đơn mới"), body: String(event.payload.body ?? "Bạn có hóa đơn mới cần xem."), path: String(event.payload.path ?? "/portal"), tag: event.eventKey });
+      if (delivered) return db.update(notificationEvents).set({ status: "sent", providerId: "web-push", sentAt: new Date(), updatedAt: new Date(), leaseId: null, leaseUntil: null }).where(and(eq(notificationEvents.id, event.id), eq(notificationEvents.leaseId, leaseId))).returning().then(([row]) => row ?? event);
+      return db.update(notificationEvents).set({ status: "failed", failureClass: "permanent", failureReason: "manual_action_required", leaseId: null, leaseUntil: null, updatedAt: new Date() }).where(and(eq(notificationEvents.id, event.id), eq(notificationEvents.leaseId, leaseId))).returning().then(([row]) => row ?? event);
+    } catch {
+      return db.update(notificationEvents).set({ status: "failed", failureClass: "permanent", failureReason: "manual_action_required", leaseId: null, leaseUntil: null, updatedAt: new Date() }).where(and(eq(notificationEvents.id, event.id), eq(notificationEvents.leaseId, leaseId))).returning().then(([row]) => row ?? event);
+    }
+  }
   if (!recipientResolver) {
     await releaseLease();
     throw AppError.externalService("Notification recipient resolver chưa được cấu hình");
   }
   let recipient: NotificationRecipient | undefined;
-  try {
-    recipient = await recipientResolver(event.renterId, event.motelId);
-  } catch (error) {
-    await releaseLease();
-    throw error;
-  }
-  if (!recipient) {
-    const released = await releaseLease();
-    throw AppError.notFound(released ? "Không tìm thấy người thuê" : "Không tìm thấy sự kiện thông báo");
-  }
+  try { recipient = await recipientResolver(event.renterId, event.motelId); } catch (error) { await releaseLease(); throw error; }
+  if (!recipient) { const released = await releaseLease(); throw AppError.notFound(released ? "Không tìm thấy người thuê" : "Không tìm thấy sự kiện thông báo"); }
+  if (!provider) { await releaseLease(); throw AppError.externalService("Zalo chưa được cấu hình"); }
   const transientSecret = secrets.get(event.id);
   if (Object.entries(event.payload).some(([key, value]) => value === "[REDACTED]" && /otp|password|token|secret|code/i.test(key)) && !secretsAvailableAtEnqueue.has(event.id)) {
     const [failedSecret] = await db.update(notificationEvents).set({ status: "failed", failureClass: "permanent", failureReason: "secret_unavailable", leaseId: null, leaseUntil: null, updatedAt: new Date() }).where(and(eq(notificationEvents.id, event.id), eq(notificationEvents.leaseId, leaseId))).returning();

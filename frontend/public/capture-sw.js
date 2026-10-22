@@ -8,13 +8,14 @@ self.addEventListener("push", (event) => {
   try { payload = event.data?.json() ?? {}; } catch { payload = {}; }
   const title = typeof payload.title === "string" ? payload.title.slice(0, 80) : "Cập nhật thanh toán";
   const body = typeof payload.body === "string" ? payload.body.slice(0, 160) : "Hóa đơn của bạn có cập nhật mới.";
-  const path = typeof payload.path === "string" && payload.path.startsWith("/portal/") && !payload.path.startsWith("//") ? payload.path : "/portal/bills";
+  const candidate = typeof payload.path === "string" ? payload.path : "";
+  const path = candidate.startsWith("/portal/bills/") && !candidate.includes("//") && !candidate.includes("?") && !candidate.includes("#") ? candidate : "/portal";
   event.waitUntil(self.registration.showNotification(title, { body, icon: "/brand/favicon.svg", badge: "/brand/favicon.svg", data: { path }, tag: typeof payload.tag === "string" ? payload.tag.slice(0, 100) : undefined }));
 });
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const path = event.notification.data?.path;
-  if (typeof path !== "string" || !path.startsWith("/portal/")) return;
+const path = event.notification.data?.path;
+   if (typeof path !== "string" || !path.startsWith("/portal") || path.startsWith("//") || path.includes("?") || path.includes("#")) return;
   const target = new URL(path, self.location.origin).href;
   event.waitUntil(self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
     const existing = clients.find((client) => client.url.startsWith(self.location.origin + "/portal"));

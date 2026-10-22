@@ -13,6 +13,8 @@ import { AppError } from "@/shared/errors";
 import type { ManagerJwtPayload } from "./auth.types";
 import { getRenter } from "@/modules/renter/renter.service";
 import { enforceRateLimit } from "@/shared/rate-limit";
+import { issueLoginRequestLink, listLoginRequests, markLoginRequestHandled } from "./renter-login-request.service";
+import { getMotelPublicAccessCode } from "@/modules/motel/motel.service";
 import { seedData } from "@/db/seed";
 
 const COOKIE_NAME = "manager_session";
@@ -94,7 +96,14 @@ export const authRoutes = new Elysia({ name: "auth-routes" })
       },
     ),
   )
-  .group("/manager/motels/:motelId/renters/:renterId", (app) =>
+     .group("/manager/motels/:motelId/login-requests", (app) => app.use(managerAuth)
+     .get("/", ({ params, auth }) => listLoginRequests(params.motelId, auth!.userId), { params: t.Object({ motelId: t.String({ format: "uuid" }) }), detail: { security: [{ managerAuth: [] }] } })
+     .post("/:requestId/link", ({ params, auth }) => issueLoginRequestLink(params.requestId, params.motelId, auth!.userId), { params: t.Object({ motelId: t.String({ format: "uuid" }), requestId: t.String({ format: "uuid" }) }), detail: { security: [{ managerAuth: [] }] } })
+     .post("/:requestId/handled", ({ params, auth }) => markLoginRequestHandled(params.requestId, params.motelId, auth!.userId, "handled"), { params: t.Object({ motelId: t.String({ format: "uuid" }), requestId: t.String({ format: "uuid" }) }), detail: { security: [{ managerAuth: [] }] } })
+     .post("/:requestId/dismiss", ({ params, auth }) => markLoginRequestHandled(params.requestId, params.motelId, auth!.userId, "dismissed"), { params: t.Object({ motelId: t.String({ format: "uuid" }), requestId: t.String({ format: "uuid" }) }), detail: { security: [{ managerAuth: [] }] } }))
+   .group("/manager/motels/:motelId/renter-recovery", (app) => app.use(managerAuth)
+     .get("/code", ({ params, auth }) => getMotelPublicAccessCode(params.motelId, auth!.userId), { params: t.Object({ motelId: t.String({ format: "uuid" }) }), detail: { security: [{ managerAuth: [] }] } }))
+   .group("/manager/motels/:motelId/renters/:renterId", (app) =>
     app.use(managerAuth).post(
       "/magic-link",
       async ({ params, auth, set }) => {
