@@ -131,13 +131,18 @@ large empty band. The motel selector remains a horizontal control at least `180p
 `44px` high in its normal desktop state. Header controls use theme tokens and never stay white
 when dark theme is active. The account disclosure closes on outside click and Escape, without
 closing when a user clicks inside; its theme selector closes on selection, outside click, and
-Escape while retaining keyboard operation.
+Escape while retaining keyboard operation. The sidebar can collapse to an icon-only rail with a
+bottom toggle; it remains `240px` wide when expanded and uses the surface token. When no motel
+is selected, manager sections show a motel selector list with links back to scoped routes or an
+empty-state create action as appropriate.
 
 Sidebar items: **Tổng quan**, **Nhà trọ**, **Phòng trọ**, **Khách thuê**, **Tính tiền &
 Hóa đơn**, **Hợp đồng**, **Sự cố & Yêu cầu**, **Cài đặt**.
 
 The motel selector in the top bar is global state. Every screen below is scoped to the
-selected motel; switching motels reloads the current route against the new id.
+selected motel; switching motels reloads the current route against the new id. Selecting
+`Chọn nhà trọ` (empty value) clears scope and shows a cross-motel selector list on manager
+sections that require a motel.
 
 ### What is built
 
@@ -245,7 +250,9 @@ An unfiltered empty motel offers `Thêm phòng`; an empty filtered result offers
 
 Table: Họ tên, SĐT, Số CCCD, Phòng, Trạng thái (`Đang thuê` / `Đã kết thức hợp đồng`), Trạng thái
 Zalo OA (`Đã follow` / `Chưa follow`), Ngày bắt đầu, actions. Renter status is the tenancy, not
-the room: a renter can be `Đang thuê` with no room assigned.
+the room: a renter can be `Đang thuê` with no room assigned. The list is sorted with active
+renters first, followed by inactive (ended tenancy). The edit modal allows changing status
+between `Đang thuê` and `Ngừng thuê (Đã rời đi)`.
 
 Renter detail page: personal info with front/back CCCD images (or an "chưa cập nhật"
 placeholder), active contract summary with end date and deposit, invoice history with
