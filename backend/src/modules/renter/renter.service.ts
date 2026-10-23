@@ -19,46 +19,126 @@ import type {
 
 export type RenterRow = typeof renters.$inferSelect;
 export type RenterCccdSide = "front" | "back";
-export type RenterCccdMetadata = { objectKey: string; contentType: "image/jpeg" | "image/png"; size: number; checksum: string };
+export type RenterCccdMetadata = {
+  objectKey: string;
+  contentType: "image/jpeg" | "image/png";
+  size: number;
+  checksum: string;
+};
 
 function cccdFields(side: RenterCccdSide) {
   return side === "front"
-    ? { objectKey: renters.idCardFrontObjectKey, contentType: renters.idCardFrontContentType, size: renters.idCardFrontSize, checksum: renters.idCardFrontChecksum }
-    : { objectKey: renters.idCardBackObjectKey, contentType: renters.idCardBackContentType, size: renters.idCardBackSize, checksum: renters.idCardBackChecksum };
+    ? {
+        objectKey: renters.idCardFrontObjectKey,
+        contentType: renters.idCardFrontContentType,
+        size: renters.idCardFrontSize,
+        checksum: renters.idCardFrontChecksum,
+      }
+    : {
+        objectKey: renters.idCardBackObjectKey,
+        contentType: renters.idCardBackContentType,
+        size: renters.idCardBackSize,
+        checksum: renters.idCardBackChecksum,
+      };
 }
 
-export async function setRenterCccdMetadata(renterId: string, motelId: string, managerId: string, side: RenterCccdSide, metadata: RenterCccdMetadata) {
+export async function setRenterCccdMetadata(
+  renterId: string,
+  motelId: string,
+  managerId: string,
+  side: RenterCccdSide,
+  metadata: RenterCccdMetadata,
+) {
   await resolveOwnedMotel(motelId, managerId);
-  const current = await db.query.renters.findFirst({ where: and(eq(renters.id, renterId), eq(renters.motelId, motelId)) });
+  const current = await db.query.renters.findFirst({
+    where: and(eq(renters.id, renterId), eq(renters.motelId, motelId)),
+  });
   if (!current) throw AppError.notFound("Không tìm thấy người thuê");
-  const oldObjectKey = side === "front" ? current.idCardFrontObjectKey : current.idCardBackObjectKey;
-  const columns = side === "front"
-    ? { idCardFrontObjectKey: metadata.objectKey, idCardFrontContentType: metadata.contentType, idCardFrontSize: metadata.size, idCardFrontChecksum: metadata.checksum }
-    : { idCardBackObjectKey: metadata.objectKey, idCardBackContentType: metadata.contentType, idCardBackSize: metadata.size, idCardBackChecksum: metadata.checksum };
-  const updated = await db.update(renters).set(columns).where(and(eq(renters.id, renterId), eq(renters.motelId, motelId))).returning({ id: renters.id });
+  const oldObjectKey =
+    side === "front" ? current.idCardFrontObjectKey : current.idCardBackObjectKey;
+  const columns =
+    side === "front"
+      ? {
+          idCardFrontObjectKey: metadata.objectKey,
+          idCardFrontContentType: metadata.contentType,
+          idCardFrontSize: metadata.size,
+          idCardFrontChecksum: metadata.checksum,
+        }
+      : {
+          idCardBackObjectKey: metadata.objectKey,
+          idCardBackContentType: metadata.contentType,
+          idCardBackSize: metadata.size,
+          idCardBackChecksum: metadata.checksum,
+        };
+  const updated = await db
+    .update(renters)
+    .set(columns)
+    .where(and(eq(renters.id, renterId), eq(renters.motelId, motelId)))
+    .returning({ id: renters.id });
   if (!updated.length) throw AppError.notFound("Không tìm thấy người thuê");
   return { oldObjectKey };
 }
 
-export async function getRenterForConsent(renterId: string, motelId: string): Promise<{ id: string; idNumber: string | null; cccdFrontUploaded: boolean; cccdBackUploaded: boolean } | null> {
-  const renter = await db.query.renters.findFirst({ where: and(eq(renters.id, renterId), eq(renters.motelId, motelId)) });
+export async function getRenterForConsent(
+  renterId: string,
+  motelId: string,
+): Promise<{
+  id: string;
+  idNumber: string | null;
+  cccdFrontUploaded: boolean;
+  cccdBackUploaded: boolean;
+} | null> {
+  const renter = await db.query.renters.findFirst({
+    where: and(eq(renters.id, renterId), eq(renters.motelId, motelId)),
+  });
   if (!renter) return null;
-  return { id: renter.id, idNumber: renter.idNumber, cccdFrontUploaded: Boolean(renter.idCardFrontObjectKey && renter.idCardFrontContentType && renter.idCardFrontSize && renter.idCardFrontChecksum), cccdBackUploaded: Boolean(renter.idCardBackObjectKey && renter.idCardBackContentType && renter.idCardBackSize && renter.idCardBackChecksum) };
+  return {
+    id: renter.id,
+    idNumber: renter.idNumber,
+    cccdFrontUploaded: Boolean(
+      renter.idCardFrontObjectKey &&
+      renter.idCardFrontContentType &&
+      renter.idCardFrontSize &&
+      renter.idCardFrontChecksum,
+    ),
+    cccdBackUploaded: Boolean(
+      renter.idCardBackObjectKey &&
+      renter.idCardBackContentType &&
+      renter.idCardBackSize &&
+      renter.idCardBackChecksum,
+    ),
+  };
 }
 
-export async function getRenterCccdMetadata(renterId: string, motelId: string, managerId: string, side: RenterCccdSide): Promise<RenterCccdMetadata | null> {
+export async function getRenterCccdMetadata(
+  renterId: string,
+  motelId: string,
+  managerId: string,
+  side: RenterCccdSide,
+): Promise<RenterCccdMetadata | null> {
   await resolveOwnedMotel(motelId, managerId);
-  const renter = await db.query.renters.findFirst({ where: and(eq(renters.id, renterId), eq(renters.motelId, motelId)) });
+  const renter = await db.query.renters.findFirst({
+    where: and(eq(renters.id, renterId), eq(renters.motelId, motelId)),
+  });
   if (!renter) throw AppError.notFound("Không tìm thấy người thuê");
   const objectKey = side === "front" ? renter.idCardFrontObjectKey : renter.idCardBackObjectKey;
-  const contentType = side === "front" ? renter.idCardFrontContentType : renter.idCardBackContentType;
+  const contentType =
+    side === "front" ? renter.idCardFrontContentType : renter.idCardBackContentType;
   const size = side === "front" ? renter.idCardFrontSize : renter.idCardBackSize;
   const checksum = side === "front" ? renter.idCardFrontChecksum : renter.idCardBackChecksum;
-  return objectKey && contentType && size !== null && checksum ? { objectKey, contentType: contentType as "image/jpeg" | "image/png", size, checksum } : null;
+  return objectKey && contentType && size !== null && checksum
+    ? { objectKey, contentType: contentType as "image/jpeg" | "image/png", size, checksum }
+    : null;
 }
 export type NotificationRecipient = Pick<RenterRow, "phone">;
-export async function getRenterNotificationRecipient(renterId: string, motelId: string): Promise<NotificationRecipient | undefined> {
-  return db.query.renters.findFirst({ where: and(eq(renters.id, renterId), eq(renters.motelId, motelId)), columns: { phone: true } });
+export async function getRenterNotificationRecipient(
+  renterId: string,
+  motelId: string,
+): Promise<NotificationRecipient | undefined> {
+  return db.query.renters.findFirst({
+    where: and(eq(renters.id, renterId), eq(renters.motelId, motelId)),
+    columns: { phone: true },
+  });
 }
 
 type RenterPatch = Partial<{
@@ -103,36 +183,77 @@ export async function createRenter(input: {
   return row!;
 }
 
-export async function getRenterForNotification(renterId: string, motelId: string): Promise<Pick<RenterRow, "phone"> | undefined> {
-  return db.query.renters.findFirst({ where: and(eq(renters.id, renterId), eq(renters.motelId, motelId)), columns: { phone: true } });
+export async function getRenterForNotification(
+  renterId: string,
+  motelId: string,
+): Promise<Pick<RenterRow, "phone"> | undefined> {
+  return db.query.renters.findFirst({
+    where: and(eq(renters.id, renterId), eq(renters.motelId, motelId)),
+    columns: { phone: true },
+  });
 }
 
-export async function getRenterForTicket(renterId: string, motelId: string): Promise<Pick<RenterRow, "roomId"> | undefined> {
-  return db.query.renters.findFirst({ where: and(eq(renters.id, renterId), eq(renters.motelId, motelId)), columns: { roomId: true } });
+export async function getRenterForTicket(
+  renterId: string,
+  motelId: string,
+): Promise<Pick<RenterRow, "roomId"> | undefined> {
+  return db.query.renters.findFirst({
+    where: and(eq(renters.id, renterId), eq(renters.motelId, motelId)),
+    columns: { roomId: true },
+  });
 }
 
 type RenterWriter = Pick<typeof db, "query" | "update">;
 
 async function syncRoomStatus(tx: any, roomId: string): Promise<void> {
-  const [room] = await tx.select({ id: rooms.id, status: rooms.status }).from(rooms).where(eq(rooms.id, roomId));
+  const [room] = await tx
+    .select({ id: rooms.id, status: rooms.status })
+    .from(rooms)
+    .where(eq(rooms.id, roomId));
   if (!room || room.status === "maintenance") return;
-  const [count] = await tx.select({ count: sql<number>`count(*)` }).from(renters).where(and(eq(renters.roomId, roomId), eq(renters.status, "active")));
-  await tx.update(rooms).set({ status: Number(count?.count ?? 0) > 0 ? "occupied" : "available" }).where(eq(rooms.id, roomId));
+  const [count] = await tx
+    .select({ count: sql<number>`count(*)` })
+    .from(renters)
+    .where(and(eq(renters.roomId, roomId), eq(renters.status, "active")));
+  await tx
+    .update(rooms)
+    .set({ status: Number(count?.count ?? 0) > 0 ? "occupied" : "available" })
+    .where(eq(rooms.id, roomId));
 }
 
-export async function mapZaloFollowerByPhone(motelId: string, phone: string, followerId: string, writer: RenterWriter = db): Promise<boolean> {
+export async function mapZaloFollowerByPhone(
+  motelId: string,
+  phone: string,
+  followerId: string,
+  writer: RenterWriter = db,
+): Promise<boolean> {
   const normalizedPhone = normalisePhone(phone);
-  const candidates = await writer.query.renters.findMany({ where: and(eq(renters.motelId, motelId), eq(renters.phone, normalizedPhone)), columns: { id: true } });
+  const candidates = await writer.query.renters.findMany({
+    where: and(eq(renters.motelId, motelId), eq(renters.phone, normalizedPhone)),
+    columns: { id: true },
+  });
   if (candidates.length !== 1) throw new Error("follower mapping unavailable");
-  await writer.update(renters).set({ zaloOaId: followerId, isOaFollower: true }).where(eq(renters.id, candidates[0]!.id));
+  await writer
+    .update(renters)
+    .set({ zaloOaId: followerId, isOaFollower: true })
+    .where(eq(renters.id, candidates[0]!.id));
   return true;
 }
 
-export async function clearZaloFollower(followerId: string, writer: RenterWriter = db): Promise<void> {
-  await writer.update(renters).set({ zaloOaId: null, isOaFollower: false }).where(eq(renters.zaloOaId, followerId));
+export async function clearZaloFollower(
+  followerId: string,
+  writer: RenterWriter = db,
+): Promise<void> {
+  await writer
+    .update(renters)
+    .set({ zaloOaId: null, isOaFollower: false })
+    .where(eq(renters.zaloOaId, followerId));
 }
 
-export async function getRenterByPhone(motelId: string, phone: string): Promise<RenterRow | undefined> {
+export async function getRenterByPhone(
+  motelId: string,
+  phone: string,
+): Promise<RenterRow | undefined> {
   const normalizedPhone = normalisePhone(phone);
   return db.query.renters.findFirst({
     where: and(eq(renters.motelId, motelId), eq(renters.phone, normalizedPhone)),
@@ -190,8 +311,29 @@ function isDuplicatePhone(error: unknown): boolean {
  * that out here is what lets `RenterResponse.createdAt` be a `string`.
  */
 function toResponse(row: RenterRow): RenterResponse {
-  const { legacyIdCardFrontUrl, legacyIdCardBackUrl, idCardFrontObjectKey, idCardFrontContentType, idCardFrontSize, idCardFrontChecksum, idCardBackObjectKey, idCardBackContentType, idCardBackSize, idCardBackChecksum, ...safe } = row;
-  return { ...safe, idCardFrontUploaded: Boolean(idCardFrontObjectKey && idCardFrontContentType && idCardFrontSize && idCardFrontChecksum), idCardBackUploaded: Boolean(idCardBackObjectKey && idCardBackContentType && idCardBackSize && idCardBackChecksum), createdAt: row.createdAt.toISOString() };
+  const {
+    legacyIdCardFrontUrl,
+    legacyIdCardBackUrl,
+    idCardFrontObjectKey,
+    idCardFrontContentType,
+    idCardFrontSize,
+    idCardFrontChecksum,
+    idCardBackObjectKey,
+    idCardBackContentType,
+    idCardBackSize,
+    idCardBackChecksum,
+    ...safe
+  } = row;
+  return {
+    ...safe,
+    idCardFrontUploaded: Boolean(
+      idCardFrontObjectKey && idCardFrontContentType && idCardFrontSize && idCardFrontChecksum,
+    ),
+    idCardBackUploaded: Boolean(
+      idCardBackObjectKey && idCardBackContentType && idCardBackSize && idCardBackChecksum,
+    ),
+    createdAt: row.createdAt.toISOString(),
+  };
 }
 
 /**
@@ -268,20 +410,28 @@ export async function createRenterForMotel(
 
   try {
     const row = await db.transaction(async (tx) => {
-      const [created] = await tx.insert(renters).values({
-        motelId,
-        name: input.name,
-        phone: normalisePhone(input.phone),
-        idNumber: input.idNumber,
-        ...(input.roomId === undefined || input.roomId === null ? {} : { roomId: input.roomId }),
-      }).returning();
+      const [created] = await tx
+        .insert(renters)
+        .values({
+          motelId,
+          name: input.name,
+          phone: normalisePhone(input.phone),
+          idNumber: input.idNumber,
+          ...(input.roomId === undefined || input.roomId === null ? {} : { roomId: input.roomId }),
+        })
+        .returning();
       if (!created) throw AppError.externalService();
       if (created.roomId) await syncRoomStatus(tx, created.roomId);
       return created;
     });
-    await enqueueNotification({ eventKey: `renter:${row.id}:welcome`, renterId: row.id, motelId, templateId: "welcome", payload: { name: row.name } }).catch(() => undefined);
+    await enqueueNotification({
+      eventKey: `renter:${row.id}:welcome`,
+      renterId: row.id,
+      motelId,
+      templateId: "welcome",
+      payload: { name: row.name },
+    }).catch(() => undefined);
     return toResponse(row);
-
   } catch (error) {
     if (isDuplicatePhone(error)) {
       const stored = normalisePhone(input.phone);
@@ -350,9 +500,15 @@ export async function updateRenter(
 
   try {
     const row = await db.transaction(async (tx) => {
-      const [updated] = await tx.update(renters).set(patch).where(eq(renters.id, renterId)).returning();
+      const [updated] = await tx
+        .update(renters)
+        .set(patch)
+        .where(eq(renters.id, renterId))
+        .returning();
       if (!updated) throw AppError.notFound("Không tìm thấy người thuê");
-      const roomIds = new Set([owned.roomId, updated.roomId].filter((id): id is string => id !== null));
+      const roomIds = new Set(
+        [owned.roomId, updated.roomId].filter((id): id is string => id !== null),
+      );
       for (const roomId of roomIds) await syncRoomStatus(tx, roomId);
       return updated;
     });
@@ -386,7 +542,11 @@ export async function deleteRenter(
   await resolveOwnedRenter(renterId, motelId, managerId);
 
   await db.transaction(async (tx) => {
-    const [updated] = await tx.update(renters).set({ status: "inactive" }).where(eq(renters.id, renterId)).returning({ roomId: renters.roomId });
+    const [updated] = await tx
+      .update(renters)
+      .set({ status: "inactive" })
+      .where(eq(renters.id, renterId))
+      .returning({ roomId: renters.roomId });
     if (updated?.roomId) await syncRoomStatus(tx, updated.roomId);
   });
 }

@@ -55,15 +55,14 @@ export function createApp() {
         .use(authRoutes)
         .use(magicLinkRoutes)
         .use(motelRoutes)
-       .use(roomRoutes)
-       .use(billingRoutes)
-       .use(contractRoutes)
-       .use(renterRoutes)
+        .use(roomRoutes)
+        .use(billingRoutes)
+        .use(contractRoutes)
+        .use(renterRoutes)
         .use(notificationRoutes)
         .use(renterPortalRoutes)
-          .use(ticketRoutes)
-          .use(paymentRoutes),
-
+        .use(ticketRoutes)
+        .use(paymentRoutes),
     )
     .all("*", () => {
       throw AppError.notFound("Không tìm thấy");

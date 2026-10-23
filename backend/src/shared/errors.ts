@@ -30,11 +30,7 @@ export class AppError extends Error {
   readonly status: number;
   readonly details?: Record<string, unknown>;
 
-  constructor(
-    code: ErrorCode,
-    message: string,
-    details?: Record<string, unknown>,
-  ) {
+  constructor(code: ErrorCode, message: string, details?: Record<string, unknown>) {
     super(message);
     this.name = "AppError";
     this.code = code;
@@ -58,7 +54,9 @@ export class AppError extends Error {
     return new AppError("CONFLICT", message, details);
   }
   static readingConflict(server: Record<string, unknown>) {
-    return new AppError("READING_CONFLICT", "Dữ liệu công tơ đã thay đổi, vui lòng tải lại.", { server });
+    return new AppError("READING_CONFLICT", "Dữ liệu công tơ đã thay đổi, vui lòng tải lại.", {
+      server,
+    });
   }
   static periodAlreadySent() {
     return new AppError("PERIOD_ALREADY_SENT", "Kỳ hóa đơn đã gửi và không thể thay đổi.");

@@ -4,7 +4,8 @@ import { managers } from "./auth.schema";
 import { AppError } from "@/shared/errors";
 import type { ManagerRow, RegisterManagerInput } from "./auth.types";
 
-const DUMMY_PASSWORD_HASH = "$argon2id$v=19$m=65536,t=2,p=1$xb7Q5Ed5Qct87cjmObi7MsMzUVSrdFUCPjZorR10kdQ$tYXEJRr3lz6VsEXvsj4VyTXTSM0IsH1DguruH2x6tYU";
+const DUMMY_PASSWORD_HASH =
+  "$argon2id$v=19$m=65536,t=2,p=1$xb7Q5Ed5Qct87cjmObi7MsMzUVSrdFUCPjZorR10kdQ$tYXEJRr3lz6VsEXvsj4VyTXTSM0IsH1DguruH2x6tYU";
 
 export async function registerManager(input: RegisterManagerInput): Promise<ManagerRow> {
   if (input.password.length < 8) {

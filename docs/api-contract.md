@@ -99,6 +99,7 @@ is made from a Server Component with the cookie forwarded.
 | Method | Path | Body | Returns |
 | --- | --- | --- | --- |
 | POST | `/exchange` | `{token}` | `200 {renterId,motelId}`; sets 24-hour `renter_session` httpOnly cookie and consumes token |
+| POST | `/login-requests` | `{motelCode,phone}` | `200 {message}`; public unauthenticated endpoint; records pending request for manager Zalo dispatch; returns generic message regardless of match |
 | POST | `/resend` | — | `200 {message,url}`; renter session required; URL is `${RENTER_PORTAL_URL}/r/<token>`; this manager-issued resend path is superseded in favor of manager-issued links and is not part of current frontend rollout |
 | POST | `/api/renter/logout` | — | `204 No Content`; clears `renter_session` httpOnly cookie |
 
@@ -106,11 +107,16 @@ is made from a Server Component with the cookie forwarded.
 `{error,code}` with `VALIDATION_ERROR`; token values never appear in logs or response bodies.
 
 
-### Manager-issued magic links — `/api/manager/motels/:motelId/renters/:renterId`
+### Manager-issued magic links and recovery — `/api/manager/motels/:motelId`
 
-| Method | Path          | Body | Returns                                                 |
-| ------ | ------------- | ---- | ------------------------------------------------------- |
-| POST   | `/magic-link` | —    | `200 {token, url}` — manager-issued link for the renter |
+| Method | Path | Body | Returns |
+| --- | --- | --- | --- |
+| GET | `/renter-recovery/code` | — | `200 string` — motel's public recovery code |
+| GET | `/login-requests` | — | `200 Array<{id,renterId,requestedAt,renterName,renterPhone,status}>` — pending recovery requests |
+| POST | `/login-requests/:requestId/link` | — | `200 {token,url}` — issues link for requested renter |
+| POST | `/login-requests/:requestId/handled` | — | `200 {updated:true}` — marks request handled after manual Zalo dispatch |
+| POST | `/login-requests/:requestId/dismiss` | — | `200 {updated:true}` — dismisses request |
+| POST | `/renters/:renterId/magic-link` | — | `200 {token, url}` — manager-issued link for the renter |
 
 ### Motels — `/api/manager/motels`
 
@@ -267,6 +273,7 @@ or motel ID from the client to select tenant ownership. Lists are bare arrays.
 | Method | Path | Exact response / notes |
 | --- | --- | --- |
 | GET | `/me` | `200 {id,name,phone,room:{id,name,floor}|null,motel:{id,name,bankAccount}|activeContract:{id,roomId,roomName,startDate,endDate,monthlyRent}|null}`; excludes CCCD, manager IDs and signing secrets |
+| GET | `/billing/unpaid-invoices` | `200 Array<{id,billingPeriodId,month,year,roomId,roomName,rentAmount,electricityUsage,electricityCost,waterUsage,waterCost,otherFees,totalAmount,qrCodeData,paymentStatus,paidAt,createdAt}>`; unpaid/overdue invoices across sent periods, newest first |
 | GET | `/billing/periods` | `200 Array<{id,month,year,status,createdAt}>`; only periods containing an invoice for session renter |
 | GET | `/billing/periods/:periodId/invoices` | `200 Array<{id,billingPeriodId,month,year,roomId,roomName,rentAmount,electricityUsage,electricityCost,waterUsage,waterCost,otherFees,totalAmount,qrCodeData,paymentStatus,paidAt,createdAt}>`; foreign period `404 NOT_FOUND` |
 | GET | `/invoices/:invoiceId` | `200` same invoice fields plus `bankAccount:{bankCode,accountNumber,accountName}|null`, `transferDescription`, and `meterPhotos:Array<{type,signedUrl,capturedAt}>`; signed URLs expire in 300 seconds |

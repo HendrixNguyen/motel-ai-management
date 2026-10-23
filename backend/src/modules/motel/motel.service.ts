@@ -1,4 +1,5 @@
 import { asc, eq } from "drizzle-orm";
+import { randomBytes } from "node:crypto";
 import { db } from "@/db";
 import { resolveOwnedMotel, type MotelRow } from "@/middleware/tenancy";
 import { AppError } from "@/shared/errors";
@@ -37,10 +38,41 @@ function toResponse(row: MotelRow): MotelResponse {
   return { ...row, createdAt: row.createdAt.toISOString() };
 }
 
-export interface RenterMotelProjection { id: string; name: string; bankAccount: BankAccount | null }
+export interface RenterMotelProjection {
+  id: string;
+  name: string;
+  bankAccount: BankAccount | null;
+}
+
+export interface PublicRecoveryMotel {
+  id: string;
+  managerId: string;
+  publicAccessCode: string;
+}
+
+export async function findMotelByPublicAccessCode(
+  code: string,
+): Promise<PublicRecoveryMotel | null> {
+  const row = await db.query.motels.findFirst({
+    where: eq(motels.publicAccessCode, code),
+    columns: { id: true, managerId: true, publicAccessCode: true },
+  });
+  return row ?? null;
+}
+
+export async function getMotelPublicAccessCode(
+  motelId: string,
+  managerId: string,
+): Promise<string> {
+  const motel = await resolveOwnedMotel(motelId, managerId);
+  return motel.publicAccessCode;
+}
 
 export async function getMotelForRenter(motelId: string): Promise<RenterMotelProjection | null> {
-  const row = await db.query.motels.findFirst({ where: eq(motels.id, motelId), columns: { id: true, name: true, bankAccount: true } });
+  const row = await db.query.motels.findFirst({
+    where: eq(motels.id, motelId),
+    columns: { id: true, name: true, bankAccount: true },
+  });
   return row ?? null;
 }
 
@@ -56,11 +88,15 @@ export async function listMotels(managerId: string): Promise<MotelResponse[]> {
  * Fields are copied one by one rather than spread, so nothing the client sent beyond the
  * documented body — a `managerId`, for instance — can ever reach the insert.
  */
-export async function createMotel(managerId: string, input: CreateMotelInput): Promise<MotelResponse> {
+export async function createMotel(
+  managerId: string,
+  input: CreateMotelInput,
+): Promise<MotelResponse> {
   const [row] = await db
     .insert(motels)
     .values({
       managerId,
+      publicAccessCode: randomBytes(24).toString("base64url"),
       name: input.name,
       address: input.address ?? null,
       electricityPrice: parseAmount(input.electricityPrice),
@@ -91,7 +127,8 @@ export async function updateMotel(
   const patch: MotelPatch = {};
   if (input.name !== undefined) patch.name = input.name;
   if (input.address !== undefined) patch.address = input.address;
-  if (input.electricityPrice !== undefined) patch.electricityPrice = parseAmount(input.electricityPrice);
+  if (input.electricityPrice !== undefined)
+    patch.electricityPrice = parseAmount(input.electricityPrice);
   if (input.waterPrice !== undefined) patch.waterPrice = parseAmount(input.waterPrice);
   if (input.otherFees !== undefined) patch.otherFees = toFees(input.otherFees);
   if (input.bankAccount !== undefined) patch.bankAccount = input.bankAccount;
@@ -125,16 +162,12 @@ export async function deleteMotel(motelId: string, managerId: string): Promise<v
 
   const rooms = await countRoomsForMotel(motelId);
   if (rooms > 0) {
-    throw AppError.conflict(
-      `Còn ${rooms} phòng. Hãy xóa hết phòng trước khi xóa nhà trọ.`,
-    );
+    throw AppError.conflict(`Còn ${rooms} phòng. Hãy xóa hết phòng trước khi xóa nhà trọ.`);
   }
 
   const renters = await countRentersForMotel(motelId);
   if (renters > 0) {
-    throw AppError.conflict(
-      `Còn ${renters} người thuê. Hãy xóa người thuê trước khi xóa nhà trọ.`,
-    );
+    throw AppError.conflict(`Còn ${renters} người thuê. Hãy xóa người thuê trước khi xóa nhà trọ.`);
   }
 
   const billingPeriods = await countBillingPeriodsForMotel(motelId);

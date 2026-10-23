@@ -124,10 +124,13 @@ Draft periods allow meter edits and invoice generation. Sent periods are read-on
 
 ## 2. Manager App
 
-Shell: responsive. On wide screens, left sidebar `240px`, sticky. On phones, use compact
-navigation with no more than five primary destinations; expose remaining sections in a clearly
-labelled secondary menu. Top bar carries motel selector, notification inbox, and manager menu.
-Controls must work without hover.
+Shell: responsive. On wide screens (`1024px` and above), left sidebar `240px`, sticky. On
+narrower screens, fixed bottom navigation has five primary destinations; **Hợp đồng** is exposed
+through the labelled **Thêm** menu. The top bar carries motel selector, capture-queue warning when
+needed, and manager account/theme controls; no unsupported notification inbox is shown. Controls
+work without hover. Mobile navigation has five primary route links and one **Thêm** menu control; Contracts appears in
+that secondary menu. Navigation preserves motel scope and current query parameters between primary
+destinations; secondary destinations preserve motel scope and drop unrelated route-specific filters.
 
 Sidebar items: **Tổng quan**, **Nhà trọ**, **Phòng trọ**, **Khách thuê**, **Tính tiền &
 Hóa đơn**, **Hợp đồng**, **Sự cố & Yêu cầu**, **Cài đặt**.
@@ -153,10 +156,24 @@ a "Doanh thu dự kiến 0 ₫" tile is a false claim about data that does not e
 Each section below still describes the full intended screen. Read the table as what is
 delivered, not the section as what is.
 
+Dashboard invoices are shown only for the newest billing period when its status is `draft` or
+`sent`; if newest period is `closed`, do not relabel a prior period as current. The ledger keeps
+`unpaid`, `overdue`, and `paid` distinct and summarizes unpaid/overdue counts separately. No
+standalone unpaid metric or total VND amount is displayed in Overview.
+
 ### M1 — Overview `/`
 
-Four summary measures, shown as a compact list or restrained grid rather than interchangeable
-cards:
+The current screen uses a page heading with selected motel and current-period context, a primary
+**Thêm khách thuê** action, grouped room/renter/unsettled-invoice measures, compact quick-action
+ledger, and current-period invoice rows. Measures link to their supported detail routes. It shows
+room occupancy only with the room measure. The invoice ledger uses the newest period only when its
+state is `draft` or `sent`; a `closed` latest period is not called current. Payment states remain
+separate (`unpaid`, `overdue`, `paid`), with only unpaid and overdue counted as not collected. It
+does not show a standalone occupancy tile, an extra dashboard unpaid-invoice metric, estimated
+revenue, or ticket metrics.
+
+Target behavior allows four summary measures, shown as a compact list or restrained grid rather
+than interchangeable cards:
 
 | Card              | Value                                                            | Sub-label                                         |
 | ----------------- | ---------------------------------------------------------------- | ------------------------------------------------- |
@@ -164,6 +181,10 @@ cards:
 | Doanh thu dự kiến | sum of `unpaid` + `overdue` `totalAmount` for the current period | `Tháng MM/YYYY`                                   |
 | Tiền chưa thu     | count of unsettled invoices                                      | total VND                                         |
 | Sự cố chưa xử lý  | count of `open` + `in_progress` tickets                          | oldest age in days                                |
+
+The three non-room measures above remain deferred and are not rendered on current Overview. The
+invoice ledger itself labels the exact `unpaid`, `overdue`, and `paid` states; only the first two
+contribute to its “chưa thu” count.
 
 The **Phòng** measure reads the selected motel's complete, unfiltered room list. It counts
 `occupied` as đang thuê, `available` as trống, and `maintenance` as bảo trì. Occupancy is
@@ -360,6 +381,16 @@ to one renders it read-only with an explanatory banner.
 
 **`/capture/[periodId]`** — the walk queue:
 
+Completion requires exactly one electric and one water reading per room, both persisted with non-null current readings. Missing or malformed meter sets keep completion disabled. Browser-local queued/offline values are not counted until server data confirms them; sent periods have no completion link.
+
+Current implementation limitation: the period endpoint includes complete room readings, so this
+screen derives completed room count only when both required meter types (electric and water) exist
+and each has a current reading. The list endpoint lacks that data, so `/capture` does not claim
+per-period room progress or sync state. A sent period renders room rows as non-interactive read-only
+content and states that queued writes are locked; no room links/buttons are rendered and queued
+writes are not retried. Offline/sync status appears only in the focused reading screen, not as live
+status on this period overview.
+
 - Header: `Tháng MM/YYYY`, sync-state chip, progress `7/24`
 - One row per room: room name, previous electricity and water readings inline, and a state
   — empty / check / **Cần kiểm tra** (danger)
@@ -424,12 +455,9 @@ technical error text. This route is never linked directly from the app UI.
 
 ### R1 — Trang chủ `/portal`
 
-Current-invoice card:
-
-- `Hóa đơn Tháng MM/YYYY`
-- Total, large, tabular numerals
-- Status badge: `Chưa thanh toán` (warning), `Đã thanh toán` (success), `Quá hạn` (danger)
-- Primary CTA **Xem mã VietQR** → invoice detail
+Current and unpaid invoices:
+- Displays pending/overdue invoices across sent periods with direct "Xem QR" and "Gửi chứng từ" actions.
+- Lists billing periods linking to `/portal/bills?period=...`.
 
 Invoices have no due-date field; do not display or imply one.
 
@@ -469,7 +497,7 @@ Payment block:
 - Transfer description shown verbatim, with a copy button
 - Instruction: open your banking app and scan, or transfer manually with the exact
   description so the manager can match it
-- Payment proof: one current JPEG/PNG image, maximum 5,000,000 bytes (5 MB), with states **Đang chờ duyệt**, **Đã duyệt**, and **Bị từ chối**. Rejected proof remains visible as history, shows safe manager reason, and allows one replacement current proof; pending/approved and paid invoices disable upload.
+- Payment proof: one current JPEG/PNG image, maximum 5,000,000 bytes (5 MB), with states **Đang chờ duyệt**, **Đã duyệt**, and **Bị từ chối**. WebP/HEIC/HEIF files are accepted in file input and converted to JPEG in browser where supported. Rejected proof remains visible as history, shows safe manager reason, and allows one replacement current proof; pending/approved and paid invoices disable upload.
 - Renter has no **Đã thanh toán** action. Payment becomes paid only after manager bank-proof approval or explicit cash confirmation.
 
 If `motel.bankAccount` is null the payment block is replaced by "Chưa cập nhật thông tin
