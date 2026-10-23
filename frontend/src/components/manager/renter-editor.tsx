@@ -129,7 +129,7 @@ function RenterForm({
     return () => {
       active.current = false;
     };
-  }, []);
+  }, [formSession]);
   useEffect(() => {
     if (error || Object.keys(fields).length) summary.current?.focus();
   }, [error, fields]);
@@ -294,6 +294,22 @@ function RenterForm({
             </select>
           )}
         </Field>
+        {renter && (
+          <Field id={id("status")} label="Trạng thái thuê">
+            {(props) => (
+              <select
+                {...props}
+                value={draft.status ?? "active"}
+                onChange={(event) =>
+                  setDraft({ ...draft, status: event.target.value as RenterResponse["status"] })
+                }
+              >
+                <option value="active">Đang thuê</option>
+                <option value="inactive">Đã kết thúc hợp đồng</option>
+              </select>
+            )}
+          </Field>
+        )}
         {renter && (
           <section aria-label="Ảnh CCCD" className="space-y-3 border-t border-border pt-4">
             <h3 className="font-semibold text-text">Ảnh CCCD · chỉ quản lý xem</h3>

@@ -28,10 +28,14 @@ describe("renter create/edit", () => {
       input: { name: "Nguyễn Thị An", phone: "84901234567", idNumber: "00001234", roomId: ROOM.id },
     });
   });
-  it("only patches changes, preserves unchanged image keys and explicitly unassigns/clears", () => {
+  it("only patches changes, including renter status, and explicitly unassigns/clears", () => {
     expect(
       prepareRenterInput({ ...createRenterDraft(RENTER), phone: "+84 901 234 567" }, RENTER),
     ).toEqual({ ok: true, input: {} });
+    expect(prepareRenterInput({ ...createRenterDraft(RENTER), status: "inactive" }, RENTER)).toEqual({
+      ok: true,
+      input: { status: "inactive" },
+    });
     expect(
       prepareRenterInput({ ...createRenterDraft(RENTER), idNumber: "", roomId: "" }, RENTER),
     ).toEqual({ ok: true, input: { idNumber: null, roomId: null } });

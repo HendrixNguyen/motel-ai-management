@@ -20,7 +20,7 @@ export default function ManagerShell({
           id="main-content"
           data-motion="page"
           tabIndex={-1}
-          className="motion-safe:animate-[page-enter_160ms_ease-out_both] mx-auto w-full max-w-7xl px-4 pt-6 pb-[calc(8rem+env(safe-area-inset-bottom))] sm:px-6 lg:px-8 lg:pb-8"
+          className="motion-safe:animate-[page-enter_160ms_ease-out_both] w-full px-4 pt-6 pb-[calc(8rem+env(safe-area-inset-bottom))] sm:px-6 lg:px-8 lg:pb-8"
         >
           {children}
         </main>

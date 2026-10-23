@@ -10,6 +10,9 @@ import Button from "@/components/ui/button";
 import ThemeSelect from "@/components/ui/theme-select";
 import MotelSwitcher from "@/components/ui/motel-switcher";
 
+const buildSha = process.env.NEXT_PUBLIC_BUILD_SHA ?? "local";
+const buildTimestamp = process.env.BUILD_TIMESTAMP ?? "unknown time";
+
 export default function TopBar({
   manager,
   motels,
@@ -139,6 +142,11 @@ export default function TopBar({
             className="absolute right-0 z-30 mt-2 w-64 max-w-[calc(100vw-1.5rem)] space-y-3 rounded-card border border-border bg-surface p-4 shadow-lg sm:space-y-4"
           >
             <p className="break-all text-sm">{manager.email}</p>
+            {buildSha && (
+              <p className="font-mono text-xs text-text-muted" data-testid="build-version">
+                Build {buildSha} · {buildTimestamp}
+              </p>
+            )}
             <ThemeSelect />
             {error && (
               <p role="alert" className="text-sm text-danger">

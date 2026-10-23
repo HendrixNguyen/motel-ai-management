@@ -161,7 +161,7 @@ describe("the status unions are shared, not redeclared", () => {
     expect(roomStatusLabel(ROOM.status)).toBe("Đang ở");
     expect(roomStatusLabel(ROOM_WITHOUT_FLOOR.status)).toBe("Trống");
     expect(renterStatusLabel(RENTER.status)).toBe("Đang thuê");
-    expect(renterStatusLabel(RENTER_WITHOUT_ROOM.status)).toBe("Đã kết thức hợp đồng");
+    expect(renterStatusLabel(RENTER_WITHOUT_ROOM.status)).toBe("Đã kết thúc hợp đồng");
   });
 
   it("labels every value the backend's enums can hold, so no status is unlabelled", () => {
@@ -169,6 +169,6 @@ describe("the status unions are shared, not redeclared", () => {
     const renters: RenterStatus[] = ["active", "inactive"];
 
     expect(rooms.map(roomStatusLabel)).toEqual(["Trống", "Đang ở", "Bảo trì"]);
-    expect(renters.map(renterStatusLabel)).toEqual(["Đang thuê", "Đã kết thức hợp đồng"]);
+    expect(renters.map(renterStatusLabel)).toEqual(["Đang thuê", "Đã kết thúc hợp đồng"]);
   });
 });
