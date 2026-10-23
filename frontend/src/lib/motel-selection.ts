@@ -8,7 +8,8 @@ export function resolveMotelId(
   searchParams: MotelSearchParams,
 ): string | undefined {
   const selected = searchParams.motel;
-  if (selected === undefined || selected === "") return motels[0]?.id;
+  if (selected === undefined) return motels[0]?.id;
+  if (selected === "") return undefined;
   if (typeof selected !== "string" || !motels.some((motel) => motel.id === selected)) notFound();
   return selected;
 }

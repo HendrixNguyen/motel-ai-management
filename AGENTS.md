@@ -37,7 +37,7 @@ Product context: `README.md`.
   motel's room counts, occupancy and live renter quick action. The later screen tasks supply
   remaining content.
   Renter and capture route groups remain specified in `docs/frontend-ui-specs.md`.
-- Bun only. Never `npm`, `yarn`, or `npx`.
+- Bun only. Never `npm`, `yarn`, or `npx`. On this machine Bun is installed at `~/.bun/bin/bun` (currently 1.4.2); shell `PATH` may omit `~/.bun/bin`, so use `PATH="$HOME/.bun/bin:$PATH" bun ...` or the absolute binary before deciding Bun is missing.
 - Git remote is **SSH**: `git@github.com:HendrixNguyen/motel-ai-management.git`. HTTPS push
   fails on this machine — there is no working credential prompt path.
 - `.kilo/worktrees/fish-steed` is a stale Agent Manager checkout pinned to an old commit. It

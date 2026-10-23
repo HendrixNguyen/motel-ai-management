@@ -166,7 +166,7 @@ describe("M1 overview", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
-  it.each(["foreign", "", [MOTEL.id, MOTEL_WITHOUT_EXTRAS.id]])(
+  it.each(["foreign", [MOTEL.id, MOTEL_WITHOUT_EXTRAS.id]])(
     "rejects invalid motel scope %j before reading rooms",
     async (motel) => {
       const fetchMock = vi.fn().mockResolvedValue(Response.json([MOTEL]));

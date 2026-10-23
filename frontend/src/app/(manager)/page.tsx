@@ -159,14 +159,46 @@ export default async function Overview({
       </section>
     );
   }
-  const motelId = resolveMotelId(motels, await searchParams);
-  if (!motelId)
+  const params = await searchParams;
+  if (typeof params.motel === "string" && params.motel !== "")
+    resolveMotelId(motels, { motel: params.motel });
+  const motelId = resolveMotelId(motels, params);
+  if (!motelId) {
+    if (!motels.length)
+      return (
+        <section className="min-w-0 space-y-6">
+          <PageHeader title="Tổng quan" description="Việc cần làm hôm nay cho nhà trọ." />
+          <MotelEditor empty />
+        </section>
+      );
     return (
       <section className="min-w-0 space-y-6">
-        <PageHeader title="Tổng quan" description="Việc cần làm hôm nay cho nhà trọ." />
-        <MotelEditor empty />
+        <PageHeader title="Tổng quan" description="Chọn nhà trọ để xem số liệu vận hành." />
+        <div className="grid min-w-0 gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {motels.map((item) => (
+            <Card key={item.id} className="flex min-w-0 flex-col p-4 sm:p-6">
+              <h2 className="font-heading text-lg font-semibold text-text [overflow-wrap:anywhere]">{item.name}</h2>
+              <p className="mt-1 text-sm text-text-muted [overflow-wrap:anywhere]">{item.address || "Chưa có địa chỉ"}</p>
+              <div className="mt-auto flex flex-wrap gap-2 pt-4">
+                <Link
+                  href={motelHref("/rooms", "", item.id)}
+                  className="inline-flex min-h-11 items-center rounded-input bg-primary px-4 font-semibold text-surface hover:bg-primary-strong focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                >
+                  Xem phòng
+                </Link>
+                <Link
+                  href={motelHref("/renters", "", item.id)}
+                  className="inline-flex min-h-11 items-center rounded-input border border-border-strong bg-surface px-4 font-semibold text-text hover:bg-canvas focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                >
+                  Khách thuê
+                </Link>
+              </div>
+            </Card>
+          ))}
+        </div>
       </section>
     );
+  }
   const motel = motels.find((item) => item.id === motelId);
   if (!motel)
     return (

@@ -327,6 +327,8 @@ export function createFixtureBackend(
             motel: { id: "motel", name: "Nhà trọ Minh Anh" },
             activeContract: null,
           });
+        if (method === "GET" && path === "/api/renter/billing/unpaid-invoices")
+          return json([]);
         if (method === "GET" && path === "/api/renter/billing/periods")
           return json([
             {
@@ -719,6 +721,16 @@ export function createFixtureBackend(
           return json(motel, 201);
         }
       }
+      if (
+        method === "GET" &&
+        path.match(/^\/api\/manager\/motels\/[^/]+\/login-requests$/)
+      )
+        return json([]);
+      if (
+        method === "GET" &&
+        path.match(/^\/api\/manager\/motels\/[^/]+\/renter-recovery\/code$/)
+      )
+        return json(null);
       const scope = /^\/api\/manager\/motels\/([^/]+)(?:\/(rooms|renters)(?:\/([^/]+))?)?$/.exec(
         path,
       );

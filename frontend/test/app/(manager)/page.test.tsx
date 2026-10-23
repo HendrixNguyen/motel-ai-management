@@ -150,6 +150,14 @@ describe("overview dashboard", () => {
     expect(html).toContain('href="/rooms?motel=motel-a"');
   });
 
+  test("renders a motel picker when scope is explicitly empty", async () => {
+    const html = await renderPage({ motel: "" });
+    expect(html).toContain("Chọn nhà trọ để xem số liệu vận hành.");
+    expect(html).toContain('href="/rooms?motel=motel-a"');
+    expect(html).toContain('href="/renters?motel=motel-a"');
+    expect(mocks.listRooms).not.toHaveBeenCalled();
+  });
+
   test("distinguishes missing motel, empty rooms, absent period and empty invoices", async () => {
     mocks.listMotels.mockResolvedValue([]);
     expect(await renderPage()).toContain("Chưa có nhà trọ");

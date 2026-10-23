@@ -10,6 +10,7 @@ import RoomFilters from "@/components/manager/room-filters";
 import { formatVnd } from "@/lib/format/vnd";
 import { formatPhone } from "@/lib/format/phone";
 import { roomStatusLabel } from "@/lib/format/status";
+import { motelHref } from "@/lib/motel-navigation";
 import { parseRoomFilters, roomFiltersHref } from "@/lib/room-query";
 import { resolveMotelId, type MotelSearchParams } from "@/lib/motel-selection";
 import PageHeader from "@/components/ui/page-header";
@@ -28,17 +29,54 @@ export default async function Rooms({
 }) {
   const motels = await listMotels();
   const params = await searchParams;
+  if (typeof params.motel === "string" && params.motel !== "")
+    resolveMotelId(motels, { motel: params.motel });
   const motelId = resolveMotelId(motels, params);
-  if (!motelId)
+  if (!motelId) {
+    if (!motels.length)
+      return (
+        <section className="min-w-0 space-y-6">
+          <PageHeader
+            title="Phòng trọ"
+            description="Quản lý phòng, giá thuê cơ bản và trạng thái sử dụng."
+          />
+          <MotelEditor empty />
+        </section>
+      );
     return (
-      <section className="space-y-6">
+      <section className="min-w-0 space-y-6">
         <PageHeader
           title="Phòng trọ"
-          description="Quản lý phòng, giá thuê cơ bản và trạng thái sử dụng."
+          description="Chọn một nhà trọ để xem và quản lý phòng trọ."
+          actions={<MotelEditor />}
         />
-        <MotelEditor empty />
+        <div className="grid min-w-0 gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {motels.map((motel) => (
+            <Card
+              as="article"
+              key={motel.id}
+              className="flex min-w-0 flex-col p-4 sm:p-6"
+            >
+              <h2 className="font-heading text-lg font-semibold text-text [overflow-wrap:anywhere]">
+                {motel.name}
+              </h2>
+              <p className="mt-1 text-sm text-text-muted [overflow-wrap:anywhere]">
+                {motel.address || "Chưa có địa chỉ"}
+              </p>
+              <div className="mt-auto pt-4">
+                <Link
+                  href={motelHref("/rooms", "", motel.id)}
+                  className="inline-flex min-h-11 items-center justify-center rounded-input bg-primary px-4 font-semibold text-surface hover:bg-primary-strong focus-visible:outline-2 focus-visible:outline-primary"
+                >
+                  Xem phòng trọ
+                </Link>
+              </div>
+            </Card>
+          ))}
+        </div>
       </section>
     );
+  }
   const filters = parseRoomFilters(params);
   // D10: one read each, then an O(rooms + renters) join; no per-card requests.
   const [rooms, renters] = await Promise.all([listRooms(motelId, filters), listRenters(motelId)]);

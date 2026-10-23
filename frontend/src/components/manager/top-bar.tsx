@@ -85,20 +85,13 @@ export default function TopBar({
 
   return (
     <header className="border-b border-border bg-surface px-3 py-2 shadow-[0_1px_2px_rgba(23,43,58,0.05)] sm:px-4 sm:py-3 lg:px-8">
-      <div className="mx-auto grid max-w-6xl grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 lg:flex lg:items-end lg:gap-4">
+      <div className="flex w-full flex-wrap items-center justify-between gap-3 sm:gap-4">
         <div className="hidden min-w-0 flex-1 lg:block">
-          <p className="text-xs font-semibold text-text-muted">KHÔNG GIAN VẬN HÀNH</p>
-          <p className="mt-1 truncate font-heading text-lg font-semibold text-text">
-            Theo dõi nhà trọ, hóa đơn và khách thuê
-          </p>
+          <p className="text-xs font-semibold uppercase tracking-wider text-text-muted">Không gian vận hành</p>
+          <p className="mt-0.5 truncate font-heading text-base font-semibold text-text">Theo dõi nhà trọ, hóa đơn và khách thuê</p>
         </div>
-        <div className="col-span-2 min-w-0 lg:col-span-1 lg:flex-1 lg:max-w-sm">
-          <label
-            htmlFor="motel-selector"
-            className="mb-1 block text-sm font-semibold text-text sm:mb-2"
-          >
-            Nhà trọ
-          </label>
+        <div className="min-w-[12rem] flex-1 sm:w-64 sm:flex-none lg:flex-1 lg:max-w-sm">
+          <label htmlFor="motel-selector" className="sr-only">Nhà trọ</label>
           <MotelSwitcher
             motels={motelItems}
             selectedId={selected}
@@ -114,7 +107,7 @@ export default function TopBar({
             }}
           />
         </div>
-        <div className="relative col-start-2 row-start-1 lg:ml-auto">
+        <div className="relative ml-auto shrink-0">
           <button
             ref={accountTrigger}
             type="button"
@@ -142,11 +135,9 @@ export default function TopBar({
             className="absolute right-0 z-30 mt-2 w-64 max-w-[calc(100vw-1.5rem)] space-y-3 rounded-card border border-border bg-surface p-4 shadow-lg sm:space-y-4"
           >
             <p className="break-all text-sm">{manager.email}</p>
-            {buildSha && (
-              <p className="font-mono text-xs text-text-muted" data-testid="build-version">
-                Build {buildSha} · {buildTimestamp}
-              </p>
-            )}
+            <p className="font-mono text-xs text-text-muted" data-testid="build-version">
+              Build {buildSha} · {buildTimestamp}
+            </p>
             <ThemeSelect />
             {error && (
               <p role="alert" className="text-sm text-danger">
