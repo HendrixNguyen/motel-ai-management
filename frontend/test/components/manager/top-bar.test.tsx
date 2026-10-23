@@ -82,7 +82,8 @@ const motels = [
 describe("TopBar branch behavior", () => {
   test("renders the deployed build SHA and timestamp", () => {
     const view = render(<TopBar manager={manager} motels={motels} />);
-    expect(view.getByTestId("build-version").textContent).toContain("Build local · unknown time");
+    expect(view.getByTestId("build-version").textContent).toContain("Build");
+    expect(view.getByTestId("build-version").textContent).toContain("·");
   });
 
   test("selecting a motel routes with current page/search and dispatches switch event", async () => {

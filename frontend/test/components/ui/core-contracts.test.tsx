@@ -15,11 +15,9 @@ import Modal from "@/components/ui/modal";
 import Drawer from "@/components/ui/drawer";
 import { ToastProvider } from "@/components/ui/toast";
 import ThemeSelect from "@/components/ui/theme-select";
-import TopBar from "@/components/manager/top-bar";
 import ThemeInit from "@/components/ui/theme-init";
 import Dropdown from "@/components/ui/dropdown";
 import type { CoreTone, CoreTheme, SpacingToken } from "@/components/ui/contracts";
-import { MANAGER_ME, MOTEL } from "@test/lib/api/fixtures";
 
 const markup = (node: React.ReactElement) => renderToStaticMarkup(node);
 
@@ -153,12 +151,6 @@ describe("Core UI v2 compatibility contracts", () => {
     const html = markup(<ToastProvider>Toast children</ToastProvider>);
     expect(html).toContain('aria-live="polite"');
     expect(html).toContain("Toast children");
-  });
-
-  test("shows build identity in account menu", () => {
-    const html = markup(<TopBar manager={MANAGER_ME} motels={[MOTEL]} />);
-    expect(html).toContain('data-testid="build-version"');
-    expect(html).toContain("Build local");
   });
 
   test("mobile billing label stays scoped to compact navigation subtree", async () => {

@@ -1,8 +1,6 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useRef, useState } from "react";
-import { usePathname } from "next/navigation";
 import NavigationLink from "./navigation-link";
 import BottomNav from "@/components/ui/bottom-nav";
 
@@ -14,9 +12,6 @@ const destinations = [
   { href: "/billing", label: "Tính tiền & Hóa đơn", icon: "billing" },
   { href: "/contracts", label: "Hợp đồng", icon: "contracts" },
 ] as const;
-
-const primaryDestinations = destinations.slice(0, 5);
-const secondaryDestinations = destinations.slice(5);
 
 function DestinationIcon({ name }: { name: (typeof destinations)[number]["icon"] }) {
   return (
@@ -77,14 +72,17 @@ export default function Sidebar() {
         aria-label="Thanh điều hướng"
         className="sticky top-0 hidden h-dvh w-60 shrink-0 border-r border-[#263E4B] bg-[#172B3A] px-4 py-6 text-white lg:block"
       >
-        <div className="mb-8 px-4">
+        <div className="mb-8 flex items-center gap-3 px-2">
           <Image
-            src="/brand/logo.svg"
+            src="/brand/logo-mark.svg"
             alt="Nhà Số Gọn"
-            width={160}
-            height={40}
-            className="h-10 w-auto"
+            width={32}
+            height={32}
+            className="h-8 w-8 shrink-0"
           />
+          <span className="truncate font-heading text-lg font-bold tracking-tight text-white">
+            Nhà Số Gọn
+          </span>
         </div>
         <nav aria-label="Điều hướng chính" className="space-y-1">
           {destinations.map(({ href, label, icon }) => (
@@ -96,85 +94,15 @@ export default function Sidebar() {
         </nav>
       </aside>
       <BottomNav>
-        <div aria-label="Điều hướng gọn trên điện thoại" className="grid grid-cols-6 gap-1">
-          {primaryDestinations.map(({ href, label, icon }) => (
+        <nav aria-label="Điều hướng gọn trên điện thoại" className="grid grid-cols-6 gap-1">
+          {destinations.map(({ href, label, icon }) => (
             <NavigationLink key={href} href={href} compact label={label}>
               <DestinationIcon name={icon} />
               <span>{label === "Tính tiền & Hóa đơn" ? "Hóa đơn" : label}</span>
             </NavigationLink>
           ))}
-          <MobileMoreMenu />
-        </div>
+        </nav>
       </BottomNav>
     </>
-  );
-}
-
-function MobileMoreMenu() {
-  const [open, setOpen] = useState(false);
-  const trigger = useRef<HTMLButtonElement>(null);
-  const pathname = usePathname();
-  const active = secondaryDestinations.some(({ href }) =>
-    href === "/" ? pathname === "/" : pathname === href || pathname?.startsWith(`${href}/`),
-  );
-  useEffect(() => {
-    if (!open) return;
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setOpen(false);
-        trigger.current?.focus();
-      }
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [open]);
-  return (
-    <div className="relative min-w-0">
-      <button
-        ref={trigger}
-        type="button"
-        aria-label="Thêm, các mục khác"
-        aria-expanded={open}
-        aria-controls="manager-more-routes"
-        onClick={() => setOpen((value) => !value)}
-        className={`flex min-h-11 min-w-0 w-full flex-col items-center justify-center gap-0 rounded-input px-1 py-2 text-[0.7rem] font-semibold leading-tight focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${active ? "bg-primary text-surface" : "text-text-body hover:bg-canvas active:bg-border"}`}
-      >
-        <svg
-          aria-hidden="true"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          className="h-5 w-5"
-        >
-          <circle cx="5" cy="12" r="1" />
-          <circle cx="12" cy="12" r="1" />
-          <circle cx="19" cy="12" r="1" />
-        </svg>
-        <span>Thêm</span>
-      </button>
-      <div
-        id="manager-more-routes"
-        role="group"
-        aria-label="Các mục khác"
-        hidden={!open}
-        className="absolute bottom-full right-0 z-30 mb-2 w-56 max-w-[calc(100vw-1rem)] rounded-card border border-border bg-surface p-2 shadow-lg"
-      >
-        {secondaryDestinations.map(({ href: route, label, icon }) => (
-          <NavigationLink
-            key={route}
-            href={route}
-            preserveCurrentSearch={false}
-            compact
-            label={label}
-            onNavigate={() => setOpen(false)}
-          >
-            <DestinationIcon name={icon} />
-            <span>{label}</span>
-          </NavigationLink>
-        ))}
-      </div>
-    </div>
   );
 }

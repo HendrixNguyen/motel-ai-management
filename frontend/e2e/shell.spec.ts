@@ -6,7 +6,7 @@ async function signIn(context: BrowserContext, session = "valid") {
     {
       name: "manager_session",
       value: session,
-      url: "http://localhost:3001",
+      url: `http://localhost:${process.env.E2E_PORT ?? 3001}`,
       httpOnly: true,
       sameSite: "Lax",
     },
@@ -164,40 +164,23 @@ test("account menu closes on Escape and restores focus to its button", async ({
   await expect(trigger).toBeFocused();
 });
 
-test("mobile navigation contains five reachable destinations and a labelled secondary menu", async ({
+test("mobile navigation contains six reachable destinations", async ({
   page,
   context,
 }) => {
   await signIn(context);
   await page.goto(`/?motel=${MOTEL.id}`);
+  await expect(page.getByRole("heading", { name: "Tổng quan", exact: true })).toBeVisible();
   const nav = page.getByRole("navigation", { name: "Điều hướng chính trên điện thoại" });
-  await expect(nav.getByRole("link")).toHaveCount(5);
-  const more = page.getByRole("button", { name: "Thêm, các mục khác" });
-  await expect(more).toBeVisible();
-  await expect(more).toHaveAttribute("aria-expanded", "false");
-  await more.focus();
-  await page.keyboard.press("Space");
-  await expect(more).toHaveAttribute("aria-expanded", "true");
-  await page.keyboard.press("Escape");
-  await expect(more).toBeFocused();
-  await page.keyboard.press("Enter");
-  await expect(more).toHaveAttribute("aria-expanded", "true");
-  await page.keyboard.press("Escape");
-  await expect(more).toBeFocused();
-  await page.keyboard.press("Space");
-  await expect(more).toHaveAttribute("aria-expanded", "true");
-  const secondary = page
-    .getByRole("group", { name: "Các mục khác" })
-    .getByRole("link", { name: "Hợp đồng", exact: true });
-  await expect(secondary).toHaveAttribute("href", `/contracts?motel=${MOTEL.id}`);
-  await expect(secondary).not.toHaveAttribute("href", `/contracts?motel=${MOTEL.id}&status=active`);
-  await expect(secondary).toBeVisible();
-  await secondary.focus();
-  await secondary.press("Enter");
+  await expect(nav.getByRole("link")).toHaveCount(6);
+  const contracts = nav.getByRole("link", { name: "Hợp đồng", exact: true });
+  await expect(contracts).toHaveAttribute("href", `/contracts?motel=${MOTEL.id}`);
+  await expect(contracts).not.toHaveAttribute("href", `/contracts?motel=${MOTEL.id}&status=active`);
+  await contracts.focus();
+  await contracts.press("Enter");
   await expect(page).toHaveURL(`/contracts?motel=${MOTEL.id}`);
   await expect(page).not.toHaveURL(/status=active/);
   await expect(page.getByRole("main")).toContainText("Hợp đồng");
-  await expect(more).toHaveAttribute("aria-expanded", "false");
   await page.goto(`/?motel=${MOTEL.id}`);
   for (const width of [360, 375, 430, 640, 768, 1024, 1440]) {
     await page.setViewportSize({ width, height: 800 });
@@ -207,10 +190,7 @@ test("mobile navigation contains five reachable destinations and a labelled seco
     ).toBe(true);
     if (width < 1024) {
       const mobileNav = page.getByRole("navigation", { name: "Điều hướng chính trên điện thoại" });
-      const controls = [
-        ...(await mobileNav.getByRole("link").all()),
-        await page.getByRole("button", { name: "Thêm, các mục khác" }),
-      ];
+      const controls = await mobileNav.getByRole("link").all();
       const boxes = await Promise.all(controls.map((control) => control.boundingBox()));
       expect(
         boxes.every((box) => box && box.width >= 44 && box.height >= 44),
@@ -219,7 +199,8 @@ test("mobile navigation contains five reachable destinations and a labelled seco
     }
     if (width < 1024) {
       const mobileNav = page.getByRole("navigation", { name: "Điều hướng chính trên điện thoại" });
-      await expect(mobileNav.getByRole("link")).toHaveCount(5);
+      await expect(mobileNav.getByRole("link")).toHaveCount(6);
+      await expect(page.getByRole("button", { name: "Thêm, các mục khác" })).toHaveCount(0);
       const navBox = await mobileNav.boundingBox();
       expect(navBox).not.toBeNull();
       expect(navBox!.x).toBeGreaterThanOrEqual(0);
@@ -236,11 +217,12 @@ test("mobile navigation contains five reachable destinations and a labelled seco
   }
   await page.setViewportSize({ width: 375, height: 667 });
   for (const [name, path] of [
+    ["Tổng quan", "/"],
     ["Nhà trọ", "/motels"],
     ["Phòng trọ", "/rooms"],
     ["Khách thuê", "/renters"],
     ["Tính tiền & Hóa đơn", "/billing"],
-    ["Tổng quan", "/"],
+    ["Hợp đồng", "/contracts"],
   ]) {
     const link = nav.getByRole("link", { name, exact: true });
     await link.focus();
@@ -249,14 +231,6 @@ test("mobile navigation contains five reachable destinations and a labelled seco
     await expect(page).toHaveURL(`${path}?motel=${MOTEL.id}`);
     await page.goto(`/?motel=${MOTEL.id}`);
   }
-  await more.focus();
-  await page.keyboard.press("Enter");
-  await page.keyboard.press("Tab");
-  await expect(
-    page.getByRole("group", { name: "Các mục khác" }).getByRole("link", { name: "Hợp đồng" }),
-  ).toBeFocused();
-  await page.keyboard.press("Escape");
-  await expect(more).toBeFocused();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
     true,
   );
@@ -278,7 +252,23 @@ test("desktop sidebar is sticky, 240px wide, and main content clears it", async 
     })),
   ).toEqual({ width: 240, position: "sticky" });
   await expect(sidebar.getByRole("link")).toHaveCount(6);
+  await expect(sidebar.getByRole("img", { name: "Nhà Số Gọn" })).toHaveAttribute("src", /logo-mark\.svg/);
+  await expect(sidebar.getByText("Nhà Số Gọn", { exact: true })).toBeVisible();
   const sidebarRight = await sidebar.evaluate((element) => element.getBoundingClientRect().right);
+  const topbar = page.getByRole("banner");
+  const switcher = topbar.getByRole("combobox", { name: "Nhà trọ", exact: true });
+  await expect(switcher).toHaveCSS("flex-direction", "row");
+  expect(await switcher.evaluate((el) => el.getBoundingClientRect().height)).toBeLessThanOrEqual(64);
+  expect(await switcher.evaluate((el) => el.getBoundingClientRect().width)).toBeGreaterThanOrEqual(180);
+  const title = topbar.getByText("Theo dõi nhà trọ, hóa đơn và khách thuê");
+  await expect(title).toBeVisible();
+  for (const width of [1280, 1440, 1920]) {
+    await page.setViewportSize({ width, height: 900 });
+    await expect(switcher).toHaveCSS("flex-direction", "row");
+    expect(await switcher.evaluate((el) => el.getBoundingClientRect().height)).toBeLessThanOrEqual(64);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  }
+  await page.setViewportSize({ width: 1280, height: 800 });
   const main = page.getByRole("main");
   await expect(main).toBeVisible();
   const mainBox = await main.boundingBox();

@@ -19,8 +19,8 @@ describe("resolveMotelId", () => {
   it("allows a manager with no motels to reach the empty state", () => {
     expect(resolveMotelId([], {})).toBeUndefined();
   });
-  it("defaults to the first owned motel when the parameter is empty", () => {
-    expect(resolveMotelId(motels, { motel: "" })).toBe("owned-first");
+  it("keeps an explicit empty motel scope unselected", () => {
+    expect(resolveMotelId(motels, { motel: "" })).toBeUndefined();
   });
   it.each([{ motel: "foreign" }, { motel: ["owned-first", "foreign"] }])(
     "denies an invalid explicit selection $motel",

@@ -5,6 +5,8 @@ import MotelEditor from "@/components/manager/motel-editor";
 import { resolveMotelId, type MotelSearchParams } from "@/lib/motel-selection";
 import PageHeader from "@/components/ui/page-header";
 import Card from "@/components/ui/card";
+import Link from "next/link";
+import { motelHref } from "@/lib/motel-navigation";
 
 export default async function Motels({
   searchParams,
@@ -12,7 +14,9 @@ export default async function Motels({
   searchParams: Promise<MotelSearchParams>;
 }) {
   const motels = await listMotels();
-  resolveMotelId(motels, await searchParams);
+  const params = await searchParams;
+  if (typeof params.motel === "string" && params.motel !== "")
+    resolveMotelId(motels, { motel: params.motel });
   // The API has no count endpoint. One unfiltered rooms read per motel is acceptable at MVP
   // scale (10–40 rooms); replace it with backend aggregation if the portfolio grows.
   const cards = await Promise.all(
@@ -75,7 +79,12 @@ export default async function Motels({
               </dl>
               <div className="mt-auto flex min-w-0 flex-wrap items-center justify-between gap-3 border-t border-border bg-canvas/60 px-4 py-3 sm:px-5">
                 <span className="text-sm text-text-muted">Cấu hình vận hành</span>
-                <MotelEditor motel={motel} />
+                <div className="flex min-w-0 flex-wrap gap-2">
+                  <Link href={motelHref("/rooms", "", motel.id)} className="inline-flex min-h-11 items-center rounded-input border border-border-strong bg-surface px-3 font-semibold text-text hover:bg-canvas">Phòng</Link>
+                  <Link href={motelHref("/billing", "", motel.id)} className="inline-flex min-h-11 items-center rounded-input border border-border-strong bg-surface px-3 font-semibold text-text hover:bg-canvas">Hóa đơn</Link>
+                  <Link href={motelHref("/renters", "", motel.id)} className="inline-flex min-h-11 items-center rounded-input border border-border-strong bg-surface px-3 font-semibold text-text hover:bg-canvas">Khách thuê</Link>
+                  <MotelEditor motel={motel} />
+                </div>
               </div>
             </Card>
           ))}

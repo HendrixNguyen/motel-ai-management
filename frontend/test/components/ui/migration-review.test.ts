@@ -21,10 +21,11 @@ describe("Core UI v2 migration contracts", () => {
     expect(withAction).toContain(">Add</button>");
   });
 
-  test("dark theme defines semantic surface tokens", async () => {
+  test("dark theme updates runtime colors consumed by Tailwind utilities", async () => {
     const css = await readFile(new URL("../../../src/app/globals.css", import.meta.url), "utf8");
+    expect(css).toMatch(/--color-surface:\s*var\(--color-surface-runtime\)/i);
     expect(css).toMatch(
-      /html\[data-theme="dark"\]\s*\{[\s\S]*--color-surface:\s*#1B303C;[\s\S]*--color-canvas:\s*#10232E;/i,
+      /html\[data-theme="dark"\]\s*\{[\s\S]*--color-surface-runtime:\s*#1B303C;[\s\S]*--color-canvas-runtime:\s*#10232E;/i,
     );
   });
 });

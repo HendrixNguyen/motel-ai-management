@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { listMotels } from "@/lib/api/motels";
+import { motelHref } from "@/lib/motel-navigation";
 import { listBillingPeriods } from "@/lib/api/billing";
 import { resolveMotelId, type MotelSearchParams } from "@/lib/motel-selection";
 import BillingPeriodEditor from "@/components/manager/billing-period-editor";
@@ -16,22 +17,59 @@ export default async function BillingPage({
 }) {
   const motels = await listMotels();
   const params = await searchParams;
+  if (typeof params.motel === "string" && params.motel !== "")
+    resolveMotelId(motels, { motel: params.motel });
   const motelId = resolveMotelId(motels, params);
-  if (!motelId)
+  if (!motelId) {
+    if (!motels.length)
+      return (
+        <section className="min-w-0 space-y-6">
+          <PageHeader
+            title="Tính tiền & Hóa đơn"
+            description="Tạo kỳ, nhập số điện nước và chốt hóa đơn."
+          />
+          <p className="rounded-card border border-border bg-surface p-6 text-text-muted">
+            Chưa có nhà trọ để tạo kỳ hóa đơn.
+          </p>
+        </section>
+      );
     return (
-      <section className="space-y-4">
+      <section className="min-w-0 space-y-6">
         <PageHeader
           title="Tính tiền & Hóa đơn"
-          description="Tạo kỳ, nhập số điện nước và chốt hóa đơn."
+          description="Chọn một nhà trọ để quản lý hóa đơn."
+          actions={<BillingPeriodEditor motelId={motels[0]!.id} />}
         />
-        <p className="rounded-card border border-border bg-surface p-6 text-text-muted">
-          Chưa có nhà trọ để tạo kỳ hóa đơn.
-        </p>
+        <div className="grid min-w-0 gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {motels.map((motel) => (
+            <Card
+              as="article"
+              key={motel.id}
+              className="flex min-w-0 flex-col p-4 sm:p-6"
+            >
+              <h2 className="font-heading text-lg font-semibold text-text [overflow-wrap:anywhere]">
+                {motel.name}
+              </h2>
+              <p className="mt-1 text-sm text-text-muted [overflow-wrap:anywhere]">
+                {motel.address || "Chưa có địa chỉ"}
+              </p>
+              <div className="mt-auto pt-4">
+                <Link
+                  href={motelHref("/billing", "", motel.id)}
+                  className="inline-flex min-h-11 items-center justify-center rounded-input bg-primary px-4 font-semibold text-surface hover:bg-primary-strong focus-visible:outline-2 focus-visible:outline-primary"
+                >
+                  Xem hóa đơn
+                </Link>
+              </div>
+            </Card>
+          ))}
+        </div>
       </section>
     );
+  }
   const periods = await listBillingPeriods(motelId);
   return (
-    <section className="space-y-6">
+    <section className="min-w-0 space-y-6">
       <PageHeader
         title="Tính tiền & Hóa đơn"
         description="Theo dõi kỳ tính tiền, nhập chỉ số và chốt hóa đơn."

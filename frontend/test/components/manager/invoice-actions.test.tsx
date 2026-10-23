@@ -107,7 +107,7 @@ describe("invoice payment review", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: "Chuẩn bị tin nhắn Zalo" }));
     await waitFor(() => expect(createRenterMagicLink).toHaveBeenCalledWith("motel-1", "renter-1"));
-    await waitFor(() => expect(writeText).toHaveBeenCalledWith(expect.stringContaining("3.500.000")));
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith(expect.stringContaining("9.007.199.254.740.993 ₫")));
     expect(open).toHaveBeenCalledWith("about:blank", "_blank");
     expect((await screen.findByText(/Tin chưa được gửi/)).textContent).toContain("Tin chưa được gửi");
   });

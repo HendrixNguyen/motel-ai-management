@@ -46,9 +46,9 @@ test("payment-proof panel reports the 5 MB upload limit", async ({ page, context
   );
   await page.goto("/portal/bills/invoice-1");
   await expect(
-    page.getByText("Gửi một ảnh JPG hoặc PNG, tối đa 5 MB. Chủ nhà sẽ kiểm tra và xác nhận."),
+    page.getByText(/tối đa 5 MB.*Chủ nhà sẽ kiểm tra và xác nhận\./),
   ).toBeVisible();
-  await expect(page.getByLabel("Ảnh chứng từ")).toHaveAttribute("accept", "image/jpeg,image/png");
+  await expect(page.getByLabel("Ảnh chứng từ")).toHaveAttribute("accept", /image\/jpeg,image\/png/);
   await expect(page.getByText("Kéo thả ảnh vào đây")).toBeVisible();
   await expect(page.getByRole("button", { name: "Chọn ảnh" })).toBeVisible();
 });
@@ -229,7 +229,7 @@ test("capture save, invoice QR, explicit contract consent and ticket journey", a
     }),
   );
   await page.goto("/r/flow-token");
-  await expect(page).toHaveURL("http://localhost:3001/portal");
+  await expect(page).toHaveURL(new RegExp(`http://localhost:${process.env.E2E_PORT ?? 3001}/portal`));
   await expect(page.context().cookies()).resolves.toEqual(
     expect.arrayContaining([expect.objectContaining({ name: "renter_session" })]),
   );

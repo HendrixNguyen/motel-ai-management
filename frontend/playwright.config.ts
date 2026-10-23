@@ -68,7 +68,7 @@ export default defineConfig({
       ? [
           {
             command:
-              "rm -rf .next/standalone && BACKEND_URL=http://127.0.0.1:3002 bun run build && cp -R .next/static .next/standalone/.next/static && cp -R public .next/standalone/public && PORT=3001 BACKEND_URL=http://127.0.0.1:3002 node .next/standalone/server.js",
+              `rm -rf .next/standalone && BACKEND_URL=${FIXTURE_BACKEND_URL} bun run build && cp -R .next/static .next/standalone/.next/static && cp -R public .next/standalone/public && PORT=${PORT} BACKEND_URL=${FIXTURE_BACKEND_URL} node .next/standalone/server.js`,
             url: `${BASE_URL}/login`,
             reuseExistingServer: false,
             env: { BACKEND_URL: FIXTURE_BACKEND_URL },

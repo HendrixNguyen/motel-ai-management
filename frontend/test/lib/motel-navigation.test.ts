@@ -12,6 +12,9 @@ describe("motel URL navigation", () => {
       "/renters?roomId=room-one&motel=first",
     );
   });
+  it("preserves an explicit empty motel selection", () => {
+    expect(motelHref("/rooms", "motel=", "first")).toBe("/rooms?motel=");
+  });
   it("keeps an empty URL empty when there is no motel to select", () => {
     expect(motelHref("/", "", undefined)).toBe("/");
   });
