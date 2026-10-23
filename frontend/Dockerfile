@@ -15,15 +15,7 @@ COPY frontend/src ./src
 COPY frontend/e2e ./e2e
 COPY frontend/test ./test
 COPY frontend/public ./public
-RUN BUILD_SHA="$(git -C /app rev-parse HEAD)" && BUILD_TIMESTAMP="$(git -C /app show -s --format=%cI HEAD)" && NEXT_PUBLIC_BUILD_SHA="$BUILD_SHA" BUILD_TIMESTAMP="$BUILD_TIMESTAMP" bun run build && rm -rf /app/.git
-COPY frontend/tsconfig.json ./
-COPY frontend/next.config.ts ./
-COPY frontend/postcss.config.mjs ./
-COPY frontend/src ./src
-COPY frontend/e2e ./e2e
-COPY frontend/test ./test
-COPY frontend/public ./public
-RUN BUILD_SHA="$(git -C /app rev-parse HEAD)" && BUILD_TIMESTAMP="$(git -C /app show -s --format=%cI HEAD)" && NEXT_PUBLIC_BUILD_SHA="$BUILD_SHA" BUILD_TIMESTAMP="$BUILD_TIMESTAMP" bun run build && rm -rf /app/.git
+RUN BUILD_SHA="$(git -C /app rev-parse HEAD 2>/dev/null || echo unknown)" && BUILD_TIMESTAMP="$(git -C /app show -s --format=%cI HEAD 2>/dev/null || echo unknown)" && NEXT_PUBLIC_BUILD_SHA="$BUILD_SHA" BUILD_TIMESTAMP="$BUILD_TIMESTAMP" bun run build && rm -rf /app/.git
 
 FROM deps AS runner
 WORKDIR /app
