@@ -4,7 +4,9 @@ import Image from "next/image";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import QRCode from "qrcode";
-import { ApiError } from "@/lib/api/client";
+import { ApiError, GENERIC_ERROR_MESSAGE } from "@/lib/api/client";
+import { createRenterMagicLink } from "@/lib/api/renters.client";
+import { buildAssistedZaloMessage } from "@/lib/assisted-zalo-message";
 import {
   approvePaymentProof,
   confirmInvoiceCash,
@@ -21,16 +23,23 @@ export default function InvoiceActions({
   motelId,
   invoice,
   bankAccount,
+  renterPhone,
+  billingPeriod,
+  allowAssistedSend,
 }: {
   motelId: string;
   invoice: InvoiceResponse;
   bankAccount: { bankCode: string; accountNumber: string; accountName: string } | null;
+  renterPhone?: string;
+  billingPeriod: { month: number; year: number };
+  allowAssistedSend: boolean;
 }) {
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState<string>();
   const [proof, setProof] = useState<ManagerPaymentProof | null>();
   const [proofLoading, setProofLoading] = useState(true);
   const [reason, setReason] = useState("");
+  const [sharing, setSharing] = useState(false);
   const pendingRef = useRef(false);
   const canvas = useRef<HTMLCanvasElement>(null);
   const router = useRouter();
@@ -44,7 +53,7 @@ export default function InvoiceActions({
         if (!signal?.aborted) {
           setProof(undefined);
           setMessage(
-            cause instanceof ApiError && cause.status < 500
+            cause instanceof ApiError && cause.status >= 400 && cause.status < 500
               ? cause.message
               : "Không thể tải chứng từ.",
           );
@@ -68,6 +77,45 @@ export default function InvoiceActions({
   const proofPending = proof?.status === "pending";
   const settled = invoice.paymentStatus === "paid";
   const transitionPending = pending || proofLoading;
+
+  async function prepareZaloMessage() {
+    if (sharing) return;
+    if (!renterPhone) {
+      setMessage("Không tìm thấy số điện thoại người thuê để mở Zalo.");
+      return;
+    }
+    const chatWindow = window.open("about:blank", "_blank");
+    if (!chatWindow) {
+      setMessage("Trình duyệt đã chặn cửa sổ Zalo. Cho phép cửa sổ bật lên rồi thử lại.");
+      return;
+    }
+    setSharing(true);
+    setMessage(undefined);
+    try {
+      const { url } = await createRenterMagicLink(motelId, invoice.renterId);
+      const message = buildAssistedZaloMessage({
+        renter: { phone: renterPhone },
+        invoice,
+        month: billingPeriod.month,
+        year: billingPeriod.year,
+        portalUrl: url,
+      });
+      await navigator.clipboard.writeText(message.text);
+      chatWindow.location.href = message.url;
+      setMessage(
+        "Đã sao chép nội dung. Kiểm tra đúng người nhận trong Zalo, dán tin nhắn rồi tự gửi. Tin chưa được gửi.",
+      );
+    } catch (cause) {
+      chatWindow.close();
+      setMessage(
+        cause instanceof ApiError && cause.status >= 400 && cause.status < 500
+          ? cause.message
+          : GENERIC_ERROR_MESSAGE,
+      );
+    } finally {
+      setSharing(false);
+    }
+  }
 
   async function transition(action: "approve" | "reject" | "cash" | "overdue") {
     if (pendingRef.current || (action === "reject" && !reason.trim())) return;
@@ -112,6 +160,11 @@ export default function InvoiceActions({
 
   return (
     <div className="mt-4 grid min-w-0 gap-4 border-t border-border pt-4 sm:grid-cols-2">
+      {allowAssistedSend && invoice.paymentStatus !== "paid" && (
+        <Button onClick={() => void prepareZaloMessage()} disabled={sharing}>
+          {sharing ? "Đang chuẩn bị…" : "Chuẩn bị tin nhắn Zalo"}
+        </Button>
+      )}
       {invoice.qrCodeData ? (
         <details className="min-w-0">
           <summary className="inline-flex min-h-11 cursor-pointer items-center rounded-input px-3 font-semibold text-primary underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">

@@ -2,7 +2,18 @@ import type { CreateRenterInput, RenterResponse, UpdateRenterInput } from "@/lib
 import { ApiError, GENERIC_ERROR_MESSAGE } from "@/lib/api/client";
 import { createRenter, updateRenter } from "@/lib/api/renters.client";
 
-export type RenterDraft = { name: string; phone: string; idNumber: string; roomId: string };
+export type RenterDraft = {
+  name: string;
+  phone: string;
+  idNumber: string;
+  roomId: string;
+  status?: RenterResponse["status"];
+};
+
+export type RenterFormSession = {
+  initialDraft: RenterDraft;
+  submit: (draft: RenterDraft) => Promise<RenterSubmitResult>;
+};
 export type RenterFieldErrors = Record<string, string>;
 export type RenterSubmitResult =
   { ok: true } | { ok: false; fields?: RenterFieldErrors; error?: string; status?: number };
@@ -14,6 +25,7 @@ export function createRenterDraft(renter?: RenterResponse): RenterDraft {
     phone: renter?.phone ?? "",
     idNumber: renter?.idNumber ?? "",
     roomId: renter?.roomId ?? "",
+    status: renter?.status ?? "active",
   };
 }
 
@@ -45,6 +57,7 @@ export function prepareRenterInput(
   if (input.phone !== renter.phone) patch.phone = input.phone;
   if (input.idNumber !== renter.idNumber) patch.idNumber = input.idNumber;
   if (input.roomId !== renter.roomId) patch.roomId = input.roomId;
+  if (draft.status && draft.status !== renter.status) patch.status = draft.status;
   return { ok: true, input: patch };
 }
 
@@ -72,7 +85,7 @@ export async function submitRenter(
 }
 
 /** The draft and partial PATCH baseline belong to this opening, even across RSC refreshes. */
-export function createRenterFormSession(motelId: string, renter?: RenterResponse) {
+export function createRenterFormSession(motelId: string, renter?: RenterResponse): RenterFormSession {
   const original = renter ? structuredClone(renter) : undefined;
   return {
     initialDraft: createRenterDraft(original),

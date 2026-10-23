@@ -20,7 +20,7 @@ const ROOM_STATUSES: ReadonlyArray<readonly [RoomStatus, string]> = [
 
 const RENTER_STATUSES: ReadonlyArray<readonly [RenterStatus, string]> = [
   ["active", "Đang thuê"],
-  ["inactive", "Đã kết thức hợp đồng"],
+  ["inactive", "Đã kết thúc hợp đồng"],
 ];
 
 describe("roomStatusLabel", () => {

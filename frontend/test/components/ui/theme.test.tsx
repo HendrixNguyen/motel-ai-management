@@ -84,6 +84,13 @@ describe("theme foundation", () => {
     expect(themeInitScript).toContain("prefers-color-scheme: dark");
   });
 
+  test("foundation CSS uses runtime color tokens so dark mode reaches Tailwind utilities", async () => {
+    const css = await readFile(new URL("../../../src/app/globals.css", import.meta.url), "utf8");
+    expect(css).toMatch(/--color-primary:\s*var\(--color-primary-runtime\)/);
+    expect(css).toMatch(/html\[data-theme="dark"\]\s*\{[^}]*--color-primary-runtime:/s);
+    expect(css).toMatch(/html\[data-theme="dark"\][\s\S]*?--color-surface-runtime:/);
+  });
+
   test("foundation CSS scopes scroll margin and includes safe area", async () => {
     const css = await readFile(new URL("../../../src/app/globals.css", import.meta.url), "utf8");
     expect(css).toContain("main [id]");

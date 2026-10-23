@@ -10,6 +10,7 @@ import {
   ROOM,
   RENTERS,
   RENTER,
+  RENTER_WITHOUT_ROOM,
   RENTER_DETAIL,
   RENTER_DETAIL_WITHOUT_HISTORY,
 } from "@test/lib/api/fixtures";
@@ -57,7 +58,7 @@ async function detailPage(
 }
 describe("M4 renter list", () => {
   it("renders named rooms, formatted contacts, separate tenancy/OA status and honest absent start dates", async () => {
-    const fetchMock = reads();
+    const fetchMock = reads([RENTER_WITHOUT_ROOM, RENTER]);
     const markup = html(await Renters({ searchParams: Promise.resolve({ motel: MOTEL.id }) }));
     for (const value of [
       "Họ tên",
@@ -72,7 +73,7 @@ describe("M4 renter list", () => {
       "Đã follow",
       "Chưa follow",
       "Đang thuê",
-      "Đã kết thức hợp đồng",
+      "Đã kết thúc hợp đồng",
       "Chưa cập nhật",
       "Chưa xếp phòng",
       "Sao chép SĐT",
@@ -81,7 +82,9 @@ describe("M4 renter list", () => {
     expect(markup).toContain(`/renters/${RENTER.id}?motel=${MOTEL.id}`);
     expect(markup).not.toContain("05/09/2026");
     expect(markup).toContain("Thêm khách thuê");
+    expect(markup).toContain('class="flex min-w-0 flex-wrap items-center gap-2 sm:shrink-0"');
     expect(markup).toContain(`aria-label="Chỉnh sửa ${RENTER.name}"`);
+    expect(markup.indexOf(RENTER.name)).toBeLessThan(markup.indexOf(RENTER_WITHOUT_ROOM.name));
     expect(fetchMock).toHaveBeenCalledTimes(3);
   });
   it("passes roomId to the scoped read and preserves it in detail navigation", async () => {

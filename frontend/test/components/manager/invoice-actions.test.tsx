@@ -10,10 +10,13 @@ import {
   rejectPaymentProof,
 } from "@/lib/api/billing.client";
 import { ApiError } from "@/lib/api/client";
+import { createRenterMagicLink } from "@/lib/api/renters.client";
 import type { InvoiceResponse, ManagerPaymentProof } from "@/lib/api/types";
 
 const refresh = vi.fn();
 const getProof = vi.hoisted(() => vi.fn());
+const createMagicLink = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/api/renters.client", () => ({ createRenterMagicLink: createMagicLink }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh }) }));
 vi.mock("@/lib/api/billing.client", () => ({
   approvePaymentProof: vi.fn(),
@@ -63,6 +66,7 @@ afterEach(() => cleanup());
 beforeEach(() => {
   vi.clearAllMocks();
   getProof.mockResolvedValue(proof);
+  createMagicLink.mockResolvedValue({ url: "https://motel.example/r/token" });
   vi.mocked(approvePaymentProof).mockResolvedValue({
     invoiceId: invoice.id,
     paymentStatus: "paid",
@@ -84,8 +88,32 @@ beforeEach(() => {
 });
 
 describe("invoice payment review", () => {
+  it("prepares assisted Zalo message only after billing period is sent", async () => {
+    const open = vi.spyOn(window, "open").mockReturnValue({
+      location: { href: "" },
+      close: vi.fn(),
+    } as never);
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
+    render(
+      <InvoiceActions
+        motelId="motel-1"
+        invoice={invoice}
+        bankAccount={null}
+        renterPhone="84901234567"
+        billingPeriod={{ month: 2, year: 2026 }}
+        allowAssistedSend
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Chuẩn bị tin nhắn Zalo" }));
+    await waitFor(() => expect(createRenterMagicLink).toHaveBeenCalledWith("motel-1", "renter-1"));
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith(expect.stringContaining("3.500.000")));
+    expect(open).toHaveBeenCalledWith("about:blank", "_blank");
+    expect((await screen.findByText(/Tin chưa được gửi/)).textContent).toContain("Tin chưa được gửi");
+  });
+
   it("gives the QR disclosure keyboard-visible focus", async () => {
-    render(<InvoiceActions motelId="motel-1" invoice={invoice} bankAccount={null} />);
+    render(<InvoiceActions motelId="motel-1" invoice={invoice} bankAccount={null} billingPeriod={{ month: 2, year: 2026 }} allowAssistedSend={false} />);
     const summary = screen.getByText("Xem mã QR");
     expect((summary as HTMLElement).className).toContain("focus-visible:outline-2");
     expect((summary as HTMLElement).className).toContain("focus-visible:outline-primary");
@@ -97,6 +125,8 @@ describe("invoice payment review", () => {
         motelId="motel-1"
         invoice={invoice}
         bankAccount={{ bankCode: "970436", accountNumber: "123456789", accountName: "NHÀ TRỌ" }}
+        billingPeriod={{ month: 2, year: 2026 }}
+        allowAssistedSend={false}
       />,
     );
     fireEvent.click(screen.getByText("Xem mã QR"));
@@ -113,7 +143,7 @@ describe("invoice payment review", () => {
         connectionString: "postgres://secret",
       }),
     );
-    render(<InvoiceActions motelId="motel-1" invoice={invoice} bankAccount={null} />);
+    render(<InvoiceActions motelId="motel-1" invoice={invoice} bankAccount={null} billingPeriod={{ month: 2, year: 2026 }} allowAssistedSend={false} />);
     expect((await screen.findByRole("alert")).textContent).toContain("Không thể tải chứng từ.");
     expect(document.body.textContent).not.toContain("private-db.internal");
     expect(document.body.textContent).not.toContain("postgres://secret");
@@ -125,7 +155,7 @@ describe("invoice payment review", () => {
         password: "hunter2",
       }),
     );
-    render(<InvoiceActions motelId="motel-1" invoice={invoice} bankAccount={null} />);
+    render(<InvoiceActions motelId="motel-1" invoice={invoice} bankAccount={null} billingPeriod={{ month: 2, year: 2026 }} allowAssistedSend={false} />);
     fireEvent.click(await screen.findByRole("button", { name: "Duyệt chứng từ" }));
     await waitFor(() =>
       expect(document.body.textContent).toContain(
@@ -137,7 +167,7 @@ describe("invoice payment review", () => {
   });
 
   it("renders returned rejection reason immediately while proof refresh runs", async () => {
-    render(<InvoiceActions motelId="motel-1" invoice={invoice} bankAccount={null} />);
+    render(<InvoiceActions motelId="motel-1" invoice={invoice} bankAccount={null} billingPeriod={{ month: 2, year: 2026 }} allowAssistedSend={false} />);
     await screen.findByRole("img", { name: "Chứng từ thanh toán" });
     fireEvent.change(screen.getByLabelText("Lý do từ chối"), { target: { value: "Ảnh chưa rõ" } });
     fireEvent.click(screen.getByRole("button", { name: "Từ chối chứng từ" }));
@@ -148,7 +178,7 @@ describe("invoice payment review", () => {
 
   it("keeps server read failures in safe retry UI", async () => {
     getProof.mockRejectedValueOnce(new ApiError(503, "INTERNAL_ERROR", "private host"));
-    render(<InvoiceActions motelId="motel-1" invoice={invoice} bankAccount={null} />);
+    render(<InvoiceActions motelId="motel-1" invoice={invoice} bankAccount={null} billingPeriod={{ month: 2, year: 2026 }} allowAssistedSend={false} />);
     expect(await screen.findByRole("alert")).toHaveTextContent("Không thể tải chứng từ.");
     expect(document.body.textContent).not.toContain("private host");
   });
@@ -157,7 +187,7 @@ describe("invoice payment review", () => {
     vi.mocked(approvePaymentProof).mockRejectedValueOnce(
       new ApiError(409, "CONFLICT", "Trạng thái đã đổi", { server: "private details" }),
     );
-    render(<InvoiceActions motelId="motel-1" invoice={invoice} bankAccount={null} />);
+    render(<InvoiceActions motelId="motel-1" invoice={invoice} bankAccount={null} billingPeriod={{ month: 2, year: 2026 }} allowAssistedSend={false} />);
     fireEvent.click(await screen.findByRole("button", { name: "Duyệt chứng từ" }));
     expect((await screen.findByRole("alert")).textContent).toContain(
       "Trạng thái hóa đơn đã thay đổi. Đang tải lại dữ liệu mới nhất.",
@@ -200,7 +230,7 @@ describe("invoice payment review", () => {
             resolveRequest = resolve;
           }),
         );
-      render(<InvoiceActions motelId="motel-1" invoice={invoice} bankAccount={null} />);
+      render(<InvoiceActions motelId="motel-1" invoice={invoice} bankAccount={null} billingPeriod={{ month: 2, year: 2026 }} allowAssistedSend={false} />);
       const button = (await screen.findAllByRole("button", { name: label }))[0]!;
       if (action === "reject")
         fireEvent.change(screen.getByLabelText("Lý do từ chối"), {

@@ -148,6 +148,7 @@ describe("RenterEditor branches", () => {
     const input = view.getByLabelText("Họ tên") as HTMLInputElement;
     fireEvent.change(input, { target: { value: "Bản nháp" } });
     expect(view.getByLabelText("Họ tên")).toHaveValue("Bản nháp");
+    fireEvent.change(view.getByLabelText("Trạng thái thuê"), { target: { value: "inactive" } });
     mocks.submit.mockResolvedValueOnce({ ok: false, status: 409, error: "Thông tin vừa thay đổi" });
     await act(async () => {
       fireEvent.submit(view.getByRole("button", { name: "Lưu thay đổi" }).closest("form")!);
@@ -155,7 +156,7 @@ describe("RenterEditor branches", () => {
     await waitFor(() =>
       expect(mocks.submit).toHaveBeenCalledWith(
         "m",
-        expect.objectContaining({ name: "Bản nháp" }),
+        expect.objectContaining({ name: "Bản nháp", status: "inactive" }),
         renter,
       ),
     );

@@ -62,6 +62,18 @@ describe("accessible shell controls", () => {
     expect(html).toContain("content");
     expect(html).toContain("shell-safe-area");
   });
+  it("manager shell lets page content use full viewport width", () => {
+    const html = renderToStaticMarkup(
+      createElement(
+        ManagerShell as React.ElementType,
+        { sidebar: createElement("aside"), header: createElement("header") },
+        createElement("section", null, "manager"),
+      ),
+    );
+    expect(html).toContain('class="motion-safe:animate-[page-enter_160ms_ease-out_both] w-full');
+    expect(html).not.toContain("max-w-7xl");
+  });
+
   it("composes manager and portal shells without owning route data", () => {
     expect(
       renderToStaticMarkup(

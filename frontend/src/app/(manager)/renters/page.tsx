@@ -29,25 +29,28 @@ export default async function Renters({
       </section>
     );
   const roomId = typeof params.roomId === "string" && params.roomId ? params.roomId : undefined;
-  const [renters, rooms] = await Promise.all([
+  const [rawRenters, rooms] = await Promise.all([
     listRenters(motelId, roomId ? { roomId } : {}),
     listRooms(motelId),
   ]);
+  const renters = [...rawRenters].sort((a, b) =>
+    a.status === b.status ? 0 : a.status === "active" ? -1 : 1,
+  );
   const roomNames = Object.fromEntries(rooms.map((room) => [room.id, room.name]));
   return (
     <section className="min-w-0 space-y-6">
       <PageHeader
         title="Khách thuê"
         description="Thông tin liên hệ, phòng thuê và hồ sơ của khách thuê."
+        actions={
+          <RenterEditor
+            key={`${motelId}:${params.create === "1"}`}
+            motelId={motelId}
+            rooms={rooms}
+            initiallyOpen={params.create === "1"}
+          />
+        }
       />
-      <div className="flex justify-end">
-        <RenterEditor
-          key={`${motelId}:${params.create === "1"}`}
-          motelId={motelId}
-          rooms={rooms}
-          initiallyOpen={params.create === "1"}
-        />
-      </div>
       <LoginRequestQueue motelId={motelId} />
       {roomId && (
         <div className="flex min-w-0 flex-wrap items-center gap-3 text-base text-text-body">
