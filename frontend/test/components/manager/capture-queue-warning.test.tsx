@@ -4,6 +4,13 @@ import "@testing-library/jest-dom/vitest";
 import { JSDOM } from "jsdom";
 
 const mocks = vi.hoisted(() => ({
+  showModal: vi.fn(function (this: HTMLDialogElement) {
+    this.setAttribute("open", "");
+  }),
+  closeDialog: vi.fn(function (this: HTMLDialogElement) {
+    this.removeAttribute("open");
+    this.dispatchEvent(new Event("close"));
+  }),
   list: vi.fn(),
   legacy: vi.fn(),
   clear: vi.fn(),
@@ -25,6 +32,10 @@ vi.mock("@/lib/api/auth.client", () => ({ logout: mocks.logout }));
 import CaptureQueueWarning from "@/components/manager/capture-queue-warning";
 const dom = new JSDOM("<!doctype html><html><body></body></html>", {
   url: "http://localhost/rooms?filter=active",
+});
+Object.defineProperties(dom.window.HTMLDialogElement.prototype, {
+  showModal: { configurable: true, value: mocks.showModal },
+  close: { configurable: true, value: mocks.closeDialog },
 });
 Object.defineProperties(globalThis, {
   window: { configurable: true, value: dom.window },
@@ -56,7 +67,8 @@ describe("CaptureQueueWarning behavior", () => {
     mocks.legacy.mockResolvedValue(false);
     const view = render(<CaptureQueueWarning managerId="m" motelId="mt" />);
     await waitFor(() => expect(mocks.list).toHaveBeenCalled());
-    expect(view.container.firstChild).toBeNull();
+    expect(view.container.querySelector("aside")).toBeNull();
+    expect(view.queryByRole("button", { name: /Thông báo dữ liệu ngoại tuyến/ })).toBeNull();
     view.unmount();
   });
 
@@ -64,41 +76,59 @@ describe("CaptureQueueWarning behavior", () => {
     mocks.list.mockResolvedValue([{ id: "q", status: "pending" }]);
     mocks.legacy.mockResolvedValue(false);
     const view = render(<CaptureQueueWarning managerId="m" motelId="mt1" />);
-    expect(await view.findByText(/1 mục nhập/)).toBeInTheDocument();
+    const notification = await view.findByRole("button", { name: /Thông báo dữ liệu ngoại tuyến/ });
+    expect(notification).toBeInTheDocument();
+    expect(view.container.querySelector("aside")).toBeNull();
     const blocked = new CustomEvent("capture:motel-switch", { cancelable: true, detail: "mt2" });
     await act(async () => {
       window.dispatchEvent(blocked);
     });
     expect(blocked.defaultPrevented).toBe(true);
+    expect(view.queryByRole("dialog")).toBeNull();
+    fireEvent.click(notification);
+    expect(await view.findByRole("status", { name: "Thông báo dữ liệu ngoại tuyến" })).toBeInTheDocument();
+    expect(view.queryByRole("dialog")).toBeNull();
+    fireEvent.click(view.getByRole("button", { name: "Quản lý dữ liệu" }));
+    expect(await view.findByRole("dialog")).toHaveAttribute("data-dialog");
+    expect(view.getByRole("heading", { name: "Xóa dữ liệu nhập chỉ số" })).toBeInTheDocument();
+    expect(mocks.showModal).toHaveBeenCalledOnce();
     expect(view.queryByRole("alertdialog")).toBeNull();
-    fireEvent.click(view.getByText("Quản lý dữ liệu ngoại tuyến"));
-    expect(view.getByRole("alertdialog")).toBeInTheDocument();
-    fireEvent.click(view.getByText("Giữ lại"));
-    expect(view.queryByRole("alertdialog")).toBeNull();
+    fireEvent.click(view.getByRole("dialog").querySelector("button")!);
+    await waitFor(() => expect(view.queryByRole("dialog")).toBeNull());
   });
 
   test("blocks logout until manager explicitly chooses keep/remove; remove failures stay visible", async () => {
     mocks.list.mockResolvedValue([{ id: "q", status: "failed" }]);
     mocks.legacy.mockResolvedValue(false);
     const view = render(<CaptureQueueWarning managerId="m" motelId="mt" />);
-    await view.findByText(/1 mục nhập/);
+    const notification = await view.findByRole("button", { name: /Thông báo dữ liệu ngoại tuyến/ });
+    expect(notification).toHaveTextContent("1");
+    expect(view.queryByText(/Khi đăng xuất/)).toBeNull();
     const blocked = new Event("capture:logout", { cancelable: true });
     window.dispatchEvent(blocked);
     expect(blocked.defaultPrevented).toBe(true);
     mocks.clear.mockRejectedValueOnce(new Error("db failed"));
-    fireEvent.click(view.getByText("Quản lý dữ liệu ngoại tuyến"));
-    fireEvent.click(view.getByText("Xóa dữ liệu của tài khoản này"));
+    fireEvent.click(notification);
+    await view.findByRole("status", { name: "Thông báo dữ liệu ngoại tuyến" });
+    fireEvent.click(view.getByRole("button", { name: "Quản lý dữ liệu" }));
+    await view.findByRole("dialog");
+    fireEvent.click(view.getByRole("button", { name: "Xóa dữ liệu của tài khoản này" }));
     expect(await view.findByRole("alert")).toHaveTextContent("Không thể xóa dữ liệu");
     mocks.clear.mockResolvedValueOnce(undefined);
-    fireEvent.click(view.getByText("Xóa dữ liệu của tài khoản này"));
-    await waitFor(() => expect(view.queryByRole("alertdialog")).toBeNull());
+    fireEvent.click(view.getByRole("button", { name: "Xóa dữ liệu của tài khoản này" }));
+    await waitFor(() => expect(view.queryByRole("dialog")).toBeNull());
   });
 
   test("isolates legacy rows and handles queue inspection errors", async () => {
     mocks.list.mockResolvedValueOnce([{ id: "legacy", status: "pending" }]);
     mocks.legacy.mockResolvedValueOnce(true);
     const view = render(<CaptureQueueWarning managerId="m" motelId="mt" />);
-    expect(await view.findByText(/Có dữ liệu chỉ số cũ/)).toBeInTheDocument();
+    const notification = await view.findByRole("button", { name: /Thông báo dữ liệu ngoại tuyến/ });
+    expect(notification).toBeInTheDocument();
+    fireEvent.click(notification);
+    const notice = await view.findByRole("status", { name: "Thông báo dữ liệu ngoại tuyến" });
+    expect(notice).toHaveTextContent("Có dữ liệu chỉ số cũ");
+    expect(view.queryByRole("dialog")).toBeNull();
     mocks.list.mockResolvedValueOnce([]);
     mocks.legacy.mockRejectedValueOnce(new Error("offline"));
     view.rerender(<CaptureQueueWarning managerId="m2" motelId="mt" />);
