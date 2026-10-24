@@ -1,5 +1,5 @@
 import { expect, test, type BrowserContext } from "@playwright/test";
-import { MANAGER_ME, MOTEL, MOTEL_WITHOUT_EXTRAS } from "../test/lib/api/fixtures";
+import { BILLING_PERIOD_ID, MANAGER_ME, MOTEL, MOTEL_WITHOUT_EXTRAS, ROOM_ID } from "../test/lib/api/fixtures";
 
 async function signIn(context: BrowserContext, session = "valid") {
   await context.addCookies([
@@ -234,6 +234,54 @@ test("mobile navigation contains six reachable destinations", async ({
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
     true,
   );
+});
+
+test("capture queue message opens on demand in shared modal and closes with Escape", async ({
+  page,
+  context,
+}) => {
+  await signIn(context, "capture-warning");
+  await page.goto("/login");
+  await page.evaluate(
+    () =>
+      new Promise<void>((resolve, reject) => {
+        const request = indexedDB.open("motel-capture", 2);
+        request.onupgradeneeded = () => {
+          const db = request.result;
+          if (!db.objectStoreNames.contains("readings")) db.createObjectStore("readings", { keyPath: "id" });
+          if (!db.objectStoreNames.contains("photos")) db.createObjectStore("photos", { keyPath: "id" });
+        };
+        request.onsuccess = () => {
+          const tx = request.result.transaction("readings", "readwrite");
+          tx.objectStore("readings").put({
+            id: "legacy-test",
+            managerId: "browser",
+            motelId: "any-motel",
+            periodId: "any-period",
+            status: "pending",
+          });
+          tx.oncomplete = () => resolve();
+          tx.onerror = () => reject(tx.error);
+        };
+        request.onerror = () => reject(request.error);
+      }),
+  );
+  await page.goto(`/capture/${BILLING_PERIOD_ID}/room/${ROOM_ID}?motel=${MOTEL.id}`);
+  const notification = page.getByRole("button", { name: /Thông báo dữ liệu ngoại tuyến/ });
+  await expect(notification).toBeVisible();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await notification.click();
+  await expect(page.getByRole("status", { name: "Thông báo dữ liệu ngoại tuyến" })).toBeVisible();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await page.getByRole("button", { name: "Quản lý dữ liệu" }).click();
+  const modal = page.getByRole("dialog");
+  await expect(modal).toBeVisible();
+  await expect(modal.getByRole("heading", { name: "Xóa dữ liệu nhập chỉ số" })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(modal).toHaveCount(0);
+  await expect(page.getByRole("status", { name: "Thông báo dữ liệu ngoại tuyến" })).toBeVisible();
+  await notification.click();
+  await expect(page.getByRole("status", { name: "Thông báo dữ liệu ngoại tuyến" })).toHaveCount(0);
 });
 
 test("desktop sidebar is sticky, 240px wide, and main content clears it", async ({

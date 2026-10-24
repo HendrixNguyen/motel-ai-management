@@ -691,6 +691,13 @@ export function createFixtureBackend(
           });
         }
       }
+      if (method === "GET" && path.match(/^\/api\/manager\/motels\/[^/]+\/billing\/periods$/))
+        return json(managerSession === "capture-warning" ? [CAPTURE_PERIOD_DETAIL] : []);
+      if (
+        method === "GET" &&
+        path.match(/^\/api\/manager\/motels\/[^/]+\/billing\/periods\/[^/]+$/)
+      )
+        return json(CAPTURE_PERIOD_DETAIL);
       if (
         method === "GET" &&
         path.match(/^\/api\/manager\/motels\/[^/]+\/billing\/periods\/[^/]+\/invoices$/)
