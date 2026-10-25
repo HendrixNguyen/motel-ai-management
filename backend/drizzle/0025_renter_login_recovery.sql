@@ -1,3 +1,5 @@
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+--> statement-breakpoint
 ALTER TABLE motels ADD COLUMN public_access_code text;
 UPDATE motels SET public_access_code = replace(encode(gen_random_bytes(24), 'base64'), '/', '_') WHERE public_access_code IS NULL;
 ALTER TABLE motels ALTER COLUMN public_access_code SET NOT NULL;
