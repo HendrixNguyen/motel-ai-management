@@ -44,7 +44,21 @@ export class R2StorageAdapter implements StorageAdapter {
           ContentType: input.contentType,
         }),
       );
-    } catch {
+    } catch (error) {
+      const providerError = error as {
+        name?: unknown;
+        $metadata?: { httpStatusCode?: unknown; requestId?: unknown };
+      };
+      console.error("R2 storage failure", {
+        operation: "r2.put",
+        ...(typeof providerError?.name === "string" && { errorName: providerError.name }),
+        ...(typeof providerError?.$metadata?.httpStatusCode === "number" && {
+          httpStatusCode: providerError.$metadata.httpStatusCode,
+        }),
+        ...(typeof providerError?.$metadata?.requestId === "string" && {
+          requestId: providerError.$metadata.requestId,
+        }),
+      });
       throw new StorageError("storage failure");
     }
     const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", new Uint8Array(bytes)));
