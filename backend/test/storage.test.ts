@@ -152,12 +152,19 @@ describe("FakeStorageAdapter", () => {
         objectKey: "motel/one/object-private",
         body: new Uint8Array([0xff, 0xd8, 0xff]),
         contentType: "image/jpeg",
+      })).rejects.toBeInstanceOf(StorageError);
+      await expect(adapter.put({
+        objectKey: "motel/one/object-private",
+        body: new Uint8Array([0xff, 0xd8, 0xff]),
+        contentType: "image/jpeg",
       })).rejects.toThrow("storage failure");
-      expect(logger).toHaveBeenCalledTimes(1);
-      expect(logger.mock.calls[0]).toEqual([
-        "R2 storage failure",
-        { operation: "r2.put", errorName: "SlowDown", httpStatusCode: 503, requestId: "request-safe-id" },
-      ]);
+      expect(logger).toHaveBeenCalledTimes(2);
+      for (const call of logger.mock.calls) {
+        expect(call).toEqual([
+          "R2 storage failure",
+          { operation: "r2.put", errorName: "SlowDown", httpStatusCode: 503, requestId: "request-safe-id" },
+        ]);
+      }
       const logged = JSON.stringify(logger.mock.calls);
       for (const secret of ["secret-bearing", "accessKey=private", "object-private", "key-private", "secret-private", "bucket-private", "account-private"]) {
         expect(logged).not.toContain(secret);
