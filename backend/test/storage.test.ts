@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, spyOn, test } from "bun:test";
 import { FakeStorageAdapter, StorageError, validateStorageInput } from "@/shared/storage";
 import { R2StorageAdapter } from "@/shared/storage.r2";
 
@@ -128,6 +128,43 @@ describe("FakeStorageAdapter", () => {
     await expect(failing.createSignedDownload("motel/one/file", 60)).rejects.not.toThrow(
       "accessKey=private",
     );
+  });
+
+  test("R2 upload logs only allowlisted provider diagnostics", async () => {
+    const logger = spyOn(console, "error").mockImplementation(() => {});
+    const providerError = Object.assign(new Error("secret-bearing accessKey=private object=motel/one/file"), {
+      name: "SlowDown",
+      $metadata: { httpStatusCode: 503, requestId: "request-safe-id" },
+    });
+    const adapter = new R2StorageAdapter(
+      {
+        accountId: "account-private",
+        accessKeyId: "key-private",
+        secretAccessKey: "secret-private",
+        bucket: "bucket-private",
+        publicUrl: "",
+      },
+      { send: async () => { throw providerError; } } as never,
+    );
+
+    try {
+      await expect(adapter.put({
+        objectKey: "motel/one/object-private",
+        body: new Uint8Array([0xff, 0xd8, 0xff]),
+        contentType: "image/jpeg",
+      })).rejects.toThrow("storage failure");
+      expect(logger).toHaveBeenCalledTimes(1);
+      expect(logger.mock.calls[0]).toEqual([
+        "R2 storage failure",
+        { operation: "r2.put", errorName: "SlowDown", httpStatusCode: 503, requestId: "request-safe-id" },
+      ]);
+      const logged = JSON.stringify(logger.mock.calls);
+      for (const secret of ["secret-bearing", "accessKey=private", "object-private", "key-private", "secret-private", "bucket-private", "account-private"]) {
+        expect(logged).not.toContain(secret);
+      }
+    } finally {
+      logger.mockRestore();
+    }
   });
 
   test("R2 adapter sanitizes failed S3 upload, delete, and presign operations", async () => {
