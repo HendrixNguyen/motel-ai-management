@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+
 export function redactLiveQaDiagnostic(
   value: string,
   event: "console" | "pageerror" | "requestfailed" | "response" = "console",
@@ -21,6 +23,49 @@ export async function runLiveQaPreflight(
   const errors = validateLiveQaConfig(env, mode);
   if (errors.length) return errors;
   await request();
+  return [];
+}
+
+export interface LiveQaOwnershipSnapshot {
+  managerId?: string | null;
+  motelIdsOwned: string[];
+}
+
+export interface LiveQaRunContext {
+  runId: string;
+  managerId: string;
+  motelId: string;
+}
+
+export async function runLiveQaMutationPreflight(
+  env: Record<string, string | undefined>,
+  ownership: LiveQaOwnershipSnapshot,
+  request: (run: LiveQaRunContext) => Promise<unknown>,
+): Promise<string[]> {
+  const errors = validateLiveQaConfig(env, "mutating");
+
+  const expectedManagerId = env.E2E_QA_MANAGER_ID;
+  const expectedMotelId = env.E2E_QA_MOTEL_ID;
+
+  if (expectedManagerId) {
+    if (!ownership.managerId)
+      errors.push("Authenticated QA manager must match E2E_QA_MANAGER_ID");
+    else if (ownership.managerId !== expectedManagerId)
+      errors.push("Authenticated QA manager must match E2E_QA_MANAGER_ID");
+  }
+
+  if (expectedMotelId && !ownership.motelIdsOwned.includes(expectedMotelId))
+    errors.push("Dedicated QA motel must be owned by authenticated QA manager");
+
+  if (errors.length) return errors;
+
+  const context: LiveQaRunContext = {
+    runId: createLiveQaRunId(),
+    managerId: expectedManagerId!,
+    motelId: expectedMotelId!,
+  };
+
+  await request(context);
   return [];
 }
 
@@ -102,4 +147,10 @@ export function validateLiveQaConfig(
   if (urls.some((url) => /production|prod(?:uction)?[_-]?(?:env|environment|stack)?/i.test(url)))
     errors.push("Production marker rejected");
   return errors;
+}
+
+function createLiveQaRunId(): string {
+  const timestamp = new Date().toISOString().replace(/\D/g, "").slice(0, 14);
+  const uuidFragment = randomUUID().replace(/-/g, "").slice(0, 8);
+  return `${timestamp}-${uuidFragment}`;
 }

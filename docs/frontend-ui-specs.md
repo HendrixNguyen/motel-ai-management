@@ -329,7 +329,7 @@ the manager's manual confirmation; it does not verify a bank transfer automatica
 
 ### M7 — Hợp đồng `/contracts`
 
-**Current implementation note (2026-10-13):** Current QA implementation is read-only contract summary cards. Names resolve from motel-scoped renter/room reads; unmatched linked records show safe labels, not ID fragments. Detail, create/edit, lifecycle actions, and templates UI remain unimplemented.
+**Current implementation note (2026-10-26):** Current QA implementation matches the phase 1 scope for manager contracts. The screen renders motel-scoped contract cards with draft/active/expired/terminated badges from `/api/manager/motels/:motelId/contracts`; names resolve from renter/room reads, and unmatched linked records show safe labels instead of IDs. Managers can create motel-scoped draft contracts from active renters and valid rooms, edit draft term, rent, deposit and clause content on `draft` contracts only, send a draft contract exactly once as an enqueue-only request (`POST /contracts/:contractId/send` sets `managerSentAt` and leaves consent fields unset), terminate active contracts with confirmation, and create/edit/delete motel-scoped contract templates via `/contract-templates`. Renter signing uses authenticated renter sessions and `POST /renter/contracts/:contractId/consent` to record `session_consent` and an accepted terms snapshot; there is no OTP UI or provider-bound delivery inside the manager app, and send failures surface as visible errors without leaking provider details.
 
 Target behavior: two tabs.
 
