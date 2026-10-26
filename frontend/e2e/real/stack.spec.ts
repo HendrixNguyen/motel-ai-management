@@ -1,13 +1,25 @@
 import { expect, test } from "@playwright/test";
 import {
-  type LiveQaRunContext,
-  redactLiveQaDiagnostic,
-  runLiveQaMutationPreflight,
-  validateLiveQaConfig,
+	type LiveQaRunContext,
+	redactLiveQaDiagnostic,
+	runLiveQaMutationPreflight,
+	validateLiveQaConfig,
 } from "../../src/lib/real-qa-safety";
 
 const configErrors = validateLiveQaConfig(process.env);
 const authenticatedErrors = validateLiveQaConfig(process.env, "authenticated");
+
+interface ManagerSetupRunArtifacts {
+	run: LiveQaRunContext;
+	room: { id: string; name: string; motelId: string };
+	renter: {
+		id: string;
+		name: string;
+		phone: string;
+		motelId: string;
+		roomId: string | null;
+	};
+}
 
 test.beforeAll(async ({ request }) => {
   expect(
@@ -49,7 +61,8 @@ test("live manager login forwards httpOnly cookie, opens shell and logs out", as
 });
 
 test.describe("QA UI mutations", () => {
-  let runContext: LiveQaRunContext | undefined;
+	let runContext: LiveQaRunContext | undefined;
+	let managerSetupArtifacts: ManagerSetupRunArtifacts | undefined;
 
   test.beforeEach(async ({ page }) => {
     await page.goto("/login");
@@ -79,20 +92,20 @@ test.describe("QA UI mutations", () => {
     );
   });
 
-  test("creates run-scoped room and renter in dedicated QA motel, then persists after reload", async ({
-    page,
-  }) => {
-    if (!runContext) test.fail(true, "Live QA mutation preflight must establish a run context");
-    const context = runContext as LiveQaRunContext;
+	test("creates run-scoped room and renter in dedicated QA motel, then persists after reload", async ({
+		page,
+	}) => {
+		if (!runContext) test.fail(true, "Live QA mutation preflight must establish a run context");
+		const context = runContext as LiveQaRunContext;
 
-    const runId = context.runId;
-    const roomName = `QA-${runId}`;
-    const renterName = `QA Renter ${runId}`;
-    const phone = `849${Math.floor(10000000 + Math.random() * 89999999)}`;
-    const diagnostics = collectSafeDiagnostics(page);
+		const runId = context.runId;
+		const roomName = `QA-${runId}`;
+		const renterName = `QA Renter ${runId}`;
+		const phone = `849${Math.floor(10000000 + Math.random() * 89999999)}`;
+		const diagnostics = collectSafeDiagnostics(page);
 
-    const motelId = context.motelId;
-    await page.goto(`/rooms?motel=${encodeURIComponent(motelId)}`);
+		const motelId = context.motelId;
+		await page.goto(`/rooms?motel=${encodeURIComponent(motelId)}`);
     await expect(
       page.getByRole("banner").getByRole("combobox", { name: "Nhà trọ", exact: true }),
     ).toHaveAttribute("data-value", motelId);
@@ -103,23 +116,67 @@ test.describe("QA UI mutations", () => {
     await roomDialog.getByLabel("Tầng (không bắt buộc)", { exact: true }).fill("1");
     await roomDialog.getByRole("button", { name: "Thêm phòng", exact: true }).click();
     await expect(page.getByRole("heading", { name: roomName, exact: true })).toBeVisible();
-    await page.reload();
-    await expect(page.getByRole("heading", { name: roomName, exact: true })).toBeVisible();
+		await page.reload();
+		await expect(page.getByRole("heading", { name: roomName, exact: true })).toBeVisible();
 
-    await page.goto(`/renters?motel=${encodeURIComponent(motelId)}`);
-    await page.getByRole("button", { name: "Thêm khách thuê", exact: true }).click();
+		await page.goto(`/renters?motel=${encodeURIComponent(motelId)}`);
+		await page.getByRole("button", { name: "Thêm khách thuê", exact: true }).click();
     const renterDialog = page.getByRole("dialog");
     await renterDialog.getByLabel("Họ tên", { exact: true }).fill(renterName);
     await renterDialog.getByLabel("Số điện thoại", { exact: true }).fill(phone);
-    await renterDialog
-      .getByRole("combobox", { name: "Phòng (không bắt buộc)", exact: true })
-      .selectOption({ label: roomName });
-    await renterDialog.getByRole("button", { name: "Thêm khách thuê", exact: true }).click();
-    await expect(page.getByText(renterName, { exact: true })).toBeVisible();
-    await page.reload();
-    await expect(page.getByText(renterName, { exact: true })).toBeVisible();
-    expect(diagnostics).toEqual([]);
-  });
+		await renterDialog
+			.getByRole("combobox", { name: "Phòng (không bắt buộc)", exact: true })
+			.selectOption({ label: roomName });
+		await renterDialog.getByRole("button", { name: "Thêm khách thuê", exact: true }).click();
+		await expect(page.getByText(renterName, { exact: true })).toBeVisible();
+		await page.reload();
+		await expect(page.getByText(renterName, { exact: true })).toBeVisible();
+
+		// Record opaque room and renter identifiers for this run without logging PII.
+		const roomsResponse = await page.request.get(
+			`/api/manager/motels/${encodeURIComponent(motelId)}/rooms`,
+		);
+		expect(roomsResponse.status()).toBe(200);
+		const rooms = (await roomsResponse.json()) as Array<{
+			id: string;
+			motelId: string;
+			name: string;
+		}>;
+		const room = rooms.find((entry) => entry.name === roomName);
+		expect(room, "Run-scoped room must exist in the dedicated QA motel").toBeDefined();
+		expect(room!.motelId).toBe(motelId);
+
+		const rentersResponse = await page.request.get(
+			`/api/manager/motels/${encodeURIComponent(motelId)}/renters`,
+		);
+		expect(rentersResponse.status()).toBe(200);
+		const renters = (await rentersResponse.json()) as Array<{
+			id: string;
+			motelId: string;
+			name: string;
+			phone: string;
+			roomId: string | null;
+		}>;
+		const renter = renters.find(
+			(entry) => entry.name === renterName && entry.phone === phone,
+		);
+		expect(renter, "Run-scoped renter must exist in the dedicated QA motel").toBeDefined();
+		expect(renter!.motelId).toBe(motelId);
+		expect(renter!.roomId).toBe(room!.id);
+
+		managerSetupArtifacts = {
+			run: context,
+			room: { id: room!.id, name: room!.name, motelId: room!.motelId },
+			renter: {
+				id: renter!.id,
+				name: renter!.name,
+				phone: renter!.phone,
+				motelId: renter!.motelId,
+				roomId: renter!.roomId,
+			},
+		};
+		expect(diagnostics).toEqual([]);
+	});
 });
 
 function collectSafeDiagnostics(page: import("@playwright/test").Page): string[] {
