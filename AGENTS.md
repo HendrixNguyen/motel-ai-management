@@ -24,9 +24,9 @@ Product context: `README.md`.
 
 ## Repo shape
 
-- Two independent Bun packages. **There is no root `package.json` and no workspace file** —
-  run `bun install` inside `backend/` and `frontend/` separately; each has its own
-  `bun.lock`. No root-level `bun install`, `bun test`, or `bun run build` exists.
+- Three independent packages. **There is no root `package.json` and no workspace file** — run
+  `bun install` separately in `backend/` and `frontend/` (each has `bun.lock`) and `landing/`
+  (Vite+ package with its own `bun.lock`). No root-level install, test, or build command exists.
 - `backend/` — ElysiaJS + Drizzle + PostgreSQL, wired through `src/app.ts` → `src/index.ts`.
 - `frontend/` — Next.js 16.3.8 App Router. The root layout and the design tokens in
   `src/app/globals.css` are in place. Task 5 adds login and the manager shell with heading-only
@@ -37,6 +37,7 @@ Product context: `README.md`.
   motel's room counts, occupancy and live renter quick action. The later screen tasks supply
   remaining content.
   Renter and capture route groups remain specified in `docs/frontend-ui-specs.md`.
+- `landing/` — Vue 3 + Vite+, static Vietnamese marketing site; build output is `landing/dist/`.
 - Bun only. Never `npm`, `yarn`, or `npx`. On this machine Bun is installed at `~/.bun/bin/bun` (currently 1.4.2); shell `PATH` may omit `~/.bun/bin`, so use `PATH="$HOME/.bun/bin:$PATH" bun ...` or the absolute binary before deciding Bun is missing.
 - Git remote is **SSH**: `git@github.com:HendrixNguyen/motel-ai-management.git`. HTTPS push
   fails on this machine — there is no working credential prompt path.
@@ -64,7 +65,23 @@ bun run build
 bun run typecheck           # tsc --noEmit
 bun run test                # vitest run — unit tests under src/
 bun run test:e2e            # playwright  — e2e/**/*.spec.ts, fixture-backed
+
+# landing
+cd landing
+bun run dev
+bun run check
+bun run typecheck
+bun run test
+bun run build
+bun run preview
 ```
+
+## Landing deployment requirements
+
+- Configure `VITE_FORMSPREE_ENDPOINT` as a build-time environment variable in the deployment environment before `cd landing && bun run build`. Vite embeds it in the public static bundle; runtime-only environment configuration does not work.
+- `landing/.env.example` is tracked and contains the public endpoint; `.env.example` is not auto-loaded. Copy value into `landing/.env.local` for local development and the deployment build environment. The endpoint ID is public configuration, not a secret.
+- Keep Formspree's free-plan limit at 50 submissions per month. Formspree enforces this quota; over-limit submissions are held and not processed into email notifications. Do not add a client-side counter as a quota control.
+- If the endpoint is absent, landing intentionally disables form submission and offers direct email as fallback. Never claim form delivery is active until a valid endpoint is set in the production build environment. Do not submit real contact forms during build/test verification.
 
 The frontend harness: `vitest.config.mts` collects `src/**/*.test.ts` only, and `playwright.config.ts`
 declares two projects — `chromium-mobile` (375x667, browser fixtures in `e2e/fixtures/api.ts`

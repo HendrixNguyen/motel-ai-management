@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#f3f6f8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta
+      name="description"
+      content="Theo dõi phòng, ghi điện nước và lập hóa đơn chi tiết trong một nơi. Khách thuê xem khoản cần trả qua liên kết riêng."
+    />
+    <title>Nhà Số Gọn — Quản lý nhà trọ gọn hơn mỗi ngày</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@600;700&family=Noto+Sans:wght@400;500;600;700&display=swap&subset=vietnamese"
+      rel="stylesheet"
+    />
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        min-width: 320px;
+        color: #172b3a;
+        background: #f3f6f8;
+        font:
+          16px/1.6 "Noto Sans",
+          sans-serif;
+      }
+      .fallback {
+        max-width: 1180px;
+        margin: auto;
+        padding: 24px;
+      }
+      .fallback-brand {
+        color: #087e8b;
+        font:
+          700 20px "Be Vietnam Pro",
+          sans-serif;
+        text-decoration: none;
+      }
+      .fallback-hero {
+        min-height: 60vh;
+        display: grid;
+        align-content: center;
+        max-width: 760px;
+      }
+      .fallback h1 {
+        margin: 24px 0;
+        font:
+          700 clamp(38px, 7vw, 72px)/1.1 "Be Vietnam Pro",
+          sans-serif;
+        letter-spacing: -0.055em;
+      }
+      .fallback p {
+        max-width: 620px;
+        color: #496170;
+      }
+      .fallback a.button {
+        display: inline-flex;
+        margin-top: 20px;
+        padding: 14px 22px;
+        border-radius: 999px;
+        color: white;
+        background: #087e8b;
+        text-decoration: none;
+      }
+      .fallback-bill {
+        margin: 32px 0;
+        padding: 28px;
+        border: 1px solid #e0e8ec;
+        border-radius: 20px;
+        background: white;
+      }
+      .fallback-bill p {
+        display: flex;
+        justify-content: space-between;
+        gap: 18px;
+      }
+      .fallback-contact {
+        margin: 32px 0;
+        padding: 24px;
+        border: 1px solid #e0e8ec;
+        border-radius: 20px;
+        background: white;
+      }
+      .fallback-contact a {
+        color: #06636d;
+        font-weight: 700;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <div class="fallback">
+        <a class="fallback-brand" href="#top">Nhà Số Gọn</a>
+        <main id="top" class="fallback-hero">
+          <p>PHẦN MỀM QUẢN LÝ NHÀ TRỌ</p>
+          <h1>Quản lý phòng trọ, rõ từng khoản thu.</h1>
+          <p>
+            Theo dõi phòng, ghi điện nước và lập hóa đơn chi tiết trong một nơi. Khách thuê xem
+            khoản cần trả qua liên kết riêng.
+          </p>
+          <a class="button" href="#sample-bill">Xem hóa đơn mẫu ↓</a>
+        </main>
+        <section id="sample-bill" class="fallback-bill" aria-label="Hóa đơn mẫu phòng A102">
+          <strong>Phòng A102 · Dữ liệu minh họa</strong>
+          <p><span>Tiền phòng</span><b>2.500.000đ</b></p>
+          <p><span>Điện · 70 kWh × 3.500đ</span><b>245.000đ</b></p>
+          <p><span>Nước · 5 m³ × 15.000đ</span><b>75.000đ</b></p>
+          <p><strong>Tổng cộng</strong><strong>2.820.000đ</strong></p>
+        </section>
+        <section class="fallback-contact">
+          <h2>Góp ý hoặc câu hỏi?</h2>
+          <p>Gửi câu hỏi về sản phẩm hoặc chia sẻ đề xuất qua email.</p>
+          <a
+            href="mailto:hn112000@gmail.com?subject=Li%C3%AAn%20h%E1%BB%87%20Nh%C3%A0%20S%E1%BB%91%20G%E1%BB%8Dn"
+            >hn112000@gmail.com</a
+          >
+        </section>
+      </div>
+    </div>
+    <noscript
+      ><p style="padding: 16px; text-align: center">
+        Trang đang hiển thị nội dung mẫu. Bật JavaScript để thử demo chỉ số tương tác.
+      </p></noscript
+    >
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
