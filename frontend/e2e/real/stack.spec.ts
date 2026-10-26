@@ -10,15 +10,21 @@ const configErrors = validateLiveQaConfig(process.env);
 const authenticatedErrors = validateLiveQaConfig(process.env, "authenticated");
 
 interface ManagerSetupRunArtifacts {
-	run: LiveQaRunContext;
-	room: { id: string; name: string; motelId: string };
-	renter: {
+  run: LiveQaRunContext;
+  room: { id: string; name: string; motelId: string };
+  renter: {
 		id: string;
 		name: string;
 		phone: string;
 		motelId: string;
 		roomId: string | null;
-	};
+    };
+}
+
+interface BillingRunArtifacts {
+  periodId: string;
+  readingIds: string[];
+  invoiceIds: string[];
 }
 
 test.beforeAll(async ({ request }) => {
@@ -61,8 +67,9 @@ test("live manager login forwards httpOnly cookie, opens shell and logs out", as
 });
 
 test.describe("QA UI mutations", () => {
-	let runContext: LiveQaRunContext | undefined;
-	let managerSetupArtifacts: ManagerSetupRunArtifacts | undefined;
+  let runContext: LiveQaRunContext | undefined;
+  let managerSetupArtifacts: ManagerSetupRunArtifacts | undefined;
+  let billingArtifacts: BillingRunArtifacts | undefined;
 
   test.beforeEach(async ({ page }) => {
     await page.goto("/login");
@@ -323,6 +330,44 @@ test.describe("QA UI mutations", () => {
 		).toBeVisible();
 		expect(diagnostics).toEqual([]);
 	});
+
+	test(
+		"records meter readings and invoices for the run-scoped room [BLOCKED: live QA not exercised in Task 4]",
+		async ({ page }) => {
+			// Task 4 only implements the local fixture-backed RED for billing and invoice arithmetic.
+			// Live QA mutations remain gated and are not executed in this task; this stage will be
+			// wired to the real stack when QA operators explicitly opt into E2E_QA_MUTATIONS=1.
+			test.skip(
+				true,
+				"BLOCKED: QA meter capture and invoice generation not exercised; covered by local fixture suite in e2e/billing-meter.spec.ts.",
+			);
+
+			if (!runContext || !managerSetupArtifacts) {
+				throw new Error(
+					"Live QA real-stack manager setup artifacts are missing; run the room and renter setup test in this suite first.",
+				);
+			}
+
+			// Skeleton for the future QA journey, kept close to the live stack but not invoked yet.
+			const context = runContext;
+			const artifacts = managerSetupArtifacts;
+			const motelId = context.motelId;
+			const diagnostics = collectSafeDiagnostics(page);
+
+			await page.goto(`/billing?motel=${encodeURIComponent(motelId)}`);
+			await expect(
+				page.getByRole("heading", { name: "Tính tiền & Hóa đơn", exact: true }),
+			).toBeVisible();
+
+			// Persist opaque identifiers for Task 5 without logging IDs or PII.
+			billingArtifacts = {
+				periodId: "",
+				readingIds: [],
+				invoiceIds: [],
+			};
+			expect(diagnostics).toEqual([]);
+		},
+	);
 	});
 
 function collectSafeDiagnostics(page: import("@playwright/test").Page): string[] {
