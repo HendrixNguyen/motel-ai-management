@@ -127,6 +127,40 @@ describe("parseEnv", () => {
     expect(parseEnv(production).testDatabaseUrl).toBe("postgres://test:separate-password-12345678901234567890@db.internal:5432/test");
   });
 
+  test("allows production config without Zalo when its integration is disabled", () => {
+    const { ZALO_OA_ID, ZALO_OA_SECRET, ZALO_ACCESS_TOKEN, ZALO_WEBHOOK_SECRET, ...rest } = valid;
+    const production = { ...rest, NODE_ENV: "production", DATABASE_URL: "postgres://u:p@db.internal:5432/motel", FRONTEND_URL: "https://app.example.com", RENTER_PORTAL_URL: "https://renter.example.com" };
+    const env = parseEnv(production);
+    expect(env.zalo.oaId).toBe("");
+    expect(env.zalo.oaSecret).toBe("");
+  });
+
+  test("rejects empty or placeholder Zalo OA ID when integration is enabled", () => {
+    for (const zaloOaId of [" ", "placeholder", "test-oa"]) {
+      const production = { ...valid, NODE_ENV: "production", DATABASE_URL: "postgres://u:p@db.internal:5432/motel", ZALO_OA_ID: zaloOaId, FRONTEND_URL: "https://app.example.com", RENTER_PORTAL_URL: "https://renter.example.com" };
+      expect(() => parseEnv(production)).toThrow();
+    }
+  });
+
+  test("rejects partial Zalo credentials when an OA id enables the integration", () => {
+    const { ZALO_OA_SECRET, ZALO_ACCESS_TOKEN, ZALO_WEBHOOK_SECRET, ...rest } = valid;
+    const production = { ...rest, NODE_ENV: "production", DATABASE_URL: "postgres://u:p@db.internal:5432/motel", ZALO_OA_ID: " oa-production ", FRONTEND_URL: "https://app.example.com", RENTER_PORTAL_URL: "https://renter.example.com" };
+    expect(() => parseEnv(production)).toThrow(/ZALO_OA_SECRET/);
+  });
+
+  test("rejects partial Zalo credentials when no OA id enables the integration", () => {
+    const production = { ...valid, NODE_ENV: "production", DATABASE_URL: "postgres://u:p@db.internal:5432/motel", ZALO_OA_ID: "  ", ZALO_OA_SECRET: "", ZALO_ACCESS_TOKEN: "partial", ZALO_WEBHOOK_SECRET: "", FRONTEND_URL: "https://app.example.com", RENTER_PORTAL_URL: "https://renter.example.com" };
+    expect(() => parseEnv(production)).toThrow(/configured partially|được cấu hình một phần/);
+  });
+
+  test("production Zalo disabled requires no OA secrets and records disabled state", () => {
+    const { ZALO_OA_ID, ZALO_OA_SECRET, ZALO_ACCESS_TOKEN, ZALO_WEBHOOK_SECRET, ...rest } = valid;
+    const production = { ...rest, NODE_ENV: "production", DATABASE_URL: "postgres://u:p@db.internal:5432/motel", FRONTEND_URL: "https://app.example.com", RENTER_PORTAL_URL: "https://renter.example.com" };
+    const env = parseEnv(production);
+    expect(env.zalo.enabled).toBe(false);
+    expect(env.zalo.oaId).toBe("");
+  });
+
   test("permits production startup without a test database URL", () => {
     const { TEST_DATABASE_URL, ...rest } = valid;
     const production = { ...rest, NODE_ENV: "production", DATABASE_URL: "postgres://u:p@db.internal:5432/motel", FRONTEND_URL: "https://app.example.com", RENTER_PORTAL_URL: "https://renter.example.com" };

@@ -27,6 +27,7 @@ export interface Env {
     publicUrl: string;
   };
   zalo: {
+    enabled: boolean;
     oaId: string;
     oaSecret: string;
     accessToken: string;
@@ -150,16 +151,21 @@ export function validateProductionConfig(input: Record<string, string | undefine
     if (password && (/^(placeholder|change[-_ ]?me|secret|mock|test|dev|development|password|super_secret)/i.test(password) || password.length < 32))
       throw new AppError("VALIDATION_ERROR", "TEST_DATABASE_URL credential không đủ mạnh");
   }
+  const zaloOaId = input.ZALO_OA_ID?.trim() ?? "";
+  const zaloSecrets = ["ZALO_OA_SECRET", "ZALO_ACCESS_TOKEN", "ZALO_WEBHOOK_SECRET"];
+  if (zaloOaId) {
+    validateProductionSecrets(input, zaloSecrets);
+    if (zaloOaId.length > 128 || /^(placeholder|change[-_ ]?me|test|mock)/i.test(zaloOaId))
+      throw new AppError("VALIDATION_ERROR", "ZALO_OA_ID không hợp lệ");
+  } else if (zaloSecrets.some((key) => input[key] !== undefined && input[key] !== ""))
+    throw new AppError("VALIDATION_ERROR", "Zalo credentials được cấu hình một phần nhưng thiếu ZALO_OA_ID");
   validateProductionSecrets(input, [
     "MANAGER_JWT_SECRET",
     "RENTER_SESSION_SECRET",
-    "ZALO_OA_SECRET",
-    "ZALO_ACCESS_TOKEN",
-    "ZALO_WEBHOOK_SECRET",
     "R2_ACCESS_KEY_ID",
     "R2_SECRET_ACCESS_KEY",
   ]);
-  publicUrl(input, "RENTER_PORTAL_URL", "", true);
+  if (input.ZALO_OA_ID) publicUrl(input, "RENTER_PORTAL_URL", "", true);
   publicUrl(input, "FRONTEND_URL", "", true);
   if (input.R2_PUBLIC_URL) publicUrl(input, "R2_PUBLIC_URL", "", true);
 }
@@ -202,7 +208,7 @@ export function parseEnv(input: Record<string, string | undefined>): Env {
     port,
     databaseUrl: required(input, "DATABASE_URL"),
     testDatabaseUrl: input.TEST_DATABASE_URL?.trim() ?? "",
-    renterPortalUrl: publicUrl(input, "RENTER_PORTAL_URL", "http://localhost:3000", production),
+    renterPortalUrl: input.ZALO_OA_ID?.trim() ? publicUrl(input, "RENTER_PORTAL_URL", "http://localhost:3000", production) : (input.RENTER_PORTAL_URL ?? "http://localhost:3000"),
     frontendUrl: publicUrl(input, "FRONTEND_URL", "http://localhost:3001", production),
     trustedProxyHeader: input.TRUSTED_PROXY_HEADER?.trim() || null,
     trustedProxyAssertionHeader: input.TRUSTED_PROXY_ASSERTION_HEADER?.trim() || null,
@@ -227,10 +233,11 @@ export function parseEnv(input: Record<string, string | undefined>): Env {
           }
         : null,
     zalo: {
-      oaId: required(input, "ZALO_OA_ID"),
-      oaSecret: required(input, "ZALO_OA_SECRET"),
-      accessToken: required(input, "ZALO_ACCESS_TOKEN"),
-      webhookSecret: required(input, "ZALO_WEBHOOK_SECRET"),
+      enabled: Boolean(input.ZALO_OA_ID?.trim()),
+      oaId: input.ZALO_OA_ID?.trim() ?? "",
+      oaSecret: input.ZALO_OA_ID?.trim() ? required(input, "ZALO_OA_SECRET") : "",
+      accessToken: input.ZALO_OA_ID?.trim() ? required(input, "ZALO_ACCESS_TOKEN") : "",
+      webhookSecret: input.ZALO_OA_ID?.trim() ? required(input, "ZALO_WEBHOOK_SECRET") : "",
       templates: Object.fromEntries(
         Object.entries(ZNS_KEYS).map(([key, variable]) => [key, input[variable] ?? "PLACEHOLDER"]),
       ) as Record<ZnsTemplateKey, string>,
