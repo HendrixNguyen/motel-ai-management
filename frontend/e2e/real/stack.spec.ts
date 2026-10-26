@@ -162,7 +162,7 @@ test.describe("QA UI mutations", () => {
 		);
 		expect(renter, "Run-scoped renter must exist in the dedicated QA motel").toBeDefined();
 		expect(renter!.motelId).toBe(motelId);
-		expect(renter!.roomId).toBe(room!.id);
+			expect(renter!.roomId).toBe(room!.id);
 
 		managerSetupArtifacts = {
 			run: context,
@@ -175,6 +175,22 @@ test.describe("QA UI mutations", () => {
 				roomId: renter!.roomId,
 			},
 		};
+
+		// Assert that the captured artifacts mirror the entities created in this run without
+		// emitting IDs or PII in failure output.
+		expect(managerSetupArtifacts).toBeDefined();
+		const artifacts = managerSetupArtifacts as ManagerSetupRunArtifacts;
+		expect(artifacts.run).toBe(context);
+		expect(
+			artifacts.room.name === room!.name &&
+				artifacts.room.motelId === room!.motelId,
+		).toBe(true);
+		expect(
+			artifacts.renter.name === renter!.name &&
+				artifacts.renter.phone === renter!.phone &&
+				artifacts.renter.motelId === renter!.motelId &&
+				artifacts.renter.roomId === renter!.roomId,
+		).toBe(true);
 		expect(diagnostics).toEqual([]);
 	});
 });
