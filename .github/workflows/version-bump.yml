@@ -25,19 +25,17 @@ jobs:
           MERGE_SHA: ${{ github.event.pull_request.merge_commit_sha }}
         run: test "$(git rev-parse HEAD)" = "$MERGE_SHA"
       - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
       - name: Bump both package versions
         run: node scripts/bump-package-versions.mjs
-      - name: Refresh lockfiles without dependency updates
-        run: |
-          (cd frontend && bun install --lockfile-only)
-          (cd backend && bun install --lockfile-only)
-      - name: Verify lockfile diffs contain no dependency resolution changes
+      - name: Confirm version-only bumps leave lockfiles unchanged
         run: node scripts/lockfile-stability.mjs "${{ github.event.pull_request.merge_commit_sha }}"
       - name: Commit version bump
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add frontend/package.json backend/package.json frontend/bun.lock backend/bun.lock
+          git add frontend/package.json backend/package.json
           if git diff --cached --quiet; then
             echo "No version or lockfile changes to commit."
             exit 0

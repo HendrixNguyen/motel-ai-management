@@ -59,7 +59,8 @@ assert.match(
   versionWorkflow,
   /lockfile-stability\.mjs.*github\.event\.pull_request\.merge_commit_sha/s,
 );
-assert.match(versionWorkflow, /bun install --lockfile-only/);
+assert.match(versionWorkflow, /bun-version: 1\.4\.2/);
+assert.doesNotMatch(versionWorkflow, /bun install --lockfile-only/);
 assert.match(lockfileTest, /version-only bump/);
 assert.match(lockfileTest, /unexpected lockfile changes/);
 assert.match(versionWorkflow, /git rev-parse HEAD/);
