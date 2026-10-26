@@ -106,28 +106,53 @@ test.describe("QA UI mutations", () => {
 
 		const motelId = context.motelId;
 		await page.goto(`/rooms?motel=${encodeURIComponent(motelId)}`);
-    await expect(
-      page.getByRole("banner").getByRole("combobox", { name: "Nhà trọ", exact: true }),
-    ).toHaveAttribute("data-value", motelId);
-    await page.getByRole("button", { name: "Thêm phòng", exact: true }).click();
-    const roomDialog = page.getByRole("dialog");
-    await roomDialog.getByLabel("Tên phòng", { exact: true }).fill(roomName);
-    await roomDialog.getByLabel("Giá thuê cơ bản (₫/tháng)", { exact: true }).fill("3500000");
-    await roomDialog.getByLabel("Tầng (không bắt buộc)", { exact: true }).fill("1");
-    await roomDialog.getByRole("button", { name: "Thêm phòng", exact: true }).click();
-    await expect(page.getByRole("heading", { name: roomName, exact: true })).toBeVisible();
+		await expect(
+			page.getByRole("banner").getByRole("combobox", { name: "Nhà trọ", exact: true }),
+		).toHaveAttribute("data-value", motelId);
+		await page.getByRole("button", { name: "Thêm phòng", exact: true }).click();
+		const roomDialog = page.getByRole("dialog");
+		await roomDialog.getByLabel("Tên phòng", { exact: true }).fill(roomName);
+		await roomDialog
+			.getByLabel("Giá thuê cơ bản (₫/tháng)", { exact: true })
+			.fill("3500000");
+		await roomDialog.getByLabel("Tầng (không bắt buộc)", { exact: true }).fill("1");
+		const roomCreateResponsePromise = page.waitForResponse(
+			(response) =>
+				response.url().endsWith(`/api/manager/motels/${motelId}/rooms`) &&
+				response.request().method() === "POST",
+		);
+		await roomDialog.getByRole("button", { name: "Thêm phòng", exact: true }).click();
+		const roomCreateResponse = await roomCreateResponsePromise;
+		expect(roomCreateResponse.status()).toBe(201);
+		const createdRoom = (await roomCreateResponse.json()) as {
+			id: string;
+			motelId: string;
+		};
+		await expect(page.getByRole("heading", { name: roomName, exact: true })).toBeVisible();
 		await page.reload();
 		await expect(page.getByRole("heading", { name: roomName, exact: true })).toBeVisible();
 
 		await page.goto(`/renters?motel=${encodeURIComponent(motelId)}`);
 		await page.getByRole("button", { name: "Thêm khách thuê", exact: true }).click();
-    const renterDialog = page.getByRole("dialog");
-    await renterDialog.getByLabel("Họ tên", { exact: true }).fill(renterName);
-    await renterDialog.getByLabel("Số điện thoại", { exact: true }).fill(phone);
+		const renterDialog = page.getByRole("dialog");
+		await renterDialog.getByLabel("Họ tên", { exact: true }).fill(renterName);
+		await renterDialog.getByLabel("Số điện thoại", { exact: true }).fill(phone);
+		const renterCreateResponsePromise = page.waitForResponse(
+			(response) =>
+				response.url().endsWith(`/api/manager/motels/${motelId}/renters`) &&
+				response.request().method() === "POST",
+		);
 		await renterDialog
 			.getByRole("combobox", { name: "Phòng (không bắt buộc)", exact: true })
 			.selectOption({ label: roomName });
 		await renterDialog.getByRole("button", { name: "Thêm khách thuê", exact: true }).click();
+		const renterCreateResponse = await renterCreateResponsePromise;
+		expect(renterCreateResponse.status()).toBe(201);
+		const createdRenter = (await renterCreateResponse.json()) as {
+			id: string;
+			motelId: string;
+			roomId: string | null;
+		};
 		await expect(page.getByText(renterName, { exact: true })).toBeVisible();
 		await page.reload();
 		await expect(page.getByText(renterName, { exact: true })).toBeVisible();
@@ -145,6 +170,8 @@ test.describe("QA UI mutations", () => {
 		const room = rooms.find((entry) => entry.name === roomName);
 		expect(room, "Run-scoped room must exist in the dedicated QA motel").toBeDefined();
 		expect(room!.motelId).toBe(motelId);
+		// Link created room id to the listing result without exposing ids in logs.
+		expect(createdRoom.id === room!.id && createdRoom.motelId === room!.motelId).toBe(true);
 
 		const rentersResponse = await page.request.get(
 			`/api/manager/motels/${encodeURIComponent(motelId)}/renters`,
@@ -162,7 +189,13 @@ test.describe("QA UI mutations", () => {
 		);
 		expect(renter, "Run-scoped renter must exist in the dedicated QA motel").toBeDefined();
 		expect(renter!.motelId).toBe(motelId);
-			expect(renter!.roomId).toBe(room!.id);
+		expect(renter!.roomId).toBe(room!.id);
+		// Link created renter id to the listing result without exposing ids in logs.
+		expect(
+			createdRenter.id === renter!.id &&
+				createdRenter.motelId === renter!.motelId &&
+				createdRenter.roomId === renter!.roomId,
+		).toBe(true);
 
 		managerSetupArtifacts = {
 			run: context,
@@ -176,21 +209,20 @@ test.describe("QA UI mutations", () => {
 			},
 		};
 
-		// Assert that the captured artifacts mirror the entities created in this run without
-		// emitting IDs or PII in failure output.
+		// Assert that the captured artifacts mirror the created entities and their source
+		// responses without emitting IDs or PII in failure output.
 		expect(managerSetupArtifacts).toBeDefined();
 		const artifacts = managerSetupArtifacts as ManagerSetupRunArtifacts;
 		expect(artifacts.run).toBe(context);
-		expect(
-			artifacts.room.name === room!.name &&
-				artifacts.room.motelId === room!.motelId,
-		).toBe(true);
-		expect(
-			artifacts.renter.name === renter!.name &&
-				artifacts.renter.phone === renter!.phone &&
-				artifacts.renter.motelId === renter!.motelId &&
-				artifacts.renter.roomId === renter!.roomId,
-		).toBe(true);
+		const roomGraphMatches =
+			artifacts.room.id === createdRoom.id &&
+				artifacts.room.motelId === createdRoom.motelId;
+		const renterGraphMatches =
+			artifacts.renter.id === createdRenter.id &&
+				artifacts.renter.motelId === createdRenter.motelId &&
+				artifacts.renter.roomId === createdRenter.roomId;
+		expect(roomGraphMatches).toBe(true);
+		expect(renterGraphMatches).toBe(true);
 		expect(diagnostics).toEqual([]);
 	});
 });
