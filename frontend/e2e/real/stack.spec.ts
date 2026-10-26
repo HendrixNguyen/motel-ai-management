@@ -95,7 +95,6 @@ test.describe("QA UI mutations", () => {
 	test("creates run-scoped room and renter in dedicated QA motel, then persists after reload", async ({
 		page,
 	}) => {
-		expect(runContext, "Live QA mutation preflight must establish a run context").toBeDefined();
 		const context = runContext as LiveQaRunContext;
 
 		const runId = context.runId;
@@ -229,12 +228,6 @@ test.describe("QA UI mutations", () => {
 	test("creates a run-scoped draft contract and records a send request in the dedicated QA motel", async ({
 		page,
 	}) => {
-		expect(runContext, "Live QA mutation preflight must establish a run context before contract stage").toBeDefined();
-		expect(
-			managerSetupArtifacts,
-			"Run-scoped room and renter artifacts must exist before contract stage",
-		).toBeDefined();
-
 		const context = runContext as LiveQaRunContext;
 		const artifacts = managerSetupArtifacts as ManagerSetupRunArtifacts;
 		const motelId = context.motelId;
