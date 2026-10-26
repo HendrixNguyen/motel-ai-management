@@ -95,7 +95,12 @@ test.describe("QA UI mutations", () => {
 	test("creates run-scoped room and renter in dedicated QA motel, then persists after reload", async ({
 		page,
 	}) => {
-		const context = runContext as LiveQaRunContext;
+		if (!runContext) {
+			throw new Error(
+				"Live QA real-stack run context is missing; ensure the mutation preflight beforeEach has run for this suite.",
+			);
+		}
+		const context = runContext;
 
 		const runId = context.runId;
 		const roomName = `QA-${runId}`;
@@ -228,8 +233,14 @@ test.describe("QA UI mutations", () => {
 	test("creates a run-scoped draft contract and records a send request in the dedicated QA motel", async ({
 		page,
 	}) => {
-		const context = runContext as LiveQaRunContext;
-		const artifacts = managerSetupArtifacts as ManagerSetupRunArtifacts;
+		if (!runContext || !managerSetupArtifacts) {
+			throw new Error(
+				"Live QA real-stack manager setup artifacts are missing; run the room and renter setup test in this suite first.",
+			);
+		}
+
+		const context = runContext;
+		const artifacts = managerSetupArtifacts;
 		const motelId = context.motelId;
 		const diagnostics = collectSafeDiagnostics(page);
 
