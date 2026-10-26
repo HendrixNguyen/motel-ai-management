@@ -3,7 +3,10 @@ import { jwt } from "@elysiajs/jwt";
 import { env } from "@/config";
 import { AppError } from "@/shared/errors";
 
-export interface ManagerAuthPayload { userId: string; email: string }
+export interface ManagerAuthPayload {
+  userId: string;
+  email: string;
+}
 
 export const managerAuth = new Elysia({ name: "manager-auth" })
   .use(jwt({ name: "manager", secret: env.managerJwtSecret, exp: "7d" }))

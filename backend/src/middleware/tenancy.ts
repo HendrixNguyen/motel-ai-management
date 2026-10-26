@@ -8,10 +8,7 @@ import { AppError } from "@/shared/errors";
 export type MotelRow = typeof motels.$inferSelect;
 export type RoomRow = typeof rooms.$inferSelect;
 
-export async function resolveOwnedMotel(
-  motelId: string,
-  managerId: string,
-): Promise<MotelRow> {
+export async function resolveOwnedMotel(motelId: string, managerId: string): Promise<MotelRow> {
   const row = await db.query.motels.findFirst({
     where: and(eq(motels.id, motelId), eq(motels.managerId, managerId)),
   });
@@ -41,10 +38,7 @@ export async function resolveRenterInMotel(renterId: string, motelId: string) {
   return row;
 }
 
-export async function resolveRoomInMotel(
-  roomId: string,
-  motelId: string,
-): Promise<RoomRow> {
+export async function resolveRoomInMotel(roomId: string, motelId: string): Promise<RoomRow> {
   const row = await db.query.rooms.findFirst({
     where: and(eq(rooms.id, roomId), eq(rooms.motelId, motelId)),
   });

@@ -13,13 +13,23 @@ import { AppError } from "@/shared/errors";
 import type { ManagerJwtPayload } from "./auth.types";
 import { getRenter } from "@/modules/renter/renter.service";
 import { enforceRateLimit } from "@/shared/rate-limit";
+import { issueLoginRequestLink, listLoginRequests, markLoginRequestHandled } from "./renter-login-request.service";
+import { getMotelPublicAccessCode } from "@/modules/motel/motel.service";
 import { seedData } from "@/db/seed";
 
 const COOKIE_NAME = "manager_session";
-const SEED_TOKEN = env.nodeEnv === "production" ? undefined : ("11ad7312922e5a6ad1d2b9acf076e249b716f33d191234d3ad4a029569ed70ff" as const);
+const SEED_TOKEN =
+  env.nodeEnv === "production"
+    ? undefined
+    : ("11ad7312922e5a6ad1d2b9acf076e249b716f33d191234d3ad4a029569ed70ff" as const);
 
 function clientKey(request: Request): string {
-  return env.trustedProxyHeader && env.trustedProxyAssertionHeader && env.trustedProxyAssertionValue && request.headers.get(env.trustedProxyAssertionHeader) === env.trustedProxyAssertionValue ? request.headers.get(env.trustedProxyHeader)?.split(",")[0]?.trim() || "unknown" : "unknown";
+  return env.trustedProxyHeader &&
+    env.trustedProxyAssertionHeader &&
+    env.trustedProxyAssertionValue &&
+    request.headers.get(env.trustedProxyAssertionHeader) === env.trustedProxyAssertionValue
+    ? request.headers.get(env.trustedProxyHeader)?.split(",")[0]?.trim() || "unknown"
+    : "unknown";
 }
 
 export const authRoutes = new Elysia({ name: "auth-routes" })
@@ -75,14 +85,11 @@ export const authRoutes = new Elysia({ name: "auth-routes" })
       }),
     },
   )
-  .post(
-    "/auth/logout",
-    async ({ cookie, set }) => {
-      cookie[COOKIE_NAME]?.remove();
-      set.status = 204;
-      return "";
-    },
-  )
+  .post("/auth/logout", async ({ cookie, set }) => {
+    cookie[COOKIE_NAME]?.remove();
+    set.status = 204;
+    return "";
+  })
   .group("/auth", (app) =>
     app.use(managerAuth).get(
       "/me",
@@ -94,7 +101,14 @@ export const authRoutes = new Elysia({ name: "auth-routes" })
       },
     ),
   )
-  .group("/manager/motels/:motelId/renters/:renterId", (app) =>
+     .group("/manager/motels/:motelId/login-requests", (app) => app.use(managerAuth)
+     .get("/", ({ params, auth }) => listLoginRequests(params.motelId, auth!.userId), { params: t.Object({ motelId: t.String({ format: "uuid" }) }), detail: { security: [{ managerAuth: [] }] } })
+     .post("/:requestId/link", ({ params, auth }) => issueLoginRequestLink(params.requestId, params.motelId, auth!.userId), { params: t.Object({ motelId: t.String({ format: "uuid" }), requestId: t.String({ format: "uuid" }) }), detail: { security: [{ managerAuth: [] }] } })
+     .post("/:requestId/handled", ({ params, auth }) => markLoginRequestHandled(params.requestId, params.motelId, auth!.userId, "handled"), { params: t.Object({ motelId: t.String({ format: "uuid" }), requestId: t.String({ format: "uuid" }) }), detail: { security: [{ managerAuth: [] }] } })
+     .post("/:requestId/dismiss", ({ params, auth }) => markLoginRequestHandled(params.requestId, params.motelId, auth!.userId, "dismissed"), { params: t.Object({ motelId: t.String({ format: "uuid" }), requestId: t.String({ format: "uuid" }) }), detail: { security: [{ managerAuth: [] }] } }))
+   .group("/manager/motels/:motelId/renter-recovery", (app) => app.use(managerAuth)
+     .get("/code", ({ params, auth }) => getMotelPublicAccessCode(params.motelId, auth!.userId), { params: t.Object({ motelId: t.String({ format: "uuid" }) }), detail: { security: [{ managerAuth: [] }] } }))
+   .group("/manager/motels/:motelId/renters/:renterId", (app) =>
     app.use(managerAuth).post(
       "/magic-link",
       async ({ params, auth, set }) => {
@@ -103,8 +117,8 @@ export const authRoutes = new Elysia({ name: "auth-routes" })
         if (!renter || renter.motelId !== motel.id) {
           throw AppError.notFound("Không tìm thấy người thuê");
         }
-         const { token, url } = await issueMagicLink(renter.id);
-         set.status = 200;
+        const { token, url } = await issueMagicLink(renter.id);
+        set.status = 200;
 
         return { token, url };
       },
@@ -118,37 +132,46 @@ export const authRoutes = new Elysia({ name: "auth-routes" })
     ),
   )
   .group("/qa", (app) =>
-    app.post(
-      "/seed",
-      async ({ request, set }) => {
-        if (env.nodeEnv === "production") {
-          set.status = 403;
-          return { error: "Seed not allowed in production" };
-        }
-        const authHeader = request.headers.get("authorization") ?? "";
-        if (!authHeader || !SEED_TOKEN || authHeader !== `Bearer ${SEED_TOKEN}`) {
-          set.status = 401;
-          return { error: "Invalid seed token" };
-        }
-        await seedData();
-        return { success: true, message: "Seed completed" };
-      },
-      {
-        detail: { security: [] },
-      },
-    )
-    .get(
-      "/db-test",
-      async ({ set }) => {
-        try {
-          const result = await db.select().from(motels).where(and(eq(motels.id, "22222222-2222-2222-2222-222222222222"), eq(motels.managerId, "11111111-1111-1111-1111-111111111111")));
-          return { success: true, data: result };
-        } catch (error: any) {
-          console.error("DB test error:", error);
-          set.status = 500;
-          return { error: error.message, cause: error.cause?.message, stack: error.stack };
-        }
-      },
-      { detail: { security: [] } },
-    ),
+    app
+      .post(
+        "/seed",
+        async ({ request, set }) => {
+          if (env.nodeEnv === "production") {
+            set.status = 403;
+            return { error: "Seed not allowed in production" };
+          }
+          const authHeader = request.headers.get("authorization") ?? "";
+          if (!authHeader || !SEED_TOKEN || authHeader !== `Bearer ${SEED_TOKEN}`) {
+            set.status = 401;
+            return { error: "Invalid seed token" };
+          }
+          await seedData();
+          return { success: true, message: "Seed completed" };
+        },
+        {
+          detail: { security: [] },
+        },
+      )
+      .get(
+        "/db-test",
+        async ({ set }) => {
+          try {
+            const result = await db
+              .select()
+              .from(motels)
+              .where(
+                and(
+                  eq(motels.id, "22222222-2222-2222-2222-222222222222"),
+                  eq(motels.managerId, "11111111-1111-1111-1111-111111111111"),
+                ),
+              );
+            return { success: true, data: result };
+          } catch (error: any) {
+            console.error("DB test error:", error);
+            set.status = 500;
+            return { error: error.message, cause: error.cause?.message, stack: error.stack };
+          }
+        },
+        { detail: { security: [] } },
+      ),
   );

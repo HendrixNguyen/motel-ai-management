@@ -16,8 +16,20 @@ import { ticketRoutes } from "@/modules/ticket/ticket.route";
 import { paymentRoutes } from "@/modules/payment/payment.route";
 import { getRenterNotificationRecipient } from "@/modules/renter/renter.service";
 import { setNotificationRecipientResolver } from "@/modules/notification/notification.service";
+import { R2StorageAdapter } from "@/shared/storage.r2";
+import { configureUploadStorage } from "@/modules/billing/billing.service";
+import { configurePaymentStorage } from "@/modules/payment/payment.service";
+import { configureTicketStorage } from "@/modules/ticket/ticket.service";
+import { configureCccdStorage } from "@/modules/renter/renter.route";
 
 setNotificationRecipientResolver(getRenterNotificationRecipient);
+if (env.nodeEnv !== "test") {
+  const privateStorage = new R2StorageAdapter();
+  configureUploadStorage(privateStorage);
+  configurePaymentStorage(privateStorage);
+  configureTicketStorage(privateStorage);
+  configureCccdStorage(privateStorage);
+}
 
 /**
  * A fresh instance per call. `app` is the one the server listens on; tests build their own
@@ -43,15 +55,14 @@ export function createApp() {
         .use(authRoutes)
         .use(magicLinkRoutes)
         .use(motelRoutes)
-       .use(roomRoutes)
-       .use(billingRoutes)
-       .use(contractRoutes)
-       .use(renterRoutes)
+        .use(roomRoutes)
+        .use(billingRoutes)
+        .use(contractRoutes)
+        .use(renterRoutes)
         .use(notificationRoutes)
         .use(renterPortalRoutes)
-          .use(ticketRoutes)
-          .use(paymentRoutes),
-
+        .use(ticketRoutes)
+        .use(paymentRoutes),
     )
     .all("*", () => {
       throw AppError.notFound("Không tìm thấy");

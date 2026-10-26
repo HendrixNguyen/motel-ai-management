@@ -13,8 +13,14 @@ export function parseRoomFilters(params: MotelSearchParams): ListRoomsFilters {
   const filters: ListRoomsFilters = {};
   const floor = typeof params.floor === "string" ? parseRoomFloor(params.floor) : undefined;
   if (floor !== undefined) filters.floor = floor;
-  if (params.status === "available" || params.status === "occupied" || params.status === "maintenance") filters.status = params.status;
-  if (typeof params.search === "string" && params.search.trim()) filters.search = params.search.trim();
+  if (
+    params.status === "available" ||
+    params.status === "occupied" ||
+    params.status === "maintenance"
+  )
+    filters.status = params.status;
+  if (typeof params.search === "string" && params.search.trim())
+    filters.search = params.search.trim();
   return filters;
 }
 

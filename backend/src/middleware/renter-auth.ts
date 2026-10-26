@@ -20,7 +20,14 @@ export function requireRenterAuth(auth: RenterAuthPayload | undefined): RenterAu
 }
 
 function isJwtPayload(payload: unknown): payload is JwtPayload {
-  return typeof payload === "object" && payload !== null && "renterId" in payload && typeof payload.renterId === "string" && "motelId" in payload && typeof payload.motelId === "string";
+  return (
+    typeof payload === "object" &&
+    payload !== null &&
+    "renterId" in payload &&
+    typeof payload.renterId === "string" &&
+    "motelId" in payload &&
+    typeof payload.motelId === "string"
+  );
 }
 
 export const renterAuth = new Elysia({ name: "renter-auth" })
@@ -39,7 +46,11 @@ export const renterAuth = new Elysia({ name: "renter-auth" })
     }
 
     const renterRow = await db.query.renters.findFirst({
-      where: and(eq(renters.id, payload.renterId), eq(renters.motelId, payload.motelId), eq(renters.status, "active")),
+      where: and(
+        eq(renters.id, payload.renterId),
+        eq(renters.motelId, payload.motelId),
+        eq(renters.status, "active"),
+      ),
     });
 
     const motelRow = renterRow

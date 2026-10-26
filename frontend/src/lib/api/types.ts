@@ -289,8 +289,6 @@ export interface CreateRenterInput {
   /** Local or `+84` form; normalised to `84XXXXXXXXX` before it is stored. */
   phone: string;
   idNumber?: string | null;
-  idCardFrontUrl?: string | null;
-  idCardBackUrl?: string | null;
   /** Must be a room of *this* motel, or the request is 404. */
   roomId?: string | null;
 }
@@ -300,8 +298,6 @@ export interface UpdateRenterInput {
   name?: string;
   phone?: string;
   idNumber?: string | null;
-  idCardFrontUrl?: string | null;
-  idCardBackUrl?: string | null;
   roomId?: string | null;
   status?: RenterStatus;
 }
@@ -329,8 +325,8 @@ export interface RenterResponse {
   name: string;
   phone: string;
   idNumber: string | null;
-  idCardFrontUrl: string | null;
-  idCardBackUrl: string | null;
+  idCardFrontUploaded: boolean;
+  idCardBackUploaded: boolean;
   roomId: string | null;
   zaloOaId: string | null;
   isOaFollower: boolean;
@@ -392,7 +388,11 @@ export interface RenterPortalProfile {
   name: string;
   phone: string;
   room: { id: string; name: string; floor: number | null } | null;
-  motel: { id: string; name: string; bankAccount: { bankCode: string; accountNumber: string; accountName: string } | null };
+  motel: {
+    id: string;
+    name: string;
+    bankAccount: { bankCode: string; accountNumber: string; accountName: string } | null;
+  };
   activeContract: ActiveContractSummary | null;
 }
 
@@ -435,9 +435,20 @@ export interface PaymentProof {
   reviewedAt: string | null;
   rejectionReason: string | null;
 }
-export interface RenterPaymentProof extends PaymentProof { signedUrl: string; }
-export interface ManagerPaymentProof extends PaymentProof { renterId: string; reviewedByManagerId: string | null; signedUrl: string; }
-export interface InvoicePaymentResult { invoiceId: string; paymentStatus: "paid"; paidAt: string; paymentMethod: "bank_transfer" | "cash"; }
+export interface RenterPaymentProof extends PaymentProof {
+  signedUrl: string;
+}
+export interface ManagerPaymentProof extends PaymentProof {
+  renterId: string;
+  reviewedByManagerId: string | null;
+  signedUrl: string;
+}
+export interface InvoicePaymentResult {
+  invoiceId: string;
+  paymentStatus: "paid";
+  paidAt: string;
+  paymentMethod: "bank_transfer" | "cash";
+}
 
 export interface RenterInvoiceDetail extends RenterInvoiceSummary {
   bankAccount: { bankCode: string; accountNumber: string; accountName: string } | null;
@@ -454,13 +465,69 @@ export interface CreateRenterTicketInput {
 }
 
 export type ContractStatus = "draft" | "active" | "expired" | "terminated";
-export interface ContractClause { title: string; content: string; }
-export interface ContractTemplateResponse { id: string; motelId: string; name: string; clauses: ContractClause[]; isDefault: boolean; createdAt: string; }
-export interface CreateContractTemplateInput { name: string; clauses: ContractClause[]; isDefault?: boolean; }
-export interface UpdateContractTemplateInput { name?: string; clauses?: ContractClause[]; isDefault?: boolean; }
-export interface CreateContractInput { renterId: string; roomId: string; templateId?: string; startDate: string; endDate: string; monthlyRent?: VndString; deposit?: VndString; clauses?: ContractClause[]; }
-export interface UpdateContractInput { templateId?: string; startDate?: string; endDate?: string; monthlyRent?: VndString; deposit?: VndString; clauses?: ContractClause[]; }
-export interface ContractResponse { id: string; motelId: string; renterId: string; roomId: string; startDate: string; endDate: string; monthlyRent: VndString; deposit: VndString; clauses: ContractClause[]; otpSentAt: string | null; otpSignedAt: string | null; status: ContractStatus; createdAt: string; }
+export interface ContractClause {
+  title: string;
+  content: string;
+}
+export interface ContractTemplateResponse {
+  id: string;
+  motelId: string;
+  name: string;
+  clauses: ContractClause[];
+  isDefault: boolean;
+  createdAt: string;
+}
+export interface CreateContractTemplateInput {
+  name: string;
+  clauses: ContractClause[];
+  isDefault?: boolean;
+}
+export interface UpdateContractTemplateInput {
+  name?: string;
+  clauses?: ContractClause[];
+  isDefault?: boolean;
+}
+export interface CreateContractInput {
+  renterId: string;
+  roomId: string;
+  templateId?: string;
+  startDate: string;
+  endDate: string;
+  monthlyRent?: VndString;
+  deposit?: VndString;
+  clauses?: ContractClause[];
+}
+export interface UpdateContractInput {
+  templateId?: string;
+  startDate?: string;
+  endDate?: string;
+  monthlyRent?: VndString;
+  deposit?: VndString;
+  clauses?: ContractClause[];
+}
+export interface ContractResponse {
+  id: string;
+  motelId: string;
+  renterId: string;
+  roomId: string;
+  startDate: string;
+  endDate: string;
+  monthlyRent: VndString;
+  deposit: VndString;
+  clauses: ContractClause[];
+  termsVersion: string;
+  consentAcceptedAt: string | null;
+  consentMethod: "session_consent" | null;
+  consentEvidence: {
+    termsVersion: string;
+    acceptedTermsSnapshot: Record<string, unknown> | null;
+  } | null;
+  managerSentAt: string | null;
+  otpSentAt: string | null;
+  otpSignedAt: string | null;
+  status: ContractStatus;
+  createdAt: string;
+}
 
 export interface RenterContract {
   id: string;
@@ -472,6 +539,14 @@ export interface RenterContract {
   monthlyRent: VndString;
   deposit: VndString;
   clauses: Array<{ title: string; content: string }>;
+  termsVersion: string;
+  consentAcceptedAt: string | null;
+  consentMethod: "session_consent" | null;
+  consentEvidence: {
+    termsVersion: string;
+    acceptedTermsSnapshot: Record<string, unknown> | null;
+  } | null;
+  managerSentAt: string | null;
   otpSentAt: string | null;
   otpSignedAt: string | null;
   status: "draft" | "active" | "expired" | "terminated";

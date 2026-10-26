@@ -20,7 +20,11 @@ import { clearCaptureQueue } from "@/lib/capture/queue";
 /** `POST /api/auth/register` — `auth.route.ts:18`. Answers 201 with the manager. */
 export async function register(input: RegisterManagerInput): Promise<ManagerAuthResponse> {
   const manager = await apiSend<ManagerAuthResponse>("/api/auth/register", "POST", input);
-  try { sessionStorage.setItem("manager-id", manager.id); } catch { /* Registration must succeed when local storage is unavailable. */ }
+  try {
+    sessionStorage.setItem("manager-id", manager.id);
+  } catch {
+    /* Registration must succeed when local storage is unavailable. */
+  }
   return manager;
 }
 
@@ -32,7 +36,11 @@ export async function register(input: RegisterManagerInput): Promise<ManagerAuth
  */
 export async function login(input: LoginInput): Promise<ManagerAuthResponse> {
   const manager = await apiSend<ManagerAuthResponse>("/api/auth/login", "POST", input);
-  try { sessionStorage.setItem("manager-id", manager.id); } catch { /* Login must succeed when local storage is unavailable. */ }
+  try {
+    sessionStorage.setItem("manager-id", manager.id);
+  } catch {
+    /* Login must succeed when local storage is unavailable. */
+  }
   return manager;
 }
 
@@ -42,10 +50,19 @@ export async function login(input: LoginInput): Promise<ManagerAuthResponse> {
  */
 export async function logout(): Promise<void> {
   let managerId: string | null = null;
-  try { managerId = window.sessionStorage.getItem("manager-id"); } catch { /* Session cleanup must continue when storage is unavailable. */ }
-  try { await apiSend<void>("/api/auth/logout", "POST"); }
-  finally {
+  try {
+    managerId = window.sessionStorage.getItem("manager-id");
+  } catch {
+    /* Session cleanup must continue when storage is unavailable. */
+  }
+  try {
+    await apiSend<void>("/api/auth/logout", "POST");
+  } finally {
     if (managerId) await clearCaptureQueue(managerId);
-    try { window.sessionStorage.removeItem("manager-id"); } catch { /* The server cookie is authoritative. */ }
+    try {
+      window.sessionStorage.removeItem("manager-id");
+    } catch {
+      /* The server cookie is authoritative. */
+    }
   }
 }

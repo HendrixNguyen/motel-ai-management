@@ -9,11 +9,19 @@ export function resolveTheme(theme: string, systemDark: boolean): "light" | "dar
   return theme === "dark" || (theme === "system" && systemDark) ? "dark" : "light";
 }
 
-export function applyTheme(theme: Theme, root: { dataset: { theme?: string } }, systemDark = false) {
+export function applyTheme(
+  theme: Theme,
+  root: { dataset: { theme?: string } },
+  systemDark = false,
+) {
   root.dataset.theme = theme === "system" ? (systemDark ? "dark" : "light") : theme;
 }
 
-export function syncSystemTheme(theme: Theme, root: { dataset: { theme?: string } }, media: Pick<MediaQueryList, "matches" | "addEventListener" | "removeEventListener">) {
+export function syncSystemTheme(
+  theme: Theme,
+  root: { dataset: { theme?: string } },
+  media: Pick<MediaQueryList, "matches" | "addEventListener" | "removeEventListener">,
+) {
   const update = () => applyTheme(theme, root, media.matches);
   update();
   if (theme !== "system") return () => {};
@@ -21,8 +29,14 @@ export function syncSystemTheme(theme: Theme, root: { dataset: { theme?: string 
   return () => media.removeEventListener("change", update);
 }
 
-export function changeTheme(theme: Theme, root: { dataset: { theme?: string } }, media: Pick<MediaQueryList, "matches" | "addEventListener" | "removeEventListener">) {
-  try { window.localStorage.setItem("motel-theme", theme); } catch {}
+export function changeTheme(
+  theme: Theme,
+  root: { dataset: { theme?: string } },
+  media: Pick<MediaQueryList, "matches" | "addEventListener" | "removeEventListener">,
+) {
+  try {
+    window.localStorage.setItem("motel-theme", theme);
+  } catch {}
   applyTheme(theme, root, media.matches);
 }
 

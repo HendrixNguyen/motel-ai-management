@@ -26,6 +26,14 @@ export interface ContractResponse {
   monthlyRent: VndString;
   deposit: VndString;
   clauses: ContractTemplateClause[];
+  termsVersion: string;
+  consentAcceptedAt: string | null;
+  consentMethod: "session_consent" | null;
+  consentEvidence: {
+    termsVersion: string;
+    acceptedTermsSnapshot: Record<string, unknown> | null;
+  } | null;
+  managerSentAt: string | null;
   otpSentAt: string | null;
   otpSignedAt: string | null;
   status: "draft" | "active" | "expired" | "terminated";
@@ -44,11 +52,6 @@ export interface CreateContractInput {
 export type UpdateContractInput = Partial<
   Pick<
     CreateContractInput,
-    | "startDate"
-    | "endDate"
-    | "monthlyRent"
-    | "deposit"
-    | "clauses"
-    | "templateId"
+    "startDate" | "endDate" | "monthlyRent" | "deposit" | "clauses" | "templateId"
   >
 >;

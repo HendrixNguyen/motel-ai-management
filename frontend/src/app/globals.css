@@ -16,32 +16,59 @@
  * `border` is for dividers and card borders; `border-strong` is the control boundary an input
  * is drawn with. The token table in `docs/frontend-ui-specs.md` says which is which.
  */
+:root {
+  --color-accent: #e9b949;
+  --color-primary-runtime: #087e8b;
+  --color-primary-strong-runtime: #06636d;
+  --color-success-runtime: #176f4e;
+  --color-success-bg-runtime: #e4f3ec;
+  --color-warning-runtime: #7a5a12;
+  --color-warning-bg-runtime: #f7f0d8;
+  --color-danger-runtime: #a83e3e;
+  --color-danger-bg-runtime: #f8e7e5;
+  --color-text-runtime: #172b3a;
+  --color-text-ink: #172b3a;
+  --color-text-body-runtime: #294252;
+  --color-text-muted-runtime: #496170;
+  --color-accent-runtime: #e9b949;
+  --color-border-runtime: #d8e1e6;
+  --color-border-strong-runtime: #6b7e88;
+  --color-surface-runtime: #ffffff;
+  --color-canvas-runtime: #f3f6f8;
+  --color-surface-raised-runtime: #eaf0f3;
+  --color-primary-fixed-runtime: #dbeef0;
+  --color-on-primary-fixed-runtime: #123d43;
+  --color-on-primary-runtime: #ffffff;
+  --color-on-surface-runtime: #172b3a;
+}
+
 @theme inline {
-  --color-primary: #0369A1;
-  --color-primary-strong: #075985;
-  --color-success: #15803D;
-  --color-success-bg: #DCFCE7;
-  --color-warning: #92400E;
-  --color-warning-bg: #FEF3C7;
-  --color-danger: #B91C1C;
-  --color-danger-bg: #FEE2E2;
-  --color-text: #0F172A;
-  --color-text-body: #334155;
-  --color-text-muted: #475569;
-  --color-border: #E2E8F0;
-  --color-border-strong: #64748B;
-  --color-surface: #FFFFFF;
-  --color-canvas: #F8FAFC;
-  --color-surface-raised: #F1F5F9;
-  --color-primary-fixed: #DBEAFE;
-  --color-on-primary-fixed: #082F49;
-  --color-on-primary: #FFFFFF;
-  --color-on-surface: #0F172A;
-  --color-focus: var(--color-primary);
-  --color-status-success: var(--color-success);
-  --color-status-warning: var(--color-warning);
-  --color-status-danger: var(--color-danger);
-  --color-status-neutral: var(--color-text-muted);
+  --color-accent: var(--color-accent-runtime);
+  --color-primary: var(--color-primary-runtime);
+  --color-primary-strong: var(--color-primary-strong-runtime);
+  --color-success: var(--color-success-runtime);
+  --color-success-bg: var(--color-success-bg-runtime);
+  --color-warning: var(--color-warning-runtime);
+  --color-warning-bg: var(--color-warning-bg-runtime);
+  --color-danger: var(--color-danger-runtime);
+  --color-danger-bg: var(--color-danger-bg-runtime);
+  --color-text: var(--color-text-runtime);
+  --color-text-body: var(--color-text-body-runtime);
+  --color-text-muted: var(--color-text-muted-runtime);
+  --color-border: var(--color-border-runtime);
+  --color-border-strong: var(--color-border-strong-runtime);
+  --color-surface: var(--color-surface-runtime);
+  --color-canvas: var(--color-canvas-runtime);
+  --color-surface-raised: var(--color-surface-raised-runtime);
+  --color-primary-fixed: var(--color-primary-fixed-runtime);
+  --color-on-primary-fixed: var(--color-on-primary-fixed-runtime);
+  --color-on-primary: var(--color-on-primary-runtime);
+  --color-on-surface: var(--color-on-surface-runtime);
+  --color-focus: var(--color-primary-runtime);
+  --color-status-success: var(--color-success-runtime);
+  --color-status-warning: var(--color-warning-runtime);
+  --color-status-danger: var(--color-danger-runtime);
+  --color-status-neutral: var(--color-text-muted-runtime);
 
   --font-heading: var(--font-be-vietnam-pro);
   --font-sans: var(--font-noto-sans);
@@ -68,6 +95,11 @@ html {
   background: var(--color-canvas);
 }
 
+html[data-theme="dark"] body,
+html[data-theme="system"] body {
+  color-scheme: dark;
+}
+
 dialog:not([open]) {
   display: none;
 }
@@ -91,18 +123,36 @@ dialog[open][data-dialog] [data-dialog-content] {
 }
 
 @keyframes dialog-enter {
-  from { opacity: 0; scale: 0.98; }
-  to { opacity: 1; scale: 1; }
+  from {
+    opacity: 0;
+    scale: 0.98;
+  }
+  to {
+    opacity: 1;
+    scale: 1;
+  }
 }
 
 @keyframes toast-enter {
-  from { opacity: 0; translate: 0 -0.5rem; }
-  to { opacity: 1; translate: 0 0; }
+  from {
+    opacity: 0;
+    translate: 0 -0.5rem;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
 }
 
 @keyframes page-enter {
-  from { opacity: 0; translate: 0 0.25rem; }
-  to { opacity: 1; translate: 0 0; }
+  from {
+    opacity: 0;
+    translate: 0 0.25rem;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
 }
 
 html[data-theme="light"] {
@@ -118,13 +168,14 @@ html:not([data-theme="dark"]) {
   outline-offset: var(--focus-ring-offset);
 }
 
-main [id], main :where(a, button, input, select, textarea, summary) {
-   scroll-margin-top: 6rem;
- }
+main [id],
+main :where(a, button, input, select, textarea, summary) {
+  scroll-margin-top: 6rem;
+}
 
- .shell-safe-area {
-   padding-bottom: env(safe-area-inset-bottom);
- }
+.shell-safe-area {
+  padding-bottom: env(safe-area-inset-bottom);
+}
 
 body {
   min-width: 320px;
@@ -140,31 +191,39 @@ body {
   background: var(--color-primary);
 }
 
-button, a, input, select, textarea, summary {
+button,
+a,
+input,
+select,
+textarea,
+summary {
   -webkit-tap-highlight-color: transparent;
 }
 
 html[data-theme="dark"] {
-  --color-primary: #38BDF8;
-  --color-primary-strong: #7DD3FC;
-  --color-success: #4ADE80;
-  --color-success-bg: #14532D;
-  --color-warning: #FBBF24;
-  --color-warning-bg: #451A03;
-  --color-danger: #F87171;
-  --color-danger-bg: #450A0A;
-  --color-text: #F8FAFC;
-  --color-text-body: #E2E8F0;
-  --color-text-muted: #CBD5E1;
-  --color-border: #334155;
-  --color-border-strong: #94A3B8;
-  --color-surface: #111827;
-  --color-canvas: #0F172A;
-  --color-surface-raised: #1E293B;
-  --color-primary-fixed: #0C4A6E;
-  --color-on-primary-fixed: #E0F2FE;
-  --color-on-primary: #082F49;
-  --color-on-surface: #F8FAFC;
+  --color-accent: #e3c56a;
+  --color-primary-runtime: #69c1c8;
+  --color-primary-strong-runtime: #a0dce0;
+  --color-success-runtime: #77c6a2;
+  --color-success-bg-runtime: #173e32;
+  --color-warning-runtime: #e3c56a;
+  --color-warning-bg-runtime: #4a3b1a;
+  --color-danger-runtime: #e38a82;
+  --color-danger-bg-runtime: #4b2528;
+  --color-text-runtime: #e8f0f3;
+  --color-text-ink: #172b3a;
+  --color-text-body-runtime: #c8d6dc;
+  --color-text-muted-runtime: #aabcc4;
+  --color-accent-runtime: #e3c56a;
+  --color-border-runtime: #344b57;
+  --color-border-strong-runtime: #8eafb5;
+  --color-surface-runtime: #1b303c;
+  --color-canvas-runtime: #10232e;
+  --color-surface-raised-runtime: #243d49;
+  --color-primary-fixed-runtime: #25474c;
+  --color-on-primary-fixed-runtime: #e5f4f5;
+  --color-on-primary-runtime: #10232e;
+  --color-on-surface-runtime: #e8f0f3;
 }
 
 html[data-theme="dark"] body {
@@ -173,26 +232,29 @@ html[data-theme="dark"] body {
 
 @media (prefers-color-scheme: dark) {
   html[data-theme="system"] {
-    --color-primary: #38BDF8;
-    --color-primary-strong: #7DD3FC;
-    --color-success: #4ADE80;
-    --color-success-bg: #14532D;
-    --color-warning: #FBBF24;
-    --color-warning-bg: #451A03;
-    --color-danger: #F87171;
-    --color-danger-bg: #450A0A;
-    --color-text: #F8FAFC;
-    --color-text-body: #E2E8F0;
-    --color-text-muted: #CBD5E1;
-    --color-border: #334155;
-    --color-border-strong: #94A3B8;
-    --color-surface: #111827;
-    --color-canvas: #0F172A;
-    --color-surface-raised: #1E293B;
-    --color-primary-fixed: #0C4A6E;
-    --color-on-primary-fixed: #E0F2FE;
-    --color-on-primary: #082F49;
-    --color-on-surface: #F8FAFC;
+    --color-accent: #e3c56a;
+    --color-primary-runtime: #69c1c8;
+    --color-primary-strong-runtime: #a0dce0;
+    --color-success-runtime: #77c6a2;
+    --color-success-bg-runtime: #173e32;
+    --color-warning-runtime: #e3c56a;
+    --color-warning-bg-runtime: #4a3b1a;
+    --color-danger-runtime: #e38a82;
+    --color-danger-bg-runtime: #4b2528;
+    --color-text-runtime: #e8f0f3;
+    --color-text-ink: #172b3a;
+    --color-text-body-runtime: #c8d6dc;
+    --color-text-muted-runtime: #aabcc4;
+    --color-accent-runtime: #e3c56a;
+    --color-border-runtime: #344b57;
+    --color-border-strong-runtime: #8eafb5;
+    --color-surface-runtime: #1b303c;
+    --color-canvas-runtime: #10232e;
+    --color-surface-raised-runtime: #243d49;
+    --color-primary-fixed-runtime: #25474c;
+    --color-on-primary-fixed-runtime: #e5f4f5;
+    --color-on-primary-runtime: #10232e;
+    --color-on-surface-runtime: #e8f0f3;
   }
 }
 
@@ -203,7 +265,9 @@ html[data-theme="dark"] body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
+  *,
+  *::before,
+  *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     scroll-behavior: auto !important;

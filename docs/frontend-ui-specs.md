@@ -21,7 +21,9 @@ page scrolling. Tables must reflow into readable rows or focused detail editors 
 
 ## Contract lifecycle
 
-Manager contract screen shows draft, active, expired, and terminated badges. Create form requires renter, room, start date, and end date; rent defaults from room base price and clause content is shown as a snapshot. Drafts allow edits; active and terminated contracts are read-only. Send action reports notification failure without showing a sent timestamp. Terminate action is destructive and requires confirmation.
+Manager contract screen shows draft, active, expired, and terminated badges. Create form requires renter, room, start date, and end date; rent defaults from room base price and clause content is shown as a snapshot. Drafts allow edits until renter consent; active and terminated contracts are read-only. Send action reports notification failure without showing a sent timestamp. Terminate action is destructive and requires confirmation. Renter signing uses authenticated session plus explicit read-and-agree and final-sign confirmations; no OTP UI or delivery. Terms changes reset both confirmations. A signed contract displays server-recorded consent and accepted version. This MVP records session consent and does not claim independently verified identity or certified digital signature.
+
+CCCD upload and private preview are manager-only, on renter detail; renters never upload or view CCCD. Manager uploads front/back as separate JPEG/PNG images, max 5,000,000 bytes each. Private R2 objects are read through manager-authorized 300-second signed URLs. Renter upload control is limited to one post-transfer payment-proof image, JPEG/PNG up to 5,000,000 bytes; rejected proof can be replaced. Both upload controls show a button and desktop drop zone; file picker remains available on mobile and for keyboard users.
 
 ## 1. Design Tokens
 
@@ -122,10 +124,13 @@ Draft periods allow meter edits and invoice generation. Sent periods are read-on
 
 ## 2. Manager App
 
-Shell: responsive. On wide screens, left sidebar `240px`, sticky. On phones, use compact
-navigation with no more than five primary destinations; expose remaining sections in a clearly
-labelled secondary menu. Top bar carries motel selector, notification inbox, and manager menu.
-Controls must work without hover.
+Shell: responsive. On wide screens (`1024px` and above), left sidebar `240px`, sticky. On
+narrower screens, fixed bottom navigation has five primary destinations; **Hợp đồng** is exposed
+through the labelled **Thêm** menu. The top bar carries motel selector, capture-queue warning when
+needed, and manager account/theme controls; no unsupported notification inbox is shown. Controls
+work without hover. Mobile navigation has five primary route links and one **Thêm** menu control; Contracts appears in
+that secondary menu. Navigation preserves motel scope and current query parameters between primary
+destinations; secondary destinations preserve motel scope and drop unrelated route-specific filters.
 
 Sidebar items: **Tổng quan**, **Nhà trọ**, **Phòng trọ**, **Khách thuê**, **Tính tiền &
 Hóa đơn**, **Hợp đồng**, **Sự cố & Yêu cầu**, **Cài đặt**.
@@ -151,10 +156,24 @@ a "Doanh thu dự kiến 0 ₫" tile is a false claim about data that does not e
 Each section below still describes the full intended screen. Read the table as what is
 delivered, not the section as what is.
 
+Dashboard invoices are shown only for the newest billing period when its status is `draft` or
+`sent`; if newest period is `closed`, do not relabel a prior period as current. The ledger keeps
+`unpaid`, `overdue`, and `paid` distinct and summarizes unpaid/overdue counts separately. No
+standalone unpaid metric or total VND amount is displayed in Overview.
+
 ### M1 — Overview `/`
 
-Four summary measures, shown as a compact list or restrained grid rather than interchangeable
-cards:
+The current screen uses a page heading with selected motel and current-period context, a primary
+**Thêm khách thuê** action, grouped room/renter/unsettled-invoice measures, compact quick-action
+ledger, and current-period invoice rows. Measures link to their supported detail routes. It shows
+room occupancy only with the room measure. The invoice ledger uses the newest period only when its
+state is `draft` or `sent`; a `closed` latest period is not called current. Payment states remain
+separate (`unpaid`, `overdue`, `paid`), with only unpaid and overdue counted as not collected. It
+does not show a standalone occupancy tile, an extra dashboard unpaid-invoice metric, estimated
+revenue, or ticket metrics.
+
+Target behavior allows four summary measures, shown as a compact list or restrained grid rather
+than interchangeable cards:
 
 | Card              | Value                                                            | Sub-label                                         |
 | ----------------- | ---------------------------------------------------------------- | ------------------------------------------------- |
@@ -162,6 +181,10 @@ cards:
 | Doanh thu dự kiến | sum of `unpaid` + `overdue` `totalAmount` for the current period | `Tháng MM/YYYY`                                   |
 | Tiền chưa thu     | count of unsettled invoices                                      | total VND                                         |
 | Sự cố chưa xử lý  | count of `open` + `in_progress` tickets                          | oldest age in days                                |
+
+The three non-room measures above remain deferred and are not rendered on current Overview. The
+invoice ledger itself labels the exact `unpaid`, `overdue`, and `paid` states; only the first two
+contribute to its “chưa thu” count.
 
 The **Phòng** measure reads the selected motel's complete, unfiltered room list. It counts
 `occupied` as đang thuê, `available` as trống, and `maintenance` as bảo trì. Occupancy is
@@ -237,12 +260,10 @@ An unfiltered empty motel offers `Thêm phòng`; an empty filtered result offers
 
 ### M4 — Khách thuê `/renters`
 
-Table: Họ tên, SĐT, Số CCCD, Phòng, Trạng thái (`Đang thuê` / `Đã kết thức hợp đồng`), Trạng thái
-Zalo OA (`Đã follow` / `Chưa follow`), Ngày bắt đầu, actions. Renter status is the tenancy, not
+Table: Họ tên, SĐT, Số CCCD, Phòng, Trạng thái (`Đang thuê` / `Đã kết thức hợp đồng`), Ngày bắt đầu, actions. Renter status is the tenancy, not
 the room: a renter can be `Đang thuê` with no room assigned.
 
-Renter detail page: personal info with front/back CCCD images (or an "chưa cập nhật"
-placeholder), active contract summary with end date and deposit, invoice history with
+Renter detail page: personal info with manager-only front/back CCCD controls and previews via private short-lived signed URLs (or "chưa có ảnh" status), active contract summary with end date and deposit, invoice history with
 payment status, and **Tạo magic link**.
 
 Delivered M4 behavior: list and detail reads use the selected `?motel=` and validate motel
@@ -308,13 +329,11 @@ the manager's manual confirmation; it does not verify a bank transfer automatica
 
 ### M7 — Hợp đồng `/contracts`
 
-**Current implementation note (2026-10-13):** Current QA implementation is read-only contract summary cards. Names resolve from motel-scoped renter/room reads; unmatched linked records show safe labels, not ID fragments. Detail, create/edit, lifecycle actions, and templates UI remain unimplemented.
+**Current implementation note (2026-10-26):** Current QA implementation matches the phase 1 scope for manager contracts. The screen renders motel-scoped contract cards with draft/active/expired/terminated badges from `/api/manager/motels/:motelId/contracts`; names resolve from renter/room reads, and unmatched linked records show safe labels instead of IDs. Managers can create motel-scoped draft contracts from active renters and valid rooms, edit draft term, rent, deposit and clause content on `draft` contracts only, send a draft contract exactly once as an enqueue-only request (`POST /contracts/:contractId/send` sets `managerSentAt` and leaves consent fields unset), terminate active contracts with confirmation, and create/edit/delete motel-scoped contract templates via `/contract-templates`. Renter signing uses authenticated renter sessions and `POST /renter/contracts/:contractId/consent` to record `session_consent` and an accepted terms snapshot; there is no OTP UI or provider-bound delivery inside the manager app, and send failures surface as visible errors without leaking provider details.
 
 Target behavior: two tabs.
 
-_Tab 1 — Hợp đồng:_ grouped Active / Sắp hết hạn (≤30 days) / Đã thanh lý. Detail view
-lists every clause, rent, deposit, term, and signing metadata (`otpSignedAt`, renter
-phone).
+_Tab 1 — Hợp đồng:_ grouped Active / Sắp hết hạn (≤30 days) / Đã thanh lý. Detail view lists every clause, rent, deposit, term, and signing metadata (`consentAcceptedAt`, accepted terms version, consent method). Historical OTP timestamps remain for legacy contracts only.
 
 _Tab 2 — Mẫu hợp đồng `/contracts/templates`:_ template list with a default marker.
 Template editor is a clause builder — add, reorder, edit, or remove `{title, content}`
@@ -361,6 +380,16 @@ state (`Đang nhập` / `Chưa bắt đầu`). Sent and closed periods are not l
 to one renders it read-only with an explanatory banner.
 
 **`/capture/[periodId]`** — the walk queue:
+
+Completion requires exactly one electric and one water reading per room, both persisted with non-null current readings. Missing or malformed meter sets keep completion disabled. Browser-local queued/offline values are not counted until server data confirms them; sent periods have no completion link.
+
+Current implementation limitation: the period endpoint includes complete room readings, so this
+screen derives completed room count only when both required meter types (electric and water) exist
+and each has a current reading. The list endpoint lacks that data, so `/capture` does not claim
+per-period room progress or sync state. A sent period renders room rows as non-interactive read-only
+content and states that queued writes are locked; no room links/buttons are rendered and queued
+writes are not retried. Offline/sync status appears only in the focused reading screen, not as live
+status on this period overview.
 
 - Header: `Tháng MM/YYYY`, sync-state chip, progress `7/24`
 - One row per room: room name, previous electricity and water readings inline, and a state
@@ -426,12 +455,9 @@ technical error text. This route is never linked directly from the app UI.
 
 ### R1 — Trang chủ `/portal`
 
-Current-invoice card:
-
-- `Hóa đơn Tháng MM/YYYY`
-- Total, large, tabular numerals
-- Status badge: `Chưa thanh toán` (warning), `Đã thanh toán` (success), `Quá hạn` (danger)
-- Primary CTA **Xem mã VietQR** → invoice detail
+Current and unpaid invoices:
+- Displays pending/overdue invoices across sent periods with direct "Xem QR" and "Gửi chứng từ" actions.
+- Lists billing periods linking to `/portal/bills?period=...`.
 
 Invoices have no due-date field; do not display or imply one.
 
@@ -441,7 +467,7 @@ When there is no invoice for the current period, the card is replaced by a neutr
 2×2 quick links: **Chi tiết điện nước**, **Lịch sử hóa đơn**, **Hợp đồng thuê**, **Báo
 hỏng / Yêu cầu hỗ trợ**.
 
-After activation, a dismissible notification banner offers **Bật thông báo** for Web Push. If permission is denied or unavailable, show **Thông báo vẫn gửi qua kênh dự phòng**; never block invoice access or payment.
+Renter home shows a non-blocking **Thông báo thanh toán** section with explicit **Bật thông báo** opt-in and **Tắt thông báo** opt-out. If browser support is absent or permission denied, hide the control; invoice access and payment remain available. Push text is generic and never includes amounts, proof data or identity details. Logout removes the server subscription and unregisters the browser's current push subscription. If push is unconfigured, payment UI reports that delivery notifications are unavailable rather than promising fallback.
 
 ### R2 — Chi tiết hóa đơn `/portal/bills/[id]`
 
@@ -471,7 +497,7 @@ Payment block:
 - Transfer description shown verbatim, with a copy button
 - Instruction: open your banking app and scan, or transfer manually with the exact
   description so the manager can match it
-- Payment proof: one current JPEG/PNG image, maximum 5,000,000 bytes (5 MB), with states **Đang chờ duyệt**, **Đã duyệt**, and **Bị từ chối**. Rejected proof remains visible as history, shows safe manager reason, and allows one replacement current proof; pending/approved and paid invoices disable upload.
+- Payment proof: one current JPEG/PNG image, maximum 5,000,000 bytes (5 MB), with states **Đang chờ duyệt**, **Đã duyệt**, and **Bị từ chối**. WebP/HEIC/HEIF files are accepted in file input and converted to JPEG in browser where supported. Rejected proof remains visible as history, shows safe manager reason, and allows one replacement current proof; pending/approved and paid invoices disable upload.
 - Renter has no **Đã thanh toán** action. Payment becomes paid only after manager bank-proof approval or explicit cash confirmation.
 
 If `motel.bankAccount` is null the payment block is replaced by "Chưa cập nhật thông tin
@@ -486,11 +512,8 @@ opens the same detail view as R2.
 
 Summary (rent, deposit, term, room) then clauses as an accordion.
 
-- **Signed:** a confirmation block with `otpSignedAt` and the signing phone number.
-- **Draft, unsigned:** CTA **Xác nhận & ký hợp đồng** → clear confirmation of the clauses
-  and renter consent, then OTP entry. OTP may be visually grouped but must accept paste and
-  assistive-technology input; do not require manually focused one-digit boxes. Resend is
-  disabled for 5 minutes. Wrong or expired OTP shows an inline error and keeps the form open.
+- **Signed:** a confirmation block with server-recorded `consentAcceptedAt`, accepted terms version and consent method. Do not imply OTP or certified digital signature.
+- **Draft, unsigned:** CTA **Xác nhận & ký hợp đồng** → explicit read-and-agree checkbox, separate final confirmation, then submit exact `termsVersion`. If terms changed, reset consent and require a fresh review. Session expiry requires renewed authentication and must not auto-submit. CCCD image upload/view is manager-only; renter sees neither image nor upload control.
 - **Terminated/expired:** read-only with an explanatory banner.
 
 ### R5 — Yêu cầu hỗ trợ `/portal/tickets`

@@ -15,10 +15,25 @@ const variants = {
 };
 const sizes = { sm: "px-3 py-2 text-sm", md: "px-4 py-2.5", lg: "px-6 py-3" };
 
-export default function Button({ variant = "primary", size = "md", pending = false, pendingLabel = "Đang xử lý…", disabled, type = "button", className = "", children, ...props }: ButtonProps) {
+export default function Button({
+  variant = "primary",
+  size = "md",
+  pending = false,
+  pendingLabel = "Đang xử lý…",
+  disabled,
+  type = "button",
+  className = "",
+  children,
+  ...props
+}: ButtonProps) {
   return (
-    <button {...props} type={type} disabled={disabled || pending} aria-busy={pending || undefined}
-      className={`inline-flex min-h-11 min-w-11 max-w-full cursor-pointer items-center justify-center gap-2 rounded-input border text-base font-semibold leading-normal break-words focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:cursor-not-allowed disabled:opacity-60 ${variants[variant]} ${sizes[size]} ${className}`}>
+    <button
+      {...props}
+      type={type}
+      disabled={disabled || pending}
+      aria-busy={pending || undefined}
+      className={`inline-flex min-h-11 min-w-11 max-w-full cursor-pointer items-center justify-center gap-2 rounded-input border text-base font-semibold leading-normal break-words focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:cursor-not-allowed disabled:opacity-60 ${variants[variant]} ${sizes[size]} ${className}`}
+    >
       {pending ? pendingLabel : children}
     </button>
   );

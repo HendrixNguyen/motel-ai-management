@@ -8,9 +8,13 @@ import type { NextConfig } from "next";
  * The default keeps a fresh clone runnable with no setup: the backend listens on 3000.
  */
 const BACKEND_URL = process.env.BACKEND_URL ?? "http://localhost:3000";
+const BUILD_VERSION = process.env.NEXT_PUBLIC_BUILD_VERSION ?? "";
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  env: {
+    NEXT_PUBLIC_BUILD_VERSION: BUILD_VERSION,
+  },
   /**
    * The browser only ever calls relative `/api/...`. This rewrites those onto the backend so
    * the request is same-origin — the `manager_session` / `renter_session` cookies are

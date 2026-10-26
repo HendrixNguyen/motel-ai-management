@@ -418,14 +418,14 @@
           "primaryKey": false,
           "notNull": false
         },
-        "id_card_front_url": {
-          "name": "id_card_front_url",
+        "legacy_id_card_front_url": {
+          "name": "legacy_id_card_front_url",
           "type": "text",
           "primaryKey": false,
           "notNull": false
         },
-        "id_card_back_url": {
-          "name": "id_card_back_url",
+        "legacy_id_card_back_url": {
+          "name": "legacy_id_card_back_url",
           "type": "text",
           "primaryKey": false,
           "notNull": false
@@ -1236,8 +1236,13 @@
           "name": "clauses",
           "type": "jsonb",
           "primaryKey": false,
-          "notNull": true
+          "notNull": true,
+          "default": "'[]'::jsonb"
         },
+        "accepted_terms_version": { "name": "accepted_terms_version", "type": "text", "primaryKey": false, "notNull": false },
+        "accepted_terms_snapshot": { "name": "accepted_terms_snapshot", "type": "jsonb", "primaryKey": false, "notNull": false },
+        "consent_method": { "name": "consent_method", "type": "text", "primaryKey": false, "notNull": false },
+        "consent_accepted_at": { "name": "consent_accepted_at", "type": "timestamp with time zone", "primaryKey": false, "notNull": false },
         "is_default": {
           "name": "is_default",
           "type": "boolean",
@@ -1548,7 +1553,8 @@
         "contracts_otp_attempts_range": {
           "name": "contracts_otp_attempts_range",
           "value": "\"contracts\".\"otp_attempts\" between 0 and 3"
-        }
+        },
+        "contracts_consent_evidence_complete": { "name": "contracts_consent_evidence_complete", "value": "(consent_method is null and accepted_terms_version is null and accepted_terms_snapshot is null and consent_accepted_at is null) or (consent_method = 'session_consent' and accepted_terms_version is not null and accepted_terms_snapshot is not null and consent_accepted_at is not null)" }
       },
       "isRLSEnabled": false
     },

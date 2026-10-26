@@ -15,6 +15,7 @@ const TABLES = [
   "zalo_oa_motel_mappings",
   "notification_webhook_events",
   "notification_events",
+  "push_subscriptions",
   "zalo_notifications",
   "magic_links",
   "ticket_photo_uploads",
@@ -58,7 +59,9 @@ export async function resetDb(): Promise<void> {
   const resetDb = drizzle(client);
 
   try {
-    await client.unsafe("SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = 'motel_test' AND pid <> pg_backend_pid()");
+    await client.unsafe(
+      "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = 'motel_test' AND pid <> pg_backend_pid()",
+    );
     await resetDb.execute(sql.raw("DROP SCHEMA IF EXISTS public CASCADE"));
     await resetDb.execute(sql.raw("DROP SCHEMA IF EXISTS drizzle CASCADE"));
     await resetDb.execute(sql.raw("CREATE SCHEMA public"));

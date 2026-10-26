@@ -1,40 +1,92 @@
 import { expect, test, type BrowserContext } from "@playwright/test";
-import { MOTEL } from "../src/lib/api/__tests__/fixtures";
+import { MOTEL } from "../test/lib/api/fixtures";
 
 async function signIn(context: BrowserContext, session = "valid") {
-  await context.addCookies([{ name: "manager_session", value: session, url: "http://localhost:3001", httpOnly: true, sameSite: "Lax" }]);
+  await context.addCookies([
+    {
+      name: "manager_session",
+      value: session,
+      url: "http://localhost:3001",
+      httpOnly: true,
+      sameSite: "Lax",
+    },
+  ]);
 }
 
 test("motel grid uses live counts and stays inside 360px", async ({ page, context }) => {
   await signIn(context);
   await page.setViewportSize({ width: 360, height: 740 });
   await page.goto("/motels");
-  const card = page.getByRole("article").filter({ has: page.getByRole("heading", { name: MOTEL.name }) });
+  const card = page
+    .getByRole("article")
+    .filter({ has: page.getByRole("heading", { name: MOTEL.name }) });
   await expect(card).toContainText("2 phòng");
   await expect(card).toContainText("3.500 ₫");
   await expect(card).toContainText("NGUYEN VAN MINH");
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
 
-test("empty motel list opens creation and announces field errors with a linked summary", async ({ page, context }) => {
+test("motel cards reflow without horizontal overflow across manager widths", async ({
+  page,
+  context,
+}) => {
+  await signIn(context);
+  await page.goto("/motels");
+  for (const width of [360, 375, 430, 640, 768, 1024, 1440]) {
+    await page.setViewportSize({ width, height: 820 });
+    await expect(page.getByRole("heading", { name: MOTEL.name })).toBeVisible();
+    const card = page
+      .getByRole("article")
+      .filter({ has: page.getByRole("heading", { name: MOTEL.name }) });
+    const cardBounds = await card.boundingBox();
+    expect(cardBounds).not.toBeNull();
+    expect(cardBounds!.x).toBeGreaterThanOrEqual(0);
+    expect(cardBounds!.x + cardBounds!.width).toBeLessThanOrEqual(width);
+    const actions = await card.getByRole("button").all();
+    for (const action of actions) {
+      const bounds = await action.boundingBox();
+      expect(bounds).not.toBeNull();
+      expect(bounds!.x).toBeGreaterThanOrEqual(cardBounds!.x);
+      expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(cardBounds!.x + cardBounds!.width);
+    }
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+      `horizontal overflow at ${width}px`,
+    ).toBe(true);
+  }
+});
+
+test("empty motel list opens creation and announces field errors with a linked summary", async ({
+  page,
+  context,
+}) => {
   await signIn(context, "no-motels");
   await page.goto("/motels");
   await expect(page.getByRole("heading", { name: "Chưa có nhà trọ" })).toBeVisible();
   await page.getByRole("button", { name: "Tạo nhà trọ", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Tạo nhà trọ" });
   await dialog.getByRole("button", { name: "Tạo nhà trọ", exact: true }).click();
-  await expect(dialog.getByLabel("Tên nhà trọ", { exact: true })).toHaveAccessibleDescription("Nhập tên nhà trọ");
+  await expect(dialog.getByLabel("Tên nhà trọ", { exact: true })).toHaveAccessibleDescription(
+    "Nhập tên nhà trọ",
+  );
   await expect(dialog.getByRole("alert")).toBeFocused();
   await dialog.getByRole("link", { name: "Nhập tên nhà trọ" }).click();
   await expect(dialog.getByLabel("Tên nhà trọ", { exact: true })).toBeFocused();
 });
 
-test("creating a motel sends normalized prices, closes and confirms success", async ({ page, context }) => {
+test("creating a motel sends normalized prices, closes and confirms success", async ({
+  page,
+  context,
+}) => {
   await signIn(context);
   let input: unknown;
   await page.route("**/api/manager/motels", async (route) => {
     input = route.request().postDataJSON();
-    await route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify(MOTEL) });
+    await route.fulfill({
+      status: 201,
+      contentType: "application/json",
+      body: JSON.stringify(MOTEL),
+    });
   });
   await page.goto("/motels");
   const trigger = page.getByRole("button", { name: "Tạo nhà trọ", exact: true });
@@ -46,11 +98,19 @@ test("creating a motel sends normalized prices, closes and confirms success", as
   await dialog.getByRole("button", { name: "Tạo nhà trọ", exact: true }).click();
   await expect(dialog).not.toBeVisible();
   await expect(page.getByText("Đã tạo nhà trọ", { exact: true })).toBeVisible();
-  expect(input).toEqual({ name: "Nhà trọ mới", address: null, electricityPrice: "3500", waterPrice: "25000" });
+  expect(input).toEqual({
+    name: "Nhà trọ mới",
+    address: null,
+    electricityPrice: "3500",
+    waterPrice: "25000",
+  });
   await expect(trigger).toBeFocused();
 });
 
-test("editing can add fees, update bank details and cancel without a request", async ({ page, context }) => {
+test("editing can add fees, update bank details and cancel without a request", async ({
+  page,
+  context,
+}) => {
   await signIn(context);
   let input: unknown;
   let requests = 0;
@@ -70,7 +130,10 @@ test("editing can add fees, update bank details and cancel without a request", a
   await dialog.getByLabel("Số tài khoản", { exact: true }).fill("00001234");
   await dialog.getByRole("button", { name: "Lưu thay đổi" }).click();
   await expect(dialog).not.toBeVisible();
-  expect(input).toEqual({ otherFees: [...MOTEL.otherFees, { name: "Internet", amount: "50000" }], bankAccount: { ...MOTEL.bankAccount, accountNumber: "00001234" } });
+  expect(input).toEqual({
+    otherFees: [...MOTEL.otherFees, { name: "Internet", amount: "50000" }],
+    bankAccount: { ...MOTEL.bankAccount, accountNumber: "00001234" },
+  });
   await trigger.click();
   await dialog.getByLabel("Tên nhà trọ", { exact: true }).fill("Bản nháp");
   await dialog.getByRole("button", { name: "Hủy", exact: true }).click();
@@ -81,10 +144,23 @@ test("editing can add fees, update bank details and cancel without a request", a
   expect(await dialog.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
 });
 
-for (const [status, code] of [[409, "CONFLICT"], [400, "VALIDATION_ERROR"], [404, "NOT_FOUND"]] as const) {
-  test(`HTTP ${status} keeps the edit draft and shows a form-level banner`, async ({ page, context }) => {
+for (const [status, code] of [
+  [409, "CONFLICT"],
+  [400, "VALIDATION_ERROR"],
+  [404, "NOT_FOUND"],
+] as const) {
+  test(`HTTP ${status} keeps the edit draft and shows a form-level banner`, async ({
+    page,
+    context,
+  }) => {
     await signIn(context);
-    await page.route(`**/api/manager/motels/${MOTEL.id}`, (route) => route.fulfill({ status, contentType: "application/json", body: JSON.stringify({ error: "Không thể lưu nhà trọ", code }) }));
+    await page.route(`**/api/manager/motels/${MOTEL.id}`, (route) =>
+      route.fulfill({
+        status,
+        contentType: "application/json",
+        body: JSON.stringify({ error: "Không thể lưu nhà trọ", code }),
+      }),
+    );
     await page.goto("/motels");
     await page.getByRole("button", { name: `Chỉnh sửa ${MOTEL.name}`, exact: true }).click();
     const dialog = page.getByRole("dialog", { name: "Chỉnh sửa nhà trọ" });
@@ -92,7 +168,10 @@ for (const [status, code] of [[409, "CONFLICT"], [400, "VALIDATION_ERROR"], [404
     await dialog.getByRole("button", { name: "Lưu thay đổi" }).click();
     await expect(dialog.getByRole("alert")).toContainText("Không thể lưu nhà trọ");
     await expect(dialog.getByLabel("Tên nhà trọ", { exact: true })).toHaveValue("Tên mới");
-    await expect(dialog.getByLabel("Tên nhà trọ", { exact: true })).not.toHaveAttribute("aria-invalid", "true");
+    await expect(dialog.getByLabel("Tên nhà trọ", { exact: true })).not.toHaveAttribute(
+      "aria-invalid",
+      "true",
+    );
     if (status === 404) {
       await dialog.getByRole("button", { name: "Tải lại danh sách" }).click();
       await expect(dialog).not.toBeVisible();
@@ -100,11 +179,16 @@ for (const [status, code] of [[409, "CONFLICT"], [400, "VALIDATION_ERROR"], [404
   });
 }
 
-test("a pending save disables form controls and allows only one request", async ({ page, context }) => {
+test("a pending save disables form controls and allows only one request", async ({
+  page,
+  context,
+}) => {
   await signIn(context);
   let requests = 0;
   let release!: () => void;
-  const responseReady = new Promise<void>((resolve) => { release = resolve; });
+  const responseReady = new Promise<void>((resolve) => {
+    release = resolve;
+  });
   await page.route(`**/api/manager/motels/${MOTEL.id}`, async (route) => {
     requests += 1;
     await responseReady;
@@ -121,7 +205,10 @@ test("a pending save disables form controls and allows only one request", async 
   await expect(dialog).not.toBeVisible();
 });
 
-test("removing fees and disabling the bank sends explicit clearing values", async ({ page, context }) => {
+test("removing fees and disabling the bank sends explicit clearing values", async ({
+  page,
+  context,
+}) => {
   await signIn(context);
   let input: unknown;
   await page.route(`**/api/manager/motels/${MOTEL.id}`, async (route) => {
@@ -139,11 +226,16 @@ test("removing fees and disabling the bank sends explicit clearing values", asyn
   expect(input).toEqual({ otherFees: [], bankAccount: null });
 });
 
-test("a refreshed motel cannot turn an untouched old name into a second PATCH", async ({ page, context }) => {
+test("a refreshed motel cannot turn an untouched old name into a second PATCH", async ({
+  page,
+  context,
+}) => {
   await signIn(context, `motel-refresh-${crypto.randomUUID()}`);
   const patches: unknown[] = [];
   let release!: () => void;
-  const responseReady = new Promise<void>((resolve) => { release = resolve; });
+  const responseReady = new Promise<void>((resolve) => {
+    release = resolve;
+  });
   await page.route(`**/api/manager/motels/${MOTEL.id}`, async (route) => {
     patches.push(route.request().postDataJSON());
     if (patches.length === 1) await responseReady;
@@ -176,9 +268,18 @@ test("a refreshed motel cannot turn an untouched old name into a second PATCH", 
 
 test("an expired session during save returns to login", async ({ page, context }) => {
   await signIn(context);
-  await page.route(`**/api/manager/motels/${MOTEL.id}`, (route) => route.fulfill({ status: 401, contentType: "application/json", body: JSON.stringify({ error: "Chưa đăng nhập", code: "UNAUTHORIZED" }) }));
+  await page.route(`**/api/manager/motels/${MOTEL.id}`, (route) =>
+    route.fulfill({
+      status: 401,
+      contentType: "application/json",
+      body: JSON.stringify({ error: "Chưa đăng nhập", code: "UNAUTHORIZED" }),
+    }),
+  );
   await page.goto("/motels");
   await page.getByRole("button", { name: `Chỉnh sửa ${MOTEL.name}`, exact: true }).click();
-  await page.getByRole("dialog", { name: "Chỉnh sửa nhà trọ" }).getByRole("button", { name: "Lưu thay đổi" }).click();
+  await page
+    .getByRole("dialog", { name: "Chỉnh sửa nhà trọ" })
+    .getByRole("button", { name: "Lưu thay đổi" })
+    .click();
   await expect(page).toHaveURL("/login");
 });

@@ -40,9 +40,7 @@ form-level message; it cannot attribute the failure to a field.
 | `VALIDATION_ERROR`       | 400  | Schema validation failed. No `details` — see above                              |
 | `UNAUTHORIZED`           | 401  | Missing, malformed, or expired credential                                       |
 | `MAGIC_LINK_EXPIRED`     | 401  | Magic link past `expiresAt` or already `consumedAt`                             |
-| `OTP_INVALID`            | 401  | Wrong OTP or three-attempt allowance exhausted                                  |
-| `OTP_EXPIRED`            | 401  | OTP missing or past 5 minutes                                                   |
-| `RATE_LIMITED`           | 429  | Too many OTP or magic-link requests; `details.retryAfterSeconds`                |
+| `RATE_LIMITED`           | 429  | Too many magic-link requests; `details.retryAfterSeconds`                       |
 | `READING_CONFLICT`       | 409  | Reading write based on a stale `updatedAt`; `details.server` is the current row |
 | `PERIOD_ALREADY_SENT`    | 409  | Capture or generation on a period that is no longer `draft`                     |
 | `FORBIDDEN`              | 403  | Valid credential, wrong role                                                    |
@@ -59,11 +57,10 @@ Renter session JWT and cookie expire after 24 hours. API routes use `/api/renter
 
 | Method | Path | Body | Returns |
 | --- | --- | --- | --- |
-| GET | `/contracts/:contractId` | — | `200 Contract`; renter session scopes access |
-| POST | `/contracts/:contractId/sign-request` | — | `200 {sentAt}`; six-digit OTP is never returned |
-| POST | `/contracts/:contractId/verify` | `{otp}` | `200 Contract` with `status=active`; invalid or exhausted OTP uses `OTP_INVALID`; missing or expired OTP uses `OTP_EXPIRED` |
+| GET | `/contracts/:contractId` | — | `200 Contract`; renter session scopes access; response includes canonical termsVersion |
+| POST | `/contracts/:contractId/consent` | `{consent:true,termsVersion}` | `200 Contract` with status active and immutable consent evidence; stale version or missing manager-uploaded CCCD is `409 CONFLICT`; exact success retry idempotent |
 
-OTP values are Argon2id-hashed with `Bun.password`, expire after five minutes, allow one request per five-minute cooldown, and permit at most three failed attempts. Verification activates contract and records `otpSignedAt` in one transaction. Zalo delivery is not wired in this task; default sender rejects delivery, so deployment must configure `setRenterOtpSender` before enabling sign requests.
+The signing session records renter consent, not independent identity proof or certified digital signature. OTP endpoints and delivery are removed for new signing. Historical OTP columns, error codes may remain in stored history but are not emitted by current API.
 
 ### Contracts — `/api/manager/motels/:motelId/contracts`
 
@@ -76,7 +73,7 @@ OTP values are Argon2id-hashed with `Bun.password`, expire after five minutes, a
 | POST   | `/contracts/:contractId/send`      | —                                                                                       | `200 Contract`; notification failure returns `502 EXTERNAL_SERVICE_ERROR` |
 | POST   | `/contracts/:contractId/terminate` | —                                                                                       | `200 Contract` with `status=terminated`                                   |
 
-Contract creation validates motel ownership for renter, room, and template. Missing `monthlyRent` uses room `basePrice`; template clauses are copied into contract snapshot. Send stamps `otpSentAt` only after notification seam succeeds.
+Contract creation validates motel ownership for renter, room, and template. Missing `monthlyRent` uses room `basePrice`; template clauses are copied into contract snapshot. Send stamps `managerSentAt` only after notification seam succeeds.
 
 ### Contract templates
 
@@ -102,6 +99,7 @@ is made from a Server Component with the cookie forwarded.
 | Method | Path | Body | Returns |
 | --- | --- | --- | --- |
 | POST | `/exchange` | `{token}` | `200 {renterId,motelId}`; sets 24-hour `renter_session` httpOnly cookie and consumes token |
+| POST | `/login-requests` | `{motelCode,phone}` | `200 {message}`; public unauthenticated endpoint; records pending request for manager Zalo dispatch; returns generic message regardless of match |
 | POST | `/resend` | — | `200 {message,url}`; renter session required; URL is `${RENTER_PORTAL_URL}/r/<token>`; this manager-issued resend path is superseded in favor of manager-issued links and is not part of current frontend rollout |
 | POST | `/api/renter/logout` | — | `204 No Content`; clears `renter_session` httpOnly cookie |
 
@@ -109,11 +107,16 @@ is made from a Server Component with the cookie forwarded.
 `{error,code}` with `VALIDATION_ERROR`; token values never appear in logs or response bodies.
 
 
-### Manager-issued magic links — `/api/manager/motels/:motelId/renters/:renterId`
+### Manager-issued magic links and recovery — `/api/manager/motels/:motelId`
 
-| Method | Path          | Body | Returns                                                 |
-| ------ | ------------- | ---- | ------------------------------------------------------- |
-| POST   | `/magic-link` | —    | `200 {token, url}` — manager-issued link for the renter |
+| Method | Path | Body | Returns |
+| --- | --- | --- | --- |
+| GET | `/renter-recovery/code` | — | `200 string` — motel's public recovery code |
+| GET | `/login-requests` | — | `200 Array<{id,renterId,requestedAt,renterName,renterPhone,status}>` — pending recovery requests |
+| POST | `/login-requests/:requestId/link` | — | `200 {token,url}` — issues link for requested renter |
+| POST | `/login-requests/:requestId/handled` | — | `200 {updated:true}` — marks request handled after manual Zalo dispatch |
+| POST | `/login-requests/:requestId/dismiss` | — | `200 {updated:true}` — dismisses request |
+| POST | `/renters/:renterId/magic-link` | — | `200 {token, url}` — manager-issued link for the renter |
 
 ### Motels — `/api/manager/motels`
 
@@ -141,9 +144,14 @@ is made from a Server Component with the cookie forwarded.
 | ------ | ------------ | ---------------------------------------------------------------------- |
 | GET    | `/`          | Supports `?status=&roomId=&search=`                                    |
 | POST   | `/`          | `409` on duplicate `(motelId, phone)`; creates renter and manager-issued magic-link fallback remains available |
-| GET    | `/:renterId` | Includes contract summary and invoice history                          |
-| PATCH  | `/:renterId` | Name, phone, CCCD, `idCardFrontUrl`, `idCardBackUrl`, `roomId`, status |
-| DELETE | `/:renterId` | Soft-delete: sets `status = inactive`, keeps financial history         |
+| GET    | `/:renterId` | Includes contract summary, invoice history and CCCD upload-state booleans only; never returns image keys or URLs |
+| PATCH  | `/:renterId` | Name, phone, CCCD number, `roomId`, status; image URLs are not writable |
+| POST   | `/:renterId/cccd/:side` | Manager session; `multipart/form-data`, one JPEG/PNG `file`, max 5,000,000 bytes; `side` is `front` or `back`; returns upload state, never object key |
+| GET    | `/:renterId/cccd/:side` | Manager session; 300-second signed URL; only motel owner may read |
+
+Renter sessions cannot upload or read CCCD images. Manager UI displays images from short-lived URLs only. Historical arbitrary URL fields are retained privately during migration but ignored by API and UI; re-upload is required to use images from private storage.
+
+| DELETE | `/:renterId` | Soft-delete: sets `status = inactive`, keeps financial history |
 
 Phone is normalized to `84XXXXXXXXX` on write.
 
@@ -218,7 +226,7 @@ reading — a failed upload leaves the reading saved and re-queues only the imag
 | POST   | `/`                      | `{renterId, roomId, templateId?, startDate, endDate, monthlyRent?, deposit?, clauses?}`; `monthlyRent` defaults to `room.basePrice`; `409` if the room already has an active contract |
 | GET    | `/:contractId`           | Full clause list + signing metadata                                                                                                                                                   |
 | PATCH  | `/:contractId`           | Only while `draft`; `409` once `active`                                                                                                                                               |
-| POST   | `/:contractId/send`      | Notification seam sends signing link; `otpSentAt` stamps only after success; failure is `502 EXTERNAL_SERVICE_ERROR` |
+| POST   | `/:contractId/send`      | Notification seam sends renter link; `managerSentAt` stamps only after enqueue success; failure is `502 EXTERNAL_SERVICE_ERROR` |
 | POST   | `/:contractId/terminate` | Only `active` contracts; status → `terminated`; draft/expired/terminated returns `409 CONFLICT` |
 
 Creation validates renter, room, template, and motel tenant ownership. Missing `templateId` uses motel default template when present. Clauses and rent are snapshots. Draft patch accepts templateId, dates, rent, deposit, and clauses; renter and room cannot change.
@@ -264,14 +272,14 @@ or motel ID from the client to select tenant ownership. Lists are bare arrays.
 
 | Method | Path | Exact response / notes |
 | --- | --- | --- |
-| GET | `/me` | `200 {id,name,phone,room:{id,name,floor}|null,motel:{id,name,bankAccount}|activeContract:{id,roomId,roomName,startDate,endDate,monthlyRent}|null}`; excludes CCCD, manager IDs, OTP/hash fields |
+| GET | `/me` | `200 {id,name,phone,room:{id,name,floor}|null,motel:{id,name,bankAccount}|activeContract:{id,roomId,roomName,startDate,endDate,monthlyRent}|null}`; excludes CCCD, manager IDs and signing secrets |
+| GET | `/billing/unpaid-invoices` | `200 Array<{id,billingPeriodId,month,year,roomId,roomName,rentAmount,electricityUsage,electricityCost,waterUsage,waterCost,otherFees,totalAmount,qrCodeData,paymentStatus,paidAt,createdAt}>`; unpaid/overdue invoices across sent periods, newest first |
 | GET | `/billing/periods` | `200 Array<{id,month,year,status,createdAt}>`; only periods containing an invoice for session renter |
 | GET | `/billing/periods/:periodId/invoices` | `200 Array<{id,billingPeriodId,month,year,roomId,roomName,rentAmount,electricityUsage,electricityCost,waterUsage,waterCost,otherFees,totalAmount,qrCodeData,paymentStatus,paidAt,createdAt}>`; foreign period `404 NOT_FOUND` |
 | GET | `/invoices/:invoiceId` | `200` same invoice fields plus `bankAccount:{bankCode,accountNumber,accountName}|null`, `transferDescription`, and `meterPhotos:Array<{type,signedUrl,capturedAt}>`; signed URLs expire in 300 seconds |
-| GET | `/contract` | Existing latest-contract route; session-scoped |
-| GET | `/contracts/:contractId` | `200 Contract`; renter session-scoped |
-| POST | `/contracts/:contractId/sign-request` | `200 {sentAt}`; OTP never returned; cooldown or provider limit uses `429 RATE_LIMITED` |
-| POST | `/contracts/:contractId/verify` | `{otp}` → `200 Contract` with `status=active`; `OTP_INVALID` / `OTP_EXPIRED` |
+| GET | `/contract` | Latest session-owned contract. Returns `termsVersion` SHA-256 of canonical renter, room, motel, date, rent, deposit and clause fields; never CCCD image keys or URLs |
+| GET | `/contracts/:contractId` | `200 Contract`; renter session-scoped, with same terms version |
+| POST | `/contracts/:contractId/consent` | `{consent:true,termsVersion}` → `200 Contract` with `status=active`, `consentMethod=session_consent`, acceptance time and immutable terms snapshot. Stale version `409 CONFLICT`; renter must have ID number and manager-uploaded private CCCD front/back. Successful exact retry is idempotent; no OTP or provider delivery required. Old OTP endpoints removed; historical OTP evidence retained. |
 | GET | `/tickets` | `200 Ticket[]`; own tickets only, no `managerNote` or object keys |
 | POST | `/tickets` | JSON `{category,description}` or multipart fields `category`, `description`, repeated `photos`; `201 Ticket`; route rejects malformed/unsupported bodies and invalid category with `400 {error:"Dữ liệu gửi lên không hợp lệ",code:"VALIDATION_ERROR"}`; service enforces description ≥10 chars, max 5 JPEG/PNG files, 10 MB each |
 | GET | `/tickets/:ticketId` | `200 Ticket`; foreign ticket `404`; signed-photo failure returns `502 EXTERNAL_SERVICE_ERROR` while committed ticket/photo metadata remains persisted |
@@ -289,8 +297,10 @@ Renter responses never permit payment mutation.
 | --- | --- | --- | --- |
 | POST | `/api/renter/invoices/:invoiceId/payment-proof` | `multipart/form-data`, exactly one `file` | `201 {id,invoiceId,status:"pending",contentType,size,submittedAt}`; no object key or signed URL |
 | GET | `/api/renter/invoices/:invoiceId/payment-proof` | — | `200 {id,invoiceId,status:"pending"|"approved"|"rejected",contentType,size,submittedAt,reviewedAt,rejectionReason,signedUrl}`; `signedUrl` is short-lived (300 seconds) and only returned to the owning renter |
-| POST | `/api/renter/push-subscriptions` | `{endpoint,p256dh,auth}` | **Planned route.** `201 {id,createdAt}` or `200 {id,createdAt}` for idempotent upsert; subscription credentials are never echoed |
-| DELETE | `/api/renter/push-subscriptions/:subscriptionId` | — | **Planned route.** `204`; only owner may revoke |
+| GET | `/api/renter/push/key` | — | `200 {enabled,publicKey}`; renter session-scoped; public VAPID key only; disabled returns `enabled=false,publicKey=null` |
+| GET | `/api/renter/push/subscription` | — | `200 {subscription:{endpoint}|null}`; renter/motel session-scoped |
+| POST | `/api/renter/push/subscription` | `{endpoint,keys:{p256dh,auth}}` | `200 {registered,subscriptionId}`; endpoint bound to renter/motel session; only trusted HTTPS push providers |
+| DELETE | `/api/renter/push/subscription` | `{endpoint}` | `200 {removed}`; removes only caller's renter/motel-bound endpoint |
 
 Proof upload returns `400 VALIDATION_ERROR` for missing/multiple files, unsupported declared MIME, invalid JPEG/PNG bytes, or size over 5,000,000 bytes; `401 UNAUTHORIZED` for missing/expired renter session; `404 NOT_FOUND` for foreign/missing invoice; `409 CONFLICT` for paid invoice, inaccessible period, or existing `pending`/`approved` proof; `429 RATE_LIMITED` for mutation rate limits; `502 EXTERNAL_SERVICE_ERROR` for storage failure. A rejected proof remains immutable history and may be replaced by one new POST after explicit state validation; the database allows only one non-rejected proof per invoice.
 
@@ -319,13 +329,13 @@ A pending or approved proof blocks replacement. A rejected proof remains immutab
 
 ### Live payment notification delivery
 
-**Live contract; payment-proof and cash-confirmation events are emitted by runtime routes.**
+**Live contract; payment-proof and cash-confirmation events are emitted by runtime routes.** Web Push opt-in requires renter session and user permission; no private invoice, payment amount, proof image, or identity content is included in push payload. Opt-out removes the server subscription. Renter logout clears browser subscription and server registration.
 
 Payment events use stable keys `invoice:<id>:proof-submitted`, `invoice:<id>:proof:<proofId>:proof-approved`, `invoice:<id>:proof:<proofId>:proof-rejected`, and `invoice:<id>:cash-confirmed`.
 
 ### Notification delivery
 
-A notification is an outbound event; a channel is its transport. Payment events use stable keys `invoice:<id>:proof-submitted`, `invoice:<id>:proof-approved`, `invoice:<id>:proof-rejected`, and `invoice:<id>:cash-confirmed`. Web Push is attempted first after activation; permanent push failure deactivates the subscription and queues configured ZNS/ZBS fallback. SMS is not an MVP channel and may appear only after an explicit documented scope change. Delivery states are `pending`, `sent`, and `failed`; no route promises delivery. Delivery is idempotent, bounded, and redacted. Activation uses configured ZNS/ZBS or manager-generated manual link/QR fallback; no route promises Zalo-only delivery.
+A notification is an outbound event; a channel is its transport. Payment events use stable keys `invoice:<id>:proof-submitted`, `invoice:<id>:proof-approved`, `invoice:<id>:proof-rejected`, and `invoice:<id>:cash-confirmed`. Web Push is attempted after payment state commits. Push payloads contain generic title/body and same-origin invoice path only; never amount, proof, or personal data. Expired subscriptions (404/410) are deleted. When push is unavailable or permanently fails, a ZNS/ZBS event is queued with the same logical event intent; retries must not turn provider acceptance into a claim of user-visible delivery. SMS and Zalo OA are not MVP channels. Activation uses configured ZNS/ZBS or manager-generated manual link/QR fallback; no route promises Zalo-only delivery.
 
 ## Zalo webhook
 

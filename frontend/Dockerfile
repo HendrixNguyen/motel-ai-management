@@ -6,14 +6,17 @@ RUN bun install --frozen-lockfile
 
 FROM deps AS build
 ARG BACKEND_URL
+ARG APP_CHANNEL=production
 ENV BACKEND_URL=$BACKEND_URL
+ENV APP_CHANNEL=$APP_CHANNEL
 COPY frontend/tsconfig.json ./
 COPY frontend/next.config.ts ./
 COPY frontend/postcss.config.mjs ./
 COPY frontend/src ./src
 COPY frontend/e2e ./e2e
+COPY frontend/test ./test
 COPY frontend/public ./public
-RUN bun run build
+RUN PACKAGE_VERSION="$(node -p "require('./package.json').version")" && BASE_VERSION="${PACKAGE_VERSION%-qa}" && if [ "$APP_CHANNEL" = "qa" ]; then BUILD_VERSION="${BASE_VERSION}-qa"; else BUILD_VERSION="$BASE_VERSION"; fi && NEXT_PUBLIC_BUILD_VERSION="$BUILD_VERSION" bun run build
 
 FROM deps AS runner
 WORKDIR /app

@@ -63,5 +63,13 @@ export function calculateInvoiceAmounts(input: InvoiceCalculationInput): Invoice
   const rentAmount = parseAmount(input.rentAmount);
   const otherFeesTotal = sumVnd(...input.otherFees.map((fee) => parseAmount(fee.amount)));
   const totalAmount = parseAmount(sumVnd(rentAmount, electricityCost, waterCost, otherFeesTotal));
-  return { electricityUsage, electricityCost, waterUsage, waterCost, rentAmount, otherFeesTotal, totalAmount };
+  return {
+    electricityUsage,
+    electricityCost,
+    waterUsage,
+    waterCost,
+    rentAmount,
+    otherFeesTotal,
+    totalAmount,
+  };
 }

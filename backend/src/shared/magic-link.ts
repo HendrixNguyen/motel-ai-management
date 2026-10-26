@@ -1,5 +1,6 @@
 import { and, eq, gt, isNull } from "drizzle-orm";
 import { randomBytes } from "crypto";
+import { hashMagicLinkToken } from "./magic-link-token";
 import { env } from "@/config";
 import { db } from "@/db";
 import { magicLinks } from "@/modules/auth/auth.schema";
@@ -15,7 +16,9 @@ function generateToken(): string {
   return randomBytes(TOKEN_BYTES).toString("base64url");
 }
 
-export async function issueMagicLink(renterId: string): Promise<{ token: string; expiresAt: Date; url: string }> {
+export async function issueMagicLink(
+  renterId: string,
+): Promise<{ token: string; expiresAt: Date; url: string }> {
   const renter = await db.query.renters.findFirst({ where: eq(renters.id, renterId) });
   if (!renter) throw AppError.notFound("Không tìm thấy người thuê");
 
@@ -24,7 +27,7 @@ export async function issueMagicLink(renterId: string): Promise<{ token: string;
 
   await db.insert(magicLinks).values({
     renterId,
-    token,
+    tokenHash: hashMagicLinkToken(token),
     expiresAt,
   });
 
@@ -39,7 +42,13 @@ export async function consumeMagicLink(token: string): Promise<RenterRow> {
   const [claimed] = await db
     .update(magicLinks)
     .set({ consumedAt: now })
-    .where(and(eq(magicLinks.token, token), isNull(magicLinks.consumedAt), gt(magicLinks.expiresAt, now)))
+    .where(
+      and(
+        eq(magicLinks.tokenHash, hashMagicLinkToken(token)),
+        isNull(magicLinks.consumedAt),
+        gt(magicLinks.expiresAt, now),
+      ),
+    )
     .returning({ renterId: magicLinks.renterId });
 
   if (!claimed) throw new AppError("MAGIC_LINK_EXPIRED", "Liên kết không hợp lệ hoặc đã hết hạn");

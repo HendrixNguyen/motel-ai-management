@@ -148,6 +148,41 @@
       "when": 1791703680000,
       "tag": "0020_payment_proof_size_limit",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1792049824743,
+      "tag": "0021_private_cccd_metadata",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1792051571243,
+      "tag": "0022_contract_consent",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1792070630353,
+      "tag": "0023_renter_push_subscriptions",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1792070700000,
+      "tag": "0024_push_first_manual_delivery",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1792070800000,
+      "tag": "0025_renter_login_recovery",
+      "breakpoints": true
     }
   ]
 }

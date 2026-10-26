@@ -1,13 +1,7 @@
 import { AppError } from "@/shared/errors";
 
 type ZnsTemplateKey =
-  | "welcome"
-  | "bill"
-  | "paymentConfirmed"
-  | "contract"
-  | "otp"
-  | "expiry"
-  | "ticket";
+  "welcome" | "bill" | "paymentConfirmed" | "contract" | "otp" | "expiry" | "ticket";
 
 export type RateLimitStore = "postgres" | "redis";
 
@@ -22,6 +16,7 @@ export interface Env {
   trustedProxyHeader: string | null;
   trustedProxyAssertionHeader: string | null;
   trustedProxyAssertionValue: string | null;
+  webPush: { publicKey: string; privateKey: string; subject: string } | null;
   managerJwtSecret: string;
   renterSessionSecret: string;
   r2: {
@@ -58,21 +53,37 @@ function required(input: Record<string, string | undefined>, key: string): strin
 
 function secret(input: Record<string, string | undefined>, key: string): string {
   const value = required(input, key);
-  if (value.length < 32 || value === "PLACEHOLDER") throw new AppError("VALIDATION_ERROR", `${key} không hợp lệ`);
+  if (value.length < 32 || value === "PLACEHOLDER")
+    throw new AppError("VALIDATION_ERROR", `${key} không hợp lệ`);
   return value;
 }
 
-function publicHttpsUrl(input: Record<string, string | undefined>, key: string, nodeEnv: string, fallback: string): string {
+function publicHttpsUrl(
+  input: Record<string, string | undefined>,
+  key: string,
+  nodeEnv: string,
+  fallback: string,
+): string {
   const value = input[key] ?? fallback;
   if (nodeEnv === "production") {
     let url: URL;
-    try { url = new URL(value); } catch { throw new AppError("VALIDATION_ERROR", `${key} phải là URL HTTPS`); }
-    if (url.protocol !== "https:" || url.hostname === "localhost" || url.hostname === "127.0.0.1") throw new AppError("VALIDATION_ERROR", `${key} phải là URL HTTPS public`);
+    try {
+      url = new URL(value);
+    } catch {
+      throw new AppError("VALIDATION_ERROR", `${key} phải là URL HTTPS`);
+    }
+    if (url.protocol !== "https:" || url.hostname === "localhost" || url.hostname === "127.0.0.1")
+      throw new AppError("VALIDATION_ERROR", `${key} phải là URL HTTPS public`);
   }
   return value;
 }
 
-function publicUrl(input: Record<string, string | undefined>, key: string, fallback: string, production: boolean): string {
+function publicUrl(
+  input: Record<string, string | undefined>,
+  key: string,
+  fallback: string,
+  production: boolean,
+): string {
   const value = input[key] ?? fallback;
   let url: URL;
   try {
@@ -87,8 +98,12 @@ function publicUrl(input: Record<string, string | undefined>, key: string, fallb
   return url.origin;
 }
 
-function validateProductionSecrets(input: Record<string, string | undefined>, keys: string[]): void {
-  const placeholders = /^(placeholder|change[-_ ]?me|secret|mock|test|dev|development|password|super_secret)/i;
+function validateProductionSecrets(
+  input: Record<string, string | undefined>,
+  keys: string[],
+): void {
+  const placeholders =
+    /^(placeholder|change[-_ ]?me|secret|mock|test|dev|development|password|super_secret)/i;
   const values = keys.map((key) => {
     const value = required(input, key);
     if (placeholders.test(value) || value.length < 32)
@@ -119,18 +134,33 @@ export function validateProductionConfig(input: Record<string, string | undefine
 export function parseEnv(input: Record<string, string | undefined>): Env {
   const nodeEnv = input.NODE_ENV ?? "development";
   const rateLimitStore = input.RATE_LIMIT_STORE ?? "postgres";
-  if (rateLimitStore !== "postgres" && rateLimitStore !== "redis") throw new AppError("VALIDATION_ERROR", `RATE_LIMIT_STORE không hợp lệ: ${rateLimitStore}`);
+  if (rateLimitStore !== "postgres" && rateLimitStore !== "redis")
+    throw new AppError("VALIDATION_ERROR", `RATE_LIMIT_STORE không hợp lệ: ${rateLimitStore}`);
   const production = nodeEnv === "production";
   if (production) {
     validateProductionConfig(input);
-    if (input.DATABASE_URL?.includes("localhost") || input.DATABASE_URL?.includes("127.0.0.1")) throw new AppError("VALIDATION_ERROR", "DATABASE_URL production không được dùng localhost");
-    if (input.MANAGER_JWT_SECRET === input.RENTER_SESSION_SECRET) throw new AppError("VALIDATION_ERROR", "Production secrets phải khác nhau");
-    if (input.TRUSTED_PROXY_HEADER && (!input.TRUSTED_PROXY_ASSERTION_HEADER || !input.TRUSTED_PROXY_ASSERTION_VALUE || input.TRUSTED_PROXY_ASSERTION_VALUE.length < 32)) throw new AppError("VALIDATION_ERROR", "Trusted proxy phải có assertion header và secret tối thiểu 32 ký tự");
+    if (input.DATABASE_URL?.includes("localhost") || input.DATABASE_URL?.includes("127.0.0.1"))
+      throw new AppError("VALIDATION_ERROR", "DATABASE_URL production không được dùng localhost");
+    if (input.MANAGER_JWT_SECRET === input.RENTER_SESSION_SECRET)
+      throw new AppError("VALIDATION_ERROR", "Production secrets phải khác nhau");
+    if (
+      input.TRUSTED_PROXY_HEADER &&
+      (!input.TRUSTED_PROXY_ASSERTION_HEADER ||
+        !input.TRUSTED_PROXY_ASSERTION_VALUE ||
+        input.TRUSTED_PROXY_ASSERTION_VALUE.length < 32)
+    )
+      throw new AppError(
+        "VALIDATION_ERROR",
+        "Trusted proxy phải có assertion header và secret tối thiểu 32 ký tự",
+      );
   }
   const port = input.PORT === undefined ? 3000 : Number(input.PORT);
   if (!Number.isInteger(port) || port <= 0)
     throw new AppError("VALIDATION_ERROR", `PORT không hợp lệ: ${input.PORT}`);
 
+  const r2Bucket = required(input, "R2_BUCKET");
+  if (r2Bucket === "public" || /placeholder|replace-me/i.test(r2Bucket))
+    throw new AppError("VALIDATION_ERROR", "R2_BUCKET phải là bucket riêng tư đã cấu hình");
   return {
     nodeEnv,
     rateLimitStore,
@@ -148,19 +178,26 @@ export function parseEnv(input: Record<string, string | undefined>): Env {
       accountId: required(input, "R2_ACCOUNT_ID"),
       accessKeyId: required(input, "R2_ACCESS_KEY_ID"),
       secretAccessKey: required(input, "R2_SECRET_ACCESS_KEY"),
-      bucket: input.R2_BUCKET ?? "motel-uploads",
+      bucket: input.R2_BUCKET ?? required(input, "R2_BUCKET"),
       publicUrl: input.R2_PUBLIC_URL ?? "",
     },
+    webPush:
+      input.VAPID_PUBLIC_KEY && input.VAPID_PRIVATE_KEY
+        ? {
+            publicKey: input.VAPID_PUBLIC_KEY,
+            privateKey: input.VAPID_PRIVATE_KEY,
+            subject:
+              input.VAPID_SUBJECT ??
+              `mailto:admin@${new URL(publicHttpsUrl(input, "FRONTEND_URL", nodeEnv, "http://localhost:3001")).hostname}`,
+          }
+        : null,
     zalo: {
       oaId: required(input, "ZALO_OA_ID"),
       oaSecret: required(input, "ZALO_OA_SECRET"),
       accessToken: required(input, "ZALO_ACCESS_TOKEN"),
       webhookSecret: required(input, "ZALO_WEBHOOK_SECRET"),
       templates: Object.fromEntries(
-        Object.entries(ZNS_KEYS).map(([key, variable]) => [
-          key,
-          input[variable] ?? "PLACEHOLDER",
-        ]),
+        Object.entries(ZNS_KEYS).map(([key, variable]) => [key, input[variable] ?? "PLACEHOLDER"]),
       ) as Record<ZnsTemplateKey, string>,
     },
   };

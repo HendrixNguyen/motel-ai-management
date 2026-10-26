@@ -1,11 +1,4 @@
-import {
-  check,
-  index,
-  pgTable,
-  text,
-  timestamp,
-  uuid,
-} from "drizzle-orm/pg-core";
+import { check, index, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { renters } from "@/modules/renter/renter.schema";
 
@@ -35,8 +28,8 @@ export const magicLinks = pgTable(
     renterId: uuid("renter_id")
       .notNull()
       .references(() => renters.id),
-    /** 32 crypto-random bytes, base62. Unique, so a lookup is an index hit. */
-    token: text("token").notNull().unique(),
+    /** SHA-256 digest of the random one-time token. */
+    tokenHash: text("token_hash").notNull().unique(),
     /** createdAt + 24h. */
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
     /** Set on first exchange. */
@@ -46,5 +39,6 @@ export const magicLinks = pgTable(
   (t) => [
     index("magic_links_renter_id_idx").on(t.renterId),
     index("magic_links_expires_at_idx").on(t.expiresAt),
+    check("magic_links_token_hash_format", sql`${t.tokenHash} ~ '^[a-f0-9]{64}$'`),
   ],
 );

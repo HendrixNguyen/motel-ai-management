@@ -13,8 +13,7 @@ import {
   sendContract,
   getRenterContract,
   getLatestRenterContract,
-  requestContractOtp,
-  verifyContractOtp,
+  acceptRenterContractConsent,
   terminateContract,
   updateContract,
   updateContractTemplate,
@@ -50,7 +49,10 @@ const contractBody = t.Object({
   clauses: t.Optional(t.Array(clause)),
 });
 const renterContractParams = t.Object({ contractId: t.String({ format: "uuid" }) });
-const otpBody = t.Object({ otp: t.String({ pattern: "^[0-9]{6}$" }) });
+const consentBody = t.Object({
+  consent: t.Literal(true),
+  termsVersion: t.String({ pattern: "^[a-f0-9]{64}$" }),
+});
 const contractPatch = t.Object({
   templateId: t.Optional(t.String({ format: "uuid" })),
   startDate: t.Optional(date),
@@ -77,29 +79,19 @@ const managerContractRoutes = new Elysia({ name: "manager-contract-routes" })
   )
   .get(
     "/manager/motels/:motelId/contract-templates/:templateId",
-    ({ params, auth }) =>
-      getContractTemplate(params.motelId, params.templateId, auth!.userId),
+    ({ params, auth }) => getContractTemplate(params.motelId, params.templateId, auth!.userId),
     { params: templateParams },
   )
   .patch(
     "/manager/motels/:motelId/contract-templates/:templateId",
     ({ params, auth, body }) =>
-      updateContractTemplate(
-        params.motelId,
-        params.templateId,
-        auth!.userId,
-        body,
-      ),
+      updateContractTemplate(params.motelId, params.templateId, auth!.userId, body),
     { params: templateParams, body: t.Partial(templateBody) },
   )
   .delete(
     "/manager/motels/:motelId/contract-templates/:templateId",
     async ({ params, auth, set }) => {
-      await deleteContractTemplate(
-        params.motelId,
-        params.templateId,
-        auth!.userId,
-      );
+      await deleteContractTemplate(params.motelId, params.templateId, auth!.userId);
       set.status = 204;
       return "";
     },
@@ -107,8 +99,7 @@ const managerContractRoutes = new Elysia({ name: "manager-contract-routes" })
   )
   .get(
     "/manager/motels/:motelId/contracts",
-    ({ params, query, auth }) =>
-      listContracts(params.motelId, auth!.userId, query.status),
+    ({ params, query, auth }) => listContracts(params.motelId, auth!.userId, query.status),
     {
       params,
       query: t.Object({
@@ -133,8 +124,7 @@ const managerContractRoutes = new Elysia({ name: "manager-contract-routes" })
   )
   .get(
     "/manager/motels/:motelId/contracts/:contractId",
-    ({ params, auth }) =>
-      getContract(params.motelId, params.contractId, auth!.userId),
+    ({ params, auth }) => getContract(params.motelId, params.contractId, auth!.userId),
     { params: contractParams },
   )
   .patch(
@@ -145,16 +135,14 @@ const managerContractRoutes = new Elysia({ name: "manager-contract-routes" })
   )
   .post(
     "/manager/motels/:motelId/contracts/:contractId/send",
-    ({ params, auth }) =>
-      sendContract(params.motelId, params.contractId, auth!.userId),
+    ({ params, auth }) => sendContract(params.motelId, params.contractId, auth!.userId),
     { params: contractParams },
   )
-    .post(
-      "/manager/motels/:motelId/contracts/:contractId/terminate",
-      ({ params, auth }) =>
-        terminateContract(params.motelId, params.contractId, auth!.userId),
-      { params: contractParams },
-    );
+  .post(
+    "/manager/motels/:motelId/contracts/:contractId/terminate",
+    ({ params, auth }) => terminateContract(params.motelId, params.contractId, auth!.userId),
+    { params: contractParams },
+  );
 
 const renterContractRoutes = new Elysia({ name: "renter-contract-routes" })
   .use(cookie())
@@ -162,9 +150,22 @@ const renterContractRoutes = new Elysia({ name: "renter-contract-routes" })
   .get("/renter/contract", ({ auth }) => getLatestRenterContract(auth!.renterId, auth!.motelId))
   .group("/renter/contracts/:contractId", (contractApp) =>
     contractApp
-      .get("", ({ params, auth }) => getRenterContract(params.contractId, auth!.renterId, auth!.motelId), { params: renterContractParams })
-      .post("/sign-request", ({ params, auth }) => requestContractOtp(params.contractId, auth!.renterId, auth!.motelId), { params: renterContractParams })
-      .post("/verify", ({ params, auth, body }) => verifyContractOtp(params.contractId, auth!.renterId, auth!.motelId, body.otp), { params: renterContractParams, body: otpBody }),
+      .get(
+        "",
+        ({ params, auth }) => getRenterContract(params.contractId, auth!.renterId, auth!.motelId),
+        { params: renterContractParams },
+      )
+      .post(
+        "/consent",
+        ({ params, auth, body }) =>
+          acceptRenterContractConsent(
+            params.contractId,
+            auth!.renterId,
+            auth!.motelId,
+            body.termsVersion,
+          ),
+        { params: renterContractParams, body: consentBody },
+      ),
   );
 
 export const contractRoutes = new Elysia({ name: "contract-routes" })

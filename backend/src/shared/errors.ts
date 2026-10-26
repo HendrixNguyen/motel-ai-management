@@ -2,8 +2,6 @@ export type ErrorCode =
   | "VALIDATION_ERROR"
   | "UNAUTHORIZED"
   | "MAGIC_LINK_EXPIRED"
-  | "OTP_INVALID"
-  | "OTP_EXPIRED"
   | "RATE_LIMITED"
   | "READING_CONFLICT"
   | "PERIOD_ALREADY_SENT"
@@ -17,8 +15,6 @@ const STATUS: Record<ErrorCode, number> = {
   VALIDATION_ERROR: 400,
   UNAUTHORIZED: 401,
   MAGIC_LINK_EXPIRED: 401,
-  OTP_INVALID: 401,
-  OTP_EXPIRED: 401,
   RATE_LIMITED: 429,
   READING_CONFLICT: 409,
   PERIOD_ALREADY_SENT: 409,
@@ -34,11 +30,7 @@ export class AppError extends Error {
   readonly status: number;
   readonly details?: Record<string, unknown>;
 
-  constructor(
-    code: ErrorCode,
-    message: string,
-    details?: Record<string, unknown>,
-  ) {
+  constructor(code: ErrorCode, message: string, details?: Record<string, unknown>) {
     super(message);
     this.name = "AppError";
     this.code = code;
@@ -62,7 +54,9 @@ export class AppError extends Error {
     return new AppError("CONFLICT", message, details);
   }
   static readingConflict(server: Record<string, unknown>) {
-    return new AppError("READING_CONFLICT", "Dữ liệu công tơ đã thay đổi, vui lòng tải lại.", { server });
+    return new AppError("READING_CONFLICT", "Dữ liệu công tơ đã thay đổi, vui lòng tải lại.", {
+      server,
+    });
   }
   static periodAlreadySent() {
     return new AppError("PERIOD_ALREADY_SENT", "Kỳ hóa đơn đã gửi và không thể thay đổi.");

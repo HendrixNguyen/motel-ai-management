@@ -1,7 +1,7 @@
-# ADR-0006 — MVP e-signature is OTP consent over Zalo
+# ADR-0006 — MVP contract consent in authenticated renter session
 
-- **Date:** 2026-10-03
-- **Status:** Accepted
+- **Date:** 2026-10-15
+- **Status:** Superseded by plan decision; retain for historical rationale
 - **Spec:** [`docs/superpowers/specs/2026-10-03-motel-management-design.md`](../superpowers/specs/2026-10-03-motel-management-design.md)
 
 ## Context
@@ -19,17 +19,11 @@ Three options were considered:
 | **Provider integration** — FPT.eSign, VNPT SmartSign, Viettel CA | Strong: certified chữ ký số | per-signature fee + account + integration | weeks |
 | **Both, OTP first** | Starts weak, upgrade path preserved | free now | small now |
 
-## Decision
+## Historical decision
 
-Ship OTP consent in the MVP. Do not integrate a certificate provider yet.
+The 2026-10-03 implementation planned OTP consent delivered over Zalo. On 2026-10-15 the MVP scope changed: new signing uses authenticated renter session plus explicit consent and immutable terms snapshot. OTP is not used for new signing, no certificate provider is integrated, and prior OTP fields/evidence remain for historical records.
 
-The flow: renter taps **Ký hợp đồng** → system generates a 6-digit OTP, sends it over Zalo,
-stamps `contracts.otpSentAt` → renter enters it within 5 minutes, max 3 attempts → on
-success `contracts.otpSignedAt` is stamped and status becomes `active`.
-
-The service boundary must stay swappable: the OTP step lives in
-`modules/contract/contract.service.ts` behind one function, so swapping in a provider means
-implementing that function against a provider SDK and changing nothing above it.
+The current flow records session consent, not independent identity proof or a certified digital signature. Legal sufficiency is not established; obtain external legal assessment before commercial reliance.
 
 ## Consequences
 
