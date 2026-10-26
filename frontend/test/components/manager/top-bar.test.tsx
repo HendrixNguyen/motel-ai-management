@@ -80,10 +80,10 @@ const motels = [
 ] as never[];
 
 describe("TopBar branch behavior", () => {
-  test("renders the build SHA and timestamp only when build metadata is available", () => {
+  test("renders the package build version when metadata is available", () => {
     const view = render(<TopBar manager={manager} motels={motels} />);
-    if (process.env.NEXT_PUBLIC_BUILD_SHA && process.env.BUILD_TIMESTAMP)
-      expect(view.getByTestId("build-version").textContent).toContain("Build");
+    if (process.env.NEXT_PUBLIC_BUILD_VERSION)
+      expect(view.getByTestId("build-version").textContent).toContain(process.env.NEXT_PUBLIC_BUILD_VERSION);
     else expect(view.queryByTestId("build-version")).toBeNull();
   });
 
