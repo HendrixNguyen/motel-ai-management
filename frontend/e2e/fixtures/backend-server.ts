@@ -461,6 +461,16 @@ export function createFixtureBackend(
                   clauses: [{ title: "Tiền thuê", content: "Đúng hạn" }],
                   otpSentAt: null,
                   otpSignedAt: null,
+                  managerSentAt: managerSession === "contract-active" ? "2026-01-02T00:00:00.000Z" : null,
+                  consentAcceptedAt: managerSession === "contract-active" ? "2026-01-03T00:00:00.000Z" : null,
+                  consentMethod: managerSession === "contract-active" ? "session_consent" : null,
+                  consentEvidence:
+                    managerSession === "contract-active"
+                      ? {
+                          termsVersion: "a".repeat(64),
+                          acceptedTermsSnapshot: { termsVersion: "a".repeat(64) },
+                        }
+                      : null,
                   status: managerSession === "contract-active" ? "active" : "draft",
                   createdAt: "2026-01-01T00:00:00.000Z",
                 },
@@ -542,6 +552,30 @@ export function createFixtureBackend(
           otpSentAt: null,
           otpSignedAt: null,
           status: "terminated",
+          createdAt: "2026-01-01T00:00:00.000Z",
+        });
+      if (
+        method === "POST" &&
+        path.match(/^\/api\/manager\/motels\/[^/]+\/contracts\/contract-draft\/send$/) &&
+        managerSession === "contract-draft"
+      )
+        return json({
+          id: "contract-draft",
+          motelId: MOTEL.id,
+          renterId: RENTERS[0]!.id,
+          roomId: ROOMS[0]!.id,
+          startDate: "2026-01-01",
+          endDate: "2027-01-01",
+          monthlyRent: "3500000",
+          deposit: "1000000",
+          clauses: [{ title: "Tiền thuê", content: "Đúng hạn" }],
+          otpSentAt: null,
+          otpSignedAt: null,
+          managerSentAt: new Date().toISOString(),
+          consentAcceptedAt: null,
+          consentMethod: null,
+          consentEvidence: null,
+          status: "draft",
           createdAt: "2026-01-01T00:00:00.000Z",
         });
       if (method === "POST" && path.match(/^\/api\/manager\/motels\/[^/]+\/contracts$/)) {

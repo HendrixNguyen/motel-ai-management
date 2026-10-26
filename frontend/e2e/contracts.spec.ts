@@ -116,6 +116,31 @@ test("manager can edit an existing draft without changing renter or room", async
   await expect(page.getByText("4.000.000 ₫", { exact: true })).toBeVisible();
 });
 
+test("manager can request to send a draft contract and see pending state", async ({ page }) => {
+  await page.context().addCookies([
+    {
+      name: "manager_session",
+      value: "contract-draft",
+      url: "http://localhost:3001",
+      httpOnly: true,
+      sameSite: "Lax",
+    },
+  ]);
+  await page.goto(`/contracts?motel=${MOTEL.id}`);
+  await expect(page.getByText("Chưa gửi liên kết", { exact: true })).toBeVisible();
+  const sendResponse = page.waitForResponse((response) => {
+    const url = new URL(response.url());
+    return (
+      response.request().method() === "POST" &&
+      /\/api\/manager\/motels\/.+\/contracts\/contract-draft\/send$/.test(url.pathname)
+    );
+  });
+  await page.getByRole("button", { name: "Yêu cầu gửi", exact: true }).click();
+  await expect(page.getByText("Đã ghi nhận yêu cầu gửi hợp đồng", { exact: true })).toBeVisible();
+  await expect(page.getByText("Đã gửi liên kết · chờ xác nhận", { exact: true })).toBeVisible();
+  await expect(await sendResponse.then((r) => r.status())).toBe(200);
+});
+
 test("manager can create a scoped template from the template dialog", async ({ page }) => {
   await manager(page);
   await page.goto(`/contracts?motel=${MOTEL.id}`);

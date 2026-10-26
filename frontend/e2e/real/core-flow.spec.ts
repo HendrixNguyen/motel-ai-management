@@ -16,15 +16,13 @@ test.beforeEach(async ({ page, request }) => {
   await expect(page.getByRole("heading", { name: "Tổng quan", exact: true })).toBeVisible();
 });
 
-test("contract create/send UI is blocked: controls absent", async ({ page }) => {
+test("contract create/send controls are reachable on live QA", async ({ page }) => {
   await page.goto("/contracts");
   await expect(page.getByRole("heading").first()).toBeVisible();
-  await expect(page.getByRole("button", { name: /Tạo hợp đồng|Gửi hợp đồng/ })).toHaveCount(0);
-  test.info().annotations.push({
-    type: "blocked",
-    description:
-      "Contract create/send controls are absent; billing/payment journey remains unverified.",
-  });
+  await expect(page.getByRole("button", { name: "Tạo hợp đồng", exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: /Yêu cầu gửi|Gửi hợp đồng/, exact: false }),
+  ).toHaveCount(0);
 });
 
 test(
