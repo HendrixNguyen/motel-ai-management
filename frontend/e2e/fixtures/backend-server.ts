@@ -794,16 +794,12 @@ export function createFixtureBackend(
       if (invoiceList) {
         const motelId = invoiceList[1] as string;
         const periodId = invoiceList[2] as string;
-        const existing = state.invoices.filter(
-          (invoice) => invoice.motelId === motelId && invoice.billingPeriodId === periodId,
-        );
-        if (method === "GET") {
-          if (existing.length === 0) {
-            const generated = generateInvoicesForPeriod(state, motelId, periodId);
-            return json(generated);
-          }
-          return json(existing);
-        }
+        if (method === "GET")
+          return json(
+            state.invoices.filter(
+              (invoice) => invoice.motelId === motelId && invoice.billingPeriodId === periodId,
+            ),
+          );
         if (method === "POST") {
           const invoices = generateInvoicesForPeriod(state, motelId, periodId);
           const skippedRooms = CAPTURE_PERIOD_DETAIL.rooms

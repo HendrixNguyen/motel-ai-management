@@ -99,19 +99,44 @@ test.describe("manager billing capture and invoices", () => {
     await page.getByLabel("Điện (kWh)").fill("120");
     await page.getByLabel("Nước (m³)").fill("5");
     await page.getByRole("button", { name: "Lưu nháp", exact: true }).click();
-    await page.getByRole("button", { name: "Tạo hóa đơn", exact: true }).click();
 
     let response = await page.request.get(
       `/api/manager/motels/${MOTEL_ID}/billing/periods/${BILLING_PERIOD_ID}/invoices`,
     );
     expect(response.status()).toBe(200);
     let invoices = (await response.json()) as InvoiceResponse[];
+    expect(invoices).toHaveLength(0);
+
+    const generateResponseAPromise = page.waitForResponse(
+      (resp) =>
+        resp
+          .url()
+          .includes(
+            `/api/manager/motels/${MOTEL_ID}/billing/periods/${BILLING_PERIOD_ID}/invoices`,
+          ) && resp.request().method() === "POST",
+    );
+    await page.getByRole("button", { name: "Tạo hóa đơn", exact: true }).click();
+    const generateResponseA = await generateResponseAPromise;
+    expect(generateResponseA.status()).toBe(201);
+
+    response = await page.request.get(
+      `/api/manager/motels/${MOTEL_ID}/billing/periods/${BILLING_PERIOD_ID}/invoices`,
+    );
+    expect(response.status()).toBe(200);
+    invoices = (await response.json()) as InvoiceResponse[];
     expect(invoices.length).toBeGreaterThan(0);
     const first = invoices[0]!;
     expect(first.electricityUsage).toBe("20.00");
     expect(first.waterUsage).toBe("3.00");
 
     await useManagerSession(page, "capture-session-billing-b");
+
+    response = await page.request.get(
+      `/api/manager/motels/${MOTEL_ID}/billing/periods/${BILLING_PERIOD_ID}/invoices`,
+    );
+    expect(response.status()).toBe(200);
+    invoices = (await response.json()) as InvoiceResponse[];
+    expect(invoices).toHaveLength(0);
 
     await page.goto(`/billing?motel=${MOTEL_ID}`);
     await page
@@ -122,7 +147,18 @@ test.describe("manager billing capture and invoices", () => {
     await page.getByLabel("Điện (kWh)").fill("130");
     await page.getByLabel("Nước (m³)").fill("6");
     await page.getByRole("button", { name: "Lưu nháp", exact: true }).click();
+
+    const generateResponseBPromise = page.waitForResponse(
+      (resp) =>
+        resp
+          .url()
+          .includes(
+            `/api/manager/motels/${MOTEL_ID}/billing/periods/${BILLING_PERIOD_ID}/invoices`,
+          ) && resp.request().method() === "POST",
+    );
     await page.getByRole("button", { name: "Tạo hóa đơn", exact: true }).click();
+    const generateResponseB = await generateResponseBPromise;
+    expect(generateResponseB.status()).toBe(201);
 
     response = await page.request.get(
       `/api/manager/motels/${MOTEL_ID}/billing/periods/${BILLING_PERIOD_ID}/invoices`,
