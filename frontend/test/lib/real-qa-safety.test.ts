@@ -231,6 +231,45 @@ describe("live QA safety", () => {
     expect(output).not.toMatch(/abc123|84901234567|qa\.person|sensitive-token/);
   });
 
+  it("strips query parameters from error summaries", () => {
+    const output = redactLiveQaDiagnostic(
+      "https://qa.test/api/rooms?token=secret123&session=abc",
+      "requestfailed",
+    );
+    expect(output).toBe("request failed");
+    expect(output).not.toContain("secret123");
+    expect(output).not.toContain("abc");
+  });
+
+  it("strips cookies from error summaries", () => {
+    const output = redactLiveQaDiagnostic(
+      "Cookie: session=secret; manager_session=abc123; other=value",
+      "console",
+    );
+    expect(output).toBe("console error");
+    expect(output).not.toContain("secret");
+    expect(output).not.toContain("abc123");
+  });
+
+  it("strips tokens from error summaries", () => {
+    const output = redactLiveQaDiagnostic(
+      "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.test.token",
+      "pageerror",
+    );
+    expect(output).toBe("page error");
+    expect(output).not.toContain("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9");
+  });
+
+  it("strips signed URLs from error summaries", () => {
+    const output = redactLiveQaDiagnostic(
+      "https://storage.example.com/proof.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIAIOSFODNN7EXAMPLE%2F20231001%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20231001T000000Z&X-Amz-Expires=3600&X-Amz-Signature=signature123&X-Amz-SignedHeaders=host",
+      "requestfailed",
+    );
+    expect(output).toBe("request failed");
+    expect(output).not.toContain("AKIAIOSFODNN7EXAMPLE");
+    expect(output).not.toContain("signature123");
+  });
+
   it("rejects live-stack mutation when configured origin is not exactly allowlisted", async () => {
     let calls = 0;
     const errors = await runLiveQaMutationPreflight(

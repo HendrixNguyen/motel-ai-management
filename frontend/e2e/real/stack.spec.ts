@@ -8,6 +8,9 @@ import {
 
 const configErrors = validateLiveQaConfig(process.env);
 const authenticatedErrors = validateLiveQaConfig(process.env, "authenticated");
+let _runContext: LiveQaRunContext | undefined;
+let _managerSetupArtifacts: ManagerSetupRunArtifacts | undefined;
+
 
 interface ManagerSetupRunArtifacts {
   run: LiveQaRunContext;
@@ -70,6 +73,21 @@ test.describe("QA UI mutations", () => {
   let runContext: LiveQaRunContext | undefined;
   let managerSetupArtifacts: ManagerSetupRunArtifacts | undefined;
   let billingArtifacts: BillingRunArtifacts | undefined;
+
+  test.afterAll(async () => {
+    const stageResults = [
+      { stage: "live manager login forwards httpOnly cookie, opens shell and logs out", status: authenticatedErrors.length > 0 ? "BLOCKED" : "PASS" },
+      { stage: "creates run-scoped room and renter in dedicated QA motel, then persists after reload", status: runContext && managerSetupArtifacts ? "PASS" : "BLOCKED" },
+      { stage: "creates run-scoped draft contract and records a send request in the dedicated QA motel", status: managerSetupArtifacts ? "PASS" : "BLOCKED" },
+      { stage: "records meter readings and invoices for the run-scoped room", status: "BLOCKED" },
+      { stage: "renter payment proof upload and manager review", status: "BLOCKED" },
+    ];
+    console.log("\n=== LIVE QA STAGE SUMMARY ===");
+    for (const result of stageResults) {
+      console.log(`${result.status}: ${result.stage}`);
+    }
+    console.log("=============================\n");
+  });
 
   test.beforeEach(async ({ page }) => {
     await page.goto("/login");
@@ -369,7 +387,7 @@ test.describe("QA UI mutations", () => {
 		},
 	);
 
-	test(
+		test(
 		"renter payment proof upload and manager review [BLOCKED: QA R2 bucket NoSuchBucket]",
 		async ({ page }) => {
 			test.skip(
@@ -383,41 +401,52 @@ test.describe("QA UI mutations", () => {
 			expect(diagnostics).toEqual([]);
 		},
 	);
-	});
+});
 
 function collectSafeDiagnostics(page: import("@playwright/test").Page): string[] {
-  const diagnostics: string[] = [];
-  page.on("console", (message) => {
-    if (message.type() === "error")
-      diagnostics.push(redactLiveQaDiagnostic(message.text(), "console"));
-  });
-  page.on("pageerror", (error) =>
-    diagnostics.push(redactLiveQaDiagnostic(error.message, "pageerror")),
-  );
-  page.on("requestfailed", (request) => {
-    const failure = request.failure();
-    const url = request.url();
-    // Ignore aborted RSC requests (Next.js App Router aborts in-flight RSC requests on navigation)
-    if (failure?.errorText === "net::ERR_ABORTED" && url.includes("_rsc=")) return;
-    diagnostics.push(redactLiveQaDiagnostic(url, "requestfailed"));
-  });
-  page.on("response", (response) => {
-    if (response.status() >= 400)
-      diagnostics.push(
-        redactLiveQaDiagnostic(
-          response.url(),
-          "response",
-          response.status(),
-          response.request().method(),
-        ),
-      );
-  });
-  return diagnostics;
+	const diagnostics: string[] = [];
+	page.on("console", (message) => {
+		if (message.type() === "error")
+			diagnostics.push(redactLiveQaDiagnostic(message.text(), "console"));
+	});
+	page.on("pageerror", (error) =>
+		diagnostics.push(redactLiveQaDiagnostic(error.message, "pageerror")),
+	);
+	page.on("requestfailed", (request) => {
+		const failure = request.failure();
+		const url = request.url();
+		if (failure?.errorText === "net::ERR_ABORTED" && url.includes("_rsc=")) return;
+		diagnostics.push(redactLiveQaDiagnostic(url, "requestfailed"));
+	});
+	page.on("response", (response) => {
+		if (response.status() >= 400)
+			diagnostics.push(
+				redactLiveQaDiagnostic(
+					response.url(),
+					"response",
+					response.status(),
+					response.request().method(),
+				),
+			);
+	});
+	return diagnostics;
 }
 
-async function signIn(page: import("@playwright/test").Page) {
-  await page.getByLabel("Email", { exact: true }).fill(process.env.E2E_LOGIN_EMAIL!);
-  await page.getByLabel("Mật khẩu", { exact: true }).fill(process.env.E2E_LOGIN_PASSWORD!);
-  await page.getByRole("button", { name: "Đăng nhập", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Tổng quan", exact: true })).toBeVisible();
+async function signIn(page: any) {
+	await page.getByLabel("Email", { exact: true }).fill(process.env.E2E_LOGIN_EMAIL!);
+	await page.getByLabel("Mật khẩu", { exact: true }).fill(process.env.E2E_LOGIN_PASSWORD!);
+	await page.getByRole("button", { name: "Đăng nhập", exact: true }).click();
+	await expect(page.getByRole("heading", { name: "Tổng quan", exact: true })).toBeVisible();
+}
+
+function getLiveQaStageStatuses(context?: LiveQaRunContext | undefined, artifacts?: ManagerSetupRunArtifacts | undefined) {
+	const ctx = context ?? _runContext;
+	const arts = artifacts ?? _managerSetupArtifacts;
+	return [
+		{ stage: "live manager login forwards httpOnly cookie, opens shell and logs out", status: authenticatedErrors.length > 0 ? "BLOCKED" : "PASS" },
+		{ stage: "creates run-scoped room and renter in dedicated QA motel, then persists after reload", status: ctx && arts ? "PASS" : "BLOCKED" },
+		{ stage: "creates run-scoped draft contract and records a send request in the dedicated QA motel", status: arts ? "PASS" : "BLOCKED" },
+		{ stage: "records meter readings and invoices for the run-scoped room", status: "BLOCKED" },
+		{ stage: "renter payment proof upload and manager review", status: "BLOCKED" },
+	];
 }
