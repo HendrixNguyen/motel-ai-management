@@ -46,20 +46,13 @@ for (const name of ["frontend", "backend"]) {
     .map((file) => file.slice(name.length + 1));
   if (packageFiles.length === 0) continue;
   const cwd = resolve(root, name);
-  run(
-    "bun",
-    ["x", "prettier", "--check", "--ignore-unknown", ...packageFiles],
-    cwd,
+  const formatFiles = packageFiles.filter((file) =>
+    /\.[cm]?[jt]sx?$/.test(file),
   );
-  run(
-    "bun",
-    [
-      "x",
-      "eslint",
-      ...packageFiles.filter((file) => /\.[cm]?[jt]sx?$/.test(file)),
-    ],
-    cwd,
-  );
+  const lintFiles = packageFiles.filter((file) => /\.[cm]?[jt]sx?$/.test(file));
+  if (formatFiles.length > 0)
+    run("bun", ["x", "prettier", "--check", ...formatFiles], cwd);
+  if (lintFiles.length > 0) run("bun", ["x", "eslint", ...lintFiles], cwd);
 }
 
 const rootFiles = files.filter(

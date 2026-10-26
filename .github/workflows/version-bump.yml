@@ -1,28 +1,29 @@
 name: Version Bump
 
 on:
-  push:
-    branches:
-      - qa
-      - main
-    paths-ignore:
-      - "frontend/package.json"
-      - "backend/package.json"
-      - "frontend/bun.lock"
-      - "backend/bun.lock"
+  pull_request:
+    types:
+      - closed
 
 permissions:
   contents: write
 
 jobs:
   bump-patch:
-    if: ${{ !contains(github.event.head_commit.message, '[skip ci]') }}
+    if: >-
+      github.event.pull_request.merged == true &&
+      (github.event.pull_request.base.ref == 'qa' || github.event.pull_request.base.ref == 'main')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ github.event.pull_request.base.ref }}
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Ensure this merge is current target HEAD
+        env:
+          MERGE_SHA: ${{ github.event.pull_request.merge_commit_sha }}
+        run: test "$(git rev-parse HEAD)" = "$MERGE_SHA"
       - uses: oven-sh/setup-bun@v2
       - name: Bump both package versions
         run: node scripts/bump-package-versions.mjs
