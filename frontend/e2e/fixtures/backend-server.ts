@@ -555,6 +555,19 @@ export function createFixtureBackend(
         }
         if (method === "GET" && path.match(/^\/api\/renter\/invoices\/[^/]+\/payment-proof$/))
           return json(null);
+        if (method === "POST" && path.match(/^\/api\/renter\/invoices\/[^/]+\/payment-proof$/)) {
+          return json({
+            id: "proof-fixture",
+            invoiceId: path.split("/")[4],
+            status: "pending",
+            contentType: "image/jpeg",
+            size: 20,
+            submittedAt: new Date().toISOString(),
+            reviewedAt: null,
+            rejectionReason: null,
+            signedUrl: "https://private.invalid/test-proof.jpg",
+          });
+        }
         if (method === "GET" && path === "/api/renter/tickets") return json([]);
         if (path === "/api/renter/tickets" && method === "POST") {
           const body = await input<{ category: string; description: string }>();

@@ -6,7 +6,7 @@ test("renter uploads payment proof and sees pending status without leaking URLs"
   context,
 }) => {
   await context.addCookies([
-    { name: "renter_session", value: "test-renter", domain: "localhost", path: "/" },
+    { name: "renter_session", value: "fixture", domain: "localhost", path: "/" },
   ]);
 
   await page.route("**/api/auth/me", (route) =>
@@ -53,7 +53,7 @@ test("renter uploads payment proof and sees pending status without leaking URLs"
     }),
   );
 
-  const invoiceId = "invoice-proof-1";
+  const invoiceId = "invoice";
   await page.route("**/api/renter/invoices", (route) =>
     route.fulfill({
       json: [
@@ -102,41 +102,54 @@ test("renter uploads payment proof and sees pending status without leaking URLs"
       },
     }),
   );
-  await page.route(`**/api/renter/invoices/${invoiceId}/payment-proof`, (route) => {
-    if (route.request().method() === "GET") {
-      return route.fulfill({ json: null });
-    }
+  let currentProof: any = null;
+  await page.route(`**/api/renter/invoices/${invoiceId}/payment-proof`, async (route) => {
     if (route.request().method() === "POST") {
-      return route.fulfill({
-        json: {
-          id: "proof-1",
-          invoiceId,
-          status: "pending",
-          contentType: "image/jpeg",
-          size: 20,
-          submittedAt: "2026-10-01T00:00:00.000Z",
-          reviewedAt: null,
-          rejectionReason: null,
-          signedUrl: "https://private.invalid/test-proof.jpg",
-        },
-      });
+      currentProof = {
+        id: "proof-1",
+        invoiceId,
+        status: "pending",
+        contentType: "image/jpeg",
+        size: 20,
+        submittedAt: "2026-10-01T00:00:00.000Z",
+        reviewedAt: null,
+        rejectionReason: null,
+        signedUrl: "https://private.invalid/test-proof.jpg",
+      };
+      await route.fulfill({ json: currentProof });
+      return;
     }
-    return route.fallback();
+    if (route.request().method() === "GET") {
+      await route.fulfill({ json: currentProof });
+      return;
+    }
+    await route.fallback();
   });
 
   await page.goto(`/portal/bills/${invoiceId}`);
-  await expect(page.getByRole("heading", { name: "Chi tiết hóa đơn" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /Hóa đơn tháng/ })).toBeVisible();
 
   const fileInput = page.locator("#payment-proof-file");
-  await expect(fileInput).toBeVisible();
-  const buffer = Buffer.from("fake-jpeg");
+  const buffer = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46]);
   await fileInput.setInputFiles({
     name: "proof.jpg",
     mimeType: "image/jpeg",
     buffer,
   });
 
-  await page.getByRole("button", { name: "Gửi chứng từ" }).click();
+  const submitButton = page.getByRole("button", { name: "Gửi chứng từ" });
+  await expect(submitButton).toBeEnabled();
+  const postPromise = page.waitForResponse(
+    (resp) => resp.url().includes("/payment-proof") && resp.request().method() === "POST",
+  );
+  const getPromise = page.waitForResponse(
+    (resp) => resp.url().includes("/payment-proof") && resp.request().method() === "GET",
+  );
+  await submitButton.dispatchEvent("click");
+  const postResp = await postPromise;
+  expect(postResp.status()).toBe(200);
+  const getResp = await getPromise;
+  expect(getResp.status()).toBe(200);
 
   await expect(page.getByText("Đang chờ duyệt")).toBeVisible();
   await expect(page.getByText("private.invalid")).not.toBeVisible();
