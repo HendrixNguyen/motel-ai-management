@@ -368,6 +368,21 @@ test.describe("QA UI mutations", () => {
 			expect(diagnostics).toEqual([]);
 		},
 	);
+
+	test(
+		"renter payment proof upload and manager review [BLOCKED: QA R2 bucket NoSuchBucket]",
+		async ({ page }) => {
+			test.skip(
+				true,
+				"BLOCKED: QA R2 bucket returns NoSuchBucket (HTTP 404); live upload side effects paused until bucket is provisioned.",
+			);
+			if (!runContext || !managerSetupArtifacts) {
+				throw new Error("Live QA real-stack manager setup artifacts missing");
+			}
+			const diagnostics = collectSafeDiagnostics(page);
+			expect(diagnostics).toEqual([]);
+		},
+	);
 	});
 
 function collectSafeDiagnostics(page: import("@playwright/test").Page): string[] {
