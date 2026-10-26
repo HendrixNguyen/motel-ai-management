@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 
 export function assertLockfileDiffStable(diff, packageName) {
-  const rootLine = /^\s*"(name|version)":/;
   const changedLines = diff
     .split("\n")
     .filter(
@@ -10,13 +9,10 @@ export function assertLockfileDiffStable(diff, packageName) {
         (line.startsWith("+") && !line.startsWith("+++")) ||
         (line.startsWith("-") && !line.startsWith("---")),
     );
-  const dependencyChanges = changedLines.filter(
-    (line) => !rootLine.test(line.slice(1)),
-  );
-  assert.equal(
-    dependencyChanges.length,
-    0,
-    `${packageName}/bun.lock contains dependency resolution changes`,
+  assert.deepEqual(
+    changedLines,
+    [],
+    `${packageName}/bun.lock must not change for package version-only bump`,
   );
 }
 

@@ -57,11 +57,11 @@ assert.match(versionWorkflow, /\[skip ci\]/);
 assert.match(versionWorkflow, /bump-package-versions\.mjs/);
 assert.match(
   versionWorkflow,
-  /lockfile-stability\.mjs.*github\.event\.pull_request\.base\.sha/s,
+  /lockfile-stability\.mjs.*github\.event\.pull_request\.merge_commit_sha/s,
 );
 assert.match(versionWorkflow, /bun install --lockfile-only/);
-assert.match(lockfileTest, /name\/version metadata changes/);
-assert.match(lockfileTest, /rejects dependency resolution drift/);
+assert.match(lockfileTest, /version-only bump/);
+assert.match(lockfileTest, /unexpected lockfile changes/);
 assert.match(versionWorkflow, /git rev-parse HEAD/);
 assert.match(versionWorkflow, /oven-sh\/setup-bun/);
 assert.match(bumpScript, /export function bumpPatch/);
