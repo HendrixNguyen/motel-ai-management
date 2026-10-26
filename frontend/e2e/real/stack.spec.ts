@@ -1,9 +1,13 @@
 import { expect, test } from "@playwright/test";
-import { redactLiveQaDiagnostic, validateLiveQaConfig } from "../../src/lib/real-qa-safety";
+import {
+  type LiveQaRunContext,
+  redactLiveQaDiagnostic,
+  runLiveQaMutationPreflight,
+  validateLiveQaConfig,
+} from "../../src/lib/real-qa-safety";
 
 const configErrors = validateLiveQaConfig(process.env);
 const authenticatedErrors = validateLiveQaConfig(process.env, "authenticated");
-const mutationErrors = validateLiveQaConfig(process.env, "mutating");
 
 test.beforeAll(async ({ request }) => {
   expect(
@@ -45,11 +49,9 @@ test("live manager login forwards httpOnly cookie, opens shell and logs out", as
 });
 
 test.describe("QA UI mutations", () => {
+  let runContext: LiveQaRunContext | undefined;
+
   test.beforeEach(async ({ page }) => {
-    test.skip(
-      mutationErrors.length > 0,
-      `Live QA mutation preflight rejected configuration: ${mutationErrors.join("; ")}`,
-    );
     await page.goto("/login");
     await signIn(page);
     const response = await page.request.get("/api/auth/me");
@@ -59,22 +61,37 @@ test.describe("QA UI mutations", () => {
     );
     const motels = await page.request.get("/api/manager/motels");
     const motelRows = (await motels.json()) as Array<{ id: string }>;
-    expect(
-      motelRows.some((motel) => motel.id === process.env.E2E_QA_MOTEL_ID),
-      "Dedicated QA motel must be owned by authenticated QA manager",
-    ).toBe(true);
+
+    const mutationErrors = await runLiveQaMutationPreflight(
+      process.env,
+      {
+        managerId: identity.id,
+        motelIdsOwned: motelRows.map((motel) => motel.id),
+      },
+      async (context) => {
+        runContext = context;
+      },
+    );
+
+    test.skip(
+      mutationErrors.length > 0,
+      `Live QA mutation preflight rejected configuration: ${mutationErrors.join("; ")}`,
+    );
   });
 
   test("creates run-scoped room and renter in dedicated QA motel, then persists after reload", async ({
     page,
   }) => {
-    const runId = `${new Date().toISOString().replace(/\D/g, "").slice(0, 14)}-${crypto.randomUUID().slice(0, 8)}`;
+    if (!runContext) test.fail(true, "Live QA mutation preflight must establish a run context");
+    const context = runContext as LiveQaRunContext;
+
+    const runId = context.runId;
     const roomName = `QA-${runId}`;
     const renterName = `QA Renter ${runId}`;
     const phone = `849${Math.floor(10000000 + Math.random() * 89999999)}`;
     const diagnostics = collectSafeDiagnostics(page);
 
-    const motelId = process.env.E2E_QA_MOTEL_ID!;
+    const motelId = context.motelId;
     await page.goto(`/rooms?motel=${encodeURIComponent(motelId)}`);
     await expect(
       page.getByRole("banner").getByRole("combobox", { name: "Nhà trọ", exact: true }),

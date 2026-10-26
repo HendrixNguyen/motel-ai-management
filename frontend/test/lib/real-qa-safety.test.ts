@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   redactLiveQaDiagnostic,
   runLiveQaPreflight,
+  runLiveQaMutationPreflight,
   validateLiveQaConfig,
 } from "@/lib/real-qa-safety";
 
@@ -220,7 +221,7 @@ describe("live QA safety", () => {
       validateLiveQaConfig({ ...validQaEnv, E2E_QA_MANAGER_ID: undefined }, "mutating"),
     ).toContain("Set E2E_QA_MANAGER_ID for the live QA suite");
   });
-
+  
   it("discards untrusted diagnostics instead of retaining credential-like text", () => {
     const output = redactLiveQaDiagnostic(
       "https://qa.test/r?token=abc123&phone=+84901234567 qa.person@example.test Bearer sensitive-token",
@@ -228,5 +229,117 @@ describe("live QA safety", () => {
     );
     expect(output).toBe("console error");
     expect(output).not.toMatch(/abc123|84901234567|qa\.person|sensitive-token/);
+  });
+
+  it("rejects live-stack mutation when configured origin is not exactly allowlisted", async () => {
+    let calls = 0;
+    const errors = await runLiveQaMutationPreflight(
+      {
+        ...validQaEnv,
+        E2E_FRONTEND_URL: "https://other.qa.example.test",
+      },
+      {
+        managerId: validQaEnv.E2E_QA_MANAGER_ID!,
+        motelIdsOwned: [validQaEnv.E2E_QA_MOTEL_ID!],
+      },
+      async () => {
+        calls += 1;
+      },
+    );
+    expect(errors).toContain("Configured QA origin is not in E2E_QA_ALLOWED_ORIGINS");
+    expect(calls).toBe(0);
+  });
+
+  it("rejects live-stack mutation when QA environment flag is not qa", async () => {
+    let calls = 0;
+    const errors = await runLiveQaMutationPreflight(
+      {
+        ...validQaEnv,
+        E2E_QA_ENVIRONMENT: "staging",
+      },
+      {
+        managerId: validQaEnv.E2E_QA_MANAGER_ID!,
+        motelIdsOwned: [validQaEnv.E2E_QA_MOTEL_ID!],
+      },
+      async () => {
+        calls += 1;
+      },
+    );
+    expect(errors).toContain("E2E_QA_ENVIRONMENT must equal qa");
+    expect(calls).toBe(0);
+  });
+
+  it("rejects live-stack mutation when mutation opt-in flag is absent or incorrect", async () => {
+    let calls = 0;
+    const errors = await runLiveQaMutationPreflight(
+      {
+        ...validQaEnv,
+        E2E_QA_MUTATIONS: undefined,
+      },
+      {
+        managerId: validQaEnv.E2E_QA_MANAGER_ID!,
+        motelIdsOwned: [validQaEnv.E2E_QA_MOTEL_ID!],
+      },
+      async () => {
+        calls += 1;
+      },
+    );
+    expect(errors).toContain("Set E2E_QA_MUTATIONS for the live QA suite");
+    expect(calls).toBe(0);
+  });
+
+  it("rejects live-stack mutation when authenticated manager does not match dedicated QA manager", async () => {
+    let calls = 0;
+    const errors = await runLiveQaMutationPreflight(
+      validQaEnv,
+      {
+        managerId: "00000000-0000-4000-8000-000000000099",
+        motelIdsOwned: [validQaEnv.E2E_QA_MOTEL_ID!],
+      },
+      async () => {
+        calls += 1;
+      },
+    );
+    expect(errors).toContain("Authenticated QA manager must match E2E_QA_MANAGER_ID");
+    expect(calls).toBe(0);
+  });
+
+  it("rejects live-stack mutation when dedicated QA motel is not in authenticated ownership list", async () => {
+    let calls = 0;
+    const errors = await runLiveQaMutationPreflight(
+      validQaEnv,
+      {
+        managerId: validQaEnv.E2E_QA_MANAGER_ID!,
+        motelIdsOwned: ["00000000-0000-4000-8000-000000009999"],
+      },
+      async () => {
+        calls += 1;
+      },
+    );
+    expect(errors).toContain("Dedicated QA motel must be owned by authenticated QA manager");
+    expect(calls).toBe(0);
+  });
+
+  it("creates a dedicated mutation run context when configuration and ownership are safe", async () => {
+    let calls = 0;
+    let capturedRun: { runId: string; managerId: string; motelId: string } | undefined;
+    const errors = await runLiveQaMutationPreflight(
+      validQaEnv,
+      {
+        managerId: validQaEnv.E2E_QA_MANAGER_ID!,
+        motelIdsOwned: [validQaEnv.E2E_QA_MOTEL_ID!],
+      },
+      async (run) => {
+        calls += 1;
+        capturedRun = run;
+      },
+    );
+
+    expect(errors).toEqual([]);
+    expect(calls).toBe(1);
+    expect(capturedRun).toBeDefined();
+    expect(capturedRun!.managerId).toBe(validQaEnv.E2E_QA_MANAGER_ID);
+    expect(capturedRun!.motelId).toBe(validQaEnv.E2E_QA_MOTEL_ID);
+    expect(capturedRun!.runId).toMatch(/^\d{14}-[0-9a-f]{8}$/i);
   });
 });
