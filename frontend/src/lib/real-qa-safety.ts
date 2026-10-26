@@ -47,8 +47,12 @@ export async function runLiveQaMutationPreflight(
   const expectedManagerId = env.E2E_QA_MANAGER_ID;
   const expectedMotelId = env.E2E_QA_MOTEL_ID;
 
-  if (expectedManagerId && ownership.managerId && ownership.managerId !== expectedManagerId)
-    errors.push("Authenticated QA manager must match E2E_QA_MANAGER_ID");
+  if (expectedManagerId) {
+    if (!ownership.managerId)
+      errors.push("Authenticated QA manager must match E2E_QA_MANAGER_ID");
+    else if (ownership.managerId !== expectedManagerId)
+      errors.push("Authenticated QA manager must match E2E_QA_MANAGER_ID");
+  }
 
   if (expectedMotelId && !ownership.motelIdsOwned.includes(expectedMotelId))
     errors.push("Dedicated QA motel must be owned by authenticated QA manager");

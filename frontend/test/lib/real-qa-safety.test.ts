@@ -304,6 +304,21 @@ describe("live QA safety", () => {
     expect(calls).toBe(0);
   });
 
+  it("rejects live-stack mutation when authenticated manager id is missing", async () => {
+    let calls = 0;
+    const errors = await runLiveQaMutationPreflight(
+      validQaEnv,
+      {
+        motelIdsOwned: [validQaEnv.E2E_QA_MOTEL_ID!],
+      },
+      async () => {
+        calls += 1;
+      },
+    );
+    expect(errors).toContain("Authenticated QA manager must match E2E_QA_MANAGER_ID");
+    expect(calls).toBe(0);
+  });
+
   it("rejects live-stack mutation when dedicated QA motel is not in authenticated ownership list", async () => {
     let calls = 0;
     const errors = await runLiveQaMutationPreflight(
