@@ -5,6 +5,7 @@ COPY frontend/package.json frontend/bun.lock* ./
 RUN bun install --frozen-lockfile
 
 FROM deps AS build
+RUN apk add --no-cache git
 ARG BACKEND_URL
 ENV BACKEND_URL=$BACKEND_URL
 COPY .git ./.git
@@ -15,7 +16,7 @@ COPY frontend/src ./src
 COPY frontend/e2e ./e2e
 COPY frontend/test ./test
 COPY frontend/public ./public
-RUN BUILD_SHA="$(git -C /app rev-parse HEAD 2>/dev/null || echo unknown)" && BUILD_TIMESTAMP="$(git -C /app show -s --format=%cI HEAD 2>/dev/null || echo unknown)" && NEXT_PUBLIC_BUILD_SHA="$BUILD_SHA" BUILD_TIMESTAMP="$BUILD_TIMESTAMP" bun run build && rm -rf /app/.git
+RUN BUILD_SHA="$(git -C /app rev-parse HEAD)" && BUILD_TIMESTAMP="$(git -C /app show -s --format=%cI HEAD)" && test "${#BUILD_SHA}" -eq 40 && test -n "$BUILD_TIMESTAMP" && NEXT_PUBLIC_BUILD_SHA="$BUILD_SHA" BUILD_TIMESTAMP="$BUILD_TIMESTAMP" bun run build && rm -rf /app/.git
 
 FROM deps AS runner
 WORKDIR /app
