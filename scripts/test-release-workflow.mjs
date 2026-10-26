@@ -20,6 +20,10 @@ const bumpScript = await readFile(
   "utf8",
 );
 const lockfileCheck = await readFile(
+  `${root}/scripts/lockfile-stability.mjs`,
+  "utf8",
+);
+const lockfileTest = await readFile(
   `${root}/scripts/test-lockfile-stability.mjs`,
   "utf8",
 );
@@ -51,7 +55,13 @@ assert.doesNotMatch(versionWorkflow, /\n  push:/);
 assert.match(versionWorkflow, /contents:\s*write/);
 assert.match(versionWorkflow, /\[skip ci\]/);
 assert.match(versionWorkflow, /bump-package-versions\.mjs/);
-assert.match(versionWorkflow, /test-lockfile-stability\.mjs/);
+assert.match(
+  versionWorkflow,
+  /lockfile-stability\.mjs.*github\.event\.pull_request\.base\.sha/s,
+);
+assert.match(versionWorkflow, /bun install --lockfile-only/);
+assert.match(lockfileTest, /name\/version metadata changes/);
+assert.match(lockfileTest, /rejects dependency resolution drift/);
 assert.match(versionWorkflow, /git rev-parse HEAD/);
 assert.match(versionWorkflow, /oven-sh\/setup-bun/);
 assert.match(bumpScript, /export function bumpPatch/);

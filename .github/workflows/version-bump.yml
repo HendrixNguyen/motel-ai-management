@@ -29,10 +29,10 @@ jobs:
         run: node scripts/bump-package-versions.mjs
       - name: Refresh lockfiles without dependency updates
         run: |
-          (cd frontend && bun install --lockfile-only --frozen-lockfile)
-          (cd backend && bun install --lockfile-only --frozen-lockfile)
+          (cd frontend && bun install --lockfile-only)
+          (cd backend && bun install --lockfile-only)
       - name: Verify lockfile diffs contain no dependency resolution changes
-        run: node scripts/test-lockfile-stability.mjs
+        run: node scripts/lockfile-stability.mjs "${{ github.event.pull_request.base.sha }}"
       - name: Commit version bump
         run: |
           git config user.name "github-actions[bot]"

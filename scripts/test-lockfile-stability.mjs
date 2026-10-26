@@ -1,22 +1,23 @@
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
+import { test } from "node:test";
+import { assertLockfileDiffStable } from "./lockfile-stability.mjs";
 
-const packages = ["frontend", "backend"];
-for (const dir of packages) {
-  const diff = execFileSync("git", ["diff", "--", `${dir}/bun.lock`], {
-    encoding: "utf8",
-  });
-  const added = diff
-    .split("\n")
-    .filter((line) => line.startsWith("+") && !line.startsWith("+++"));
-  const removed = diff
-    .split("\n")
-    .filter((line) => line.startsWith("-") && !line.startsWith("---"));
-  const stripRootName = (line) =>
-    line.replace(/"name": "(?:frontend|backend)"/g, '"name": "<package>"');
-  assert.deepEqual(
-    added.map(stripRootName),
-    removed.map(stripRootName),
-    `${dir}/bun.lock changes dependency resolution`,
+test("allows package name/version metadata changes with unchanged dependency resolutions", () => {
+  const diff = [
+    ' "name": "frontend"',
+    '+ "name": "frontend"',
+    '- "version": "0.1.0"',
+    '+ "version": "0.1.1"',
+  ].join("\n");
+  assert.doesNotThrow(() => assertLockfileDiffStable(diff, "frontend"));
+});
+
+test("rejects dependency resolution drift in Bun lockfile", () => {
+  const diff = ['-"next": ["next@16.3.8"', '+"next": ["next@16.3.9"'].join(
+    "\n",
   );
-}
+  assert.throws(
+    () => assertLockfileDiffStable(diff, "frontend"),
+    /dependency resolution changes/,
+  );
+});
