@@ -6,7 +6,12 @@ export const sample = {
 
 export type Readings = { electricity: number; water: number };
 export type BillLine = { used: number; rate: number; amount: number };
-export type Bill = { rent: number; electricity: BillLine; water: BillLine; total: number };
+export type Bill = {
+  rent: number;
+  electricity: BillLine;
+  water: BillLine;
+  total: number;
+};
 
 export function calculateBill(readings: Readings): Bill {
   const electricityUsed = readings.electricity - sample.electricity.previous;
@@ -24,7 +29,9 @@ export function calculateBill(readings: Readings): Bill {
     !Number.isSafeInteger(waterAmount) ||
     !Number.isSafeInteger(total)
   ) {
-    throw new RangeError("Chỉ số phải là số nguyên an toàn, không thấp hơn kỳ trước.");
+    throw new RangeError(
+      "Chỉ số phải là số nguyên an toàn, không thấp hơn kỳ trước.",
+    );
   }
 
   return {

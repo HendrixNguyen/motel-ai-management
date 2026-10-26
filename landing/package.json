@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vp dev",
-    "check": "vp check",
+    "check": "vp check --no-fmt",
     "typecheck": "vue-tsc --noEmit -p tsconfig.app.json",
     "test": "vp test --run",
     "build": "vp build",

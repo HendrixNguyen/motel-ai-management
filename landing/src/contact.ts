@@ -14,8 +14,12 @@ export function isValidFormspreeEndpoint(value: string): boolean {
   }
 }
 
-export async function submitContact(endpoint: string, data: FormData): Promise<void> {
-  if (!isValidFormspreeEndpoint(endpoint)) throw new Error("Invalid Formspree endpoint.");
+export async function submitContact(
+  endpoint: string,
+  data: FormData,
+): Promise<void> {
+  if (!isValidFormspreeEndpoint(endpoint))
+    throw new Error("Invalid Formspree endpoint.");
 
   const response = await fetch(endpoint, {
     method: "POST",

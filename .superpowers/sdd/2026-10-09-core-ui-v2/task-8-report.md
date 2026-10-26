@@ -19,12 +19,12 @@ Fixed only Core UI gate failures. Preserved unrelated backend/planning files:
 
 Commands run from `frontend/` with `PATH="$HOME/.bun/bin:$PATH" bunx`.
 
-| Check | Result | Exact count / blocker |
-|---|---|---|
-| `bunx tsc --noEmit` | PASS | Exit 0; no diagnostics |
-| `bunx eslint` | PASS | Exit 0; 0 errors, 4 existing `@next/next/no-img-element` warnings |
-| `bunx vitest run` | PASS | 46/46 test files passed; 419/419 tests passed; skipped 0 |
-| `bunx next build` | PASS | Exit 0; 20 routes generated (2 static, 18 dynamic) |
+| Check                                            | Result  | Exact count / blocker                                                                                                                                                                  |
+| ------------------------------------------------ | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `bunx tsc --noEmit`                              | PASS    | Exit 0; no diagnostics                                                                                                                                                                 |
+| `bunx eslint`                                    | PASS    | Exit 0; 0 errors, 4 existing `@next/next/no-img-element` warnings                                                                                                                      |
+| `bunx vitest run`                                | PASS    | 46/46 test files passed; 419/419 tests passed; skipped 0                                                                                                                               |
+| `bunx next build`                                | PASS    | Exit 0; 20 routes generated (2 static, 18 dynamic)                                                                                                                                     |
 | `bunx playwright test --project=chromium-mobile` | BLOCKED | 85 failed, 0 passed, 0 skipped; Chromium executable missing at `/home/huyndg-pc/.cache/ms-playwright/chromium_headless_shell-1243/chrome-headless-shell-linux64/chrome-headless-shell` |
 
 Playwright browser installation was not attempted; no OS dependencies installed.

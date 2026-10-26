@@ -13,8 +13,10 @@ describe("billing demo", () => {
 
   it("allows zero usage", () => {
     expect(
-      calculateBill({ electricity: sample.electricity.previous, water: sample.water.previous })
-        .total,
+      calculateBill({
+        electricity: sample.electricity.previous,
+        water: sample.water.previous,
+      }).total,
     ).toBe(2_500_000);
   });
 
@@ -31,8 +33,8 @@ describe("billing demo", () => {
   });
 
   it("rejects totals outside the safe integer range", () => {
-    expect(() => calculateBill({ electricity: Number.MAX_SAFE_INTEGER, water: 85 })).toThrow(
-      RangeError,
-    );
+    expect(() =>
+      calculateBill({ electricity: Number.MAX_SAFE_INTEGER, water: 85 }),
+    ).toThrow(RangeError);
   });
 });
