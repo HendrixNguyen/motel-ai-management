@@ -8,6 +8,7 @@
     "test:coverage": "bun test --coverage --parallel=1",
     "start": "bun run src/index.ts",
     "db:generate": "drizzle-kit generate",
+    "db:seed-contract-catalog": "bun run src/modules/contract/contract-catalog.seed.ts",
     "db:migrate": "bun run src/db/migrate.ts",
     "start:migration-job": "bun run db:migrate",
     "db:studio": "drizzle-kit studio",

@@ -174,6 +174,28 @@ different motel is a distinct renter row.
 
 Partial UNIQUE (`motelId`) WHERE `isDefault` — at most one default per motel.
 
+### contract_template_catalog
+
+Shared system catalog of starter contract templates for setup and reuse. Starter templates are seeded inactive (`active = false`) pending formal legal review.
+
+| Field | Type | Notes |
+|-------|------|-------|
+| id | UUID | PK |
+| key | TEXT | NOT NULL, nonempty trimmed |
+| version | INT | NOT NULL, positive integer |
+| name | TEXT | NOT NULL |
+| description | TEXT | NOT NULL |
+| clauses | JSONB | `[{title, content}]`, NOT NULL |
+| active | BOOLEAN | NOT NULL, DEFAULT false |
+| createdAt | TIMESTAMPTZ | DEFAULT now() |
+| updatedAt | TIMESTAMPTZ | DEFAULT now() |
+
+Constraints:
+- UNIQUE (`key`, `version`)
+- CHECK `length(trim(key)) > 0`
+- CHECK `version > 0`
+- Legal release gate: starter templates remain inactive until reviewed and activated; seeding never automatically activates templates.
+
 ### contracts
 
 | Field | Type | Notes |

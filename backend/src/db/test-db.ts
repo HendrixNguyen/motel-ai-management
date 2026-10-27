@@ -25,6 +25,7 @@ const TABLES = [
   "billing_periods",
   "contracts",
   "contract_templates",
+  "contract_template_catalog",
   "renters",
   "rooms",
   "motels",
