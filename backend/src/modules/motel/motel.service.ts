@@ -84,10 +84,10 @@ export async function listMotels(managerId: string): Promise<MotelResponse[]> {
   return rows.map(toResponse);
 }
 
-/**
- * Fields are copied one by one rather than spread, so nothing the client sent beyond the
- * documented body — a `managerId`, for instance — can ever reach the insert.
- */
+export async function lockMotelForUpdate(tx: DbTransaction, motelId: string): Promise<void> {
+  await tx.execute(sql`SELECT id FROM ${motels} WHERE id = ${motelId} FOR UPDATE`);
+}
+
 export async function lockMotelSetup(tx: DbTransaction, managerId: string): Promise<void> {
   await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext('motel_setup:' || ${managerId}))`);
 }

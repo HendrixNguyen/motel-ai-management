@@ -2,7 +2,7 @@ import { and, asc, desc, eq, sql } from "drizzle-orm";
 import { createHash } from "node:crypto";
 import { db, type Db, type DbExecutor, type DbTransaction } from "@/db";
 import { resolveOwnedMotel, resolveRoomInMotel, resolveRenterInMotel } from "@/middleware/tenancy";
-import { motels } from "@/modules/motel/motel.schema";
+import { lockMotelForUpdate } from "@/modules/motel/motel.service";
 import { getRoomName } from "@/modules/room/room.service";
 import { getRenterForConsent } from "@/modules/renter/renter.service";
 import { parseAmount, type VndString } from "@/shared/money";
@@ -82,7 +82,7 @@ async function clearDefault(
   tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
   motelId: string,
 ) {
-  await tx.execute(sql`SELECT id FROM ${motels} WHERE id = ${motelId} FOR UPDATE`);
+  await lockMotelForUpdate(tx, motelId);
   await tx
     .update(contractTemplates)
     .set({ isDefault: false })
