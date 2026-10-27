@@ -58,21 +58,42 @@ Pending/unknown submit đóng băng payload trong memory; retry cùng key/payloa
 type TemplateSelection =
   | { kind: "catalog"; key: string; version: number }
   | { kind: "motel"; motelId: string; templateId: string; fingerprint: string };
-type SetupRoomInput = { name: string; basePrice: VndString; floor?: number | null };
+type SetupRoomInput = {
+  name: string;
+  basePrice: VndString;
+  floor?: number | null;
+};
 type SetupMotelInput =
-  | { requestId: string; mode: "full"; motel: CreateMotelInput;
-      template: TemplateSelection; rooms: SetupRoomInput[] }
-  | { requestId: string; mode: "quick"; motel: CreateMotelInput;
-      template?: TemplateSelection };
+  | {
+      requestId: string;
+      mode: "full";
+      motel: CreateMotelInput;
+      template: TemplateSelection;
+      rooms: SetupRoomInput[];
+    }
+  | {
+      requestId: string;
+      mode: "quick";
+      motel: CreateMotelInput;
+      template?: TemplateSelection;
+    };
 type SetupMotelResult = {
-  motelId: string; mode: "full" | "quick";
-  roomCount: number; templateId: string | null;
+  motelId: string;
+  mode: "full" | "quick";
+  roomCount: number;
+  templateId: string | null;
 };
 type TemplatePreview = {
-  name: string; clauses: { title: string; content: string }[];
+  name: string;
+  clauses: { title: string; content: string }[];
   selection: TemplateSelection;
 };
-type CatalogSummary = { key: string; version: number; name: string; description: string };
+type CatalogSummary = {
+  key: string;
+  version: number;
+  name: string;
+  description: string;
+};
 ```
 
 - GET `/api/manager/contract-template-catalog` returns `CatalogSummary[]`.

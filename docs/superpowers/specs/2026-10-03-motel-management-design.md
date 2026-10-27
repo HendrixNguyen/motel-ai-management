@@ -33,23 +33,23 @@ Explicitly out of scope. Do not build these without a new spec:
 
 ## Tech Stack
 
-| Layer | Choice |
-|-------|--------|
-| Frontend | Next.js (React, Tailwind CSS, TypeScript) — one app, two route groups |
-| Backend | ElysiaJS on Bun (TypeScript) |
-| Database | PostgreSQL + Drizzle ORM |
-| Messaging | Zalo OA API (free follower messages) + Zalo ZNS (paid, first-contact/critical) |
-| Payment | VietQR payload generation, manual confirmation by manager |
-| File storage | Cloudflare R2 (S3-compatible API) |
-| Capture surface | Installable PWA — service worker app-shell cache + IndexedDB write queue |
-| Package manager | Bun (workspace-wide; never npm/yarn) |
+| Layer           | Choice                                                                         |
+| --------------- | ------------------------------------------------------------------------------ |
+| Frontend        | Next.js (React, Tailwind CSS, TypeScript) — one app, two route groups          |
+| Backend         | ElysiaJS on Bun (TypeScript)                                                   |
+| Database        | PostgreSQL + Drizzle ORM                                                       |
+| Messaging       | Zalo OA API (free follower messages) + Zalo ZNS (paid, first-contact/critical) |
+| Payment         | VietQR payload generation, manual confirmation by manager                      |
+| File storage    | Cloudflare R2 (S3-compatible API)                                              |
+| Capture surface | Installable PWA — service worker app-shell cache + IndexedDB write queue       |
+| Package manager | Bun (workspace-wide; never npm/yarn)                                           |
 
 ## Authentication
 
-| Role | Mechanism |
-|------|-----------|
-| Manager | Email + password login. JWT in httpOnly cookie. |
-| Renter | No account, no password. Identity is `phone` + `motelId`. Access via emailed/sent magic-link token. |
+| Role    | Mechanism                                                                                           |
+| ------- | --------------------------------------------------------------------------------------------------- |
+| Manager | Email + password login. JWT in httpOnly cookie.                                                     |
+| Renter  | No account, no password. Identity is `phone` + `motelId`. Access via emailed/sent magic-link token. |
 
 ### Renter session lifecycle
 
@@ -90,56 +90,56 @@ Money is `NUMERIC(14,0)` (VND has no practical subunit). Meter values are `NUMER
 
 ### managers
 
-| Field | Type | Notes |
-|-------|------|-------|
-| id | UUID | PK |
-| email | TEXT | UNIQUE, NOT NULL, lowercased |
-| passwordHash | TEXT | NOT NULL (argon2id) |
-| name | TEXT | NOT NULL |
-| phone | TEXT | nullable |
-| createdAt | TIMESTAMPTZ | DEFAULT now() |
+| Field        | Type        | Notes                        |
+| ------------ | ----------- | ---------------------------- |
+| id           | UUID        | PK                           |
+| email        | TEXT        | UNIQUE, NOT NULL, lowercased |
+| passwordHash | TEXT        | NOT NULL (argon2id)          |
+| name         | TEXT        | NOT NULL                     |
+| phone        | TEXT        | nullable                     |
+| createdAt    | TIMESTAMPTZ | DEFAULT now()                |
 
 ### motels
 
-| Field | Type | Notes |
-|-------|------|-------|
-| id | UUID | PK |
-| managerId | UUID | FK → managers, NOT NULL, indexed |
-| name | TEXT | NOT NULL |
-| address | TEXT | nullable |
-| electricityPrice | NUMERIC(14,0) | VND per kWh |
-| waterPrice | NUMERIC(14,0) | VND per m³ |
-| otherFees | JSONB | `[{name, amount}]` — internet, garbage, parking. Default `[]` |
-| bankAccount | JSONB | `{bankCode, accountNumber, accountName}` for VietQR. Default `null` |
-| createdAt | TIMESTAMPTZ | DEFAULT now() |
+| Field            | Type          | Notes                                                               |
+| ---------------- | ------------- | ------------------------------------------------------------------- |
+| id               | UUID          | PK                                                                  |
+| managerId        | UUID          | FK → managers, NOT NULL, indexed                                    |
+| name             | TEXT          | NOT NULL                                                            |
+| address          | TEXT          | nullable                                                            |
+| electricityPrice | NUMERIC(14,0) | VND per kWh                                                         |
+| waterPrice       | NUMERIC(14,0) | VND per m³                                                          |
+| otherFees        | JSONB         | `[{name, amount}]` — internet, garbage, parking. Default `[]`       |
+| bankAccount      | JSONB         | `{bankCode, accountNumber, accountName}` for VietQR. Default `null` |
+| createdAt        | TIMESTAMPTZ   | DEFAULT now()                                                       |
 
 ### motel_setup_requests
 
-| Field | Type | Notes |
-|-------|------|-------|
-| id | UUID | PK |
-| managerId | UUID | FK → managers, NOT NULL, ON DELETE CASCADE |
-| requestId | UUID | NOT NULL |
-| fingerprint | TEXT | NOT NULL |
-| motelId | UUID | FK → motels, nullable, ON DELETE SET NULL |
-| templateId | UUID | FK → contract_templates, nullable, ON DELETE SET NULL |
-| mode | TEXT | NOT NULL, CHECK in ('full', 'quick') |
-| roomCount | INT | NOT NULL, CHECK ((mode = 'full' AND roomCount >= 1 AND roomCount <= 100) OR (mode = 'quick' AND roomCount = 0)) |
-| createdAt | TIMESTAMPTZ | DEFAULT now() |
+| Field       | Type        | Notes                                                                                                           |
+| ----------- | ----------- | --------------------------------------------------------------------------------------------------------------- |
+| id          | UUID        | PK                                                                                                              |
+| managerId   | UUID        | FK → managers, NOT NULL, ON DELETE CASCADE                                                                      |
+| requestId   | UUID        | NOT NULL                                                                                                        |
+| fingerprint | TEXT        | NOT NULL                                                                                                        |
+| motelId     | UUID        | FK → motels, nullable, ON DELETE SET NULL                                                                       |
+| templateId  | UUID        | FK → contract_templates, nullable, ON DELETE SET NULL                                                           |
+| mode        | TEXT        | NOT NULL, CHECK in ('full', 'quick')                                                                            |
+| roomCount   | INT         | NOT NULL, CHECK ((mode = 'full' AND roomCount >= 1 AND roomCount <= 100) OR (mode = 'quick' AND roomCount = 0)) |
+| createdAt   | TIMESTAMPTZ | DEFAULT now()                                                                                                   |
 
 UNIQUE (`managerId`, `requestId`). Null `motelId` represents deleted motel result (returning 410 on lookup/replay).
 
 ### rooms
 
-| Field | Type | Notes |
-|-------|------|-------|
-| id | UUID | PK |
-| motelId | UUID | FK → motels, NOT NULL, indexed |
-| name | TEXT | NOT NULL, room number as displayed (e.g. `P.101`) |
-| basePrice | NUMERIC(14,0) | Default monthly rent, NOT NULL DEFAULT 0 |
-| floor | INT | nullable |
-| status | room_status | DEFAULT `available` |
-| createdAt | TIMESTAMPTZ | DEFAULT now() |
+| Field     | Type          | Notes                                             |
+| --------- | ------------- | ------------------------------------------------- |
+| id        | UUID          | PK                                                |
+| motelId   | UUID          | FK → motels, NOT NULL, indexed                    |
+| name      | TEXT          | NOT NULL, room number as displayed (e.g. `P.101`) |
+| basePrice | NUMERIC(14,0) | Default monthly rent, NOT NULL DEFAULT 0          |
+| floor     | INT           | nullable                                          |
+| status    | room_status   | DEFAULT `available`                               |
+| createdAt | TIMESTAMPTZ   | DEFAULT now()                                     |
 
 UNIQUE (`motelId`, `name`).
 
@@ -149,23 +149,23 @@ invoice. See [ADR-0005](../../../adr/0005-room-base-price.md).
 
 ### renters
 
-| Field | Type | Notes |
-|-------|------|-------|
-| id | UUID | PK |
-| motelId | UUID | FK → motels, NOT NULL, indexed |
-| name | TEXT | NOT NULL |
-| phone | TEXT | NOT NULL, normalized to `84XXXXXXXXX` (no leading `0`/`+`) |
-| idNumber | TEXT | CCCD number, nullable |
-| legacyIdCardFrontUrl | TEXT | historical arbitrary URL, nullable, never served or trusted |
-| legacyIdCardBackUrl | TEXT | historical arbitrary URL, nullable, never served or trusted |
-| idCardFrontObjectKey | TEXT | private R2 object key, nullable |
-| idCardFrontContentType | TEXT | JPEG/PNG metadata, nullable |
-| idCardFrontSize | INTEGER | bytes, 1–5,000,000, nullable |
-| idCardFrontChecksum | TEXT | content checksum, nullable |
-| idCardBackObjectKey | TEXT | private R2 object key, nullable |
-| idCardBackContentType | TEXT | JPEG/PNG metadata, nullable |
-| idCardBackSize | INTEGER | bytes, 1–5,000,000, nullable |
-| idCardBackChecksum | TEXT | content checksum, nullable |
+| Field                  | Type    | Notes                                                       |
+| ---------------------- | ------- | ----------------------------------------------------------- |
+| id                     | UUID    | PK                                                          |
+| motelId                | UUID    | FK → motels, NOT NULL, indexed                              |
+| name                   | TEXT    | NOT NULL                                                    |
+| phone                  | TEXT    | NOT NULL, normalized to `84XXXXXXXXX` (no leading `0`/`+`)  |
+| idNumber               | TEXT    | CCCD number, nullable                                       |
+| legacyIdCardFrontUrl   | TEXT    | historical arbitrary URL, nullable, never served or trusted |
+| legacyIdCardBackUrl    | TEXT    | historical arbitrary URL, nullable, never served or trusted |
+| idCardFrontObjectKey   | TEXT    | private R2 object key, nullable                             |
+| idCardFrontContentType | TEXT    | JPEG/PNG metadata, nullable                                 |
+| idCardFrontSize        | INTEGER | bytes, 1–5,000,000, nullable                                |
+| idCardFrontChecksum    | TEXT    | content checksum, nullable                                  |
+| idCardBackObjectKey    | TEXT    | private R2 object key, nullable                             |
+| idCardBackContentType  | TEXT    | JPEG/PNG metadata, nullable                                 |
+| idCardBackSize         | INTEGER | bytes, 1–5,000,000, nullable                                |
+| idCardBackChecksum     | TEXT    | content checksum, nullable                                  |
 
 Only manager motel-owner sessions may upload or read CCCD images. Renter sessions cannot access CCCD images. Manager previews use signed URLs expiring after 300 seconds. No automatic retention period is set; deletion/retention policy requires legal/operational approval.
 | roomId | UUID | FK → rooms, nullable (unassigned) |
@@ -179,14 +179,14 @@ different motel is a distinct renter row.
 
 ### contract_templates
 
-| Field | Type | Notes |
-|-------|------|-------|
-| id | UUID | PK |
-| motelId | UUID | FK → motels, NOT NULL, indexed |
-| name | TEXT | NOT NULL |
-| clauses | JSONB | `[{title, content}]`, NOT NULL |
-| isDefault | BOOLEAN | DEFAULT false |
-| createdAt | TIMESTAMPTZ | DEFAULT now() |
+| Field     | Type        | Notes                          |
+| --------- | ----------- | ------------------------------ |
+| id        | UUID        | PK                             |
+| motelId   | UUID        | FK → motels, NOT NULL, indexed |
+| name      | TEXT        | NOT NULL                       |
+| clauses   | JSONB       | `[{title, content}]`, NOT NULL |
+| isDefault | BOOLEAN     | DEFAULT false                  |
+| createdAt | TIMESTAMPTZ | DEFAULT now()                  |
 
 Partial UNIQUE (`motelId`) WHERE `isDefault` — at most one default per motel.
 
@@ -194,19 +194,20 @@ Partial UNIQUE (`motelId`) WHERE `isDefault` — at most one default per motel.
 
 Shared system catalog of starter contract templates for setup and reuse. Starter templates are seeded inactive (`active = false`) pending formal legal review.
 
-| Field | Type | Notes |
-|-------|------|-------|
-| id | UUID | PK |
-| key | TEXT | NOT NULL, nonempty trimmed |
-| version | INT | NOT NULL, positive integer |
-| name | TEXT | NOT NULL |
-| description | TEXT | NOT NULL |
-| clauses | JSONB | `[{title, content}]`, NOT NULL |
-| active | BOOLEAN | NOT NULL, DEFAULT false |
-| createdAt | TIMESTAMPTZ | DEFAULT now() |
-| updatedAt | TIMESTAMPTZ | DEFAULT now() |
+| Field       | Type        | Notes                          |
+| ----------- | ----------- | ------------------------------ |
+| id          | UUID        | PK                             |
+| key         | TEXT        | NOT NULL, nonempty trimmed     |
+| version     | INT         | NOT NULL, positive integer     |
+| name        | TEXT        | NOT NULL                       |
+| description | TEXT        | NOT NULL                       |
+| clauses     | JSONB       | `[{title, content}]`, NOT NULL |
+| active      | BOOLEAN     | NOT NULL, DEFAULT false        |
+| createdAt   | TIMESTAMPTZ | DEFAULT now()                  |
+| updatedAt   | TIMESTAMPTZ | DEFAULT now()                  |
 
 Constraints:
+
 - UNIQUE (`key`, `version`)
 - CHECK `length(trim(key)) > 0`
 - CHECK `version > 0`
@@ -214,57 +215,57 @@ Constraints:
 
 ### contracts
 
-| Field | Type | Notes |
-|-------|------|-------|
-| id | UUID | PK |
-| renterId | UUID | FK → renters, NOT NULL, indexed |
-| roomId | UUID | FK → rooms, NOT NULL, indexed |
-| motelId | UUID | FK → motels, NOT NULL, indexed |
-| templateId | UUID | FK → contract_templates, nullable |
-| startDate | DATE | NOT NULL |
-| endDate | DATE | NOT NULL |
-| monthlyRent | NUMERIC(14,0) | NOT NULL |
-| deposit | NUMERIC(14,0) | NOT NULL DEFAULT 0 |
-| clauses | JSONB | Snapshot of template clauses at contract creation |
-| acceptedTermsVersion | TEXT | nullable SHA-256 of the canonical contract terms shown to renter |
-| acceptedTermsSnapshot | JSONB | nullable immutable terms snapshot accepted by renter |
-| consentMethod | TEXT | nullable `session_consent` |
-| consentAcceptedAt | TIMESTAMPTZ | nullable server-recorded consent time |
-| otpSentAt | TIMESTAMPTZ | legacy nullable history only |
-| otpSignedAt | TIMESTAMPTZ | legacy nullable history only |
-| status | contract_status | DEFAULT `draft` |
-| createdAt | TIMESTAMPTZ | DEFAULT now() |
+| Field                 | Type            | Notes                                                            |
+| --------------------- | --------------- | ---------------------------------------------------------------- |
+| id                    | UUID            | PK                                                               |
+| renterId              | UUID            | FK → renters, NOT NULL, indexed                                  |
+| roomId                | UUID            | FK → rooms, NOT NULL, indexed                                    |
+| motelId               | UUID            | FK → motels, NOT NULL, indexed                                   |
+| templateId            | UUID            | FK → contract_templates, nullable                                |
+| startDate             | DATE            | NOT NULL                                                         |
+| endDate               | DATE            | NOT NULL                                                         |
+| monthlyRent           | NUMERIC(14,0)   | NOT NULL                                                         |
+| deposit               | NUMERIC(14,0)   | NOT NULL DEFAULT 0                                               |
+| clauses               | JSONB           | Snapshot of template clauses at contract creation                |
+| acceptedTermsVersion  | TEXT            | nullable SHA-256 of the canonical contract terms shown to renter |
+| acceptedTermsSnapshot | JSONB           | nullable immutable terms snapshot accepted by renter             |
+| consentMethod         | TEXT            | nullable `session_consent`                                       |
+| consentAcceptedAt     | TIMESTAMPTZ     | nullable server-recorded consent time                            |
+| otpSentAt             | TIMESTAMPTZ     | legacy nullable history only                                     |
+| otpSignedAt           | TIMESTAMPTZ     | legacy nullable history only                                     |
+| status                | contract_status | DEFAULT `draft`                                                  |
+| createdAt             | TIMESTAMPTZ     | DEFAULT now()                                                    |
 
 CHECK (`endDate` > `startDate`). At most one `active` contract per room:
 partial UNIQUE (`roomId`) WHERE `status = 'active'`.
 
 ### billing_periods
 
-| Field | Type | Notes |
-|-------|------|-------|
-| id | UUID | PK |
-| motelId | UUID | FK → motels, NOT NULL, indexed |
-| month | INT | NOT NULL, 1–12 |
-| year | INT | NOT NULL |
-| status | billing_period_status | DEFAULT `draft` |
-| createdAt | TIMESTAMPTZ | DEFAULT now() |
+| Field     | Type                  | Notes                          |
+| --------- | --------------------- | ------------------------------ |
+| id        | UUID                  | PK                             |
+| motelId   | UUID                  | FK → motels, NOT NULL, indexed |
+| month     | INT                   | NOT NULL, 1–12                 |
+| year      | INT                   | NOT NULL                       |
+| status    | billing_period_status | DEFAULT `draft`                |
+| createdAt | TIMESTAMPTZ           | DEFAULT now()                  |
 
 UNIQUE (`motelId`, `month`, `year`).
 
 ### meter_readings
 
-| Field | Type | Notes |
-|-------|------|-------|
-| id | UUID | PK |
-| roomId | UUID | FK → rooms, NOT NULL, indexed |
-| billingPeriodId | UUID | FK → billing_periods, NOT NULL, indexed |
-| type | meter_type | NOT NULL |
-| previousReading | NUMERIC(12,2) | NOT NULL, seeded from the prior period |
-| currentReading | NUMERIC(12,2) | nullable until the manager submits it |
-| photoUrl | TEXT | R2 URL of the meter at reading time, nullable |
-| readingDate | DATE | nullable |
-| createdAt | TIMESTAMPTZ | DEFAULT now() |
-| updatedAt | TIMESTAMPTZ | NOT NULL DEFAULT now() — bumped on every accepted write |
+| Field           | Type          | Notes                                                   |
+| --------------- | ------------- | ------------------------------------------------------- |
+| id              | UUID          | PK                                                      |
+| roomId          | UUID          | FK → rooms, NOT NULL, indexed                           |
+| billingPeriodId | UUID          | FK → billing_periods, NOT NULL, indexed                 |
+| type            | meter_type    | NOT NULL                                                |
+| previousReading | NUMERIC(12,2) | NOT NULL, seeded from the prior period                  |
+| currentReading  | NUMERIC(12,2) | nullable until the manager submits it                   |
+| photoUrl        | TEXT          | R2 URL of the meter at reading time, nullable           |
+| readingDate     | DATE          | nullable                                                |
+| createdAt       | TIMESTAMPTZ   | DEFAULT now()                                           |
+| updatedAt       | TIMESTAMPTZ   | NOT NULL DEFAULT now() — bumped on every accepted write |
 
 UNIQUE (`billingPeriodId`, `roomId`, `type`). CHECK (`currentReading` IS NULL OR
 `currentReading` >= `previousReading`) — a meter never runs backwards.
@@ -277,89 +278,89 @@ so "same value" is treated as success.
 
 ### invoices
 
-| Field | Type | Notes |
-|-------|------|-------|
-| id | UUID | PK |
-| billingPeriodId | UUID | FK → billing_periods, NOT NULL, indexed |
-| roomId | UUID | FK → rooms, NOT NULL |
-| renterId | UUID | FK → renters, NOT NULL, indexed |
-| motelId | UUID | FK → motels, NOT NULL, indexed |
-| rentAmount | NUMERIC(14,0) | From the active contract's `monthlyRent` |
-| electricityUsage | NUMERIC(12,2) | kWh consumed |
-| electricityCost | NUMERIC(14,0) | NOT NULL |
-| waterUsage | NUMERIC(12,2) | m³ consumed |
-| waterCost | NUMERIC(14,0) | NOT NULL |
-| otherFees | JSONB | Snapshot of the motel's `otherFees` at generation time |
-| totalAmount | NUMERIC(14,0) | NOT NULL, sum of the components |
-| qrCodeData | TEXT | VietQR payload string (see below) |
-| paymentStatus | payment_status | DEFAULT `unpaid` |
-| paidAt | TIMESTAMPTZ | nullable |
-| createdAt | TIMESTAMPTZ | DEFAULT now() |
+| Field            | Type           | Notes                                                  |
+| ---------------- | -------------- | ------------------------------------------------------ |
+| id               | UUID           | PK                                                     |
+| billingPeriodId  | UUID           | FK → billing_periods, NOT NULL, indexed                |
+| roomId           | UUID           | FK → rooms, NOT NULL                                   |
+| renterId         | UUID           | FK → renters, NOT NULL, indexed                        |
+| motelId          | UUID           | FK → motels, NOT NULL, indexed                         |
+| rentAmount       | NUMERIC(14,0)  | From the active contract's `monthlyRent`               |
+| electricityUsage | NUMERIC(12,2)  | kWh consumed                                           |
+| electricityCost  | NUMERIC(14,0)  | NOT NULL                                               |
+| waterUsage       | NUMERIC(12,2)  | m³ consumed                                            |
+| waterCost        | NUMERIC(14,0)  | NOT NULL                                               |
+| otherFees        | JSONB          | Snapshot of the motel's `otherFees` at generation time |
+| totalAmount      | NUMERIC(14,0)  | NOT NULL, sum of the components                        |
+| qrCodeData       | TEXT           | VietQR payload string (see below)                      |
+| paymentStatus    | payment_status | DEFAULT `unpaid`                                       |
+| paidAt           | TIMESTAMPTZ    | nullable                                               |
+| createdAt        | TIMESTAMPTZ    | DEFAULT now()                                          |
 
 UNIQUE (`billingPeriodId`, `roomId`). Money fields are snapshots — later edits to a
 motel's prices or fees never retroactively change a sent invoice.
 
 ### help_tickets
 
-| Field | Type | Notes |
-|-------|------|-------|
-| id | UUID | PK |
-| renterId | UUID | FK → renters, NOT NULL, indexed |
-| roomId | UUID | FK → rooms, NOT NULL |
-| motelId | UUID | FK → motels, NOT NULL, indexed |
-| category | ticket_category | NOT NULL |
-| description | TEXT | NOT NULL |
-| photoUrls | JSONB | Array of R2 URLs, default `[]`, max 5 files |
-| status | ticket_status | DEFAULT `open` |
-| managerNote | TEXT | Internal only; never exposed on the renter portal |
-| createdAt | TIMESTAMPTZ | DEFAULT now() |
-| resolvedAt | TIMESTAMPTZ | nullable |
+| Field       | Type            | Notes                                             |
+| ----------- | --------------- | ------------------------------------------------- |
+| id          | UUID            | PK                                                |
+| renterId    | UUID            | FK → renters, NOT NULL, indexed                   |
+| roomId      | UUID            | FK → rooms, NOT NULL                              |
+| motelId     | UUID            | FK → motels, NOT NULL, indexed                    |
+| category    | ticket_category | NOT NULL                                          |
+| description | TEXT            | NOT NULL                                          |
+| photoUrls   | JSONB           | Array of R2 URLs, default `[]`, max 5 files       |
+| status      | ticket_status   | DEFAULT `open`                                    |
+| managerNote | TEXT            | Internal only; never exposed on the renter portal |
+| createdAt   | TIMESTAMPTZ     | DEFAULT now()                                     |
+| resolvedAt  | TIMESTAMPTZ     | nullable                                          |
 
 ### magic_links
 
-| Field | Type | Notes |
-|-------|------|-------|
-| id | UUID | PK |
-| renterId | UUID | FK → renters, NOT NULL, indexed |
-| token | TEXT | UNIQUE, NOT NULL, 32 bytes crypto-random base64url |
-| expiresAt | TIMESTAMPTZ | NOT NULL, createdAt + 24h |
-| consumedAt | TIMESTAMPTZ | nullable — set on first exchange |
-| createdAt | TIMESTAMPTZ | DEFAULT now() |
+| Field      | Type        | Notes                                              |
+| ---------- | ----------- | -------------------------------------------------- |
+| id         | UUID        | PK                                                 |
+| renterId   | UUID        | FK → renters, NOT NULL, indexed                    |
+| token      | TEXT        | UNIQUE, NOT NULL, 32 bytes crypto-random base64url |
+| expiresAt  | TIMESTAMPTZ | NOT NULL, createdAt + 24h                          |
+| consumedAt | TIMESTAMPTZ | nullable — set on first exchange                   |
+| createdAt  | TIMESTAMPTZ | DEFAULT now()                                      |
 
 ### notification_events
 
-| Field | Type | Notes |
-|-------|------|-------|
-| id | UUID | PK |
-| eventKey | TEXT | UNIQUE stable domain-event key |
-| renterId | UUID | FK → renters, NOT NULL, indexed |
-| motelId | UUID | FK → motels, NOT NULL, indexed |
-| channel | notification_channel | Transport only |
-| payload | JSONB | Redacted, provider-neutral payload |
-| status | notification_status | DEFAULT `pending` |
-| attemptCount | INTEGER | Bounded retry count |
-| nextAttemptAt | TIMESTAMPTZ | nullable |
-| providerRequestId | TEXT | nullable |
-| failureReason | TEXT | nullable, classified |
-| sentAt | TIMESTAMPTZ | nullable |
-| createdAt | TIMESTAMPTZ | DEFAULT now() |
+| Field             | Type                 | Notes                              |
+| ----------------- | -------------------- | ---------------------------------- |
+| id                | UUID                 | PK                                 |
+| eventKey          | TEXT                 | UNIQUE stable domain-event key     |
+| renterId          | UUID                 | FK → renters, NOT NULL, indexed    |
+| motelId           | UUID                 | FK → motels, NOT NULL, indexed     |
+| channel           | notification_channel | Transport only                     |
+| payload           | JSONB                | Redacted, provider-neutral payload |
+| status            | notification_status  | DEFAULT `pending`                  |
+| attemptCount      | INTEGER              | Bounded retry count                |
+| nextAttemptAt     | TIMESTAMPTZ          | nullable                           |
+| providerRequestId | TEXT                 | nullable                           |
+| failureReason     | TEXT                 | nullable, classified               |
+| sentAt            | TIMESTAMPTZ          | nullable                           |
+| createdAt         | TIMESTAMPTZ          | DEFAULT now()                      |
 
 ### zalo_notifications (legacy Zalo audit)
 
-| Field | Type | Notes |
-|-------|------|-------|
-| id | UUID | PK |
-| notificationEventId | UUID | FK → notification_events, nullable for legacy rows |
-| renterId | UUID | FK → renters, NOT NULL, indexed |
-| motelId | UUID | FK → motels, NOT NULL, indexed |
-| channel | notification_channel | NOT NULL — `oa_message`, `zns`, or `zbs` |
-| templateId | TEXT | ZNS/ZBS template id, nullable for OA messages |
-| payload | JSONB | Redacted rendered Zalo payload |
-| status | notification_status | DEFAULT `pending` |
-| failureReason | TEXT | nullable |
-| providerRequestId | TEXT | nullable |
-| sentAt | TIMESTAMPTZ | nullable |
-| createdAt | TIMESTAMPTZ | DEFAULT now() |
+| Field               | Type                 | Notes                                              |
+| ------------------- | -------------------- | -------------------------------------------------- |
+| id                  | UUID                 | PK                                                 |
+| notificationEventId | UUID                 | FK → notification_events, nullable for legacy rows |
+| renterId            | UUID                 | FK → renters, NOT NULL, indexed                    |
+| motelId             | UUID                 | FK → motels, NOT NULL, indexed                     |
+| channel             | notification_channel | NOT NULL — `oa_message`, `zns`, or `zbs`           |
+| templateId          | TEXT                 | ZNS/ZBS template id, nullable for OA messages      |
+| payload             | JSONB                | Redacted rendered Zalo payload                     |
+| status              | notification_status  | DEFAULT `pending`                                  |
+| failureReason       | TEXT                 | nullable                                           |
+| providerRequestId   | TEXT                 | nullable                                           |
+| sentAt              | TIMESTAMPTZ          | nullable                                           |
+| createdAt           | TIMESTAMPTZ          | DEFAULT now()                                      |
 
 New generic events are authoritative for idempotency and delivery state; legacy Zalo rows remain for backward-compatible audit queries.
 
@@ -589,19 +590,19 @@ All API errors use one envelope:
 `details` is omitted unless it helps the caller. Codes are stable identifiers; messages
 are user-facing and may be localized later.
 
-| Code | HTTP | Meaning |
-|------|------|---------|
-| `VALIDATION_ERROR` | 400 | Request failed schema validation. Carries no `details` — see [`docs/api-contract.md`](../../api-contract.md), which owns the envelope |
-| `UNAUTHORIZED` | 401 | Missing or expired credential |
-| `MAGIC_LINK_EXPIRED` | 401 | Magic link past `expiresAt`, or already consumed |
-| `FORBIDDEN` | 403 | Valid credential, wrong role |
-| `NOT_FOUND` | 404 | Row absent, or hidden from this tenant |
-| `CONFLICT` | 409 | Uniqueness or state violation (duplicate period, room already has an active contract) |
-| `READING_CONFLICT` | 409 | A reading write was based on a stale `updatedAt`; `details.server` carries the current row |
-| `PERIOD_ALREADY_SENT` | 409 | Capture or generation attempted on a period that is no longer `draft` |
-| `RATE_LIMITED` | 429 | Magic-link request too frequent; `details.retryAfterSeconds` |
-| `EXTERNAL_SERVICE_ERROR` | 502 | Zalo or R2 rejected the call; `details.failureReason` carries the upstream message |
-| `INTERNAL_ERROR` | 500 | Unexpected server fault; details stay server-side |
+| Code                     | HTTP | Meaning                                                                                                                               |
+| ------------------------ | ---- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `VALIDATION_ERROR`       | 400  | Request failed schema validation. Carries no `details` — see [`docs/api-contract.md`](../../api-contract.md), which owns the envelope |
+| `UNAUTHORIZED`           | 401  | Missing or expired credential                                                                                                         |
+| `MAGIC_LINK_EXPIRED`     | 401  | Magic link past `expiresAt`, or already consumed                                                                                      |
+| `FORBIDDEN`              | 403  | Valid credential, wrong role                                                                                                          |
+| `NOT_FOUND`              | 404  | Row absent, or hidden from this tenant                                                                                                |
+| `CONFLICT`               | 409  | Uniqueness or state violation (duplicate period, room already has an active contract)                                                 |
+| `READING_CONFLICT`       | 409  | A reading write was based on a stale `updatedAt`; `details.server` carries the current row                                            |
+| `PERIOD_ALREADY_SENT`    | 409  | Capture or generation attempted on a period that is no longer `draft`                                                                 |
+| `RATE_LIMITED`           | 429  | Magic-link request too frequent; `details.retryAfterSeconds`                                                                          |
+| `EXTERNAL_SERVICE_ERROR` | 502  | Zalo or R2 rejected the call; `details.failureReason` carries the upstream message                                                    |
+| `INTERNAL_ERROR`         | 500  | Unexpected server fault; details stay server-side                                                                                     |
 
 Other rules:
 
@@ -638,16 +639,16 @@ Other rules:
 
 Each sub-project gets its own spec → plan → implementation cycle.
 
-| # | Sub-project | Depends on |
-|---|-------------|-----------|
-| 1 | Core Backend + Database — env parsing, Drizzle schema, migrations, auth + tenant middleware, error envelope | — |
-| 2 | Room & Renter Management — motels, rooms, renters CRUD, magic-link issuing | 1 |
-| 3 | Billing System — periods, meter readings, invoice generation, VietQR payloads | 2 |
-| 4 | Contract Management — templates, contracts, authenticated renter consent | 2 |
-| 5 | Manager Frontend — dashboard and all manager pages | 2, 3, 4 |
-| 6 | On-site Meter Capture — installable PWA, offline queue, meter photos | 1, 2, 3, 5 |
-| 7 | Renter Portal — magic-link landing, bills, contract view, ticket submission | 2, 3, 4 |
-| 8 | Zalo Integration — OA client, ZNS client, follow webhook, notification triggers | 3, 4, 7 |
+| #   | Sub-project                                                                                                 | Depends on |
+| --- | ----------------------------------------------------------------------------------------------------------- | ---------- |
+| 1   | Core Backend + Database — env parsing, Drizzle schema, migrations, auth + tenant middleware, error envelope | —          |
+| 2   | Room & Renter Management — motels, rooms, renters CRUD, magic-link issuing                                  | 1          |
+| 3   | Billing System — periods, meter readings, invoice generation, VietQR payloads                               | 2          |
+| 4   | Contract Management — templates, contracts, authenticated renter consent                                    | 2          |
+| 5   | Manager Frontend — dashboard and all manager pages                                                          | 2, 3, 4    |
+| 6   | On-site Meter Capture — installable PWA, offline queue, meter photos                                        | 1, 2, 3, 5 |
+| 7   | Renter Portal — magic-link landing, bills, contract view, ticket submission                                 | 2, 3, 4    |
+| 8   | Zalo Integration — OA client, ZNS client, follow webhook, notification triggers                             | 3, 4, 7    |
 
 Plans are written one at a time, immediately before the sub-project is built, so table
 and field names stay anchored to migrations that actually ran. Writing all eight up
@@ -662,14 +663,14 @@ artifact.
 
 Which document owns which fact, and what must be edited together:
 
-| Fact | Owner | Also update |
-|------|-------|-------------|
-| Tables, columns, constraints, flows, security rules | this spec | API contract if exposed over HTTP; `.env.example` if it adds a variable |
-| Endpoint paths, request/response bodies, error codes | `docs/api-contract.md` | this spec if a rule changed; UI spec if a screen's states changed |
-| Screens, states, badges, copy | `docs/frontend-ui-specs.md` | API contract if a status or code was added |
-| Env var names | `backend/.env.example` | this spec if a new external service appeared |
-| Argued or dependency-bearing decisions | `docs/adr/` | linked from this spec |
-| What must be tested, and at which layer | `docs/testing-strategy.md` | linked from this spec |
+| Fact                                                 | Owner                       | Also update                                                             |
+| ---------------------------------------------------- | --------------------------- | ----------------------------------------------------------------------- |
+| Tables, columns, constraints, flows, security rules  | this spec                   | API contract if exposed over HTTP; `.env.example` if it adds a variable |
+| Endpoint paths, request/response bodies, error codes | `docs/api-contract.md`      | this spec if a rule changed; UI spec if a screen's states changed       |
+| Screens, states, badges, copy                        | `docs/frontend-ui-specs.md` | API contract if a status or code was added                              |
+| Env var names                                        | `backend/.env.example`      | this spec if a new external service appeared                            |
+| Argued or dependency-bearing decisions               | `docs/adr/`                 | linked from this spec                                                   |
+| What must be tested, and at which layer              | `docs/testing-strategy.md`  | linked from this spec                                                   |
 
 Rules that make drift visible rather than silent:
 

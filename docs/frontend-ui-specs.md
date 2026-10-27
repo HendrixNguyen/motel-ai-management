@@ -145,13 +145,13 @@ with no endpoint gets **no route and no nav item** — a sidebar entry that 404s
 affordance — and a measure with no endpoint is omitted rather than rendered zero-filled, since
 a "Doanh thu dự kiến 0 ₫" tile is a false claim about data that does not exist.
 
-| Surface | Built | Deferred — no endpoint exists |
-|---------|-------|-------------------------------|
-| Sidebar | **Tổng quan**, **Nhà trọ**, **Phòng trọ**, **Khách thuê**, **Tính tiền & Hóa đơn**, **Hợp đồng** (read-only list, draft create/edit, detail, template create/edit/delete, send request and terminate through existing APIs) | **Sự cố & Yêu cầu** manager administration (M8; no manager endpoint), dedicated **Cài đặt** route (M9; supported price/fee/bank fields remain in M2 edit) |
-| M1 Overview | **Phòng** card, live quick actions | **Doanh thu dự kiến**, **Tiền chưa thu**, **Sự cố chưa xử lý** cards, and both widgets |
-| M3 Phòng trọ | filters, cards, add/edit, change status | overdue indicator, meter history |
-| M4 Khách thuê | list, detail, **Tạo magic link** | provider-specific send/retry actions |
-| M9 Cài đặt | prices, `otherFees`, and bank account — carried by the M2 edit modal | the Zalo OA status panel |
+| Surface       | Built                                                                                                                                                                                                                       | Deferred — no endpoint exists                                                                                                                             |
+| ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Sidebar       | **Tổng quan**, **Nhà trọ**, **Phòng trọ**, **Khách thuê**, **Tính tiền & Hóa đơn**, **Hợp đồng** (read-only list, draft create/edit, detail, template create/edit/delete, send request and terminate through existing APIs) | **Sự cố & Yêu cầu** manager administration (M8; no manager endpoint), dedicated **Cài đặt** route (M9; supported price/fee/bank fields remain in M2 edit) |
+| M1 Overview   | **Phòng** card, live quick actions                                                                                                                                                                                          | **Doanh thu dự kiến**, **Tiền chưa thu**, **Sự cố chưa xử lý** cards, and both widgets                                                                    |
+| M3 Phòng trọ  | filters, cards, add/edit, change status                                                                                                                                                                                     | overdue indicator, meter history                                                                                                                          |
+| M4 Khách thuê | list, detail, **Tạo magic link**                                                                                                                                                                                            | provider-specific send/retry actions                                                                                                                      |
+| M9 Cài đặt    | prices, `otherFees`, and bank account — carried by the M2 edit modal                                                                                                                                                        | the Zalo OA status panel                                                                                                                                  |
 
 Each section below still describes the full intended screen. Read the table as what is
 delivered, not the section as what is.
@@ -213,6 +213,7 @@ backend count aggregation. A failed read reaches the route error state rather th
 zero rooms. Missing addresses and bank accounts show `Chưa có địa chỉ` and `Chưa thiết lập`.
 
 **Tạo nhà trọ** delegates creation to a 4-step wizard (`MotelSetupWizard`):
+
 - **Bước 1 (Thông tin cơ bản):** Tên, địa chỉ, đơn giá điện/nước, tài khoản nhận tiền. Khi manager đã có ít nhất một nhà trọ, phần "Sao chép từ nhà trọ đang có" cho phép chọn nguồn và checkbox từng nhóm: Ngân hàng, Dịch vụ/phí, Mẫu hợp đồng (checkbox ban đầu không chọn, bấm "Áp dụng" mới sao chép). Thay đổi nguồn không ghi đè tài khoản đã nhập nếu chưa xác nhận. Nút "Tạo nhanh (bỏ qua thiết lập)" chỉ xuất hiện khi đã có ít nhất một nhà trọ.
 - **Bước 2 (Mẫu hợp đồng):** Chọn từ thư viện mẫu chuẩn (`ContractTemplatePicker`) hoặc mẫu sở hữu từ nhà trọ nguồn. Hiển thị xem trước các điều khoản.
 - **Bước 3 (Danh sách phòng):** Sinh nhanh danh sách phòng (tiền tố, số bắt đầu, số lượng 1–100, tầng, giá thuê mặc định) và sửa từng phòng. Chế độ tạo nhanh bỏ qua bước này.
@@ -463,6 +464,7 @@ technical error text. This route is never linked directly from the app UI.
 ### R1 — Trang chủ `/portal`
 
 Current and unpaid invoices:
+
 - Displays pending/overdue invoices across sent periods with direct "Xem QR" and "Gửi chứng từ" actions.
 - Lists billing periods linking to `/portal/bills?period=...`.
 
@@ -535,7 +537,6 @@ _Tạo yêu cầu mới (`/portal/tickets/new`):_ category selector, description
 remove, then **Gửi yêu cầu**. Submit shows a success toast and returns to the list.
 
 After submitting, the portal shows the renter's phone number with a copy button and the line "Chủ nhà trọ sẽ phản hồi theo kênh đã cấu hình" — the app does not promise Zalo or in-app replies.
-
 
 ---
 
