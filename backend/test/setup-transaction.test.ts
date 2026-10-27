@@ -4,10 +4,7 @@ import { db, type DbTransaction } from "@/db";
 import { resetDb } from "@/db/test-db";
 import { registerManager } from "@/modules/auth/auth.service";
 import { motels } from "@/modules/motel/motel.schema";
-import {
-  createMotelInTransaction,
-  lockMotelSetup,
-} from "@/modules/motel/motel.service";
+import { createMotelInTransaction, lockMotelSetup } from "@/modules/motel/motel.service";
 import { rooms } from "@/modules/room/room.schema";
 import { createSetupRooms } from "@/modules/room/room.service";
 import { contractTemplates } from "@/modules/contract/contract.schema";
@@ -127,7 +124,10 @@ describe("setup transaction seams", () => {
       .select()
       .from(contractTemplates)
       .where(
-        and(eq(contractTemplates.motelId, motelIdCheck(motel.id)), eq(contractTemplates.isDefault, true)),
+        and(
+          eq(contractTemplates.motelId, motelIdCheck(motel.id)),
+          eq(contractTemplates.isDefault, true),
+        ),
       );
 
     expect(defaultTemplates).toHaveLength(1);
@@ -141,9 +141,7 @@ describe("setup transaction seams", () => {
     const finalDefaults = await db
       .select()
       .from(contractTemplates)
-      .where(
-        and(eq(contractTemplates.motelId, motel.id), eq(contractTemplates.isDefault, true)),
-      );
+      .where(and(eq(contractTemplates.motelId, motel.id), eq(contractTemplates.isDefault, true)));
 
     expect(finalDefaults).toHaveLength(1);
   });

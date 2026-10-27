@@ -3,10 +3,7 @@ import { createHash } from "node:crypto";
 import { db, type DbExecutor } from "@/db";
 import { AppError } from "@/shared/errors";
 import { contractTemplateCatalog } from "./contract-catalog.schema";
-import type {
-  CatalogSummary,
-  TemplatePreview,
-} from "./contract-catalog.types";
+import type { CatalogSummary, TemplatePreview } from "./contract-catalog.types";
 import type { ContractTemplateClause } from "./contract.schema";
 
 export function computeTemplateFingerprint(
@@ -23,9 +20,7 @@ export function computeTemplateFingerprint(
   return createHash("sha256").update(normalized).digest("hex");
 }
 
-export async function listContractCatalog(
-  executor: DbExecutor = db,
-): Promise<CatalogSummary[]> {
+export async function listContractCatalog(executor: DbExecutor = db): Promise<CatalogSummary[]> {
   const rows = await executor
     .select({
       key: contractTemplateCatalog.key,
@@ -35,10 +30,7 @@ export async function listContractCatalog(
     })
     .from(contractTemplateCatalog)
     .where(eq(contractTemplateCatalog.active, true))
-    .orderBy(
-      contractTemplateCatalog.key,
-      desc(contractTemplateCatalog.version),
-    );
+    .orderBy(contractTemplateCatalog.key, desc(contractTemplateCatalog.version));
 
   const newestByKey = new Map<string, CatalogSummary>();
   for (const row of rows) {

@@ -14,7 +14,9 @@ export const motelSetupRequests = pgTable(
     requestId: uuid("request_id").notNull(),
     fingerprint: text("fingerprint").notNull(),
     motelId: uuid("motel_id").references(() => motels.id, { onDelete: "set null" }),
-    templateId: uuid("template_id").references(() => contractTemplates.id, { onDelete: "set null" }),
+    templateId: uuid("template_id").references(() => contractTemplates.id, {
+      onDelete: "set null",
+    }),
     mode: text("mode").notNull(),
     roomCount: integer("room_count").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

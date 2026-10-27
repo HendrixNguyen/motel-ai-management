@@ -96,8 +96,7 @@ const managerContractRoutes = new Elysia({ name: "manager-contract-routes" })
   )
   .get(
     "/manager/motels/:motelId/contract-templates/:templateId/setup-preview",
-    ({ params, auth }) =>
-      previewOwnedTemplate(auth!.userId, params.motelId, params.templateId),
+    ({ params, auth }) => previewOwnedTemplate(auth!.userId, params.motelId, params.templateId),
     { params: templateParams },
   )
   .get(

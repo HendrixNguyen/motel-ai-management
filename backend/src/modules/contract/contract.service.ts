@@ -9,14 +9,8 @@ import { parseAmount, type VndString } from "@/shared/money";
 import { AppError } from "@/shared/errors";
 import { contracts, contractTemplates } from "./contract.schema";
 import { enqueueNotification } from "@/modules/notification/notification.service";
-import {
-  computeTemplateFingerprint,
-  previewCatalogTemplate,
-} from "./contract-catalog.service";
-import type {
-  TemplatePreview,
-  TemplateSelection,
-} from "./contract-catalog.types";
+import { computeTemplateFingerprint, previewCatalogTemplate } from "./contract-catalog.service";
+import type { TemplatePreview, TemplateSelection } from "./contract-catalog.types";
 import type {
   ContractResponse,
   ContractTemplateInput,
@@ -128,12 +122,7 @@ export async function previewOwnedTemplate(
   const [row] = await executor
     .select()
     .from(contractTemplates)
-    .where(
-      and(
-        eq(contractTemplates.id, templateId),
-        eq(contractTemplates.motelId, motelId),
-      ),
-    )
+    .where(and(eq(contractTemplates.id, templateId), eq(contractTemplates.motelId, motelId)))
     .limit(1);
 
   if (!row) {
@@ -166,11 +155,7 @@ export async function copySetupTemplate(
   let templateClauses: typeof contractTemplates.$inferSelect.clauses;
 
   if (selection.kind === "catalog") {
-    const catalogPreview = await previewCatalogTemplate(
-      selection.key,
-      selection.version,
-      tx,
-    );
+    const catalogPreview = await previewCatalogTemplate(selection.key, selection.version, tx);
     templateName = catalogPreview.name;
     templateClauses = catalogPreview.clauses;
   } else {
@@ -178,15 +163,12 @@ export async function copySetupTemplate(
     const rows = await tx.execute(
       sql`SELECT id, motel_id, name, clauses, is_default, created_at FROM contract_templates WHERE id = ${selection.templateId} AND motel_id = ${selection.motelId} FOR UPDATE`,
     );
-    const source = (rows as unknown as typeof contractTemplates.$inferSelect[])[0];
+    const source = (rows as unknown as (typeof contractTemplates.$inferSelect)[])[0];
     if (!source) {
       throw AppError.notFound("Không tìm thấy mẫu hợp đồng nguồn");
     }
 
-    const currentFingerprint = computeTemplateFingerprint(
-      source.name,
-      source.clauses,
-    );
+    const currentFingerprint = computeTemplateFingerprint(source.name, source.clauses);
     if (currentFingerprint !== selection.fingerprint) {
       throw new AppError(
         "SETUP_SOURCE_CHANGED",

@@ -99,7 +99,10 @@ describe("contract templates", () => {
     });
     const template = (await created.json()) as { id: string };
     const foreignMotel = await createMotel(manager.id);
-    await db.update(contractTemplates).set({ motelId: foreignMotel.id }).where(eq(contractTemplates.id, template.id));
+    await db
+      .update(contractTemplates)
+      .set({ motelId: foreignMotel.id })
+      .where(eq(contractTemplates.id, template.id));
     const updated = await api(
       "PATCH",
       `/manager/motels/${motel.id}/contract-templates/${template.id}`,

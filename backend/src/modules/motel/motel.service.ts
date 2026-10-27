@@ -191,7 +191,9 @@ export async function deleteMotel(motelId: string, managerId: string): Promise<v
 
     const renters = await countRentersForMotel(motelId);
     if (renters > 0) {
-      throw AppError.conflict(`Còn ${renters} người thuê. Hãy xóa người thuê trước khi xóa nhà trọ.`);
+      throw AppError.conflict(
+        `Còn ${renters} người thuê. Hãy xóa người thuê trước khi xóa nhà trọ.`,
+      );
     }
 
     const billingPeriods = await countBillingPeriodsForMotel(motelId);

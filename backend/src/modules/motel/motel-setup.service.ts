@@ -8,10 +8,7 @@ import { createSetupRooms } from "@/modules/room/room.service";
 import { motelSetupRequests } from "./motel-setup.schema";
 import { motels } from "./motel.schema";
 import { createMotelInTransaction, lockMotelSetup } from "./motel.service";
-import type {
-  SetupMotelInput,
-  SetupMotelResult,
-} from "./motel-setup.types";
+import type { SetupMotelInput, SetupMotelResult } from "./motel-setup.types";
 
 function computeSetupFingerprint(input: SetupMotelInput): string {
   const normalized = {
@@ -88,7 +85,10 @@ export async function setupMotel(
 
     if (existingReq) {
       if (existingReq.fingerprint !== fingerprint || existingReq.mode !== input.mode) {
-        throw new AppError("IDEMPOTENCY_CONFLICT", "Yêu cầu thiết lập trùng lặp nhưng nội dung khác");
+        throw new AppError(
+          "IDEMPOTENCY_CONFLICT",
+          "Yêu cầu thiết lập trùng lặp nhưng nội dung khác",
+        );
       }
 
       if (!existingReq.motelId) {

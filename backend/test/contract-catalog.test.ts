@@ -56,7 +56,10 @@ describe("contract catalog and template preview/copy", () => {
     const listRes = await api("GET", "/manager/contract-template-catalog");
     expect(listRes.status).toBe(401);
 
-    const previewCatalogRes = await api("GET", "/manager/contract-template-catalog/vn-residential/1");
+    const previewCatalogRes = await api(
+      "GET",
+      "/manager/contract-template-catalog/vn-residential/1",
+    );
     expect(previewCatalogRes.status).toBe(401);
 
     const previewOwnedRes = await api(
@@ -102,9 +105,7 @@ describe("contract catalog and template preview/copy", () => {
     const meA = await api("GET", "/auth/me", cookieA);
     const managerA = (await meA.json()) as { id: string };
 
-    await expect(
-      previewOwnedTemplate(managerA.id, motelB.id, tplB!.id),
-    ).rejects.toThrow();
+    await expect(previewOwnedTemplate(managerA.id, motelB.id, tplB!.id)).rejects.toThrow();
   });
 
   test("catalog list returns newest active version per key; inactive versions excluded", async () => {
@@ -314,13 +315,7 @@ describe("contract catalog and template preview/copy", () => {
     const preview = await previewOwnedTemplate(manager.id, sourceMotel.id, srcTpl!.id);
 
     const copied = await db.transaction(async (tx) => {
-      return copySetupTemplate(
-        tx,
-        manager.id,
-        targetMotel.id,
-        preview.selection,
-        false,
-      );
+      return copySetupTemplate(tx, manager.id, targetMotel.id, preview.selection, false);
     });
 
     expect(copied.isDefault).toBe(false);

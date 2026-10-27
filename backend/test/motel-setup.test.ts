@@ -422,10 +422,7 @@ describe("POST /api/manager/motels/setup and GET /api/manager/motels/setup-reque
     const motelA = (await setupA.json()) as { motelId: string; templateId: string };
 
     const tplA = (
-      await db
-        .select()
-        .from(contractTemplates)
-        .where(eq(contractTemplates.id, motelA.templateId))
+      await db.select().from(contractTemplates).where(eq(contractTemplates.id, motelA.templateId))
     )[0]!;
     const fpA = computeTemplateFingerprint(tplA.name, tplA.clauses);
 
