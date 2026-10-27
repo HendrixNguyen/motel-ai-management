@@ -432,7 +432,7 @@ function collectSafeDiagnostics(page: import("@playwright/test").Page): string[]
 	return diagnostics;
 }
 
-async function signIn(page: any) {
+async function signIn(page: import("@playwright/test").Page) {
 	await page.getByLabel("Email", { exact: true }).fill(process.env.E2E_LOGIN_EMAIL!);
 	await page.getByLabel("Mật khẩu", { exact: true }).fill(process.env.E2E_LOGIN_PASSWORD!);
 	await page.getByRole("button", { name: "Đăng nhập", exact: true }).click();

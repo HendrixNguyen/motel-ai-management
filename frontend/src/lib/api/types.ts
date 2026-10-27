@@ -619,3 +619,53 @@ export interface MagicLinkResponse {
   token: string;
   url: string;
 }
+
+/* -------------------------------------------------------------------------- */
+/* Motel Setup — backend/src/modules/motel/motel-setup.types.ts               */
+/* -------------------------------------------------------------------------- */
+
+export type TemplateSelection =
+  | { kind: "catalog"; key: string; version: number }
+  | { kind: "motel"; motelId: string; templateId: string; fingerprint: string };
+
+export interface CatalogSummary {
+  key: string;
+  version: number;
+  name: string;
+  description: string;
+}
+
+export interface TemplatePreview {
+  name: string;
+  clauses: ContractClause[];
+  selection: TemplateSelection;
+}
+
+export interface SetupRoomInput {
+  name: string;
+  basePrice: VndString;
+  floor?: number | null;
+}
+
+export type SetupMotelInput =
+  | {
+      requestId: string;
+      mode: "full";
+      motel: CreateMotelInput;
+      template: TemplateSelection;
+      rooms: SetupRoomInput[];
+    }
+  | {
+      requestId: string;
+      mode: "quick";
+      motel: CreateMotelInput;
+      template?: TemplateSelection;
+    };
+
+export interface SetupMotelResult {
+  motelId: string;
+  mode: "full" | "quick";
+  roomCount: number;
+  templateId: string | null;
+}
+
