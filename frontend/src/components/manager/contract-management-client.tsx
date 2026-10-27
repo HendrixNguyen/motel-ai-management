@@ -16,12 +16,15 @@ import {
   updateContract,
   updateContractTemplate,
 } from "@/lib/api/contracts.client";
+import { copyCatalogTemplate } from "@/lib/api/motel-setup.client";
+import ContractTemplatePicker from "./contract-template-picker";
 import type {
   ContractResponse,
   ContractStatus,
   ContractTemplateResponse,
   RenterResponse,
   RoomResponse,
+  TemplatePreview,
 } from "@/lib/api/types";
 import {
   contractPartyNames,
@@ -63,6 +66,9 @@ export default function ContractManagementClient({
     null,
   );
   const [editingTemplate, setEditingTemplate] = useState<ContractTemplateResponse | null>(null);
+  const [catalogPickerOpen, setCatalogPickerOpen] = useState(false);
+  const [selectedCatalogTemplate, setSelectedCatalogTemplate] = useState<TemplatePreview | null>(null);
+  const [isDefaultCatalog, setIsDefaultCatalog] = useState(false);
   const [draft, setDraft] = useState<ContractDraft>(() =>
     createContractDraft(renters, rooms, templates),
   );
@@ -207,6 +213,31 @@ export default function ContractManagementClient({
       notify({ message: "Đã xóa mẫu hợp đồng" });
     } catch (error) {
       setFormError(error instanceof Error ? error.message : "Không thể xóa mẫu hợp đồng");
+    } finally {
+      setPending(false);
+    }
+  }
+
+  async function handleCopyFromCatalog() {
+    if (!selectedCatalogTemplate || selectedCatalogTemplate.selection.kind !== "catalog") return;
+    setPending(true);
+    setFormError("");
+    try {
+      const created = await copyCatalogTemplate(motelId, {
+        catalogKey: selectedCatalogTemplate.selection.key,
+        catalogVersion: selectedCatalogTemplate.selection.version,
+        isDefault: isDefaultCatalog,
+      });
+      setTemplateRows((current) => {
+        const next = isDefaultCatalog
+          ? current.map((t) => ({ ...t, isDefault: false }))
+          : current;
+        return [created, ...next];
+      });
+      setCatalogPickerOpen(false);
+      notify({ message: "Đã thêm mẫu hợp đồng từ thư viện" });
+    } catch (error) {
+      setFormError(error instanceof Error ? error.message : "Không thể sao chép mẫu từ thư viện");
     } finally {
       setPending(false);
     }
@@ -571,25 +602,67 @@ export default function ContractManagementClient({
                   </Button>
                 </div>
               </form>
+            ) : catalogPickerOpen ? (
+              <div className="space-y-4 border-t border-border pt-4">
+                <h3 className="font-semibold">Chọn mẫu từ thư viện</h3>
+                <ContractTemplatePicker
+                  value={selectedCatalogTemplate}
+                  onChange={setSelectedCatalogTemplate}
+                />
+                <label className="flex items-center gap-2 text-sm text-text">
+                  <input
+                    type="checkbox"
+                    checked={isDefaultCatalog}
+                    onChange={(e) => setIsDefaultCatalog(e.target.checked)}
+                  />
+                  Đặt làm mẫu mặc định cho nhà trọ này
+                </label>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => setCatalogPickerOpen(false)}
+                  >
+                    Hủy
+                  </Button>
+                  <Button
+                    disabled={!selectedCatalogTemplate || pending}
+                    onClick={() => void handleCopyFromCatalog()}
+                  >
+                    Áp dụng mẫu
+                  </Button>
+                </div>
+              </div>
             ) : (
-              <form
-                onSubmit={(event) => void saveTemplate(event)}
-                className="space-y-3 border-t border-border pt-4"
-              >
-                <h3 className="font-semibold">Tạo mẫu</h3>
-                <Field id="template-name" label="Tên mẫu">
-                  {(props) => <input {...props} name="name" required />}
-                </Field>
-                <Field id="template-title" label="Tiêu đề điều khoản">
-                  {(props) => <input {...props} name="title" required />}
-                </Field>
-                <Field id="template-content" label="Nội dung điều khoản">
-                  {(props) => <textarea {...props} name="content" rows={4} required />}
-                </Field>
-                <Button type="submit" pending={pending}>
-                  Lưu mẫu
-                </Button>
-              </form>
+              <div className="space-y-4 border-t border-border pt-4">
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => setCatalogPickerOpen(true)}
+                  >
+                    Chọn mẫu có sẵn
+                  </Button>
+                </div>
+                <form
+                  onSubmit={(event) => void saveTemplate(event)}
+                  className="space-y-3"
+                >
+                  <h3 className="font-semibold">Hoặc tự tạo mẫu mới</h3>
+                  <Field id="template-name" label="Tên mẫu">
+                    {(props) => <input {...props} name="name" required />}
+                  </Field>
+                  <Field id="template-title" label="Tiêu đề điều khoản">
+                    {(props) => <input {...props} name="title" required />}
+                  </Field>
+                  <Field id="template-content" label="Nội dung điều khoản">
+                    {(props) => <textarea {...props} name="content" rows={4} required />}
+                  </Field>
+                  <Button type="submit" pending={pending}>
+                    Lưu mẫu
+                  </Button>
+                </form>
+              </div>
             )}
             {formError && (
               <p role="alert" className="text-danger">

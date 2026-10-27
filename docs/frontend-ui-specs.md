@@ -212,8 +212,15 @@ one call per motel is acceptable for the MVP's 10–40 rooms. A larger portfolio
 backend count aggregation. A failed read reaches the route error state rather than showing
 zero rooms. Missing addresses and bank accounts show `Chưa có địa chỉ` and `Chưa thiết lập`.
 
-**Tạo nhà trọ** opens a modal with name, optional address, and electricity/water prices.
-**Chỉnh sửa** on each card opens the same fields plus the settings supported today:
+**Tạo nhà trọ** delegates creation to a 4-step wizard (`MotelSetupWizard`):
+- **Bước 1 (Thông tin cơ bản):** Tên, địa chỉ, đơn giá điện/nước, tài khoản nhận tiền. Khi manager đã có ít nhất một nhà trọ, phần "Sao chép từ nhà trọ đang có" cho phép chọn nguồn và checkbox từng nhóm: Ngân hàng, Dịch vụ/phí, Mẫu hợp đồng (checkbox ban đầu không chọn, bấm "Áp dụng" mới sao chép). Thay đổi nguồn không ghi đè tài khoản đã nhập nếu chưa xác nhận. Nút "Tạo nhanh (bỏ qua thiết lập)" chỉ xuất hiện khi đã có ít nhất một nhà trọ.
+- **Bước 2 (Mẫu hợp đồng):** Chọn từ thư viện mẫu chuẩn (`ContractTemplatePicker`) hoặc mẫu sở hữu từ nhà trọ nguồn. Hiển thị xem trước các điều khoản.
+- **Bước 3 (Danh sách phòng):** Sinh nhanh danh sách phòng (tiền tố, số bắt đầu, số lượng 1–100, tầng, giá thuê mặc định) và sửa từng phòng. Chế độ tạo nhanh bỏ qua bước này.
+- **Bước 4 (Xác nhận & Hoàn tất):** Xem lại toàn bộ thông tin (full hiển thị N phòng, quick hiển thị 0 phòng kèm nhãn Tạo nhanh), gửi atomic payload lên backend. Trong lúc xử lý disable các nút điều khiển; lỗi cho phép thử lại với cùng requestId; lỗi 410 cấp phát requestId mới; thành công hiển thị toast, phát sự kiện `motel-updated` và refresh trang.
+
+**Quản lý mẫu hợp đồng (`/contracts`):** Thêm nút "Chọn mẫu có sẵn" mở `ContractTemplatePicker` để sao chép mẫu từ catalog vào nhà trọ hiện tại với tùy chọn "Đặt làm mẫu mặc định cho nhà trọ này".
+
+**Chỉnh sửa** on each card opens the existing edit dialog with settings supported today:
 editable `otherFees` rows (name and VND amount) and bank code, account number, account owner.
 Unchecking **Thiết lập tài khoản nhận tiền** clears the bank account on save; removing all
 fees sends an empty list. Edits send only changed fields, with an explicit `null` to clear an

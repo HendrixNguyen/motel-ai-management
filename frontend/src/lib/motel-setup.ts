@@ -23,11 +23,15 @@ export function applyMotelCopy(
     next.bankEnabled = true;
     next.bankAccount = structuredClone(source.bankAccount);
   }
-  if (groups.services && source.otherFees) {
-    next.otherFees = source.otherFees.map((fee) => ({
-      name: fee.name,
-      amount: formatVndPlain(fee.amount),
-    }));
+  if (groups.services) {
+    next.electricityPrice = formatVndPlain(source.electricityPrice);
+    next.waterPrice = formatVndPlain(source.waterPrice);
+    if (source.otherFees) {
+      next.otherFees = source.otherFees.map((fee) => ({
+        name: fee.name,
+        amount: formatVndPlain(fee.amount),
+      }));
+    }
   }
   return next;
 }
