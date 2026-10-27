@@ -91,6 +91,30 @@ describe("the fixture backend used by manager E2E", () => {
     expect(missing.status).toBe(404);
     expect(await missing.json()).toEqual({ error: "Không tìm thấy khách thuê", code: "NOT_FOUND" });
   });
+  it("creates a full first motel with requested rooms in its scoped list", async () => {
+    const result = await request("/manager/motels/setup", "no-motels-full", "POST", {
+      requestId: "req-full-first",
+      mode: "full",
+      motel: { name: "Nhà đầy đủ", electricityPrice: "3500", waterPrice: "25000" },
+      template: { kind: "catalog", key: "standard-vn", version: 1 },
+      rooms: [{ name: "P.New", basePrice: "2500000", floor: 1 }],
+    });
+    expect(result.status).toBe(201);
+    const setup = (await result.json()) as { motelId: string; roomCount: number };
+    expect(setup.roomCount).toBe(1);
+    expect(await (await request(`/manager/motels/${setup.motelId}/rooms`, "no-motels-full")).json())
+      .toMatchObject([{ name: "P.New", basePrice: "2500000" }]);
+  });
+  it("rejects quick setup for a manager without a motel", async () => {
+    const result = await request("/manager/motels/setup", "no-motels-quick", "POST", {
+      requestId: "req-quick-first",
+      mode: "quick",
+      motel: { name: "Nhà nhanh", electricityPrice: "3500", waterPrice: "25000" },
+    });
+    expect(result.status).toBe(409);
+    expect(await result.json()).toMatchObject({ code: "MOTEL_SETUP_REQUIRED" });
+    expect(await (await request("/manager/motels", "no-motels-quick")).json()).toEqual([]);
+  });
   it("persists motel and room creation before editing and filtering", async () => {
     const created = await request("/manager/motels", "no-motels-a", "POST", {
       name: "Nhà mới",

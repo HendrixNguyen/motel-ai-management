@@ -258,22 +258,35 @@ export async function updateContractTemplate(
   managerId: string,
   input: UpdateContractTemplateInput,
 ) {
-  const current = await getContractTemplate(motelId, templateId, managerId);
   validateTemplate(input);
   const patch: Partial<typeof contractTemplates.$inferInsert> = {};
   if (input.name !== undefined) patch.name = input.name.trim();
   if (input.clauses !== undefined) patch.clauses = input.clauses;
   if (input.isDefault !== undefined) patch.isDefault = input.isDefault;
-  if (!Object.keys(patch).length) return current;
-  const result = await db.transaction(async (tx) => {
-    if (input.isDefault) await clearDefault(tx, motelId);
-    return tx
+  return db.transaction(async (tx) => {
+    await resolveOwnedMotel(motelId, managerId, tx);
+    await lockMotelForUpdate(tx, motelId);
+    const [current] = await tx
+      .select()
+      .from(contractTemplates)
+      .where(and(eq(contractTemplates.id, templateId), eq(contractTemplates.motelId, motelId)))
+      .limit(1);
+    if (!current) throw AppError.notFound("Không tìm thấy mẫu hợp đồng");
+    if (!Object.keys(patch).length) return templateResponse(current);
+    if (input.isDefault) {
+      await tx
+        .update(contractTemplates)
+        .set({ isDefault: false })
+        .where(and(eq(contractTemplates.motelId, motelId), eq(contractTemplates.isDefault, true)));
+    }
+    const [updated] = await tx
       .update(contractTemplates)
       .set(patch)
-      .where(eq(contractTemplates.id, templateId))
+      .where(and(eq(contractTemplates.id, templateId), eq(contractTemplates.motelId, motelId)))
       .returning();
+    if (!updated) throw AppError.notFound("Không tìm thấy mẫu hợp đồng");
+    return templateResponse(updated);
   });
-  return templateResponse(result[0]!);
 }
 export async function deleteContractTemplate(
   motelId: string,

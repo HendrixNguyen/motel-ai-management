@@ -124,6 +124,26 @@ describe("MotelSetupWizard", () => {
     expect(view.getByRole("button", { name: /Tạo nhanh/ })).toBeInTheDocument();
   });
 
+  test("restored unknown request keeps key and frozen payload without new-key submit", async () => {
+    const savedId = "00000000-0000-4000-8000-000000000123";
+    sessionStorage.setItem("motel-setup-draft:mgr-1", JSON.stringify({
+      version: 1,
+      mode: "quick",
+      motel: { name: "Frozen Motel", address: "", electricityPrice: "3500", waterPrice: "25000", otherFees: [] },
+      template: null,
+      rooms: [],
+      pendingRequestId: savedId,
+    }));
+    mocks.getMotelSetupResult.mockRejectedValue({ status: 404 });
+    const randomUUID = vi.spyOn(crypto, "randomUUID");
+    const view = render(<MotelSetupWizard open={true} onClose={vi.fn()} motels={[sampleMotel]} managerId="mgr-1" />);
+    await waitFor(() => expect(mocks.getMotelSetupResult).toHaveBeenCalledWith(savedId));
+    expect(view.getByLabelText("Tên nhà trọ")).toHaveValue("Frozen Motel");
+    expect(randomUUID).not.toHaveBeenCalled();
+    expect(mocks.submitMotelSetup).not.toHaveBeenCalled();
+    randomUUID.mockRestore();
+  });
+
   test("copy from existing motel applies selected groups without overwriting name/address", async () => {
     const onClose = vi.fn();
     const view = render(
@@ -319,7 +339,7 @@ describe("MotelSetupWizard", () => {
     });
   });
 
-  test("on submit error, allows retry with same requestId, and 410 resets requestId", async () => {
+  test("on submit error, allows retry with same requestId and 410 blocks resubmission", async () => {
     const onClose = vi.fn();
     mocks.submitMotelSetup
       .mockRejectedValueOnce(new Error("Lỗi kết nối mạng"))
@@ -361,11 +381,66 @@ describe("MotelSetupWizard", () => {
     const secondRequestId = mocks.submitMotelSetup.mock.calls[1]![0].requestId;
     expect(secondRequestId).toBe(firstRequestId);
 
-    fireEvent.click(view.getByRole("button", { name: "Hoàn tất thiết lập" }));
-    await waitFor(() => expect(mocks.notify).toHaveBeenCalledWith({ message: "Đã tạo nhanh nhà trọ" }));
+    expect(view.getByRole("alert")).toHaveTextContent("Không thể tạo nhà trọ. Vui lòng thử lại.");
+    expect(view.getByRole("button", { name: "Hoàn tất thiết lập" })).toBeDisabled();
+    expect(mocks.submitMotelSetup).toHaveBeenCalledTimes(2);
+    expect(mocks.submitMotelSetup.mock.calls[1]![0].requestId).toBe(firstRequestId);
+  });
 
-    const thirdRequestId = mocks.submitMotelSetup.mock.calls[2]![0].requestId;
-    expect(thirdRequestId).not.toBe(firstRequestId);
+  test("late owned-template preview cannot replace selection after source change", async () => {
+    const second: MotelResponse = { ...sampleMotel, id: "m-existing-2", name: "Nguồn hai" };
+    const firstTemplate = { id: "tpl-1", motelId: sampleMotel.id, name: "Mẫu A", clauses: [], isDefault: false, createdAt: "2026-01-01T00:00:00.000Z" };
+    const secondTemplate = { ...firstTemplate, id: "tpl-2", motelId: second.id, name: "Mẫu B" };
+    let resolveFirstPreview!: (preview: TemplatePreview) => void;
+    mocks.listContractTemplates.mockImplementation((motelId: string) => Promise.resolve(motelId === sampleMotel.id ? [firstTemplate] : [secondTemplate]));
+    mocks.previewOwnedTemplate
+      .mockImplementationOnce(() => new Promise((resolve) => { resolveFirstPreview = resolve; }))
+      .mockResolvedValueOnce({ ...sampleCatalogPreview, name: "Preview B", selection: { kind: "motel", motelId: second.id, templateId: secondTemplate.id, fingerprint: "b" } });
+    const view = render(<MotelSetupWizard open={true} onClose={vi.fn()} motels={[sampleMotel, second]} managerId="mgr-1" />);
+    fireEvent.change(view.getByLabelText("Tên nhà trọ"), { target: { value: "Nhà mới" } });
+    fireEvent.change(view.getByLabelText("Giá điện (₫/kWh)"), { target: { value: "3500" } });
+    fireEvent.change(view.getByLabelText("Giá nước (₫/m³)"), { target: { value: "25000" } });
+    const source = view.getByLabelText("Chọn nhà trọ nguồn");
+    fireEvent.change(source, { target: { value: sampleMotel.id } });
+    await waitFor(() => expect(mocks.listContractTemplates).toHaveBeenCalledWith(sampleMotel.id));
+    await waitFor(() => expect(view.getByLabelText(/Mẫu hợp đồng/)).toBeEnabled());
+    fireEvent.click(view.getByLabelText(/Mẫu hợp đồng/));
+    await waitFor(() => expect(view.getByRole("option", { name: "Mẫu A" })).toBeInTheDocument());
+    fireEvent.click(view.getByRole("button", { name: "Áp dụng" }));
+    await waitFor(() => expect(mocks.previewOwnedTemplate).toHaveBeenCalledTimes(1));
+
+    fireEvent.change(source, { target: { value: second.id } });
+    await waitFor(() => expect(mocks.listContractTemplates).toHaveBeenCalledWith(second.id));
+    await waitFor(() => expect(view.getByRole("option", { name: "Mẫu B" })).toBeInTheDocument());
+    fireEvent.click(view.getByRole("button", { name: "Áp dụng" }));
+    await waitFor(() => expect(mocks.previewOwnedTemplate).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(view.queryByText("Không thể tải mẫu từ nhà trọ đã chọn")).toBeNull());
+    expect(view.getByText("Mẫu B")).toBeInTheDocument();
+
+    resolveFirstPreview({ ...sampleCatalogPreview, name: "Stale preview A", selection: { kind: "motel", motelId: sampleMotel.id, templateId: firstTemplate.id, fingerprint: "a" } });
+    await waitFor(() => expect(mocks.previewOwnedTemplate).toHaveBeenCalledTimes(2));
+    expect(view.getByRole("option", { name: "Mẫu B" })).toBeInTheDocument();
+    expect(view.queryByText("Stale preview A")).toBeNull();
+  });
+
+  test("canceling services copy preserves edited prices and fees, confirming applies", async () => {
+    const view = render(
+      <MotelSetupWizard open={true} onClose={vi.fn()} motels={[sampleMotel]} managerId="mgr-1" />,
+    );
+    const electricity = view.getByLabelText("Giá điện (₫/kWh)");
+    fireEvent.change(electricity, { target: { value: "9999" } });
+    fireEvent.change(view.getByLabelText("Chọn nhà trọ nguồn"), {
+      target: { value: sampleMotel.id },
+    });
+    fireEvent.click(view.getByLabelText("Giá điện, nước và phí khác"));
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
+    fireEvent.click(view.getByRole("button", { name: "Áp dụng" }));
+    expect(confirmSpy).toHaveBeenCalled();
+    expect(electricity).toHaveValue("9999");
+    confirmSpy.mockReturnValue(true);
+    fireEvent.click(view.getByRole("button", { name: "Áp dụng" }));
+    expect(electricity).toHaveValue("3.500");
+    confirmSpy.mockRestore();
   });
 
   test("changing source does not overwrite manually edited bank without confirmation", async () => {
@@ -398,7 +473,7 @@ describe("MotelSetupWizard", () => {
     fireEvent.click(view.getByLabelText(/Tài khoản nhận tiền/));
     fireEvent.click(view.getByRole("button", { name: "Áp dụng" }));
 
-    expect(confirmSpy).toHaveBeenCalledWith("Ghi đè thông tin tài khoản ngân hàng đã nhập?");
+    expect(confirmSpy).toHaveBeenCalledWith("Ghi đè cấu hình đã nhập?");
     expect(view.getByLabelText("Số tài khoản")).toHaveValue("MANUAL_BANK");
 
     confirmSpy.mockReturnValue(true);

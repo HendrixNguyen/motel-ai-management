@@ -79,9 +79,11 @@ export default function MotelSetupWizard({
   const [fields, setFields] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const [terminalRequest, setTerminalRequest] = useState(false);
   const [requestId, setRequestId] = useState<string>(
     () => initialDraftData?.pendingRequestId ?? crypto.randomUUID(),
   );
+  const previewGeneration = useRef(0);
 
   const [sourceMotelId, setSourceMotelId] = useState<string>("");
   const [copyGroups, setCopyGroups] = useState<CopyGroups>({ bank: false, services: false });
@@ -115,7 +117,8 @@ export default function MotelSetupWizard({
           })
           .catch((err: unknown) => {
             if (err && typeof err === "object" && "status" in err && err.status === 410) {
-              setRequestId(crypto.randomUUID());
+              setTerminalRequest(true);
+              setError("Kết quả yêu cầu cũ đã bị xóa. Không thể gửi lại bằng mã yêu cầu này.");
             }
           });
       }
@@ -172,23 +175,34 @@ export default function MotelSetupWizard({
     const src = motels.find((m) => m.id === sourceMotelId);
     if (!src) return;
 
-    if (draft.bankEnabled && (draft.bankAccount.accountNumber || draft.bankAccount.bankCode)) {
-      if (copyGroups.bank && !window.confirm("Ghi đè thông tin tài khoản ngân hàng đã nhập?")) {
-        return;
-      }
+    const servicesEdited = draft.electricityPrice !== "" || draft.waterPrice !== "" || draft.otherFees.length > 0;
+    if (
+      (copyGroups.bank && draft.bankEnabled && (draft.bankAccount.accountNumber || draft.bankAccount.bankCode)) ||
+      (copyGroups.services && servicesEdited)
+    ) {
+      if (!window.confirm("Ghi đè cấu hình đã nhập?")) return;
     }
+    const generation = ++previewGeneration.current;
+    const sourceId = sourceMotelId;
+    const templateId = selectedSourceTemplateId;
+    const shouldPreview = copyTemplate && Boolean(templateId);
+    if (shouldPreview) setSelectedTemplate(null);
+
 
     const nextDraft = applyMotelCopy(draft, src, copyGroups);
     setDraft(nextDraft);
 
-    if (copyTemplate && selectedSourceTemplateId) {
-      previewOwnedTemplate(src.id, selectedSourceTemplateId)
+    if (shouldPreview) {
+      previewOwnedTemplate(src.id, templateId)
         .then((preview) => {
+          if (generation !== previewGeneration.current || sourceId !== sourceMotelId || templateId !== selectedSourceTemplateId) return;
           setSelectedTemplate(preview);
           setTemplateSourceType("owned");
         })
         .catch(() => {
-          setError("Không thể tải mẫu từ nhà trọ đã chọn");
+          if (generation === previewGeneration.current && sourceId === sourceMotelId && templateId === selectedSourceTemplateId) {
+            setError("Không thể tải mẫu từ nhà trọ đã chọn");
+          }
         });
     }
   }
@@ -245,6 +259,7 @@ export default function MotelSetupWizard({
   }
 
   async function handleSubmit() {
+    if (terminalRequest) return;
     const parsed = prepareMotelInput(draft);
     if (!parsed.ok) {
       setError("Thông tin nhà trọ không hợp lệ");
@@ -282,7 +297,7 @@ export default function MotelSetupWizard({
       router.refresh();
     } catch (err: unknown) {
       if (err && typeof err === "object" && "status" in err && err.status === 410) {
-        setRequestId(crypto.randomUUID());
+        setTerminalRequest(true);
       }
       setError(err instanceof Error ? err.message : "Không thể tạo nhà trọ. Vui lòng thử lại.");
     } finally {
@@ -361,6 +376,8 @@ export default function MotelSetupWizard({
                       value={sourceMotelId}
                       onChange={(e) => {
                         const val = e.target.value;
+                        previewGeneration.current += 1;
+                        setSelectedTemplate((current) => current?.selection.kind === "motel" ? null : current);
                         setSourceMotelId(val);
                         if (!val) {
                           setSourceTemplates([]);
@@ -419,7 +436,11 @@ export default function MotelSetupWizard({
                         <select
                           className="w-full rounded-input border border-border-strong p-2 text-sm"
                           value={selectedSourceTemplateId}
-                          onChange={(e) => setSelectedSourceTemplateId(e.target.value)}
+                          onChange={(e) => {
+                        previewGeneration.current += 1;
+                        setSelectedTemplate((current) => current?.selection.kind === "motel" ? null : current);
+                        setSelectedSourceTemplateId(e.target.value);
+                      }}
                         >
                           {sourceTemplates.map((t) => (
                             <option key={t.id} value={t.id}>
@@ -825,7 +846,7 @@ export default function MotelSetupWizard({
               >
                 Quay lại
               </Button>
-              <Button pending={pending} pendingLabel="Đang tạo…" onClick={handleSubmit}>
+              <Button pending={pending} disabled={terminalRequest} pendingLabel="Đang tạo…" onClick={handleSubmit}>
                 Hoàn tất thiết lập
               </Button>
             </div>

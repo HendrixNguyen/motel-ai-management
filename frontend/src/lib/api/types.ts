@@ -40,6 +40,7 @@ export type { RenterStatus, RoomStatus };
  * useless.
  */
 export type ErrorCode =
+  | "MOTEL_SETUP_REQUIRED"
   | "VALIDATION_ERROR"
   | "UNAUTHORIZED"
   | "MAGIC_LINK_EXPIRED"
@@ -668,4 +669,3 @@ export interface SetupMotelResult {
   roomCount: number;
   templateId: string | null;
 }
-

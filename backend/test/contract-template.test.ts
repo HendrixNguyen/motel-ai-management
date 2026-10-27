@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, setDefaultTimeout, test } from "bun:test";
+import { eq } from "drizzle-orm";
 import { app } from "@/app";
 import { db } from "@/db";
 import { resetDb } from "@/db/test-db";
@@ -85,6 +86,27 @@ describe("contract templates", () => {
       clauses: [{ title: "", content: "x" }],
     });
     expect(bad.status).toBe(400);
+  });
+
+  test("updates template only while it remains owned by destination motel", async () => {
+    const cookie = await login("template-update@example.com");
+    const me = await api("GET", "/auth/me", cookie);
+    const manager = (await me.json()) as { id: string };
+    const motel = await createMotel(manager.id);
+    const created = await api("POST", `/manager/motels/${motel.id}/contract-templates`, cookie, {
+      name: "Mẫu ban đầu",
+      clauses: [],
+    });
+    const template = (await created.json()) as { id: string };
+    const foreignMotel = await createMotel(manager.id);
+    await db.update(contractTemplates).set({ motelId: foreignMotel.id }).where(eq(contractTemplates.id, template.id));
+    const updated = await api(
+      "PATCH",
+      `/manager/motels/${motel.id}/contract-templates/${template.id}`,
+      cookie,
+      { name: "Mẫu sửa" },
+    );
+    expect(updated.status).toBe(404);
   });
 
   test("hides other manager motel and refuses referenced deletion", async () => {

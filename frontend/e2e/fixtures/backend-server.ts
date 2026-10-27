@@ -1011,6 +1011,9 @@ export function createFixtureBackend(
         if (existing) {
           return json(existing.result, 200);
         }
+        if (state.motels.length === 0 && body.mode === "quick") {
+          return error(409, "MOTEL_SETUP_REQUIRED", "Thiết lập đầy đủ nhà trọ đầu tiên");
+        }
         const motelId = crypto.randomUUID();
         const newMotel: MotelResponse = {
           id: motelId,
