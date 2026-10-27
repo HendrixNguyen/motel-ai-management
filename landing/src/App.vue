@@ -90,7 +90,7 @@ function resetDemo() {
         <a href="#cau-hoi">Câu hỏi</a>
         <a href="#lien-he">Liên hệ</a>
       </nav>
-      <a class="button button-small" href="#demo">Xem demo <span aria-hidden="true">↗</span></a>
+      <a class="button button-small" href="#lien-he">Đăng ký trải nghiệm sớm</a>
     </header>
 
     <main id="main">
@@ -103,10 +103,8 @@ function resetDemo() {
             khoản cần trả qua liên kết riêng.
           </p>
           <div class="hero-actions">
-            <a class="button" href="#demo">Xem demo <span aria-hidden="true">↗</span></a>
-            <a class="text-link" href="#tinh-nang"
-              >Khám phá tính năng <span aria-hidden="true">↓</span></a
-            >
+            <a class="button" href="#lien-he">Đăng ký trải nghiệm sớm <span aria-hidden="true">↗</span></a>
+            <a class="text-link" href="#demo">Xem hóa đơn mẫu <span aria-hidden="true">↓</span></a>
           </div>
           <div class="hero-note">
             <span class="mini-check" aria-hidden="true">✓</span> Không cần cài thêm ứng dụng cho
@@ -206,10 +204,10 @@ function resetDemo() {
               <h3>Thấy rõ cách tính mỗi khoản</h3>
               <p>Chỉ số cũ, chỉ số mới và đơn giá hiện ngay trên hóa đơn để khách dễ đối chiếu.</p>
               <div class="mini-bill" aria-hidden="true">
-                <span>Tiền phòng</span><b>2.500.000đ</b><span>Điện · 70 kWh</span><b>245.000đ</b
-                ><span>Nước · 5 m³</span><b>75.000đ</b>
-                <hr />
-                <strong>Tổng cộng</strong><strong>2.820.000đ</strong>
+                <span>Tiền phòng</span><b>2.500.000đ</b>
+                <span>Điện<small>1.240 → 1.310 · 70 kWh × 3.500đ</small></span><b>245.000đ</b
+                ><span>Nước<small>80 → 85 · 5 m³ × 15.000đ</small></span><b>75.000đ</b>
+                <div class="mini-bill-total"><strong>Tổng cộng</strong><strong>2.820.000đ</strong></div>
               </div>
             </article>
             <article class="feature-card feature-qr">
@@ -260,16 +258,16 @@ function resetDemo() {
       <section id="cach-hoat-dong" class="process-section wrap">
         <div class="process-intro">
           <p class="eyebrow">MỘT KỲ THU, BA BƯỚC RÕ RÀNG</p>
-          <h2>Từ chỉ số<br />đến khoản thu.</h2>
-          <p>Quy trình tháng vẫn quen thuộc. Những con số chỉ cần ghi một lần.</p>
+          <h2>Từ danh sách phòng<br />đến hóa đơn.</h2>
+          <p>Nắm trạng thái từng phòng, chốt chỉ số và gửi khoản thu cho khách.</p>
           <a class="text-link" href="#demo">Thử với phòng mẫu <span aria-hidden="true">↓</span></a>
         </div>
         <div class="process-list">
           <article class="process-item">
             <div class="process-number">01</div>
             <div>
-              <h3>Ghi chỉ số tại phòng</h3>
-              <p>Nhập điện, nước theo từng phòng trong kỳ thu.</p>
+              <h3>Quản lý danh sách phòng</h3>
+              <p>Nắm phòng trống, phòng đang thuê và thông tin khách.</p>
             </div>
             <span class="process-icon" aria-hidden="true"
               ><svg viewBox="0 0 24 24"><path d="M4 20h16M6 16l9-9 3 3-9 9H6zm8-8 3 3" /></svg
@@ -278,8 +276,8 @@ function resetDemo() {
           <article class="process-item">
             <div class="process-number">02</div>
             <div>
-              <h3>Hóa đơn hiện từng phép tính</h3>
-              <p>Tiền phòng, điện nước và tổng tiền được tách rõ.</p>
+              <h3>Chốt điện nước trong vài thao tác</h3>
+              <p>Nhập chỉ số mới; hệ thống đối chiếu số cũ và tính tiền theo đơn giá.</p>
             </div>
             <span class="process-icon" aria-hidden="true"
               ><svg viewBox="0 0 24 24">
@@ -289,8 +287,8 @@ function resetDemo() {
           <article class="process-item">
             <div class="process-number">03</div>
             <div>
-              <h3>Khách chuyển khoản, chủ nhà duyệt</h3>
-              <p>Khách dùng VietQR; chủ nhà xác nhận sau khi kiểm tra.</p>
+              <h3>Gửi link hóa đơn cho khách</h3>
+              <p>Chia sẻ liên kết riêng để khách xem từng khoản trên điện thoại.</p>
             </div>
             <span class="process-icon" aria-hidden="true"
               ><svg viewBox="0 0 24 24">
@@ -328,18 +326,18 @@ function resetDemo() {
                 ><span>Nhà Số Gọn</span><span class="phone-menu">•••</span>
               </div>
               <p class="phone-greeting">Xin chào, Gia Hân</p>
-              <div class="phone-room">PHÒNG A102 <span>THÁNG 10</span></div>
+              <div class="phone-room">PHÒNG A102 <span>THÁNG 10/2026</span></div>
               <div class="phone-amount">
                 <small>Tổng tiền cần thanh toán</small><strong>2.820.000<span>đ</span></strong
                 ><i>Chờ thanh toán</i>
               </div>
               <div class="phone-line"><span>Tiền phòng</span><b>2.500.000đ</b></div>
               <div class="phone-line">
-                <span>Điện <small>70 kWh × 3.500đ</small></span
+                <span>Điện <small>1.240 → 1.310 · 70 kWh × 3.500đ</small></span
                 ><b>245.000đ</b>
               </div>
               <div class="phone-line">
-                <span>Nước <small>5 m³ × 15.000đ</small></span
+                <span>Nước <small>80 → 85 · 5 m³ × 15.000đ</small></span
                 ><b>75.000đ</b>
               </div>
               <button type="button" class="phone-pay" disabled>Thanh toán qua VietQR</button
@@ -507,41 +505,26 @@ function resetDemo() {
 
       <section id="lien-he" class="contact-section wrap">
         <div class="contact-copy">
-          <p class="eyebrow">LIÊN HỆ VỚI NHÀ SỐ GỌN</p>
-          <h2>Bạn có góp ý<br /><span>hoặc câu hỏi?</span></h2>
-          <p>
-            Gửi câu hỏi về sản phẩm, chia sẻ trải nghiệm vận hành nhà trọ hoặc đề xuất tính năng.
-            Mọi góp ý đều giúp sản phẩm sát nhu cầu thực tế hơn.
-          </p>
+          <p class="eyebrow">ĐĂNG KÝ TRẢI NGHIỆM SỚM</p>
+          <h2>Cùng làm nhà trọ<br /><span>gọn hơn mỗi ngày.</span></h2>
+          <p>Để lại số điện thoại hoặc Zalo. Nhà Số Gọn sẽ liên hệ để trao đổi về nhu cầu quản lý của bạn.</p>
         </div>
         <div class="contact-card">
           <form ref="contactForm" class="contact-form" @submit.prevent="submitContactForm">
-            <label for="contact-name">Tên của bạn</label>
+            <label for="contact-phone">Số điện thoại / Zalo</label>
             <input
-              id="contact-name"
-              name="name"
-              type="text"
-              autocomplete="name"
-              maxlength="100"
+              id="contact-phone"
+              name="phone"
+              type="tel"
+              inputmode="tel"
+              autocomplete="tel"
+              minlength="9"
+              maxlength="20"
+              pattern="(?:\+?84|0)[0-9 .()-]{8,12}"
+              title="Nhập số điện thoại Việt Nam bắt đầu bằng 0 hoặc +84."
               required
             />
-            <label for="contact-email">Email để phản hồi</label>
-            <input
-              id="contact-email"
-              name="email"
-              type="email"
-              autocomplete="email"
-              maxlength="254"
-              required
-            />
-            <label for="contact-topic">Bạn muốn trao đổi về</label>
-            <select id="contact-topic" name="topic" required>
-              <option value="" disabled selected>Chọn chủ đề</option>
-              <option value="Câu hỏi">Câu hỏi</option>
-              <option value="Góp ý">Góp ý</option>
-              <option value="Đề xuất tính năng">Đề xuất tính năng</option>
-            </select>
-            <label for="contact-message">Nội dung</label>
+            <label for="contact-message">Bạn muốn trao đổi gì?</label>
             <textarea
               id="contact-message"
               name="message"
@@ -562,11 +545,11 @@ function resetDemo() {
               type="submit"
               :disabled="!formspreeReady || contactStatus === 'sending'"
             >
-              {{ contactStatus === "sending" ? "Đang gửi…" : "Gửi liên hệ" }}
+              {{ contactStatus === "sending" ? "Đang gửi…" : "Đăng ký trải nghiệm" }}
               <span aria-hidden="true">↗</span>
             </button>
             <p v-if="!formspreeReady" class="contact-notice" role="status">
-              Form chưa được kết nối. Bạn vẫn có thể gửi email trực tiếp tới
+              Form chưa kết nối. Liên hệ qua email
               <a href="mailto:hn112000@gmail.com">hn112000@gmail.com</a>.
             </p>
             <p v-else-if="contactStatus === 'success'" class="contact-success" role="status">
@@ -577,7 +560,7 @@ function resetDemo() {
               <a href="mailto:hn112000@gmail.com">hn112000@gmail.com</a>.
             </p>
             <p class="contact-privacy">
-              Thông tin được gửi qua Formspree để chuyển tới email liên hệ.
+              Số điện thoại và lời nhắn được gửi qua Formspree tới Nhà Số Gọn để phản hồi đăng ký.
             </p>
           </form>
         </div>
