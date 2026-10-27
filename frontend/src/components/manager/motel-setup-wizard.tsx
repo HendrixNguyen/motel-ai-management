@@ -80,7 +80,7 @@ export default function MotelSetupWizard({
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [terminalRequest, setTerminalRequest] = useState(false);
-  const [requestId, setRequestId] = useState<string>(
+  const [requestId] = useState<string>(
     () => initialDraftData?.pendingRequestId ?? crypto.randomUUID(),
   );
   const previewGeneration = useRef(0);
