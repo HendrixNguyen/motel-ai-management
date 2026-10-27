@@ -1,7 +1,8 @@
 import { and, asc, desc, eq, sql } from "drizzle-orm";
 import { createHash } from "node:crypto";
-import { db, type Db } from "@/db";
+import { db, type Db, type DbExecutor, type DbTransaction } from "@/db";
 import { resolveOwnedMotel, resolveRoomInMotel, resolveRenterInMotel } from "@/middleware/tenancy";
+import { motels } from "@/modules/motel/motel.schema";
 import { getRoomName } from "@/modules/room/room.service";
 import { getRenterForConsent } from "@/modules/renter/renter.service";
 import { parseAmount, type VndString } from "@/shared/money";
@@ -81,11 +82,34 @@ async function clearDefault(
   tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
   motelId: string,
 ) {
+  await tx.execute(sql`SELECT id FROM ${motels} WHERE id = ${motelId} FOR UPDATE`);
   await tx
     .update(contractTemplates)
     .set({ isDefault: false })
     .where(and(eq(contractTemplates.motelId, motelId), eq(contractTemplates.isDefault, true)));
 }
+
+export async function createContractTemplateInTransaction(
+  tx: DbTransaction,
+  motelId: string,
+  managerId: string,
+  input: ContractTemplateInput,
+): Promise<ContractTemplateResponse> {
+  await resolveOwnedMotel(motelId, managerId, tx);
+  validateTemplate(input);
+  if (input.isDefault) await clearDefault(tx, motelId);
+  const [row] = await tx
+    .insert(contractTemplates)
+    .values({
+      motelId,
+      name: input.name.trim(),
+      clauses: input.clauses,
+      isDefault: input.isDefault ?? false,
+    })
+    .returning();
+  return templateResponse(row!);
+}
+
 export async function listContractTemplates(motelId: string, managerId: string) {
   await resolveOwnedMotel(motelId, managerId);
   return (
@@ -101,21 +125,9 @@ export async function createContractTemplate(
   managerId: string,
   input: ContractTemplateInput,
 ) {
-  await resolveOwnedMotel(motelId, managerId);
-  validateTemplate(input);
-  const result = await db.transaction(async (tx) => {
-    if (input.isDefault) await clearDefault(tx, motelId);
-    return tx
-      .insert(contractTemplates)
-      .values({
-        motelId,
-        name: input.name.trim(),
-        clauses: input.clauses,
-        isDefault: input.isDefault ?? false,
-      })
-      .returning();
+  return db.transaction(async (tx) => {
+    return createContractTemplateInTransaction(tx, motelId, managerId, input);
   });
-  return templateResponse(result[0]!);
 }
 export async function getContractTemplate(motelId: string, templateId: string, managerId: string) {
   await resolveOwnedMotel(motelId, managerId);

@@ -1,5 +1,5 @@
 import { and, eq } from "drizzle-orm";
-import { db } from "@/db";
+import { db, type DbExecutor } from "@/db";
 import { motels } from "@/modules/motel/motel.schema";
 import { rooms } from "@/modules/room/room.schema";
 import { renters } from "@/modules/renter/renter.schema";
@@ -8,8 +8,12 @@ import { AppError } from "@/shared/errors";
 export type MotelRow = typeof motels.$inferSelect;
 export type RoomRow = typeof rooms.$inferSelect;
 
-export async function resolveOwnedMotel(motelId: string, managerId: string): Promise<MotelRow> {
-  const row = await db.query.motels.findFirst({
+export async function resolveOwnedMotel(
+  motelId: string,
+  managerId: string,
+  executor: DbExecutor = db,
+): Promise<MotelRow> {
+  const row = await executor.query.motels.findFirst({
     where: and(eq(motels.id, motelId), eq(motels.managerId, managerId)),
   });
   if (!row) {

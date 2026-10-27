@@ -1,6 +1,6 @@
-import { asc, eq } from "drizzle-orm";
+import { asc, eq, sql } from "drizzle-orm";
 import { randomBytes } from "node:crypto";
-import { db } from "@/db";
+import { db, type DbExecutor, type DbTransaction } from "@/db";
 import { resolveOwnedMotel, type MotelRow } from "@/middleware/tenancy";
 import { AppError } from "@/shared/errors";
 import { parseAmount } from "@/shared/money";
@@ -88,11 +88,16 @@ export async function listMotels(managerId: string): Promise<MotelResponse[]> {
  * Fields are copied one by one rather than spread, so nothing the client sent beyond the
  * documented body — a `managerId`, for instance — can ever reach the insert.
  */
-export async function createMotel(
+export async function lockMotelSetup(tx: DbTransaction, managerId: string): Promise<void> {
+  await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext('motel_setup:' || ${managerId}))`);
+}
+
+export async function createMotelInTransaction(
+  tx: DbExecutor,
   managerId: string,
   input: CreateMotelInput,
 ): Promise<MotelResponse> {
-  const [row] = await db
+  const [row] = await tx
     .insert(motels)
     .values({
       managerId,
@@ -106,6 +111,13 @@ export async function createMotel(
     })
     .returning();
   return toResponse(row!);
+}
+
+export async function createMotel(
+  managerId: string,
+  input: CreateMotelInput,
+): Promise<MotelResponse> {
+  return createMotelInTransaction(db, managerId, input);
 }
 
 export async function getMotel(motelId: string, managerId: string): Promise<MotelResponse> {
