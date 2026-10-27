@@ -77,6 +77,18 @@ export function createFixtureBackend(
       createdAt: string;
     }
   >();
+  const setupRequests = new Map<
+    string,
+    {
+      result: {
+        motelId: string;
+        mode: "full" | "quick";
+        roomCount: number;
+        templateId: string | null;
+      };
+      createdAt: number;
+    }
+  >();
   const signedRenters = new Map<string, string>();
   const magicLinks = new Map([
     ["flow-token", { expiresAt: Date.now() + 24 * 60 * 60 * 1000 }],
@@ -929,6 +941,131 @@ export function createFixtureBackend(
         }
 
         return json({ ok: true });
+      }
+      if (method === "GET" && path === "/api/manager/contract-template-catalog") {
+        return json([
+          {
+            key: "standard-vn",
+            version: 1,
+            name: "Hợp đồng thuê phòng trọ chuẩn",
+            description: "Mẫu hợp đồng tuân thủ pháp luật Việt Nam",
+          },
+        ]);
+      }
+      const catalogPreview =
+        /^\/api\/manager\/contract-template-catalog\/([^/]+)\/([^/]+)$/.exec(path);
+      if (method === "GET" && catalogPreview) {
+        const [, key, versionStr] = catalogPreview;
+        return json({
+          name: "Hợp đồng thuê phòng trọ chuẩn",
+          clauses: [
+            { title: "Điều 1: Mục đích thuê", content: "Bên B thuê phòng trọ để ở." },
+            { title: "Điều 2: Giá thuê và thanh toán", content: "Thanh toán đầu tháng." },
+          ],
+          selection: { kind: "catalog", key: key!, version: Number(versionStr) },
+        });
+      }
+      const setupPreview =
+        /^\/api\/manager\/motels\/([^/]+)\/contract-templates\/([^/]+)\/setup-preview$/.exec(path);
+      if (method === "GET" && setupPreview) {
+        const [, motelId, templateId] = setupPreview;
+        return json({
+          name: "Mẫu hợp đồng nguồn",
+          clauses: [{ title: "Tiền thuê", content: "Đúng hạn" }],
+          selection: {
+            kind: "motel",
+            motelId: motelId!,
+            templateId: templateId!,
+            fingerprint: "fake-fingerprint",
+          },
+        });
+      }
+      const fromCatalog =
+        /^\/api\/manager\/motels\/([^/]+)\/contract-templates\/from-catalog$/.exec(path);
+      if (method === "POST" && fromCatalog) {
+        const [, motelId] = fromCatalog;
+        const body = await input<{ catalogKey: string; catalogVersion: number; isDefault: boolean }>();
+        const created = {
+          id: crypto.randomUUID(),
+          motelId: motelId!,
+          name: "Hợp đồng thuê phòng trọ chuẩn",
+          clauses: [
+            { title: "Điều 1: Mục đích thuê", content: "Bên B thuê phòng trọ để ở." },
+            { title: "Điều 2: Giá thuê và thanh toán", content: "Thanh toán đầu tháng." },
+          ],
+          isDefault: body.isDefault,
+          createdAt: new Date().toISOString(),
+        };
+        templateStore.set(managerSession, created);
+        return json(created, 201);
+      }
+      if (method === "POST" && path === "/api/manager/motels/setup") {
+        const body = await input<{
+          requestId: string;
+          mode: "full" | "quick";
+          motel: CreateMotelInput;
+          template?: unknown;
+          rooms?: CreateRoomInput[];
+        }>();
+        const existing = setupRequests.get(body.requestId);
+        if (existing) {
+          return json(existing.result, 200);
+        }
+        const motelId = crypto.randomUUID();
+        const newMotel: MotelResponse = {
+          id: motelId,
+          managerId: MANAGER_ME.id,
+          name: body.motel.name,
+          address: body.motel.address ?? null,
+          electricityPrice: body.motel.electricityPrice,
+          waterPrice: body.motel.waterPrice,
+          otherFees: body.motel.otherFees ?? [],
+          bankAccount: body.motel.bankAccount ?? null,
+          createdAt: new Date().toISOString(),
+        };
+        state.motels.push(newMotel);
+        let createdRoomsCount = 0;
+        if (body.mode === "full" && Array.isArray(body.rooms)) {
+          for (const r of body.rooms) {
+            state.rooms.push({
+              id: crypto.randomUUID(),
+              motelId,
+              name: r.name,
+              basePrice: r.basePrice,
+              floor: r.floor ?? null,
+              status: "available",
+              createdAt: new Date().toISOString(),
+            });
+            createdRoomsCount++;
+          }
+        }
+        let templateId: string | null = null;
+        if (body.template) {
+          templateId = crypto.randomUUID();
+          templateStore.set(managerSession, {
+            id: templateId,
+            motelId,
+            name: "Hợp đồng chuẩn",
+            clauses: [{ title: "Tiền thuê", content: "Đúng hạn" }],
+            isDefault: true,
+            createdAt: new Date().toISOString(),
+          });
+        }
+        const result = {
+          motelId,
+          mode: body.mode,
+          roomCount: createdRoomsCount,
+          templateId,
+        };
+        setupRequests.set(body.requestId, { result, createdAt: Date.now() });
+        return json(result, 201);
+      }
+      const setupReqStatus = /^\/api\/manager\/motels\/setup-requests\/([^/]+)$/.exec(path);
+      if (method === "GET" && setupReqStatus) {
+        const [, requestId] = setupReqStatus;
+        const entry = setupRequests.get(requestId!);
+        if (!entry) return error(404, "NOT_FOUND", "Không tìm thấy yêu cầu");
+        return json(entry.result);
       }
       if (path === "/api/manager/motels") {
         if (method === "GET")

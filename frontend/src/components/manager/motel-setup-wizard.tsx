@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Button from "@/components/ui/button";
 import Field from "@/components/ui/field";
@@ -44,6 +44,7 @@ export default function MotelSetupWizard({
 }: MotelSetupWizardProps) {
   const router = useRouter();
   const notify = useToast();
+  const summaryRef = useRef<HTMLDivElement>(null);
   const prefix = useId();
   const id = (f: string) => `${prefix}-${f}`;
 
@@ -99,25 +100,36 @@ export default function MotelSetupWizard({
   const [genPrice, setGenPrice] = useState<string>("2500000");
 
   useEffect(() => {
-    if (!open || !initialDraftData?.pendingRequestId) return;
-    getMotelSetupResult(initialDraftData.pendingRequestId)
-      .then((res) => {
-        sessionStorage.removeItem(storageKey);
-        notify({ message: "Nhà trọ đã được tạo từ trước" });
-        window.dispatchEvent(new CustomEvent("motel-updated", { detail: res }));
-        onClose();
-        router.refresh();
-      })
-      .catch((err: unknown) => {
-        if (err && typeof err === "object" && "status" in err && err.status === 410) {
-          setRequestId(crypto.randomUUID());
-        }
-      });
-  }, [open, initialDraftData, storageKey, notify, onClose, router]);
+    if (!open) return;
+    try {
+      const saved = sessionStorage.getItem(storageKey);
+      const parsed = saved ? parseSetupDraft(saved) : null;
+      if (parsed?.pendingRequestId) {
+        getMotelSetupResult(parsed.pendingRequestId)
+          .then((res) => {
+            sessionStorage.removeItem(storageKey);
+            notify({ message: "Nhà trọ đã được tạo từ trước" });
+            window.dispatchEvent(new CustomEvent("motel-updated", { detail: res }));
+            onClose();
+            router.refresh();
+          })
+          .catch((err: unknown) => {
+            if (err && typeof err === "object" && "status" in err && err.status === 410) {
+              setRequestId(crypto.randomUUID());
+            }
+          });
+      }
+    } catch {
+      // ignore
+    }
+  }, [open, storageKey, notify, onClose, router]);
 
   useEffect(() => {
     if (!open) return;
     try {
+      const saved = sessionStorage.getItem(storageKey);
+      const parsed = saved ? parseSetupDraft(saved) : null;
+      if (parsed?.pendingRequestId) return;
       const stored: StoredSetupDraft = {
         version: 1,
         mode,
@@ -185,7 +197,8 @@ export default function MotelSetupWizard({
     const parsed = prepareMotelInput(draft);
     if (!parsed.ok) {
       setFields(parsed.fields ?? {});
-      setError("Vui lòng kiểm tra lại thông tin");
+      setError(null);
+      setTimeout(() => summaryRef.current?.focus(), 0);
       return false;
     }
     setFields({});
@@ -303,9 +316,36 @@ export default function MotelSetupWizard({
       }
     >
       <div className="space-y-6">
-        {error && (
-          <div role="alert" className="rounded-input border border-danger bg-danger-bg p-3 text-danger">
-            {error}
+        {(error || (step === 1 && Object.keys(fields).length > 0)) && (
+          <div
+            ref={summaryRef}
+            role="alert"
+            tabIndex={-1}
+            className="rounded-input border border-danger bg-danger-bg p-3 text-danger focus:outline-2 focus:outline-offset-2 focus:outline-danger"
+          >
+            {error ? (
+              <p>{error}</p>
+            ) : (
+              <>
+                <p className="font-semibold">Kiểm tra các trường sau:</p>
+                <ul className="mt-2 list-disc space-y-2 pl-5">
+                  {Object.entries(fields).map(([key, message]) => (
+                    <li key={key}>
+                      <a
+                        href={`#${id(key)}`}
+                        className="underline"
+                        onClick={(event) => {
+                          event.preventDefault();
+                          document.getElementById(id(key))?.focus();
+                        }}
+                      >
+                        {message}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
           </div>
         )}
 
