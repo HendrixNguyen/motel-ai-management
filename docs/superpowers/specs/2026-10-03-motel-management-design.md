@@ -113,6 +113,22 @@ Money is `NUMERIC(14,0)` (VND has no practical subunit). Meter values are `NUMER
 | bankAccount | JSONB | `{bankCode, accountNumber, accountName}` for VietQR. Default `null` |
 | createdAt | TIMESTAMPTZ | DEFAULT now() |
 
+### motel_setup_requests
+
+| Field | Type | Notes |
+|-------|------|-------|
+| id | UUID | PK |
+| managerId | UUID | FK → managers, NOT NULL, ON DELETE CASCADE |
+| requestId | UUID | NOT NULL |
+| fingerprint | TEXT | NOT NULL |
+| motelId | UUID | FK → motels, nullable, ON DELETE SET NULL |
+| templateId | UUID | FK → contract_templates, nullable, ON DELETE SET NULL |
+| mode | TEXT | NOT NULL, CHECK in ('full', 'quick') |
+| roomCount | INT | NOT NULL, CHECK ((mode = 'full' AND roomCount >= 1 AND roomCount <= 100) OR (mode = 'quick' AND roomCount = 0)) |
+| createdAt | TIMESTAMPTZ | DEFAULT now() |
+
+UNIQUE (`managerId`, `requestId`). Null `motelId` represents deleted motel result (returning 410 on lookup/replay).
+
 ### rooms
 
 | Field | Type | Notes |

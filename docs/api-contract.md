@@ -124,7 +124,9 @@ is made from a Server Component with the cookie forwarded.
 | Method | Path        | Notes                                                                                                                          |
 | ------ | ----------- | ------------------------------------------------------------------------------------------------------------------------------ |
 | GET    | `/`         | All motels owned by the manager                                                                                                |
-| POST   | `/`         | Create; `400 VALIDATION_ERROR` if `electricityPrice`/`waterPrice` are missing or not strings                                   |
+| POST   | `/`         | Create; `409 MOTEL_SETUP_REQUIRED` if manager has zero motels; `400 VALIDATION_ERROR` if `electricityPrice`/`waterPrice` are missing or not strings |
+| POST   | `/setup`    | Atomic full/quick setup; 201 created, 200 replayed idempotently. `409 MOTEL_SETUP_REQUIRED` if quick with 0 motels; `409 IDEMPOTENCY_CONFLICT` on changed payload; `410 SETUP_RESULT_DELETED` if motel deleted. |
+| GET    | `/setup-requests/:requestId` | Status of setup request; 200 with result, 404 unknown, 410 if motel was deleted. |
 | GET    | `/:motelId` | `404` if not owned by caller                                                                                                   |
 | PATCH  | `/:motelId` | Partial update of prices, fees, bank account, address. A key absent from the body is never written; an explicit `null` clears. |
 | DELETE | `/:motelId` | `409` while anything still points at it — occupied rooms, rooms, renters, billing periods or contract templates                |

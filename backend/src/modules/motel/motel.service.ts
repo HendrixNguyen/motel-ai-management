@@ -117,7 +117,17 @@ export async function createMotel(
   managerId: string,
   input: CreateMotelInput,
 ): Promise<MotelResponse> {
-  return createMotelInTransaction(db, managerId, input);
+  return db.transaction(async (tx) => {
+    await lockMotelSetup(tx, managerId);
+    const motelCount = await tx.$count(motels, eq(motels.managerId, managerId));
+    if (motelCount === 0) {
+      throw new AppError(
+        "MOTEL_SETUP_REQUIRED",
+        "Chưa có nhà trọ nào. Vui lòng thiết lập đầy đủ thông tin nhà trọ đầu tiên.",
+      );
+    }
+    return createMotelInTransaction(tx, managerId, input);
+  });
 }
 
 export async function getMotel(motelId: string, managerId: string): Promise<MotelResponse> {
@@ -163,38 +173,41 @@ export async function updateMotel(
  * The counts come from the owning modules' services, never from their tables (ADR-0004).
  */
 export async function deleteMotel(motelId: string, managerId: string): Promise<void> {
-  await resolveOwnedMotel(motelId, managerId);
+  await db.transaction(async (tx) => {
+    await lockMotelSetup(tx, managerId);
+    await resolveOwnedMotel(motelId, managerId, tx);
 
-  const occupiedRooms = await countOccupiedRoomsForMotel(motelId);
-  if (occupiedRooms > 0) {
-    throw AppError.conflict(
-      `Còn ${occupiedRooms} phòng đang có người thuê. Hãy chuyển phòng về trống trước khi xóa nhà trọ.`,
-    );
-  }
+    const occupiedRooms = await countOccupiedRoomsForMotel(motelId);
+    if (occupiedRooms > 0) {
+      throw AppError.conflict(
+        `Còn ${occupiedRooms} phòng đang có người thuê. Hãy chuyển phòng về trống trước khi xóa nhà trọ.`,
+      );
+    }
 
-  const rooms = await countRoomsForMotel(motelId);
-  if (rooms > 0) {
-    throw AppError.conflict(`Còn ${rooms} phòng. Hãy xóa hết phòng trước khi xóa nhà trọ.`);
-  }
+    const rooms = await countRoomsForMotel(motelId);
+    if (rooms > 0) {
+      throw AppError.conflict(`Còn ${rooms} phòng. Hãy xóa hết phòng trước khi xóa nhà trọ.`);
+    }
 
-  const renters = await countRentersForMotel(motelId);
-  if (renters > 0) {
-    throw AppError.conflict(`Còn ${renters} người thuê. Hãy xóa người thuê trước khi xóa nhà trọ.`);
-  }
+    const renters = await countRentersForMotel(motelId);
+    if (renters > 0) {
+      throw AppError.conflict(`Còn ${renters} người thuê. Hãy xóa người thuê trước khi xóa nhà trọ.`);
+    }
 
-  const billingPeriods = await countBillingPeriodsForMotel(motelId);
-  if (billingPeriods > 0) {
-    throw AppError.conflict(
-      `Còn ${billingPeriods} kỳ thanh toán. Hãy xóa kỳ thanh toán trước khi xóa nhà trọ.`,
-    );
-  }
+    const billingPeriods = await countBillingPeriodsForMotel(motelId);
+    if (billingPeriods > 0) {
+      throw AppError.conflict(
+        `Còn ${billingPeriods} kỳ thanh toán. Hãy xóa kỳ thanh toán trước khi xóa nhà trọ.`,
+      );
+    }
 
-  const contractTemplates = await countContractTemplatesForMotel(motelId);
-  if (contractTemplates > 0) {
-    throw AppError.conflict(
-      `Còn ${contractTemplates} mẫu hợp đồng. Hãy xóa mẫu hợp đồng trước khi xóa nhà trọ.`,
-    );
-  }
+    const contractTemplates = await countContractTemplatesForMotel(motelId);
+    if (contractTemplates > 0) {
+      throw AppError.conflict(
+        `Còn ${contractTemplates} mẫu hợp đồng. Hãy xóa mẫu hợp đồng trước khi xóa nhà trọ.`,
+      );
+    }
 
-  await db.delete(motels).where(eq(motels.id, motelId));
+    await tx.delete(motels).where(eq(motels.id, motelId));
+  });
 }
