@@ -269,7 +269,7 @@ export function createFixtureBackend(
               ]
             : [],
         ),
-      meterReadings: new Map(),
+        meterReadings: new Map(),
       });
     return states.get(session)!;
   };
@@ -467,8 +467,7 @@ export function createFixtureBackend(
             motel: { id: "motel", name: "Nhà trọ Minh Anh" },
             activeContract: null,
           });
-        if (method === "GET" && path === "/api/renter/billing/unpaid-invoices")
-          return json([]);
+        if (method === "GET" && path === "/api/renter/billing/unpaid-invoices") return json([]);
         if (method === "GET" && path === "/api/renter/billing/periods")
           return json([
             {
@@ -614,8 +613,10 @@ export function createFixtureBackend(
                   clauses: [{ title: "Tiền thuê", content: "Đúng hạn" }],
                   otpSentAt: null,
                   otpSignedAt: null,
-                  managerSentAt: managerSession === "contract-active" ? "2026-01-02T00:00:00.000Z" : null,
-                  consentAcceptedAt: managerSession === "contract-active" ? "2026-01-03T00:00:00.000Z" : null,
+                  managerSentAt:
+                    managerSession === "contract-active" ? "2026-01-02T00:00:00.000Z" : null,
+                  consentAcceptedAt:
+                    managerSession === "contract-active" ? "2026-01-03T00:00:00.000Z" : null,
                   consentMethod: managerSession === "contract-active" ? "session_consent" : null,
                   consentEvidence:
                     managerSession === "contract-active"
@@ -907,9 +908,7 @@ export function createFixtureBackend(
         // manager billing UI can surface realistic validation behaviour.
         if (motelId === MOTEL.id && periodId === BILLING_PERIOD_ID && readings.length > 0) {
           for (const reading of readings) {
-            const baseRoom = CAPTURE_PERIOD_DETAIL.rooms.find(
-              (room) => room.id === reading.roomId,
-            );
+            const baseRoom = CAPTURE_PERIOD_DETAIL.rooms.find((room) => room.id === reading.roomId);
             const baseReading = baseRoom?.readings.find((row) => row.type === reading.type);
             if (!baseReading)
               return error(400, "VALIDATION_ERROR", "Không tìm thấy chỉ số gốc để so sánh.");
@@ -920,11 +919,7 @@ export function createFixtureBackend(
             const beforeScaled = BigInt(before.replace(".", ""));
             const afterScaled = BigInt(after.replace(".", ""));
             if (afterScaled < beforeScaled)
-              return error(
-                400,
-                "VALIDATION_ERROR",
-                "Chỉ số mới phải lớn hơn hoặc bằng chỉ số cũ.",
-              );
+              return error(400, "VALIDATION_ERROR", "Chỉ số mới phải lớn hơn hoặc bằng chỉ số cũ.");
           }
         }
 
@@ -952,8 +947,9 @@ export function createFixtureBackend(
           },
         ]);
       }
-      const catalogPreview =
-        /^\/api\/manager\/contract-template-catalog\/([^/]+)\/([^/]+)$/.exec(path);
+      const catalogPreview = /^\/api\/manager\/contract-template-catalog\/([^/]+)\/([^/]+)$/.exec(
+        path,
+      );
       if (method === "GET" && catalogPreview) {
         const [, key, versionStr] = catalogPreview;
         return json({
@@ -984,7 +980,11 @@ export function createFixtureBackend(
         /^\/api\/manager\/motels\/([^/]+)\/contract-templates\/from-catalog$/.exec(path);
       if (method === "POST" && fromCatalog) {
         const [, motelId] = fromCatalog;
-        const body = await input<{ catalogKey: string; catalogVersion: number; isDefault: boolean }>();
+        const body = await input<{
+          catalogKey: string;
+          catalogVersion: number;
+          isDefault: boolean;
+        }>();
         const created = {
           id: crypto.randomUUID(),
           motelId: motelId!,
@@ -1090,15 +1090,9 @@ export function createFixtureBackend(
           return json(motel, 201);
         }
       }
-      if (
-        method === "GET" &&
-        path.match(/^\/api\/manager\/motels\/[^/]+\/login-requests$/)
-      )
+      if (method === "GET" && path.match(/^\/api\/manager\/motels\/[^/]+\/login-requests$/))
         return json([]);
-      if (
-        method === "GET" &&
-        path.match(/^\/api\/manager\/motels\/[^/]+\/renter-recovery\/code$/)
-      )
+      if (method === "GET" && path.match(/^\/api\/manager\/motels\/[^/]+\/renter-recovery\/code$/))
         return json(null);
       const scope = /^\/api\/manager\/motels\/([^/]+)(?:\/(rooms|renters)(?:\/([^/]+))?)?$/.exec(
         path,

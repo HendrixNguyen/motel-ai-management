@@ -67,7 +67,9 @@ export default function ContractManagementClient({
   );
   const [editingTemplate, setEditingTemplate] = useState<ContractTemplateResponse | null>(null);
   const [catalogPickerOpen, setCatalogPickerOpen] = useState(false);
-  const [selectedCatalogTemplate, setSelectedCatalogTemplate] = useState<TemplatePreview | null>(null);
+  const [selectedCatalogTemplate, setSelectedCatalogTemplate] = useState<TemplatePreview | null>(
+    null,
+  );
   const [isDefaultCatalog, setIsDefaultCatalog] = useState(false);
   const [draft, setDraft] = useState<ContractDraft>(() =>
     createContractDraft(renters, rooms, templates),
@@ -229,9 +231,7 @@ export default function ContractManagementClient({
         isDefault: isDefaultCatalog,
       });
       setTemplateRows((current) => {
-        const next = isDefaultCatalog
-          ? current.map((t) => ({ ...t, isDefault: false }))
-          : current;
+        const next = isDefaultCatalog ? current.map((t) => ({ ...t, isDefault: false })) : current;
         return [created, ...next];
       });
       setCatalogPickerOpen(false);
@@ -644,10 +644,7 @@ export default function ContractManagementClient({
                     Chọn mẫu có sẵn
                   </Button>
                 </div>
-                <form
-                  onSubmit={(event) => void saveTemplate(event)}
-                  className="space-y-3"
-                >
+                <form onSubmit={(event) => void saveTemplate(event)} className="space-y-3">
                   <h3 className="font-semibold">Hoặc tự tạo mẫu mới</h3>
                   <Field id="template-name" label="Tên mẫu">
                     {(props) => <input {...props} name="name" required />}

@@ -102,8 +102,9 @@ describe("the fixture backend used by manager E2E", () => {
     expect(result.status).toBe(201);
     const setup = (await result.json()) as { motelId: string; roomCount: number };
     expect(setup.roomCount).toBe(1);
-    expect(await (await request(`/manager/motels/${setup.motelId}/rooms`, "no-motels-full")).json())
-      .toMatchObject([{ name: "P.New", basePrice: "2500000" }]);
+    expect(
+      await (await request(`/manager/motels/${setup.motelId}/rooms`, "no-motels-full")).json(),
+    ).toMatchObject([{ name: "P.New", basePrice: "2500000" }]);
   });
   it("rejects quick setup for a manager without a motel", async () => {
     const result = await request("/manager/motels/setup", "no-motels-quick", "POST", {

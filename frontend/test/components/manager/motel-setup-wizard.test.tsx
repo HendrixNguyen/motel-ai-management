@@ -113,12 +113,7 @@ describe("MotelSetupWizard", () => {
   test("existing motel shows skip button in Step 1", () => {
     const onClose = vi.fn();
     const view = render(
-      <MotelSetupWizard
-        open={true}
-        onClose={onClose}
-        motels={[sampleMotel]}
-        managerId="mgr-1"
-      />,
+      <MotelSetupWizard open={true} onClose={onClose} motels={[sampleMotel]} managerId="mgr-1" />,
     );
 
     expect(view.getByRole("button", { name: /Tạo nhanh/ })).toBeInTheDocument();
@@ -126,17 +121,28 @@ describe("MotelSetupWizard", () => {
 
   test("restored unknown request keeps key and frozen payload without new-key submit", async () => {
     const savedId = "00000000-0000-4000-8000-000000000123";
-    sessionStorage.setItem("motel-setup-draft:mgr-1", JSON.stringify({
-      version: 1,
-      mode: "quick",
-      motel: { name: "Frozen Motel", address: "", electricityPrice: "3500", waterPrice: "25000", otherFees: [] },
-      template: null,
-      rooms: [],
-      pendingRequestId: savedId,
-    }));
+    sessionStorage.setItem(
+      "motel-setup-draft:mgr-1",
+      JSON.stringify({
+        version: 1,
+        mode: "quick",
+        motel: {
+          name: "Frozen Motel",
+          address: "",
+          electricityPrice: "3500",
+          waterPrice: "25000",
+          otherFees: [],
+        },
+        template: null,
+        rooms: [],
+        pendingRequestId: savedId,
+      }),
+    );
     mocks.getMotelSetupResult.mockRejectedValue({ status: 404 });
     const randomUUID = vi.spyOn(crypto, "randomUUID");
-    const view = render(<MotelSetupWizard open={true} onClose={vi.fn()} motels={[sampleMotel]} managerId="mgr-1" />);
+    const view = render(
+      <MotelSetupWizard open={true} onClose={vi.fn()} motels={[sampleMotel]} managerId="mgr-1" />,
+    );
     await waitFor(() => expect(mocks.getMotelSetupResult).toHaveBeenCalledWith(savedId));
     expect(view.getByLabelText("Tên nhà trọ")).toHaveValue("Frozen Motel");
     expect(randomUUID).not.toHaveBeenCalled();
@@ -147,12 +153,7 @@ describe("MotelSetupWizard", () => {
   test("copy from existing motel applies selected groups without overwriting name/address", async () => {
     const onClose = vi.fn();
     const view = render(
-      <MotelSetupWizard
-        open={true}
-        onClose={onClose}
-        motels={[sampleMotel]}
-        managerId="mgr-1"
-      />,
+      <MotelSetupWizard open={true} onClose={onClose} motels={[sampleMotel]} managerId="mgr-1" />,
     );
 
     fireEvent.change(view.getByLabelText("Tên nhà trọ"), { target: { value: "Nhà Mới Test" } });
@@ -184,12 +185,7 @@ describe("MotelSetupWizard", () => {
   test("template selection in Step 2 preview clauses", async () => {
     const onClose = vi.fn();
     const view = render(
-      <MotelSetupWizard
-        open={true}
-        onClose={onClose}
-        motels={[sampleMotel]}
-        managerId="mgr-1"
-      />,
+      <MotelSetupWizard open={true} onClose={onClose} motels={[sampleMotel]} managerId="mgr-1" />,
     );
 
     fireEvent.change(view.getByLabelText("Tên nhà trọ"), { target: { value: "Nhà Bước 2" } });
@@ -211,12 +207,7 @@ describe("MotelSetupWizard", () => {
   test("room generation in Step 3 generates rooms and allows editing", async () => {
     const onClose = vi.fn();
     const view = render(
-      <MotelSetupWizard
-        open={true}
-        onClose={onClose}
-        motels={[sampleMotel]}
-        managerId="mgr-1"
-      />,
+      <MotelSetupWizard open={true} onClose={onClose} motels={[sampleMotel]} managerId="mgr-1" />,
     );
 
     fireEvent.change(view.getByLabelText("Tên nhà trọ"), { target: { value: "Nhà Bước 3" } });
@@ -256,12 +247,7 @@ describe("MotelSetupWizard", () => {
     });
 
     const view = render(
-      <MotelSetupWizard
-        open={true}
-        onClose={onClose}
-        motels={[sampleMotel]}
-        managerId="mgr-1"
-      />,
+      <MotelSetupWizard open={true} onClose={onClose} motels={[sampleMotel]} managerId="mgr-1" />,
     );
 
     fireEvent.change(view.getByLabelText("Tên nhà trọ"), { target: { value: "Nhà Full" } });
@@ -309,12 +295,7 @@ describe("MotelSetupWizard", () => {
     });
 
     const view = render(
-      <MotelSetupWizard
-        open={true}
-        onClose={onClose}
-        motels={[sampleMotel]}
-        managerId="mgr-1"
-      />,
+      <MotelSetupWizard open={true} onClose={onClose} motels={[sampleMotel]} managerId="mgr-1" />,
     );
 
     fireEvent.change(view.getByLabelText("Tên nhà trọ"), { target: { value: "Nhà Nhanh" } });
@@ -352,12 +333,7 @@ describe("MotelSetupWizard", () => {
       });
 
     const view = render(
-      <MotelSetupWizard
-        open={true}
-        onClose={onClose}
-        motels={[sampleMotel]}
-        managerId="mgr-1"
-      />,
+      <MotelSetupWizard open={true} onClose={onClose} motels={[sampleMotel]} managerId="mgr-1" />,
     );
 
     fireEvent.change(view.getByLabelText("Tên nhà trọ"), { target: { value: "Nhà Retry" } });
@@ -389,14 +365,44 @@ describe("MotelSetupWizard", () => {
 
   test("late owned-template preview cannot replace selection after source change", async () => {
     const second: MotelResponse = { ...sampleMotel, id: "m-existing-2", name: "Nguồn hai" };
-    const firstTemplate = { id: "tpl-1", motelId: sampleMotel.id, name: "Mẫu A", clauses: [], isDefault: false, createdAt: "2026-01-01T00:00:00.000Z" };
+    const firstTemplate = {
+      id: "tpl-1",
+      motelId: sampleMotel.id,
+      name: "Mẫu A",
+      clauses: [],
+      isDefault: false,
+      createdAt: "2026-01-01T00:00:00.000Z",
+    };
     const secondTemplate = { ...firstTemplate, id: "tpl-2", motelId: second.id, name: "Mẫu B" };
     let resolveFirstPreview!: (preview: TemplatePreview) => void;
-    mocks.listContractTemplates.mockImplementation((motelId: string) => Promise.resolve(motelId === sampleMotel.id ? [firstTemplate] : [secondTemplate]));
+    mocks.listContractTemplates.mockImplementation((motelId: string) =>
+      Promise.resolve(motelId === sampleMotel.id ? [firstTemplate] : [secondTemplate]),
+    );
     mocks.previewOwnedTemplate
-      .mockImplementationOnce(() => new Promise((resolve) => { resolveFirstPreview = resolve; }))
-      .mockResolvedValueOnce({ ...sampleCatalogPreview, name: "Preview B", selection: { kind: "motel", motelId: second.id, templateId: secondTemplate.id, fingerprint: "b" } });
-    const view = render(<MotelSetupWizard open={true} onClose={vi.fn()} motels={[sampleMotel, second]} managerId="mgr-1" />);
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveFirstPreview = resolve;
+          }),
+      )
+      .mockResolvedValueOnce({
+        ...sampleCatalogPreview,
+        name: "Preview B",
+        selection: {
+          kind: "motel",
+          motelId: second.id,
+          templateId: secondTemplate.id,
+          fingerprint: "b",
+        },
+      });
+    const view = render(
+      <MotelSetupWizard
+        open={true}
+        onClose={vi.fn()}
+        motels={[sampleMotel, second]}
+        managerId="mgr-1"
+      />,
+    );
     fireEvent.change(view.getByLabelText("Tên nhà trọ"), { target: { value: "Nhà mới" } });
     fireEvent.change(view.getByLabelText("Giá điện (₫/kWh)"), { target: { value: "3500" } });
     fireEvent.change(view.getByLabelText("Giá nước (₫/m³)"), { target: { value: "25000" } });
@@ -414,10 +420,21 @@ describe("MotelSetupWizard", () => {
     await waitFor(() => expect(view.getByRole("option", { name: "Mẫu B" })).toBeInTheDocument());
     fireEvent.click(view.getByRole("button", { name: "Áp dụng" }));
     await waitFor(() => expect(mocks.previewOwnedTemplate).toHaveBeenCalledTimes(2));
-    await waitFor(() => expect(view.queryByText("Không thể tải mẫu từ nhà trọ đã chọn")).toBeNull());
+    await waitFor(() =>
+      expect(view.queryByText("Không thể tải mẫu từ nhà trọ đã chọn")).toBeNull(),
+    );
     expect(view.getByText("Mẫu B")).toBeInTheDocument();
 
-    resolveFirstPreview({ ...sampleCatalogPreview, name: "Stale preview A", selection: { kind: "motel", motelId: sampleMotel.id, templateId: firstTemplate.id, fingerprint: "a" } });
+    resolveFirstPreview({
+      ...sampleCatalogPreview,
+      name: "Stale preview A",
+      selection: {
+        kind: "motel",
+        motelId: sampleMotel.id,
+        templateId: firstTemplate.id,
+        fingerprint: "a",
+      },
+    });
     await waitFor(() => expect(mocks.previewOwnedTemplate).toHaveBeenCalledTimes(2));
     expect(view.getByRole("option", { name: "Mẫu B" })).toBeInTheDocument();
     expect(view.queryByText("Stale preview A")).toBeNull();

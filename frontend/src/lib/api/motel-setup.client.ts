@@ -21,10 +21,7 @@ export function listContractCatalog(): Promise<CatalogSummary[]> {
   return apiGet<CatalogSummary[]>("/api/manager/contract-template-catalog");
 }
 
-export function previewCatalogTemplate(
-  key: string,
-  version: number,
-): Promise<TemplatePreview> {
+export function previewCatalogTemplate(key: string, version: number): Promise<TemplatePreview> {
   return apiGet<TemplatePreview>(
     `/api/manager/contract-template-catalog/${encodeURIComponent(key)}/${encodeURIComponent(version)}`,
   );

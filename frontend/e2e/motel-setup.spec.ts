@@ -171,21 +171,24 @@ test("second_motel_copies_selected_groups_then_skips", async ({ page, context })
 test("quick_motel_selects_catalog_later", async ({ page, context }) => {
   await signIn(context, "valid");
   let fromCatalogPayload: Record<string, unknown> | null = null;
-  await page.route(`**/api/manager/motels/${MOTEL.id}/contract-templates/from-catalog`, async (route) => {
-    fromCatalogPayload = route.request().postDataJSON();
-    await route.fulfill({
-      status: 201,
-      contentType: "application/json",
-      body: JSON.stringify({
-        id: "tpl-copied-from-cat",
-        motelId: MOTEL.id,
-        name: "Hợp đồng thuê phòng trọ chuẩn",
-        clauses: [{ title: "Điều 1", content: "Nội dung" }],
-        isDefault: true,
-        createdAt: new Date().toISOString(),
-      }),
-    });
-  });
+  await page.route(
+    `**/api/manager/motels/${MOTEL.id}/contract-templates/from-catalog`,
+    async (route) => {
+      fromCatalogPayload = route.request().postDataJSON();
+      await route.fulfill({
+        status: 201,
+        contentType: "application/json",
+        body: JSON.stringify({
+          id: "tpl-copied-from-cat",
+          motelId: MOTEL.id,
+          name: "Hợp đồng thuê phòng trọ chuẩn",
+          clauses: [{ title: "Điều 1", content: "Nội dung" }],
+          isDefault: true,
+          createdAt: new Date().toISOString(),
+        }),
+      });
+    },
+  );
 
   await page.goto(`/contracts?motel=${MOTEL.id}`);
   await expect(page.getByRole("heading", { name: "Hợp đồng" })).toBeVisible();
@@ -294,7 +297,9 @@ test("viewport and keyboard assertions at 375x667 and 1440x900", async ({ page, 
     const dialog = page.getByRole("dialog", { name: "Bước 1: Thông tin nhà trọ" });
     await expect(dialog).toBeVisible();
 
-    const noOverflow = await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth);
+    const noOverflow = await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    );
     expect(noOverflow, `horizontal overflow at ${size.width}px`).toBe(true);
 
     const closeBtn = dialog.getByRole("button", { name: "Hủy" });

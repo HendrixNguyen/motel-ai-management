@@ -45,9 +45,7 @@ export default function ContractTemplatePicker({
   }, [value, onChange]);
 
   const selectedKey =
-    value?.selection.kind === "catalog"
-      ? `${value.selection.key}:${value.selection.version}`
-      : "";
+    value?.selection.kind === "catalog" ? `${value.selection.key}:${value.selection.version}` : "";
 
   async function handleSelect(event: React.ChangeEvent<HTMLSelectElement>) {
     const val = event.target.value;
@@ -64,7 +62,11 @@ export default function ContractTemplatePicker({
 
   return (
     <div className="space-y-4">
-      <Field id="contract-template-catalog-picker" label="Mẫu từ thư viện mẫu chuẩn" error={error ?? undefined}>
+      <Field
+        id="contract-template-catalog-picker"
+        label="Mẫu từ thư viện mẫu chuẩn"
+        error={error ?? undefined}
+      >
         {(props) => (
           <select
             {...props}

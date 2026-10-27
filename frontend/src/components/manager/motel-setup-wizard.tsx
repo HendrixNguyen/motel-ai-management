@@ -175,9 +175,12 @@ export default function MotelSetupWizard({
     const src = motels.find((m) => m.id === sourceMotelId);
     if (!src) return;
 
-    const servicesEdited = draft.electricityPrice !== "" || draft.waterPrice !== "" || draft.otherFees.length > 0;
+    const servicesEdited =
+      draft.electricityPrice !== "" || draft.waterPrice !== "" || draft.otherFees.length > 0;
     if (
-      (copyGroups.bank && draft.bankEnabled && (draft.bankAccount.accountNumber || draft.bankAccount.bankCode)) ||
+      (copyGroups.bank &&
+        draft.bankEnabled &&
+        (draft.bankAccount.accountNumber || draft.bankAccount.bankCode)) ||
       (copyGroups.services && servicesEdited)
     ) {
       if (!window.confirm("Ghi đè cấu hình đã nhập?")) return;
@@ -188,19 +191,27 @@ export default function MotelSetupWizard({
     const shouldPreview = copyTemplate && Boolean(templateId);
     if (shouldPreview) setSelectedTemplate(null);
 
-
     const nextDraft = applyMotelCopy(draft, src, copyGroups);
     setDraft(nextDraft);
 
     if (shouldPreview) {
       previewOwnedTemplate(src.id, templateId)
         .then((preview) => {
-          if (generation !== previewGeneration.current || sourceId !== sourceMotelId || templateId !== selectedSourceTemplateId) return;
+          if (
+            generation !== previewGeneration.current ||
+            sourceId !== sourceMotelId ||
+            templateId !== selectedSourceTemplateId
+          )
+            return;
           setSelectedTemplate(preview);
           setTemplateSourceType("owned");
         })
         .catch(() => {
-          if (generation === previewGeneration.current && sourceId === sourceMotelId && templateId === selectedSourceTemplateId) {
+          if (
+            generation === previewGeneration.current &&
+            sourceId === sourceMotelId &&
+            templateId === selectedSourceTemplateId
+          ) {
             setError("Không thể tải mẫu từ nhà trọ đã chọn");
           }
         });
@@ -377,7 +388,9 @@ export default function MotelSetupWizard({
                       onChange={(e) => {
                         const val = e.target.value;
                         previewGeneration.current += 1;
-                        setSelectedTemplate((current) => current?.selection.kind === "motel" ? null : current);
+                        setSelectedTemplate((current) =>
+                          current?.selection.kind === "motel" ? null : current,
+                        );
                         setSourceMotelId(val);
                         if (!val) {
                           setSourceTemplates([]);
@@ -437,10 +450,12 @@ export default function MotelSetupWizard({
                           className="w-full rounded-input border border-border-strong p-2 text-sm"
                           value={selectedSourceTemplateId}
                           onChange={(e) => {
-                        previewGeneration.current += 1;
-                        setSelectedTemplate((current) => current?.selection.kind === "motel" ? null : current);
-                        setSelectedSourceTemplateId(e.target.value);
-                      }}
+                            previewGeneration.current += 1;
+                            setSelectedTemplate((current) =>
+                              current?.selection.kind === "motel" ? null : current,
+                            );
+                            setSelectedSourceTemplateId(e.target.value);
+                          }}
                         >
                           {sourceTemplates.map((t) => (
                             <option key={t.id} value={t.id}>
@@ -517,16 +532,18 @@ export default function MotelSetupWizard({
                   type="checkbox"
                   className="h-5 w-5 accent-primary"
                   checked={draft.bankEnabled}
-                  onChange={(e) =>
-                    setDraft((prev) => ({ ...prev, bankEnabled: e.target.checked }))
-                  }
+                  onChange={(e) => setDraft((prev) => ({ ...prev, bankEnabled: e.target.checked }))}
                 />
                 Thiết lập tài khoản nhận tiền
               </label>
 
               {draft.bankEnabled && (
                 <div className="space-y-3">
-                  <Field id={id("bankCode")} label="Mã ngân hàng (BIN)" error={fields["bankAccount.bankCode"]}>
+                  <Field
+                    id={id("bankCode")}
+                    label="Mã ngân hàng (BIN)"
+                    error={fields["bankAccount.bankCode"]}
+                  >
                     {(props) => (
                       <input
                         {...props}
@@ -541,7 +558,11 @@ export default function MotelSetupWizard({
                       />
                     )}
                   </Field>
-                  <Field id={id("accountNumber")} label="Số tài khoản" error={fields["bankAccount.accountNumber"]}>
+                  <Field
+                    id={id("accountNumber")}
+                    label="Số tài khoản"
+                    error={fields["bankAccount.accountNumber"]}
+                  >
                     {(props) => (
                       <input
                         {...props}
@@ -556,7 +577,11 @@ export default function MotelSetupWizard({
                       />
                     )}
                   </Field>
-                  <Field id={id("accountName")} label="Tên chủ tài khoản" error={fields["bankAccount.accountName"]}>
+                  <Field
+                    id={id("accountName")}
+                    label="Tên chủ tài khoản"
+                    error={fields["bankAccount.accountName"]}
+                  >
                     {(props) => (
                       <input
                         {...props}
@@ -677,10 +702,7 @@ export default function MotelSetupWizard({
               <Button variant="secondary" onClick={() => setStep(1)}>
                 Quay lại
               </Button>
-              <Button
-                disabled={!selectedTemplate}
-                onClick={() => setStep(3)}
-              >
+              <Button disabled={!selectedTemplate} onClick={() => setStep(3)}>
                 Tiếp tục
               </Button>
             </div>
@@ -790,10 +812,7 @@ export default function MotelSetupWizard({
               <Button variant="secondary" onClick={() => setStep(2)}>
                 Quay lại
               </Button>
-              <Button
-                disabled={rooms.length === 0}
-                onClick={() => setStep(4)}
-              >
+              <Button disabled={rooms.length === 0} onClick={() => setStep(4)}>
                 Tiếp tục
               </Button>
             </div>
@@ -846,7 +865,12 @@ export default function MotelSetupWizard({
               >
                 Quay lại
               </Button>
-              <Button pending={pending} disabled={terminalRequest} pendingLabel="Đang tạo…" onClick={handleSubmit}>
+              <Button
+                pending={pending}
+                disabled={terminalRequest}
+                pendingLabel="Đang tạo…"
+                onClick={handleSubmit}
+              >
                 Hoàn tất thiết lập
               </Button>
             </div>

@@ -24,7 +24,7 @@ export default function MotelEditor({
   const [wizardMotels, setWizardMotels] = useState<MotelResponse[]>([]);
   const [managerId] = useState<string>(() => {
     try {
-      return typeof window !== "undefined" ? sessionStorage.getItem("manager-id") ?? "" : "";
+      return typeof window !== "undefined" ? (sessionStorage.getItem("manager-id") ?? "") : "";
     } catch {
       return "";
     }

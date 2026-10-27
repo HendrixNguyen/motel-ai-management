@@ -92,7 +92,10 @@ test("motel and room create/edit persist through refresh and scope the renter fo
   await roomsDialog.getByLabel("Giá thuê mặc định (₫)").fill("99999999999999");
   await roomsDialog.getByRole("button", { name: "Sinh danh sách phòng", exact: true }).click();
   await roomsDialog.getByRole("button", { name: "Tiếp tục", exact: true }).click();
-  const reviewDialog = page.getByRole("dialog", { name: "Bước 4: Xác nhận và hoàn tất", exact: true });
+  const reviewDialog = page.getByRole("dialog", {
+    name: "Bước 4: Xác nhận và hoàn tất",
+    exact: true,
+  });
   await reviewDialog.getByRole("button", { name: "Hoàn tất thiết lập", exact: true }).click();
   await expect(reviewDialog).not.toBeVisible();
   await expect(page.getByRole("heading", { name: "Nhà trọ mới", exact: true })).toBeVisible();
