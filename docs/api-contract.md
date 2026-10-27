@@ -46,6 +46,7 @@ form-level message; it cannot attribute the failure to a field.
 | `FORBIDDEN`              | 403  | Valid credential, wrong role                                                    |
 | `NOT_FOUND`              | 404  | Row absent or outside the caller's tenant                                       |
 | `CONFLICT`               | 409  | Uniqueness or state violation                                                   |
+| `SETUP_SOURCE_CHANGED`   | 409  | Source template fingerprint mismatch during copy/setup                         |
 | `EXTERNAL_SERVICE_ERROR` | 502  | Configured notification or private-storage provider rejected the call; `details.failureReason` is safe and optional |
 | `INTERNAL_ERROR`         | 500  | Unexpected server fault; details stay server-side                               |
 
@@ -231,12 +232,23 @@ reading — a failed upload leaves the reading saved and re-queues only the imag
 
 Creation validates renter, room, template, and motel tenant ownership. Missing `templateId` uses motel default template when present. Clauses and rent are snapshots. Draft patch accepts templateId, dates, rent, deposit, and clauses; renter and room cannot change.
 
+### Contract template catalog — `/api/manager/contract-template-catalog`
+
+Shared read-only contract catalog for manager setup and template picker. Requires manager session.
+
+| Method | Path | Notes |
+| ------ | ---- | ----- |
+| GET | `/` | `200 CatalogSummary[]`; returns newest active version per key; inactive versions excluded |
+| GET | `/:key/:version` | `200 TemplatePreview`; inactive or non-existent template returns `404 NOT_FOUND` |
+
 ### Contract templates — `/api/manager/motels/:motelId/contract-templates`
 
 | Method | Path           | Notes                                                                      |
 | ------ | -------------- | -------------------------------------------------------------------------- |
 | GET    | `/`            |                                                                            |
 | POST   | `/`            | `{name, clauses[], isDefault?}`; setting a default clears the previous one |
+| POST   | `/from-catalog`| `{catalogKey, catalogVersion, isDefault}`; copies catalog template into motel; returns `201 ContractTemplateResponse` |
+| GET    | `/:templateId/setup-preview` | `200 TemplatePreview`; returns template clauses and SHA-256 fingerprint for setup copy verification; foreign motel/template returns `404 NOT_FOUND` |
 | GET    | `/:templateId` |                                                                            |
 | PATCH  | `/:templateId` | Name, clauses, isDefault                                                   |
 | DELETE | `/:templateId` | `409` if a contract references it                                          |

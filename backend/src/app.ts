@@ -9,6 +9,7 @@ import { renterRoutes } from "@/modules/renter/renter.route";
 import { roomRoutes } from "@/modules/room/room.route";
 import { billingRoutes } from "@/modules/billing/billing.route";
 import { contractRoutes } from "@/modules/contract/contract.route";
+import { contractCatalogRoutes } from "@/modules/contract/contract-catalog.route";
 import { AppError } from "@/shared/errors";
 import { notificationRoutes } from "@/modules/notification/notification.route";
 import { renterPortalRoutes } from "@/modules/renter-portal/renter-portal.route";
@@ -58,6 +59,7 @@ export function createApp() {
         .use(roomRoutes)
         .use(billingRoutes)
         .use(contractRoutes)
+        .use(contractCatalogRoutes)
         .use(renterRoutes)
         .use(notificationRoutes)
         .use(renterPortalRoutes)

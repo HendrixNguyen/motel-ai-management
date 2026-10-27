@@ -9,6 +9,14 @@ import { parseAmount, type VndString } from "@/shared/money";
 import { AppError } from "@/shared/errors";
 import { contracts, contractTemplates } from "./contract.schema";
 import { enqueueNotification } from "@/modules/notification/notification.service";
+import {
+  computeTemplateFingerprint,
+  previewCatalogTemplate,
+} from "./contract-catalog.service";
+import type {
+  TemplatePreview,
+  TemplateSelection,
+} from "./contract-catalog.types";
 import type {
   ContractResponse,
   ContractTemplateInput,
@@ -108,6 +116,113 @@ export async function createContractTemplateInTransaction(
     })
     .returning();
   return templateResponse(row!);
+}
+
+export async function previewOwnedTemplate(
+  managerId: string,
+  motelId: string,
+  templateId: string,
+  executor: DbExecutor = db,
+): Promise<TemplatePreview> {
+  await resolveOwnedMotel(motelId, managerId, executor);
+  const [row] = await executor
+    .select()
+    .from(contractTemplates)
+    .where(
+      and(
+        eq(contractTemplates.id, templateId),
+        eq(contractTemplates.motelId, motelId),
+      ),
+    )
+    .limit(1);
+
+  if (!row) {
+    throw AppError.notFound("Không tìm thấy mẫu hợp đồng");
+  }
+
+  const fingerprint = computeTemplateFingerprint(row.name, row.clauses);
+  return {
+    name: row.name,
+    clauses: row.clauses,
+    selection: {
+      kind: "motel",
+      motelId,
+      templateId,
+      fingerprint,
+    },
+  };
+}
+
+export async function copySetupTemplate(
+  tx: DbTransaction,
+  managerId: string,
+  targetMotelId: string,
+  selection: TemplateSelection,
+  isDefault: boolean,
+): Promise<ContractTemplateResponse> {
+  await resolveOwnedMotel(targetMotelId, managerId, tx);
+
+  let templateName: string;
+  let templateClauses: typeof contractTemplates.$inferSelect.clauses;
+
+  if (selection.kind === "catalog") {
+    const catalogPreview = await previewCatalogTemplate(
+      selection.key,
+      selection.version,
+      tx,
+    );
+    templateName = catalogPreview.name;
+    templateClauses = catalogPreview.clauses;
+  } else {
+    await resolveOwnedMotel(selection.motelId, managerId, tx);
+    const rows = await tx.execute(
+      sql`SELECT id, motel_id, name, clauses, is_default, created_at FROM contract_templates WHERE id = ${selection.templateId} AND motel_id = ${selection.motelId} FOR UPDATE`,
+    );
+    const source = (rows as unknown as typeof contractTemplates.$inferSelect[])[0];
+    if (!source) {
+      throw AppError.notFound("Không tìm thấy mẫu hợp đồng nguồn");
+    }
+
+    const currentFingerprint = computeTemplateFingerprint(
+      source.name,
+      source.clauses,
+    );
+    if (currentFingerprint !== selection.fingerprint) {
+      throw new AppError(
+        "SETUP_SOURCE_CHANGED",
+        "Mẫu hợp đồng nguồn đã thay đổi. Vui lòng xem trước lại.",
+      );
+    }
+
+    templateName = source.name;
+    templateClauses = source.clauses;
+  }
+
+  return createContractTemplateInTransaction(tx, targetMotelId, managerId, {
+    name: templateName,
+    clauses: templateClauses,
+    isDefault,
+  });
+}
+
+export async function copyContractTemplateFromCatalog(
+  motelId: string,
+  managerId: string,
+  input: { catalogKey: string; catalogVersion: number; isDefault: boolean },
+): Promise<ContractTemplateResponse> {
+  return db.transaction(async (tx) => {
+    return copySetupTemplate(
+      tx,
+      managerId,
+      motelId,
+      {
+        kind: "catalog",
+        key: input.catalogKey,
+        version: input.catalogVersion,
+      },
+      input.isDefault,
+    );
+  });
 }
 
 export async function listContractTemplates(motelId: string, managerId: string) {
