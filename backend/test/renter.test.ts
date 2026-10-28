@@ -6,6 +6,7 @@ import { registerManager } from "@/modules/auth/auth.service";
 import { resetRateLimits } from "@/shared/rate-limit";
 import { billingPeriods, invoices } from "@/modules/billing/billing.schema";
 import { contracts } from "@/modules/contract/contract.schema";
+import { motels } from "@/modules/motel/motel.schema";
 import { renters } from "@/modules/renter/renter.schema";
 import { rooms } from "@/modules/room/room.schema";
 
@@ -111,12 +112,13 @@ async function api(
 }
 
 async function createMotel(cookie: string, name = "Nhà trọ"): Promise<MotelPayload> {
-  const res = await api("POST", "/manager/motels", {
-    cookie,
-    body: { name, electricityPrice: "3500", waterPrice: "25000" },
-  });
-  expect(res.status).toBe(201);
-  return (await res.json()) as MotelPayload;
+  const meRes = await api("GET", "/auth/me", { cookie });
+  const manager = (await meRes.json()) as { id: string };
+  const [row] = await db
+    .insert(motels)
+    .values({ managerId: manager.id, name, electricityPrice: "3500", waterPrice: "25000" })
+    .returning();
+  return row as unknown as MotelPayload;
 }
 
 async function createRoom(

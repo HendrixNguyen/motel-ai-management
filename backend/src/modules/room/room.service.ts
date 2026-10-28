@@ -1,5 +1,5 @@
 import { and, asc, eq, ilike } from "drizzle-orm";
-import { db } from "@/db";
+import { db, type DbExecutor, type DbTransaction } from "@/db";
 import { resolveOwnedMotel, resolveRoomInMotel } from "@/middleware/tenancy";
 import { hasActiveContractForRoom } from "@/modules/contract/contract.service";
 import { countRentersInRoom } from "@/modules/renter/renter.service";
@@ -167,6 +167,45 @@ export async function listRooms(
  * Fields are copied one by one rather than spread, so nothing the client sent beyond the
  * documented body — a `motelId` or `managerId`, for instance — can ever reach the insert.
  */
+export async function createSetupRooms(
+  tx: DbExecutor,
+  motelId: string,
+  managerId: string,
+  inputs: Array<Pick<CreateRoomInput, "name" | "basePrice" | "floor">>,
+): Promise<RoomResponse[]> {
+  if (inputs.length === 0) return [];
+  await resolveOwnedMotel(motelId, managerId, tx);
+
+  const seen = new Set<string>();
+  for (const input of inputs) {
+    if (seen.has(input.name)) {
+      throw AppError.conflict(`Phòng "${input.name}" đã tồn tại trong nhà trọ này`);
+    }
+    seen.add(input.name);
+  }
+
+  try {
+    const rows = await tx
+      .insert(rooms)
+      .values(
+        inputs.map((input) => ({
+          motelId,
+          name: input.name,
+          basePrice: parseAmount(input.basePrice),
+          floor: input.floor ?? null,
+          status: "available" as const,
+        })),
+      )
+      .returning();
+    return rows.map(toResponse);
+  } catch (error) {
+    if (isDuplicateRoomName(error)) {
+      throw AppError.conflict("Phòng đã tồn tại trong nhà trọ này");
+    }
+    throw error;
+  }
+}
+
 export async function createRoom(
   motelId: string,
   managerId: string,

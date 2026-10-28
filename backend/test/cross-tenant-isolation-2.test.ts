@@ -57,12 +57,13 @@ async function api(
 }
 
 async function createMotel(cookie: string, name = "Nhà trọ"): Promise<{ id: string }> {
-  const res = await api("POST", "/manager/motels", {
-    cookie,
-    body: { name, electricityPrice: "3500", waterPrice: "25000" },
-  });
-  expect(res.status).toBe(201);
-  return (await res.json()) as { id: string };
+  const meRes = await api("GET", "/auth/me", { cookie });
+  const manager = (await meRes.json()) as { id: string };
+  const [row] = await db
+    .insert(motels)
+    .values({ managerId: manager.id, name, electricityPrice: "3500", waterPrice: "25000" })
+    .returning();
+  return { id: row!.id };
 }
 
 async function createRoom(

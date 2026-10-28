@@ -1,13 +1,16 @@
 import { and, asc, desc, eq, sql } from "drizzle-orm";
 import { createHash } from "node:crypto";
-import { db, type Db } from "@/db";
+import { db, type Db, type DbExecutor, type DbTransaction } from "@/db";
 import { resolveOwnedMotel, resolveRoomInMotel, resolveRenterInMotel } from "@/middleware/tenancy";
+import { lockMotelForUpdate } from "@/modules/motel/motel.service";
 import { getRoomName } from "@/modules/room/room.service";
 import { getRenterForConsent } from "@/modules/renter/renter.service";
 import { parseAmount, type VndString } from "@/shared/money";
 import { AppError } from "@/shared/errors";
 import { contracts, contractTemplates } from "./contract.schema";
 import { enqueueNotification } from "@/modules/notification/notification.service";
+import { computeTemplateFingerprint, previewCatalogTemplate } from "./contract-catalog.service";
+import type { TemplatePreview, TemplateSelection } from "./contract-catalog.types";
 import type {
   ContractResponse,
   ContractTemplateInput,
@@ -81,11 +84,129 @@ async function clearDefault(
   tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
   motelId: string,
 ) {
+  await lockMotelForUpdate(tx, motelId);
   await tx
     .update(contractTemplates)
     .set({ isDefault: false })
     .where(and(eq(contractTemplates.motelId, motelId), eq(contractTemplates.isDefault, true)));
 }
+
+export async function createContractTemplateInTransaction(
+  tx: DbTransaction,
+  motelId: string,
+  managerId: string,
+  input: ContractTemplateInput,
+): Promise<ContractTemplateResponse> {
+  await resolveOwnedMotel(motelId, managerId, tx);
+  validateTemplate(input);
+  if (input.isDefault) await clearDefault(tx, motelId);
+  const [row] = await tx
+    .insert(contractTemplates)
+    .values({
+      motelId,
+      name: input.name.trim(),
+      clauses: input.clauses,
+      isDefault: input.isDefault ?? false,
+    })
+    .returning();
+  return templateResponse(row!);
+}
+
+export async function previewOwnedTemplate(
+  managerId: string,
+  motelId: string,
+  templateId: string,
+  executor: DbExecutor = db,
+): Promise<TemplatePreview> {
+  await resolveOwnedMotel(motelId, managerId, executor);
+  const [row] = await executor
+    .select()
+    .from(contractTemplates)
+    .where(and(eq(contractTemplates.id, templateId), eq(contractTemplates.motelId, motelId)))
+    .limit(1);
+
+  if (!row) {
+    throw AppError.notFound("Không tìm thấy mẫu hợp đồng");
+  }
+
+  const fingerprint = computeTemplateFingerprint(row.name, row.clauses);
+  return {
+    name: row.name,
+    clauses: row.clauses,
+    selection: {
+      kind: "motel",
+      motelId,
+      templateId,
+      fingerprint,
+    },
+  };
+}
+
+export async function copySetupTemplate(
+  tx: DbTransaction,
+  managerId: string,
+  targetMotelId: string,
+  selection: TemplateSelection,
+  isDefault: boolean,
+): Promise<ContractTemplateResponse> {
+  await resolveOwnedMotel(targetMotelId, managerId, tx);
+
+  let templateName: string;
+  let templateClauses: typeof contractTemplates.$inferSelect.clauses;
+
+  if (selection.kind === "catalog") {
+    const catalogPreview = await previewCatalogTemplate(selection.key, selection.version, tx);
+    templateName = catalogPreview.name;
+    templateClauses = catalogPreview.clauses;
+  } else {
+    await resolveOwnedMotel(selection.motelId, managerId, tx);
+    const rows = await tx.execute(
+      sql`SELECT id, motel_id, name, clauses, is_default, created_at FROM contract_templates WHERE id = ${selection.templateId} AND motel_id = ${selection.motelId} FOR UPDATE`,
+    );
+    const source = (rows as unknown as (typeof contractTemplates.$inferSelect)[])[0];
+    if (!source) {
+      throw AppError.notFound("Không tìm thấy mẫu hợp đồng nguồn");
+    }
+
+    const currentFingerprint = computeTemplateFingerprint(source.name, source.clauses);
+    if (currentFingerprint !== selection.fingerprint) {
+      throw new AppError(
+        "SETUP_SOURCE_CHANGED",
+        "Mẫu hợp đồng nguồn đã thay đổi. Vui lòng xem trước lại.",
+      );
+    }
+
+    templateName = source.name;
+    templateClauses = source.clauses;
+  }
+
+  return createContractTemplateInTransaction(tx, targetMotelId, managerId, {
+    name: templateName,
+    clauses: templateClauses,
+    isDefault,
+  });
+}
+
+export async function copyContractTemplateFromCatalog(
+  motelId: string,
+  managerId: string,
+  input: { catalogKey: string; catalogVersion: number; isDefault: boolean },
+): Promise<ContractTemplateResponse> {
+  return db.transaction(async (tx) => {
+    return copySetupTemplate(
+      tx,
+      managerId,
+      motelId,
+      {
+        kind: "catalog",
+        key: input.catalogKey,
+        version: input.catalogVersion,
+      },
+      input.isDefault,
+    );
+  });
+}
+
 export async function listContractTemplates(motelId: string, managerId: string) {
   await resolveOwnedMotel(motelId, managerId);
   return (
@@ -101,21 +222,9 @@ export async function createContractTemplate(
   managerId: string,
   input: ContractTemplateInput,
 ) {
-  await resolveOwnedMotel(motelId, managerId);
-  validateTemplate(input);
-  const result = await db.transaction(async (tx) => {
-    if (input.isDefault) await clearDefault(tx, motelId);
-    return tx
-      .insert(contractTemplates)
-      .values({
-        motelId,
-        name: input.name.trim(),
-        clauses: input.clauses,
-        isDefault: input.isDefault ?? false,
-      })
-      .returning();
+  return db.transaction(async (tx) => {
+    return createContractTemplateInTransaction(tx, motelId, managerId, input);
   });
-  return templateResponse(result[0]!);
 }
 export async function getContractTemplate(motelId: string, templateId: string, managerId: string) {
   await resolveOwnedMotel(motelId, managerId);
@@ -131,22 +240,35 @@ export async function updateContractTemplate(
   managerId: string,
   input: UpdateContractTemplateInput,
 ) {
-  const current = await getContractTemplate(motelId, templateId, managerId);
   validateTemplate(input);
   const patch: Partial<typeof contractTemplates.$inferInsert> = {};
   if (input.name !== undefined) patch.name = input.name.trim();
   if (input.clauses !== undefined) patch.clauses = input.clauses;
   if (input.isDefault !== undefined) patch.isDefault = input.isDefault;
-  if (!Object.keys(patch).length) return current;
-  const result = await db.transaction(async (tx) => {
-    if (input.isDefault) await clearDefault(tx, motelId);
-    return tx
+  return db.transaction(async (tx) => {
+    await resolveOwnedMotel(motelId, managerId, tx);
+    await lockMotelForUpdate(tx, motelId);
+    const [current] = await tx
+      .select()
+      .from(contractTemplates)
+      .where(and(eq(contractTemplates.id, templateId), eq(contractTemplates.motelId, motelId)))
+      .limit(1);
+    if (!current) throw AppError.notFound("Không tìm thấy mẫu hợp đồng");
+    if (!Object.keys(patch).length) return templateResponse(current);
+    if (input.isDefault) {
+      await tx
+        .update(contractTemplates)
+        .set({ isDefault: false })
+        .where(and(eq(contractTemplates.motelId, motelId), eq(contractTemplates.isDefault, true)));
+    }
+    const [updated] = await tx
       .update(contractTemplates)
       .set(patch)
-      .where(eq(contractTemplates.id, templateId))
+      .where(and(eq(contractTemplates.id, templateId), eq(contractTemplates.motelId, motelId)))
       .returning();
+    if (!updated) throw AppError.notFound("Không tìm thấy mẫu hợp đồng");
+    return templateResponse(updated);
   });
-  return templateResponse(result[0]!);
 }
 export async function deleteContractTemplate(
   motelId: string,

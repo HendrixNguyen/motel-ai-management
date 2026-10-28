@@ -25,8 +25,10 @@ const TABLES = [
   "billing_periods",
   "contracts",
   "contract_templates",
+  "contract_template_catalog",
   "renters",
   "rooms",
+  "motel_setup_requests",
   "motels",
   "managers",
 ];

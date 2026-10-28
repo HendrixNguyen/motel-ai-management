@@ -64,8 +64,8 @@ test("empty motel list opens creation and announces field errors with a linked s
   await page.goto("/motels");
   await expect(page.getByRole("heading", { name: "Chưa có nhà trọ" })).toBeVisible();
   await page.getByRole("button", { name: "Tạo nhà trọ", exact: true }).click();
-  const dialog = page.getByRole("dialog", { name: "Tạo nhà trọ" });
-  await dialog.getByRole("button", { name: "Tạo nhà trọ", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Bước 1: Thông tin nhà trọ" });
+  await dialog.getByRole("button", { name: "Tiếp tục", exact: true }).click();
   await expect(dialog.getByLabel("Tên nhà trọ", { exact: true })).toHaveAccessibleDescription(
     "Nhập tên nhà trọ",
   );
@@ -80,29 +80,38 @@ test("creating a motel sends normalized prices, closes and confirms success", as
 }) => {
   await signIn(context);
   let input: unknown;
-  await page.route("**/api/manager/motels", async (route) => {
+  await page.route("**/api/manager/motels/setup", async (route) => {
     input = route.request().postDataJSON();
     await route.fulfill({
       status: 201,
       contentType: "application/json",
-      body: JSON.stringify(MOTEL),
+      body: JSON.stringify({
+        motelId: "m-new-123",
+        mode: "quick",
+        roomCount: 0,
+        templateId: null,
+      }),
     });
   });
   await page.goto("/motels");
   const trigger = page.getByRole("button", { name: "Tạo nhà trọ", exact: true });
   await trigger.click();
-  const dialog = page.getByRole("dialog", { name: "Tạo nhà trọ" });
+  const dialog = page.getByRole("dialog", { name: "Bước 1: Thông tin nhà trọ" });
   await dialog.getByLabel("Tên nhà trọ", { exact: true }).fill("Nhà trọ mới");
   await dialog.getByLabel("Giá điện (₫/kWh)", { exact: true }).fill("3.500");
   await dialog.getByLabel("Giá nước (₫/m³)", { exact: true }).fill("25.000");
-  await dialog.getByRole("button", { name: "Tạo nhà trọ", exact: true }).click();
-  await expect(dialog).not.toBeVisible();
-  await expect(page.getByText("Đã tạo nhà trọ", { exact: true })).toBeVisible();
-  expect(input).toEqual({
-    name: "Nhà trọ mới",
-    address: null,
-    electricityPrice: "3500",
-    waterPrice: "25000",
+  await dialog.getByRole("button", { name: "Tạo nhanh (bỏ qua thiết lập)", exact: true }).click();
+  const step4Dialog = page.getByRole("dialog", { name: "Bước 4: Xác nhận và hoàn tất" });
+  await step4Dialog.getByRole("button", { name: "Hoàn tất thiết lập", exact: true }).click();
+  await expect(step4Dialog).not.toBeVisible();
+  await expect(page.getByText("Đã tạo nhanh nhà trọ", { exact: true })).toBeVisible();
+  expect(input).toMatchObject({
+    mode: "quick",
+    motel: {
+      name: "Nhà trọ mới",
+      electricityPrice: "3500",
+      waterPrice: "25000",
+    },
   });
   await expect(trigger).toBeFocused();
 });

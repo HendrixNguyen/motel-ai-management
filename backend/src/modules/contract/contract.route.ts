@@ -17,6 +17,8 @@ import {
   terminateContract,
   updateContract,
   updateContractTemplate,
+  previewOwnedTemplate,
+  copyContractTemplateFromCatalog,
 } from "./contract.service";
 const params = t.Object({ motelId: t.String({ format: "uuid" }) });
 const templateParams = t.Object({
@@ -76,6 +78,26 @@ const managerContractRoutes = new Elysia({ name: "manager-contract-routes" })
       return createContractTemplate(params.motelId, auth!.userId, body);
     },
     { params, body: templateBody },
+  )
+  .post(
+    "/manager/motels/:motelId/contract-templates/from-catalog",
+    async ({ params, auth, body, set }) => {
+      set.status = 201;
+      return copyContractTemplateFromCatalog(params.motelId, auth!.userId, body);
+    },
+    {
+      params,
+      body: t.Object({
+        catalogKey: t.String({ minLength: 1 }),
+        catalogVersion: t.Integer({ minimum: 1 }),
+        isDefault: t.Boolean(),
+      }),
+    },
+  )
+  .get(
+    "/manager/motels/:motelId/contract-templates/:templateId/setup-preview",
+    ({ params, auth }) => previewOwnedTemplate(auth!.userId, params.motelId, params.templateId),
+    { params: templateParams },
   )
   .get(
     "/manager/motels/:motelId/contract-templates/:templateId",

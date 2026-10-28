@@ -183,6 +183,20 @@
       "when": 1792070800000,
       "tag": "0025_renter_login_recovery",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1793076728473,
+      "tag": "0026_contract_catalog",
+      "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1793078971376,
+      "tag": "0027_motel_setup_requests",
+      "breakpoints": true
     }
   ]
 }

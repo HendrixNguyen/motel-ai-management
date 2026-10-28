@@ -19,6 +19,8 @@ const client = postgres(connectionString, { max: 10, onnotice: () => {} });
 
 export const db = drizzle(client, { schema: schemas });
 export type Db = typeof db;
+export type DbTransaction = Parameters<Parameters<Db["transaction"]>[0]>[0];
+export type DbExecutor = Db | DbTransaction;
 
 export async function closeDb(): Promise<void> {
   await client.end();

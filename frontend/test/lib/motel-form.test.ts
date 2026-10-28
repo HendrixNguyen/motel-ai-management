@@ -54,6 +54,33 @@ describe("motel form transformations", () => {
       },
     });
   });
+  it("retains entered bank and fees on create preparation", () => {
+    const draft = {
+      ...validDraft(),
+      otherFees: [{ name: "  Internet  ", amount: "50.000" }],
+      bankEnabled: true,
+      bankAccount: {
+        bankCode: " 970422 ",
+        accountNumber: " 00001234 ",
+        accountName: " NGUYEN AN ",
+      },
+    };
+    expect(prepareMotelInput(draft)).toEqual({
+      ok: true,
+      input: {
+        name: "Nhà trọ An Bình",
+        address: "8 Nguyễn Trãi",
+        electricityPrice: "3500",
+        waterPrice: "25000",
+        otherFees: [{ name: "Internet", amount: "50000" }],
+        bankAccount: {
+          bankCode: "970422",
+          accountNumber: "00001234",
+          accountName: "NGUYEN AN",
+        },
+      },
+    });
+  });
   it("clears an empty address explicitly rather than sending undefined", () => {
     expect(prepareMotelInput({ ...validDraft(), address: " " })).toEqual({
       ok: true,
