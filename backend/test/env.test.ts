@@ -117,6 +117,16 @@ describe("parseEnv", () => {
         RENTER_SESSION_SECRET: valid.MANAGER_JWT_SECRET,
       }),
     ).toThrow(/secret|trùng/);
+    expect(() =>
+      parseEnv({
+        ...valid,
+        NODE_ENV: "production",
+        DATABASE_URL: "postgres://u:p@db.internal:5432/motel",
+        RENTER_PORTAL_URL: "https://renter.example.com",
+        FRONTEND_URL: "https://app.example.com",
+        ADMIN_JWT_SECRET: "${ADMIN_JWT_SECRET}",
+      }),
+    ).toThrow(/ADMIN_JWT_SECRET/);
   });
 
   test("allows an intentionally weak but distinct production test DB credential", () => {
