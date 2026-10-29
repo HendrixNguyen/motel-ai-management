@@ -3,13 +3,14 @@ import { and, eq, sql } from "drizzle-orm";
 import { app } from "@/app";
 import { db } from "@/db";
 import { resetDb } from "@/db/test-db";
+import { managers } from "@/modules/auth/auth.schema";
 import { registerManager } from "@/modules/auth/auth.service";
 import { motels } from "@/modules/motel/motel.schema";
 import { rooms } from "@/modules/room/room.schema";
 import { contractTemplates } from "@/modules/contract/contract.schema";
 import { contractTemplateCatalog } from "@/modules/contract/contract-catalog.schema";
 import { computeTemplateFingerprint } from "@/modules/contract/contract-catalog.service";
-import { lockMotelSetup } from "@/modules/motel/motel.service";
+import { createMotelInTransaction, lockMotelSetup } from "@/modules/motel/motel.service";
 
 setDefaultTimeout(20_000);
 beforeEach(resetDb);
@@ -57,6 +58,24 @@ async function seedCatalog(key = "vn-residential-standard", version = 1) {
 }
 
 describe("POST /api/manager/motels/setup and GET /api/manager/motels/setup-requests/:requestId", () => {
+  test("does not insert motel when manager row no longer exists", async () => {
+    const cookie = await login("orphaned@example.com");
+    const me = await api("GET", "/auth/me", cookie);
+    const manager = (await me.json()) as { id: string };
+    await db.delete(managers).where(eq(managers.id, manager.id));
+    const before = await db.$count(motels);
+    await expect(
+      db.transaction((tx) =>
+        createMotelInTransaction(tx, manager.id, {
+          name: "Must not persist",
+          electricityPrice: "5000",
+          waterPrice: "7000",
+        }),
+      ),
+    ).rejects.toMatchObject({ code: "CONFLICT" });
+    expect(await db.$count(motels)).toBe(before);
+  });
+
   test("first_motel_requires_full: 0 motels blocks quick and old POST with 409 MOTEL_SETUP_REQUIRED", async () => {
     const cookie = await login("newbie@example.com");
     await seedCatalog();

@@ -8,6 +8,7 @@ import { countBillingPeriodsForMotel } from "@/modules/billing/billing.service";
 import { countContractTemplatesForMotel } from "@/modules/contract/contract.service";
 import { countRentersForMotel } from "@/modules/renter/renter.service";
 import { countOccupiedRoomsForMotel, countRoomsForMotel } from "@/modules/room/room.service";
+import { managers } from "@/modules/auth/auth.schema";
 import { motels, type BankAccount, type MotelFee } from "./motel.schema";
 import type {
   CreateMotelInput,
@@ -97,6 +98,12 @@ export async function createMotelInTransaction(
   managerId: string,
   input: CreateMotelInput,
 ): Promise<MotelResponse> {
+  const [manager] = await tx
+    .select({ id: managers.id })
+    .from(managers)
+    .where(eq(managers.id, managerId))
+    .limit(1);
+  if (!manager) throw AppError.conflict("Phiên quản lý không còn hợp lệ. Vui lòng đăng nhập lại.");
   const [row] = await tx
     .insert(motels)
     .values({
