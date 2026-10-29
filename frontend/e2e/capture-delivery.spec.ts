@@ -19,15 +19,12 @@ test.describe("capture queue delivery states", () => {
     page,
   }) => {
     await openCapture(page);
-    await page.route("**/api/manager/motels/*/billing/periods/*/readings", (route) =>
-      route.abort(),
-    );
-    await page.getByLabel("Chỉ số hiện tại").fill("15");
-    const writes: string[] = [];
     await page.route("**/api/manager/motels/*/billing/periods/*/readings", async (route) => {
-      writes.push(await route.request().postDataJSON());
+      writes.push(route.request().postDataJSON());
       await route.abort();
     });
+    const writes: unknown[] = [];
+    await page.getByLabel("Chỉ số hiện tại").fill("15");
     await page.getByRole("button", { name: "Lưu" }).first().click();
     await expect(page.getByText(/Đã lưu chỉ số|Đã lưu trên thiết bị|Ngoại tuyến/)).toBeVisible();
     const stored = await page.evaluate(

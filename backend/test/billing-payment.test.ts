@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, test } from "bun:test";
+import { beforeEach, describe, expect, setDefaultTimeout, test } from "bun:test";
 import { resetDb } from "@/db/test-db";
 import { db } from "@/db";
 import { managers } from "@/modules/auth/auth.schema";
@@ -9,6 +9,7 @@ import { billingPeriods, invoices } from "@/modules/billing/billing.schema";
 import { markInvoicePaid, markInvoiceOverdue } from "@/modules/billing/billing.service";
 import { AppError } from "@/shared/errors";
 
+setDefaultTimeout(120_000);
 beforeEach(resetDb);
 describe("billing payments", () => {
   test("payment transitions are idempotent and block overdue after paid", async () => {

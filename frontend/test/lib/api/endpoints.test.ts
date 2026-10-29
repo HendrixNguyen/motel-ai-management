@@ -14,7 +14,7 @@ import {
   uploadRenterCccd,
 } from "@/lib/api/renters.client";
 import { getRenter, listRenters } from "@/lib/api/renters";
-import { login, logout, register } from "@/lib/api/auth.client";
+import { login, logout } from "@/lib/api/auth.client";
 import {
   MANAGER_AUTH,
   MANAGER_ME,
@@ -356,21 +356,10 @@ describe("writes (client components, relative URL through the proxy)", () => {
     expect(lastInit().credentials).toBe("same-origin");
   });
 
-  it("registers, and tells the two auth answers apart", async () => {
-    fetchMock.mockResolvedValue(jsonResponse(MANAGER_AUTH, 201));
-
-    const registered = await register({
-      email: "minhanh@example.vn",
-      password: "correct horse",
-      name: "Nguyễn Minh Anh",
-    });
-
-    expect(lastUrl()).toBe("/api/auth/register");
-    expect(registered).toEqual(MANAGER_AUTH);
-    // `getMe()` answers `{ id, email }`; a screen that reads `name` off it gets `undefined`. The
-    // two are separate types because the two answers are separate objects.
-    expect(Object.keys(registered)).toContain("name");
-    expect(Object.keys(MANAGER_ME)).not.toContain("name");
+  it("login response carries a CSRF token for Superadmin sessions", async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ ...MANAGER_AUTH, role: "superadmin", csrfToken: "a".repeat(43) }));
+    await expect(login({ email: "root@example.vn", password: "correct horse" })).resolves.toMatchObject({ role: "superadmin", csrfToken: "a".repeat(43) });
+    expect(lastUrl()).toBe("/api/auth/login");
   });
 
   it("logs out and clears only the authenticated manager's capture queue", async () => {

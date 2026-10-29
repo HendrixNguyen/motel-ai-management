@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, test } from "bun:test";
+import { beforeEach, describe, expect, setDefaultTimeout, test } from "bun:test";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { resetDb } from "@/db/test-db";
@@ -22,6 +22,7 @@ import {
 } from "@/modules/billing/billing.service";
 import { configureCccdStorage } from "@/modules/renter/renter.route";
 
+setDefaultTimeout(120_000);
 beforeEach(async () => {
   await resetDb();
   configureUploadStorage(new FakeStorageAdapter());

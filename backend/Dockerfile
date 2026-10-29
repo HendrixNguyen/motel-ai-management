@@ -8,6 +8,12 @@ COPY backend/tsconfig.json ./
 COPY backend/src ./src
 RUN bun run typecheck
 
+FROM deps AS migration-job
+COPY backend/drizzle ./drizzle
+COPY backend/drizzle.config.ts ./drizzle.config.ts
+COPY backend/src ./src
+CMD ["bun", "run", "db:migrate"]
+
 FROM deps AS runner
 WORKDIR /app
 COPY --from=build /app/node_modules ./node_modules
@@ -18,4 +24,4 @@ COPY backend/package.json ./
 EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
   CMD wget --quiet --spider http://127.0.0.1:3000/health || exit 1
-CMD ["bun", "run", "start"]
+CMD ["bun", "run", "start:server"]

@@ -123,7 +123,8 @@ export const notificationRoutes = new Elysia({ name: "notification-routes" })
         });
       } catch (error) {
         if (error instanceof AppError) throw error;
-        throw error;
+        set.status = 500;
+        return { error: "Webhook chưa thể xử lý", code: "INTERNAL_ERROR" };
       }
       return { ok: true };
     },

@@ -17,6 +17,8 @@ const TABLES = [
   "notification_events",
   "push_subscriptions",
   "zalo_notifications",
+  "contract_template_catalog",
+  "manager_audit_events",
   "magic_links",
   "ticket_photo_uploads",
   "help_tickets",
@@ -67,6 +69,7 @@ export async function resetDb(): Promise<void> {
     await resetDb.execute(sql.raw("CREATE SCHEMA public"));
     await resetDb.execute(sql.raw("CREATE SCHEMA drizzle"));
     await resetDb.execute(sql.raw("SET search_path TO public, drizzle"));
+    await resetDb.execute(sql.raw("CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA public"));
     await migrate(resetDb, { migrationsFolder });
     await resetDb.execute(sql.raw(`TRUNCATE ${TABLES.join(", ")} RESTART IDENTITY CASCADE`));
   } finally {

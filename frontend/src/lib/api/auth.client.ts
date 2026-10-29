@@ -1,5 +1,5 @@
 import { apiSend } from "./client";
-import type { LoginInput, ManagerAuthResponse, RegisterManagerInput } from "./types";
+import type { LoginInput, ManagerAuthResponse } from "./types";
 import { clearCaptureQueue } from "@/lib/capture/queue";
 
 /**
@@ -16,17 +16,6 @@ import { clearCaptureQueue } from "@/lib/capture/queue";
  * So: these three go to `/api/...` and the browser sets the cookie itself. `getMe` is the odd one
  * out — it is a read with no `Set-Cookie`, and it lives in `auth.ts` on the server side.
  */
-
-/** `POST /api/auth/register` — `auth.route.ts:18`. Answers 201 with the manager. */
-export async function register(input: RegisterManagerInput): Promise<ManagerAuthResponse> {
-  const manager = await apiSend<ManagerAuthResponse>("/api/auth/register", "POST", input);
-  try {
-    sessionStorage.setItem("manager-id", manager.id);
-  } catch {
-    /* Registration must succeed when local storage is unavailable. */
-  }
-  return manager;
-}
 
 /**
  * `POST /api/auth/login` — `auth.route.ts:43`.

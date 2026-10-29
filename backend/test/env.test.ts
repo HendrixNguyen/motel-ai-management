@@ -4,8 +4,9 @@ import { parseEnv } from "@/env";
 const valid = {
   DATABASE_URL: "postgres://u:p@localhost:5432/motel",
   TEST_DATABASE_URL: "postgres://u:p@localhost:5432/motel_test",
-  MANAGER_JWT_SECRET: "a".repeat(48),
-  RENTER_SESSION_SECRET: "b".repeat(48),
+        MANAGER_JWT_SECRET: "a".repeat(48),
+        ADMIN_JWT_SECRET: "k".repeat(48),
+        RENTER_SESSION_SECRET: "b".repeat(48),
   R2_ACCOUNT_ID: "acct",
   R2_BUCKET: "motel-uploads",
   ZALO_OA_ID: "oa",
@@ -42,8 +43,9 @@ describe("parseEnv", () => {
       TEST_DATABASE_URL: "postgres://test:p@db.internal:5432/motel_test",
       RENTER_PORTAL_URL: "https://renter.example.test",
       FRONTEND_URL: "https://app.example.test",
-      MANAGER_JWT_SECRET: "a".repeat(48),
-      RENTER_SESSION_SECRET: "b".repeat(48),
+        MANAGER_JWT_SECRET: "a".repeat(48),
+        ADMIN_JWT_SECRET: "k".repeat(48),
+        RENTER_SESSION_SECRET: "b".repeat(48),
       ZALO_OA_SECRET: "c".repeat(48),
       ZALO_ACCESS_TOKEN: "d".repeat(48),
       ZALO_WEBHOOK_SECRET: "e".repeat(48),
@@ -69,7 +71,7 @@ describe("parseEnv", () => {
     }
     expect(() => parseEnv({ ...production, R2_PUBLIC_URL: "not a url" })).toThrow(/URL hợp lệ/);
     expect(() => parseEnv({ ...production, DATABASE_URL: "" })).toThrow(/DATABASE_URL/);
-    expect(() => parseEnv({ ...production, TEST_DATABASE_URL: "" })).toThrow(/TEST_DATABASE_URL/);
+    expect(parseEnv({ ...production, TEST_DATABASE_URL: "" }).testDatabaseUrl).toBe("");
   });
 
   test("rejects local rate limits in production", () => {
@@ -122,9 +124,16 @@ describe("parseEnv", () => {
     expect(() => parseEnv(rest)).toThrow(/DATABASE_URL/);
   });
 
-  test("throws when TEST_DATABASE_URL is missing", () => {
+  test("permits production startup without a destructive test database URL", () => {
     const { TEST_DATABASE_URL, ...rest } = valid;
-    expect(() => parseEnv(rest)).toThrow(/TEST_DATABASE_URL/);
+    const production = { ...rest, NODE_ENV: "production", DATABASE_URL: "postgres://u:p@db.internal:5432/motel", FRONTEND_URL: "https://app.example.com", RENTER_PORTAL_URL: "https://renter.example.com" };
+    expect(parseEnv(production).testDatabaseUrl).toBe("");
+  });
+
+  test("allows production config without Zalo integration credentials when OA is disabled", () => {
+    const { ZALO_OA_ID, ZALO_OA_SECRET, ZALO_ACCESS_TOKEN, ZALO_WEBHOOK_SECRET, ...rest } = valid;
+    const production = { ...rest, NODE_ENV: "production", DATABASE_URL: "postgres://u:p@db.internal:5432/motel", FRONTEND_URL: "https://app.example.com", RENTER_PORTAL_URL: "https://renter.example.com" };
+    expect(parseEnv(production).zalo.oaId).toBe("");
   });
 
   test("keeps the test database separate from the application database", () => {
@@ -153,8 +162,9 @@ describe("parseEnv", () => {
       NODE_ENV: "production",
       RENTER_PORTAL_URL: "https://renter.example.com",
       FRONTEND_URL: "https://app.example.com",
-      MANAGER_JWT_SECRET: "a".repeat(48),
-      RENTER_SESSION_SECRET: "b".repeat(48),
+        MANAGER_JWT_SECRET: "a".repeat(48),
+        ADMIN_JWT_SECRET: "k".repeat(48),
+        RENTER_SESSION_SECRET: "b".repeat(48),
       ZALO_OA_SECRET: "d".repeat(48),
       ZALO_ACCESS_TOKEN: "e".repeat(48),
       ZALO_WEBHOOK_SECRET: "c".repeat(48),
@@ -177,6 +187,7 @@ describe("parseEnv", () => {
         RENTER_PORTAL_URL: "https://renter.example.com",
         FRONTEND_URL: "https://app.example.com",
         MANAGER_JWT_SECRET: "a".repeat(48),
+        ADMIN_JWT_SECRET: "k".repeat(48),
         RENTER_SESSION_SECRET: "a".repeat(48),
         ZALO_OA_SECRET: "d".repeat(48),
         ZALO_ACCESS_TOKEN: "e".repeat(48),
@@ -214,8 +225,9 @@ describe("parseEnv", () => {
       NODE_ENV: "production",
       RENTER_PORTAL_URL: "https://renter.example.com",
       FRONTEND_URL: "https://app.example.com",
-      MANAGER_JWT_SECRET: "a".repeat(48),
-      RENTER_SESSION_SECRET: "b".repeat(48),
+        MANAGER_JWT_SECRET: "a".repeat(48),
+        ADMIN_JWT_SECRET: "k".repeat(48),
+        RENTER_SESSION_SECRET: "b".repeat(48),
       ZALO_OA_SECRET: "d".repeat(48),
       ZALO_ACCESS_TOKEN: "e".repeat(48),
       ZALO_WEBHOOK_SECRET: "c".repeat(48),
@@ -228,7 +240,6 @@ describe("parseEnv", () => {
       parseEnv({
         ...production,
         DATABASE_URL: "postgres://user:p%40ss%23@db/motel",
-        TEST_DATABASE_URL: "postgres://test:p%40ss%23@db/test",
       }).databaseUrl,
     ).toContain("%40");
   });
@@ -249,8 +260,9 @@ describe("parseEnv", () => {
       DATABASE_URL: "postgres://u:p@db.internal:5432/motel",
       RENTER_PORTAL_URL: "https://renter.example.com",
       FRONTEND_URL: "https://app.example.com",
-      MANAGER_JWT_SECRET: "m".repeat(48),
-      RENTER_SESSION_SECRET: "n".repeat(48),
+       MANAGER_JWT_SECRET: "m".repeat(48),
+       ADMIN_JWT_SECRET: "k".repeat(48),
+       RENTER_SESSION_SECRET: "n".repeat(48),
       ZALO_OA_SECRET: "o".repeat(48),
       ZALO_ACCESS_TOKEN: "p".repeat(48),
       ZALO_WEBHOOK_SECRET: "q".repeat(48),

@@ -14,11 +14,36 @@
 
 | Prefix           | Credential     | Session                           |
 | ---------------- | -------------- | --------------------------------- |
-| `/api/manager/*` | Manager JWT    | `manager_session` httpOnly cookie |
+| `/api/manager/*` | Manager JWT only; Superadmin returns `403 FORBIDDEN` | `manager_session` httpOnly cookie |
+| `/api/admin/*`   | Superadmin JWT only; Manager returns `403 FORBIDDEN`   | `manager_session` httpOnly cookie |
 | `/api/renter/*`  | Renter session | `renter_session` httpOnly cookie  |
 
 Tenant scope is always derived from the session. No endpoint accepts a `managerId` from the
-client. A motel belonging to another manager returns `404`, never `403`.
+client. A motel belonging to another manager returns `404`, never `403`. Superadmin role can
+access account/catalog administration only; business endpoints reject it. Public manager
+registration remains available and always creates role `manager`; no route accepts role changes.
+QA seed/debug HTTP routes are not available.
+
+## Superadmin manager account endpoints
+
+| Method | Path | Access | Body | Returns |
+| --- | --- | --- | --- | --- |
+| GET | `/api/admin/managers?limit=50&offset=0` | Superadmin | — | Paged Manager account summaries and random per-session `x-csrf-token` response header; no hashes/Superadmin rows |
+| POST | `/api/admin/managers` | Superadmin + matching `X-CSRF-Token` header | `{email,name,password,phone?}` | `201` Manager profile only; Argon2id password, length 8–256 |
+| PATCH | `/api/admin/managers/:managerId` | Superadmin + matching `X-CSRF-Token` header | `{enabled:boolean}` | `{success:true}`; changes status and increments sessionVersion |
+| POST | `/api/admin/managers/:managerId/reset-password` | Superadmin + matching `X-CSRF-Token` header | `{password}` | `{success:true}`; resets Argon2id hash and increments sessionVersion |
+
+Public `/api/auth/register` remains for Manager self-registration and must always assign role `manager`. Role is never accepted from client request.
+
+## Shared contract catalog endpoints
+
+| Method | Path | Access | Body | Returns |
+| --- | --- | --- | --- | --- |
+| GET | `/api/manager/contract-template-catalog` | Manager session | — | Active system catalog summaries |
+| GET | `/api/manager/contract-template-catalog/:key/:version` | Manager session | — | Active system template and clauses |
+| POST | `/api/manager/motels/:motelId/contract-templates/from-catalog` | Manager session | `{catalogKey,catalogVersion,name?,isDefault?}` | New motel-owned copy; foreign motel returns 404 |
+
+Catalog rows are read-only source templates. Copy validates the active version and motel ownership, then creates independent clauses in motel scope. Contracts continue snapshotting clauses at creation.
 
 ## Error envelope
 
@@ -81,18 +106,14 @@ Contract creation validates motel ownership for renter, room, and template. Miss
 
 | Method | Path        | Body                              | Returns                               |
 | ------ | ----------- | --------------------------------- | ------------------------------------- |
-| POST   | `/register` | `{email, password, name, phone?}` | `201 {id, email, name}` + sets cookie |
-| POST   | `/login`    | `{email, password}`               | `200 {id, email, name}` + sets cookie |
+| POST   | `/register` | `{email, password, name, phone?}` | `201 {id, email, name, role}` + sets cookie; always role `manager` |
+| POST | `/login`    | `{email, password}`               | `200 {id, email, name, role, csrfToken?}` + sets role-bound cookie; Superadmin receives 43-character random CSRF token |
 | POST   | `/logout`   | —                                 | `204` + clears cookie                 |
-| GET    | `/me`       | —                                 | `200 {id, email}`                     |
+| GET    | `/me`       | —                                 | `200 {id, email, role}`               |
 
-`password` ≥ 8 characters. Login is rate-limited per IP and per email.
+`password` is 8–256 characters. Login/register are rate-limited per IP and normalized email. Registration ignores/rejects any client-supplied role and creates only a normal Manager; it never creates a Superadmin.
 
-**`/me` has no `name`, and that is not an omission to be tidied up.** It reads the claims off the
-manager JWT, which never carried one, so a client that renders a name from `/me` renders
-`undefined`. The three calls that set or clear the cookie are made by the **browser** through the
-proxied path, so the backend's own `Set-Cookie` reaches the browser unchanged; `/me` is a read and
-is made from a Server Component with the cookie forwarded.
+`/auth/me` accepts a valid Manager or Superadmin session and returns its DB-backed role. Logout clears either role's shared cookie. Manager signing uses `MANAGER_JWT_SECRET`; Superadmin signing uses the separate `ADMIN_JWT_SECRET`. Both must be distinct from `RENTER_SESSION_SECRET` and are never exposed to clients. Superadmin CSRF token is per login, signed into its session, available on the same-origin admin-list response header, and required as `X-CSRF-Token` on writes. Session-version changes invalidate old role sessions and tokens. The frontend reaches these routes through the same-origin `/api` proxy.
 
 ### Magic links — `/api/renter/magic-links`
 

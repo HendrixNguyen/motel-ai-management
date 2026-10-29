@@ -18,6 +18,7 @@ export interface Env {
   trustedProxyAssertionValue: string | null;
   webPush: { publicKey: string; privateKey: string; subject: string } | null;
   managerJwtSecret: string;
+  adminJwtSecret: string;
   renterSessionSecret: string;
   r2: {
     accountId: string;
@@ -116,16 +117,18 @@ function validateProductionSecrets(
 
 export function validateProductionConfig(input: Record<string, string | undefined>): void {
   required(input, "DATABASE_URL");
-  required(input, "TEST_DATABASE_URL");
   validateProductionSecrets(input, [
     "MANAGER_JWT_SECRET",
+    "ADMIN_JWT_SECRET",
     "RENTER_SESSION_SECRET",
-    "ZALO_OA_SECRET",
-    "ZALO_ACCESS_TOKEN",
-    "ZALO_WEBHOOK_SECRET",
+    ...(input.ZALO_OA_ID ? ["ZALO_OA_SECRET", "ZALO_ACCESS_TOKEN", "ZALO_WEBHOOK_SECRET"] : []),
+    ...(input.TEST_DATABASE_URL?.trim() && input.TEST_DATABASE_URL.trim() !== input.DATABASE_URL?.trim() ? ["TEST_DATABASE_URL"] : []),
     "R2_ACCESS_KEY_ID",
     "R2_SECRET_ACCESS_KEY",
   ]);
+  const adminSecret = secret(input, "ADMIN_JWT_SECRET");
+  if (new Set([input.MANAGER_JWT_SECRET, adminSecret, input.RENTER_SESSION_SECRET]).size !== 3)
+    throw new AppError("VALIDATION_ERROR", "Production secrets phải khác nhau");
   publicUrl(input, "RENTER_PORTAL_URL", "", true);
   publicUrl(input, "FRONTEND_URL", "", true);
   if (input.R2_PUBLIC_URL) publicUrl(input, "R2_PUBLIC_URL", "", true);
@@ -141,8 +144,6 @@ export function parseEnv(input: Record<string, string | undefined>): Env {
     validateProductionConfig(input);
     if (input.DATABASE_URL?.includes("localhost") || input.DATABASE_URL?.includes("127.0.0.1"))
       throw new AppError("VALIDATION_ERROR", "DATABASE_URL production không được dùng localhost");
-    if (input.MANAGER_JWT_SECRET === input.RENTER_SESSION_SECRET)
-      throw new AppError("VALIDATION_ERROR", "Production secrets phải khác nhau");
     if (
       input.TRUSTED_PROXY_HEADER &&
       (!input.TRUSTED_PROXY_ASSERTION_HEADER ||
@@ -166,13 +167,14 @@ export function parseEnv(input: Record<string, string | undefined>): Env {
     rateLimitStore,
     port,
     databaseUrl: required(input, "DATABASE_URL"),
-    testDatabaseUrl: required(input, "TEST_DATABASE_URL"),
+    testDatabaseUrl: input.TEST_DATABASE_URL ?? "",
     renterPortalUrl: publicUrl(input, "RENTER_PORTAL_URL", "http://localhost:3000", production),
     frontendUrl: publicUrl(input, "FRONTEND_URL", "http://localhost:3001", production),
     trustedProxyHeader: input.TRUSTED_PROXY_HEADER?.trim() || null,
     trustedProxyAssertionHeader: input.TRUSTED_PROXY_ASSERTION_HEADER?.trim() || null,
     trustedProxyAssertionValue: input.TRUSTED_PROXY_ASSERTION_VALUE || null,
     managerJwtSecret: secret(input, "MANAGER_JWT_SECRET"),
+    adminJwtSecret: required(input, "ADMIN_JWT_SECRET"),
     renterSessionSecret: secret(input, "RENTER_SESSION_SECRET"),
     r2: {
       accountId: required(input, "R2_ACCOUNT_ID"),
@@ -192,10 +194,10 @@ export function parseEnv(input: Record<string, string | undefined>): Env {
           }
         : null,
     zalo: {
-      oaId: required(input, "ZALO_OA_ID"),
-      oaSecret: required(input, "ZALO_OA_SECRET"),
-      accessToken: required(input, "ZALO_ACCESS_TOKEN"),
-      webhookSecret: required(input, "ZALO_WEBHOOK_SECRET"),
+      oaId: input.ZALO_OA_ID ?? "",
+      oaSecret: input.ZALO_OA_ID ? required(input, "ZALO_OA_SECRET") : "",
+      accessToken: input.ZALO_OA_ID ? required(input, "ZALO_ACCESS_TOKEN") : "",
+      webhookSecret: input.ZALO_OA_ID ? required(input, "ZALO_WEBHOOK_SECRET") : "",
       templates: Object.fromEntries(
         Object.entries(ZNS_KEYS).map(([key, variable]) => [key, input[variable] ?? "PLACEHOLDER"]),
       ) as Record<ZnsTemplateKey, string>,

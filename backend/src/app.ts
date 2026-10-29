@@ -2,7 +2,7 @@ import { Elysia } from "elysia";
 import { cors } from "@elysiajs/cors";
 import { env } from "@/config";
 import { errorHandler } from "@/middleware/error-handler";
-import { authRoutes } from "@/modules/auth/auth.route";
+import { adminAccountRoutes, authRoutes } from "@/modules/auth/auth.route";
 import { magicLinkRoutes } from "@/modules/auth/magic-link.route";
 import { motelRoutes } from "@/modules/motel/motel.route";
 import { renterRoutes } from "@/modules/renter/renter.route";
@@ -53,6 +53,7 @@ export function createApp() {
     .group("/api", (api) =>
       api
         .use(authRoutes)
+        .use(adminAccountRoutes)
         .use(magicLinkRoutes)
         .use(motelRoutes)
         .use(roomRoutes)

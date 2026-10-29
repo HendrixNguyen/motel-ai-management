@@ -10,7 +10,9 @@ import { useToast } from "@/components/ui/toast";
 import {
   createContract,
   createContractTemplate,
+  copyContractTemplateFromCatalog,
   deleteContractTemplate,
+  listContractTemplateCatalog,
   sendContract,
   terminateContract,
   updateContract,
@@ -19,6 +21,7 @@ import {
 import type {
   ContractResponse,
   ContractStatus,
+  ContractTemplateCatalogResponse,
   ContractTemplateResponse,
   RenterResponse,
   RoomResponse,
@@ -59,6 +62,9 @@ export default function ContractManagementClient({
   const notify = useToast();
   const [rows, setRows] = useState(contracts);
   const [templateRows, setTemplateRows] = useState(templates);
+  const [catalogRows, setCatalogRows] = useState<ContractTemplateCatalogResponse[]>([]);
+  const [catalogLoaded, setCatalogLoaded] = useState(false);
+  const [catalogError, setCatalogError] = useState("");
   const [dialog, setDialog] = useState<"create" | "templates" | { edit: ContractResponse } | null>(
     null,
   );
@@ -69,6 +75,30 @@ export default function ContractManagementClient({
   const [errors, setErrors] = useState<Partial<Record<keyof ContractDraft, string>>>({});
   const [formError, setFormError] = useState("");
   const [pending, setPending] = useState(false);
+
+  async function openTemplates() {
+    setFormError("");
+    setDialog("templates");
+    if (catalogLoaded) return;
+    try {
+      setCatalogRows(await listContractTemplateCatalog());
+      setCatalogLoaded(true);
+    } catch (error) {
+      setCatalogError(error instanceof Error ? error.message : "Không thể tải mẫu hệ thống");
+    }
+  }
+
+  async function copyCatalogTemplate(template: ContractTemplateCatalogResponse) {
+    setPending(true);
+    setCatalogError("");
+    try {
+      const copied = await copyContractTemplateFromCatalog(motelId, { catalogKey: template.key, catalogVersion: template.version });
+      setTemplateRows((current) => [copied, ...current]);
+      notify({ message: `Đã sao chép mẫu “${template.name}” vào nhà trọ này` });
+    } catch (error) {
+      setCatalogError(error instanceof Error ? error.message : "Không thể sao chép mẫu");
+    } finally { setPending(false); }
+  }
 
   async function create(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -227,10 +257,7 @@ export default function ContractManagementClient({
         </Button>
         <Button
           variant="secondary"
-          onClick={() => {
-            setFormError("");
-            setDialog("templates");
-          }}
+          onClick={() => void openTemplates()}
         >
           Mẫu hợp đồng
         </Button>
@@ -490,9 +517,21 @@ export default function ContractManagementClient({
             if (!pending) setDialog(null);
           }}
           title="Mẫu hợp đồng"
-          description="Xem, sửa hoặc tạo mẫu cho nhà trọ hiện tại."
+          description="Mẫu hệ thống là nội dung tham khảo. Hãy sao chép rồi điều chỉnh cho nhà trọ của bạn."
         >
           <div className="max-h-[65dvh] space-y-4 overflow-y-auto">
+            <section className="space-y-3 rounded-input border border-primary/30 bg-canvas p-3">
+              <h3 className="font-semibold">Mẫu hệ thống dùng chung</h3>
+              <p className="text-sm text-text-muted">Mẫu chỉ để tham khảo, chưa được thẩm định pháp lý. Bản sao thuộc nhà trọ này; chỉnh sửa không ảnh hưởng mẫu hệ thống hoặc nhà trọ khác.</p>
+              {!catalogRows.length && !catalogError && <p role="status" className="text-sm text-text-muted">Đang tải mẫu hợp đồng…</p>}
+              {catalogRows.map((item) => <article key={`${item.key}:${item.version}`} className="rounded-input border border-border bg-surface p-3">
+                <div className="flex flex-wrap items-start justify-between gap-2"><div><h4 className="font-semibold">{item.name}</h4><p className="text-sm text-text-muted">{item.description}</p></div><Badge label={`v${item.version}`} tone="neutral" /></div>
+                <details className="mt-2"><summary className="min-h-10 cursor-pointer content-center text-sm font-medium">Xem {item.clauses.length} điều khoản</summary>{item.clauses.map((clause, index) => <div key={index} className="mt-2"><p className="font-medium">{clause.title}</p><p className="whitespace-pre-wrap text-sm text-text-muted">{clause.content}</p></div>)}</details>
+                <Button className="mt-3" variant="secondary" disabled={pending || templateRows.some((row) => row.name === item.name)} pending={pending} onClick={() => void copyCatalogTemplate(item)}>{templateRows.some((row) => row.name === item.name) ? "Đã có trong nhà trọ" : "Sao chép vào nhà trọ"}</Button>
+              </article>)}
+              {catalogError && <p role="alert" className="text-sm text-danger">{catalogError}</p>}
+            </section>
+            <section className="space-y-3 border-t border-border pt-4"><h3 className="font-semibold">Mẫu riêng của nhà trọ</h3>
             {templateRows
               .filter((item) => item.motelId === motelId)
               .map((item) => (
@@ -591,6 +630,7 @@ export default function ContractManagementClient({
                 </Button>
               </form>
             )}
+            </section>
             {formError && (
               <p role="alert" className="text-danger">
                 {formError}

@@ -96,7 +96,7 @@ destroys the schema it is given.
 | Billing utility rounding | meter parsing rejects invalid precision; utility costs cover below-half, exact-half, and above-half VND, with exact halves rounded up |
 | Billing workflows | readings batch is atomic and conflict-safe; sent periods reject mutation; invoice generation is idempotent with snapshots; payment transitions and tenant 404 are covered |
 | Phone normalisation | mobile, landline, each malformed form |
-| Auth | register, login, wrong password, unknown email, replay, expiry — for both roles |
+| Auth | public registration forced to Manager role, role-bound Manager/Superadmin JWTs, both roles on `/auth/me` and logout, wrong-role 403, cross-key rejection, per-login CSRF header, missing/stale/forged CSRF denial, disable/reset sessionVersion revocation, wrong password, unknown email |
 | Contract signing | renter-only read, hashed OTP, five-minute expiry/cooldown, three-attempt limit, atomic activation, safe error codes |
 | Tenant scoping | both isolation directions, over HTTP |
 | Billing rules | meter's `basePrice` is never read by the calculation |
@@ -114,7 +114,7 @@ destroys the schema it is given.
 
 ## Deployment startup and migration verification
 
-The local `docker-compose.yml` waits for PostgreSQL health before starting the backend. Backend startup runs `bun run db:migrate` before `bun run start`, and the backend restarts after transient failures. This auto-migration pattern is safe only with one backend replica. Production deployments with multiple replicas must run one migration job to completion before starting or rolling out replicas; replicas must not migrate concurrently.
+The local `docker-compose.yml` waits for PostgreSQL health, then runs one `migration-job` before the backend starts. The job uses the backend image's migration target and `bun run db:migrate`; the backend image does not migrate on startup. Production must run one migration job to completion before starting or rolling out backend replicas; replicas must not migrate concurrently. `db:bootstrap-superadmin` verifies the required migration ledger hashes and schema read-only, then writes Superadmin/audit/catalog data in one transaction; it never runs migrations.
 
 Full-flow and deployment smoke checks must verify migration completion and backend health. Test migration startup against production-like data without `db:push` or database reset.
 

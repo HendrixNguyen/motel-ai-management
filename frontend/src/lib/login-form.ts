@@ -3,7 +3,7 @@ import { login } from "@/lib/api/auth.client";
 import { ApiError, GENERIC_ERROR_MESSAGE } from "@/lib/api/client";
 
 export type LoginFieldErrors = { email?: string; password?: string };
-type LoginResult = { ok: true } | { ok: false; fields?: LoginFieldErrors; error?: string };
+type LoginResult = { ok: true; role: "manager" | "superadmin" } | { ok: false; fields?: LoginFieldErrors; error?: string };
 
 export function validateLogin(input: LoginInput): LoginFieldErrors {
   const errors: LoginFieldErrors = {};
@@ -17,8 +17,8 @@ export async function authenticateManager(input: LoginInput): Promise<LoginResul
   const fields = validateLogin(input);
   if (Object.keys(fields).length) return { ok: false, fields };
   try {
-    await login(input);
-    return { ok: true };
+    const account = await login(input);
+    return { ok: true, role: account.role };
   } catch (error) {
     return { ok: false, error: error instanceof ApiError ? error.message : GENERIC_ERROR_MESSAGE };
   }

@@ -487,6 +487,16 @@ export function createFixtureBackend(
           status: "draft",
           createdAt: "2026-01-01T00:00:00.000Z",
         });
+      if (method === "GET" && path === "/api/manager/contract-template-catalog")
+        return json([
+          {
+            key: "vn-residential-standard",
+            version: 1,
+            name: "Hợp đồng thuê nhà ở",
+            description: "Mẫu hợp đồng thuê nhà ở tiêu chuẩn",
+            clauses: [{ title: "Thời hạn thuê", content: "Theo thỏa thuận của hai bên." }],
+          },
+        ]);
       if (method === "GET" && path.match(/^\/api\/manager\/motels\/[^/]+\/contract-templates$/)) {
         const created = templateStore.get(managerSession);
         return json([

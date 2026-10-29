@@ -4,25 +4,25 @@ import postgres from "postgres";
 import { afterAll, describe, expect, setDefaultTimeout, test } from "bun:test";
 
 setDefaultTimeout(120_000);
-const adminUrl = process.env.MIGRATION_TEST_ADMIN_URL ?? "";
+const adminUrl = process.env.MIGRATION_TEST_ADMIN_URL ?? process.env.TEST_DATABASE_URL ?? "";
 if (!adminUrl)
-  throw new Error("MIGRATION_TEST_ADMIN_URL must point to disposable local PostgreSQL");
+  throw new Error("MIGRATION_TEST_ADMIN_URL or TEST_DATABASE_URL must point to disposable local PostgreSQL");
 const admin = postgres(adminUrl, { max: 1, onnotice: () => {} });
 const databaseUrl = new URL(adminUrl);
 const migration = await readFile(
-  new URL("../../drizzle/0019_reconcile_rate_limit_buckets.sql", import.meta.url),
+  new URL("../drizzle/0019_reconcile_rate_limit_buckets.sql", import.meta.url),
   "utf8",
 );
 const privateCccdMigration = await readFile(
-  new URL("../../drizzle/0021_private_cccd_metadata.sql", import.meta.url),
+  new URL("../drizzle/0021_private_cccd_metadata.sql", import.meta.url),
   "utf8",
 );
 const consentMigration = await readFile(
-  new URL("../../drizzle/0022_contract_consent.sql", import.meta.url),
+  new URL("../drizzle/0022_contract_consent.sql", import.meta.url),
   "utf8",
 );
 const pushMigration = await readFile(
-  new URL("../../drizzle/0023_renter_push_subscriptions.sql", import.meta.url),
+  new URL("../drizzle/0023_renter_push_subscriptions.sql", import.meta.url),
   "utf8",
 );
 const databases: string[] = [];
@@ -49,10 +49,14 @@ async function runMigration(sql: ReturnType<typeof postgres>, source = migration
 }
 
 afterAll(async () => {
-  for (const name of databases)
-    await admin.unsafe(`DROP DATABASE IF EXISTS "${name}" WITH (FORCE)`);
+  const leftovers = await admin`
+    SELECT datname FROM pg_database
+    WHERE datname LIKE 'migration_%' AND datname = ANY(${databases})
+  `;
+  for (const row of leftovers)
+    await admin.unsafe(`DROP DATABASE IF EXISTS "${row.datname}" WITH (FORCE)`);
   await admin.end();
-}, 30_000);
+}, 120_000);
 
 describe("0019 rate-limit bucket reconciliation", () => {
   test("creates current schema on fresh install", async () => {

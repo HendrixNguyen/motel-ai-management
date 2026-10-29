@@ -1,14 +1,14 @@
 import { beforeEach, describe, expect, setDefaultTimeout, test } from "bun:test";
 import { createHash } from "node:crypto";
-import { sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { resetDb } from "@/db/test-db";
-import { magicLinks, managers } from "@/modules/auth/auth.schema";
+import { magicLinks, managerRole, managers } from "@/modules/auth/auth.schema";
 import { motels } from "@/modules/motel/motel.schema";
 import { rooms } from "@/modules/room/room.schema";
 import { renters } from "@/modules/renter/renter.schema";
 import { billingPeriods, invoices, meterReadings } from "@/modules/billing/billing.schema";
-import { contractTemplates, contracts } from "@/modules/contract/contract.schema";
+import { contractTemplateCatalog, contractTemplates, contracts } from "@/modules/contract/contract.schema";
 import { helpTickets } from "@/modules/ticket/ticket.schema";
 
 // `resetDb` drops the schema and re-applies every migration, which takes seconds — past
@@ -52,6 +52,35 @@ async function seedRenter() {
 beforeEach(resetDb);
 
 describe("schema constraints", () => {
+  test("manager password hash cannot be null", async () => {
+    await expect(db.insert(managers).values({ email: "no-password@example.com", name: "No Password", passwordHash: null as unknown as string }).execute()).rejects.toThrow();
+  });
+
+  test("only one superadmin account can exist", async () => {
+    await seed();
+    await db.update(managers).set({ role: "superadmin" }).where(eq(managers.id, managerId));
+    await expect(db.insert(managers).values({ email: "root2@example.com", name: "Root 2", passwordHash: "hash", role: "superadmin" }).execute()).rejects.toThrow();
+  });
+
+  test("manager role rejects values outside enum", async () => {
+    await expect(db.insert(managers).values({ email: "invalid-role@example.com", name: "Invalid", passwordHash: "hash", role: "owner" as typeof managerRole.enumValues[number] }).execute()).rejects.toThrow();
+  });
+
+  test("manager session version cannot be negative", async () => {
+    await expect(
+      db.insert(managers).values({ email: "negative@example.com", name: "N", passwordHash: "x", sessionVersion: -1 }).execute(),
+    ).rejects.toThrow();
+  });
+
+  test("contract catalog key and version are unique and valid", async () => {
+    const values = { key: "vn-residential-standard", version: 1, name: "Mẫu", description: "Mô tả", clauses: [] };
+    await db.insert(contractTemplateCatalog).values(values);
+    await expect(db.insert(contractTemplateCatalog).values(values).execute()).rejects.toThrow();
+    await expect(db.insert(contractTemplateCatalog).values({ ...values, version: 0 }).execute()).rejects.toThrow();
+    await expect(db.insert(contractTemplateCatalog).values({ ...values, key: "Invalid Key" }).execute()).rejects.toThrow();
+  });
+
+
   test("room names are unique within a motel", async () => {
     await seed();
     const [room] = await db.insert(rooms).values({ motelId, name: "P.102" }).returning();
