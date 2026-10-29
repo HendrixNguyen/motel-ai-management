@@ -17,7 +17,7 @@ export const STARTER_TEMPLATES: SeedCatalogItem[] = [
     version: 1,
     name: "Hợp đồng thuê nhà trọ tiêu chuẩn",
     description: "Mẫu hợp đồng thuê phòng trọ cơ bản theo tập quán và quy định dân sự Việt Nam.",
-    active: true,
+    active: false,
     clauses: [
       {
         title: "Điều 1: Tiền thuê và tiền đặt cọc",
@@ -52,7 +52,7 @@ export const STARTER_TEMPLATES: SeedCatalogItem[] = [
     name: "Hợp đồng thuê kèm biểu phí dịch vụ",
     description:
       "Mẫu hợp đồng thuê phòng quy định chi tiết tiền phòng và biểu phí dịch vụ điện nước, rác, tiện ích.",
-    active: true,
+    active: false,
     clauses: [
       {
         title: "Điều 1: Tiền thuê, tiền cọc và biểu phí dịch vụ",
@@ -87,7 +87,7 @@ export const STARTER_TEMPLATES: SeedCatalogItem[] = [
     name: "Hợp đồng thuê linh hoạt thời hạn",
     description:
       "Mẫu hợp đồng thuê phòng linh hoạt thời hạn, quy định rõ cơ chế gia hạn và thời gian báo trước.",
-    active: true,
+    active: false,
     clauses: [
       {
         title: "Điều 1: Tiền thuê và thanh toán linh hoạt",
