@@ -130,6 +130,13 @@ export function validateProductionConfig(input: Record<string, string | undefine
     } catch {
       throw new AppError("VALIDATION_ERROR", "TEST_DATABASE_URL không hợp lệ");
     }
+    if (
+      !productionDatabase.hostname ||
+      !testDatabase.hostname ||
+      !testDatabase.pathname ||
+      testDatabase.pathname === "/"
+    )
+      throw new AppError("VALIDATION_ERROR", "TEST_DATABASE_URL debe incluir host y database name");
     const normalizeDatabaseName = (url: URL) => {
       try {
         return decodeURIComponent(
@@ -157,12 +164,22 @@ export function validateProductionConfig(input: Record<string, string | undefine
     } catch {
       throw new AppError("VALIDATION_ERROR", "TEST_DATABASE_URL credential encoding không hợp lệ");
     }
+    const hasUnresolvedTemplate = /\$\{[^}]+\}/.test(testDatabaseUrl);
+    const hasKnownPlaceholder =
+      /^(DB_USER|DB_PASSWORD|DB_NAME|DB_TEST_NAME)$/i.test(testDatabase.username) ||
+      /^(DB_USER|DB_PASSWORD|DB_NAME|DB_TEST_NAME)$/i.test(password);
+    if (hasUnresolvedTemplate || hasKnownPlaceholder)
+      throw new AppError(
+        "VALIDATION_ERROR",
+        "TEST_DATABASE_URL contains unresolved template variables",
+      );
     if (
-      password &&
-      (/^(placeholder|change[-_ ]?me|secret|mock|test|dev|development|password|super_secret)/i.test(
+      !testDatabase.username ||
+      !password ||
+      /^(placeholder|change[-_ ]?me|secret|mock|test|dev|development|password|super_secret)/i.test(
         password,
       ) ||
-        password.length < 32)
+      password.length < 32
     )
       throw new AppError("VALIDATION_ERROR", "TEST_DATABASE_URL credential không đủ mạnh");
   }
