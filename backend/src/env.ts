@@ -149,10 +149,20 @@ export function validateProductionConfig(input: Record<string, string | undefine
         );
       }
     };
+    const productionDatabaseName = normalizeDatabaseName(productionDatabase);
+    const testDatabaseName = normalizeDatabaseName(testDatabase);
+    if (
+      !testDatabaseName ||
+      /^(db_test_name|db_name|placeholder|testing|tmp|temp)$/i.test(testDatabaseName)
+    )
+      throw new AppError(
+        "VALIDATION_ERROR",
+        "TEST_DATABASE_URL database name is unresolved or a placeholder",
+      );
     if (
       testDatabase.hostname.toLowerCase() === productionDatabase.hostname.toLowerCase() &&
       (testDatabase.port || "5432") === (productionDatabase.port || "5432") &&
-      normalizeDatabaseName(testDatabase) === normalizeDatabaseName(productionDatabase)
+      testDatabaseName === productionDatabaseName
     )
       throw new AppError(
         "VALIDATION_ERROR",
@@ -173,14 +183,7 @@ export function validateProductionConfig(input: Record<string, string | undefine
         "VALIDATION_ERROR",
         "TEST_DATABASE_URL contains unresolved template variables",
       );
-    if (
-      !testDatabase.username ||
-      !password ||
-      /^(placeholder|change[-_ ]?me|secret|mock|test|dev|development|password|super_secret)/i.test(
-        password,
-      ) ||
-      password.length < 32
-    )
+    if (!testDatabase.username || !password)
       throw new AppError("VALIDATION_ERROR", "TEST_DATABASE_URL credential không đủ mạnh");
   }
   const zaloOaId = input.ZALO_OA_ID?.trim() ?? "";

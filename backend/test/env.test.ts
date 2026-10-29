@@ -40,7 +40,7 @@ describe("parseEnv", () => {
       ...valid,
       NODE_ENV: "production",
       DATABASE_URL: "postgres://u:p@db.internal:5432/motel",
-      TEST_DATABASE_URL: `postgres://test:${"t".repeat(48)}@db.internal:5432/motel_test`,
+      TEST_DATABASE_URL: `postgres://test:${"t".repeat(48)}@db.internal:5432/motel_test_db`,
       RENTER_PORTAL_URL: "https://renter.example.test",
       FRONTEND_URL: "https://app.example.test",
       MANAGER_JWT_SECRET: "a".repeat(48),
@@ -117,6 +117,30 @@ describe("parseEnv", () => {
         RENTER_SESSION_SECRET: valid.MANAGER_JWT_SECRET,
       }),
     ).toThrow(/secret|trùng/);
+  });
+
+  test("allows an intentionally weak but distinct production test DB credential", () => {
+    const production = {
+      ...valid,
+      NODE_ENV: "production",
+      DATABASE_URL: "postgres://u:p@db.internal:5432/motel",
+      TEST_DATABASE_URL: "postgres://test-user:******@postgres:5432/motel_test",
+      FRONTEND_URL: "https://app.example.com",
+      RENTER_PORTAL_URL: "https://renter.example.com",
+    };
+    expect(() => parseEnv(production)).not.toThrow();
+  });
+
+  test("rejects production TEST_DATABASE_URL with compose placeholder credentials", () => {
+    const production = {
+      ...valid,
+      NODE_ENV: "production",
+      DATABASE_URL: "postgres://u:p@db.internal:5432/motel",
+      TEST_DATABASE_URL: "postgres://DB_USER:DB_PASSWORD@postgres:5432/DB_TEST_NAME",
+      FRONTEND_URL: "https://app.example.com",
+      RENTER_PORTAL_URL: "https://renter.example.com",
+    };
+    expect(() => parseEnv(production)).toThrow(/TEST_DATABASE_URL/);
   });
 
   test("throws when DATABASE_URL is missing", () => {
@@ -308,12 +332,12 @@ describe("parseEnv", () => {
     expect(() => parseEnv(production)).toThrow(/credential encoding không hợp lệ/);
   });
 
-  test("rejects weak credentials in an explicitly configured production test DB", () => {
+  test("allows weak credentials in an optional non-production test DB in production config", () => {
     const production = {
       ...valid,
       NODE_ENV: "production",
       DATABASE_URL: "postgres://u:p@db.internal:5432/motel",
-      TEST_DATABASE_URL: "postgres://u:placeholder@db.internal:5432/test",
+      TEST_DATABASE_URL: "postgres://u:placeholder@db.internal:5432/motel_test",
       FRONTEND_URL: "https://app.example.com",
       RENTER_PORTAL_URL: "https://renter.example.com",
       ZALO_OA_ID: "oa",
@@ -321,7 +345,7 @@ describe("parseEnv", () => {
       ZALO_ACCESS_TOKEN: "d".repeat(48),
       ZALO_WEBHOOK_SECRET: "e".repeat(48),
     };
-    expect(() => parseEnv(production)).toThrow(/credential không đủ mạnh/);
+    expect(() => parseEnv(production)).not.toThrow();
   });
 
   test("rejects both supported search_path option encodings when they alias", () => {
@@ -393,7 +417,7 @@ describe("parseEnv", () => {
     const production = {
       ...valid,
       NODE_ENV: "production",
-      TEST_DATABASE_URL: `postgres://test:${"t".repeat(48)}@db.internal:5432/motel_test`,
+      TEST_DATABASE_URL: `postgres://test:${"t".repeat(48)}@db.internal:5432/motel_test_db`,
       RENTER_PORTAL_URL: "https://renter.example.com",
       FRONTEND_URL: "https://app.example.com",
       MANAGER_JWT_SECRET: "a".repeat(48),
@@ -418,7 +442,7 @@ describe("parseEnv", () => {
       parseEnv({
         ...valid,
         NODE_ENV: "production",
-        TEST_DATABASE_URL: `postgres://test:${"t".repeat(48)}@db.internal:5432/motel_test`,
+        TEST_DATABASE_URL: `postgres://test:${"t".repeat(48)}@db.internal:5432/motel_test_db`,
         RENTER_PORTAL_URL: "https://renter.example.com",
         FRONTEND_URL: "https://app.example.com",
         MANAGER_JWT_SECRET: "a".repeat(48),
@@ -457,7 +481,7 @@ describe("parseEnv", () => {
     const production = {
       ...valid,
       NODE_ENV: "production",
-      TEST_DATABASE_URL: `postgres://test:${"t".repeat(48)}@db.internal:5432/motel_test`,
+      TEST_DATABASE_URL: `postgres://test:${"t".repeat(48)}@db.internal:5432/motel_test_db`,
       RENTER_PORTAL_URL: "https://renter.example.com",
       FRONTEND_URL: "https://app.example.com",
       MANAGER_JWT_SECRET: "a".repeat(48),
@@ -494,7 +518,7 @@ describe("parseEnv", () => {
       ...valid,
       NODE_ENV: "production",
       DATABASE_URL: "postgres://u:p@db.internal:5432/motel",
-      TEST_DATABASE_URL: `postgres://test:${"t".repeat(48)}@db.internal:5432/motel_test`,
+      TEST_DATABASE_URL: `postgres://test:${"t".repeat(48)}@db.internal:5432/motel_test_db`,
       RENTER_PORTAL_URL: "https://renter.example.com",
       FRONTEND_URL: "https://app.example.com",
       MANAGER_JWT_SECRET: "m".repeat(48),
