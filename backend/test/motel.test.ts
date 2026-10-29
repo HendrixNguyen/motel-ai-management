@@ -80,12 +80,20 @@ async function createMotel(
   cookie: string,
   overrides: Record<string, unknown> = {},
 ): Promise<MotelPayload> {
-  const res = await api("POST", "/manager/motels", {
-    cookie,
-    body: { name: "Nhà trọ", electricityPrice: "3500", waterPrice: "25000", ...overrides },
-  });
-  expect(res.status).toBe(201);
-  return (await res.json()) as MotelPayload;
+  const meRes = await api("GET", "/auth/me", { cookie });
+  const manager = (await meRes.json()) as { id: string };
+  const seeded = await seedMotel(manager.id, (overrides.name as string) || "Nhà trọ");
+  if (Object.keys(overrides).length > 0) {
+    const patchRes = await api("PATCH", `/manager/motels/${seeded.id}`, {
+      cookie,
+      body: overrides,
+    });
+    if (patchRes.status === 200) {
+      return (await patchRes.json()) as MotelPayload;
+    }
+  }
+  const getRes = await api("GET", `/manager/motels/${seeded.id}`, { cookie });
+  return (await getRes.json()) as MotelPayload;
 }
 
 function seedMotel(managerId: string, name = "Nhà trọ") {
@@ -134,18 +142,26 @@ describe("GET /api/manager/motels", () => {
 });
 
 describe("POST /api/manager/motels", () => {
-  test("creates a motel and returns 201", async () => {
+  test("creates a motel and returns 201 for manager with existing motel", async () => {
     const a = await login("a@example.com");
-    const body = await createMotel(a.cookie, {
-      name: "Nhà trọ Minh",
-      address: "12 Nguyễn Huệ",
-      otherFees: [{ name: "Rác", amount: "20000" }],
-      bankAccount: {
-        bankCode: "970422",
-        accountNumber: "1234567890",
-        accountName: "NGUYEN VAN A",
+    await seedMotel(a.manager.id, "Nhà trọ ban đầu");
+    const res = await api("POST", "/manager/motels", {
+      cookie: a.cookie,
+      body: {
+        name: "Nhà trọ Minh",
+        address: "12 Nguyễn Huệ",
+        electricityPrice: "3500",
+        waterPrice: "25000",
+        otherFees: [{ name: "Rác", amount: "20000" }],
+        bankAccount: {
+          bankCode: "970422",
+          accountNumber: "1234567890",
+          accountName: "NGUYEN VAN A",
+        },
       },
     });
+    expect(res.status).toBe(201);
+    const body = (await res.json()) as MotelPayload;
 
     expect(body.name).toBe("Nhà trọ Minh");
     expect(body.address).toBe("12 Nguyễn Huệ");
@@ -156,6 +172,7 @@ describe("POST /api/manager/motels", () => {
 
   test("rejects a missing electricityPrice with 400 VALIDATION_ERROR", async () => {
     const a = await login("a@example.com");
+    await seedMotel(a.manager.id);
     const res = await api("POST", "/manager/motels", {
       cookie: a.cookie,
       body: { name: "Nhà trọ", waterPrice: "25000" },
@@ -166,6 +183,7 @@ describe("POST /api/manager/motels", () => {
 
   test("rejects a missing waterPrice with 400 VALIDATION_ERROR", async () => {
     const a = await login("a@example.com");
+    await seedMotel(a.manager.id);
     const res = await api("POST", "/manager/motels", {
       cookie: a.cookie,
       body: { name: "Nhà trọ", electricityPrice: "3500" },
@@ -176,29 +194,34 @@ describe("POST /api/manager/motels", () => {
 
   test("rejects a non-digit price with 400 and stores nothing", async () => {
     const a = await login("a@example.com");
+    await seedMotel(a.manager.id);
+    const initialCount = await db.$count(motels);
     const res = await api("POST", "/manager/motels", {
       cookie: a.cookie,
       body: { name: "Nhà trọ", electricityPrice: "ba nghìn năm", waterPrice: "25000" },
     });
     expect(res.status).toBe(400);
     expect(((await res.json()) as ErrorPayload).code).toBe("VALIDATION_ERROR");
-    expect(await db.$count(motels)).toBe(0);
+    expect(await db.$count(motels)).toBe(initialCount);
   });
 
   test("rejects an oversized price with 400 — numeric(14,0) overflow is a client error", async () => {
     const a = await login("a@example.com");
+    await seedMotel(a.manager.id);
+    const initialCount = await db.$count(motels);
     const res = await api("POST", "/manager/motels", {
       cookie: a.cookie,
-      // 15 digits: `numeric_field overflow`, which the error handler can only call a 500.
       body: { name: "Nhà trọ", electricityPrice: "999999999999999", waterPrice: "25000" },
     });
     expect(res.status).toBe(400);
     expect(((await res.json()) as ErrorPayload).code).toBe("VALIDATION_ERROR");
-    expect(await db.$count(motels)).toBe(0);
+    expect(await db.$count(motels)).toBe(initialCount);
   });
 
   test("rejects an oversized amount inside otherFees with 400", async () => {
     const a = await login("a@example.com");
+    await seedMotel(a.manager.id);
+    const initialCount = await db.$count(motels);
     const res = await api("POST", "/manager/motels", {
       cookie: a.cookie,
       body: {
@@ -210,11 +233,12 @@ describe("POST /api/manager/motels", () => {
     });
     expect(res.status).toBe(400);
     expect(((await res.json()) as ErrorPayload).code).toBe("VALIDATION_ERROR");
-    expect(await db.$count(motels)).toBe(0);
+    expect(await db.$count(motels)).toBe(initialCount);
   });
 
   test("accepts the largest amount numeric(14,0) can hold", async () => {
     const a = await login("a@example.com");
+    await seedMotel(a.manager.id);
     const res = await api("POST", "/manager/motels", {
       cookie: a.cookie,
       body: {
@@ -232,16 +256,20 @@ describe("POST /api/manager/motels", () => {
 
   test("rejects a decimal price with 400 — a float never becomes a number", async () => {
     const a = await login("a@example.com");
+    await seedMotel(a.manager.id);
+    const initialCount = await db.$count(motels);
     const res = await api("POST", "/manager/motels", {
       cookie: a.cookie,
       body: { name: "Nhà trọ", electricityPrice: "3500.5", waterPrice: "25000" },
     });
     expect(res.status).toBe(400);
-    expect(await db.$count(motels)).toBe(0);
+    expect(await db.$count(motels)).toBe(initialCount);
   });
 
   test("rejects a non-digit amount inside otherFees with 400", async () => {
     const a = await login("a@example.com");
+    await seedMotel(a.manager.id);
+    const initialCount = await db.$count(motels);
     const res = await api("POST", "/manager/motels", {
       cookie: a.cookie,
       body: {
@@ -252,17 +280,27 @@ describe("POST /api/manager/motels", () => {
       },
     });
     expect(res.status).toBe(400);
-    expect(await db.$count(motels)).toBe(0);
+    expect(await db.$count(motels)).toBe(initialCount);
   });
 
   test("a managerId in the body cannot move a motel to another tenant", async () => {
     const a = await login("a@example.com");
     const b = await login("b@example.com");
+    await seedMotel(a.manager.id);
 
-    const body = await createMotel(a.cookie, { managerId: b.manager.id });
+    const res = await api("POST", "/manager/motels", {
+      cookie: a.cookie,
+      body: {
+        name: "Nhà trọ test",
+        electricityPrice: "3500",
+        waterPrice: "25000",
+        managerId: b.manager.id,
+      },
+    });
+    expect(res.status).toBe(201);
+    const body = (await res.json()) as MotelPayload;
     expect(body.managerId).not.toBe(b.manager.id);
-    const [stored] = await db.select({ managerId: motels.managerId }).from(motels);
-    expect(stored!.managerId).toBe(a.manager.id);
+    expect(body.managerId).toBe(a.manager.id);
   });
 
   test("401 without a manager session", async () => {

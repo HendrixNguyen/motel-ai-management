@@ -1,6 +1,8 @@
 import type { Page } from "@playwright/test";
 import type {
   ApiErrorBody,
+  CatalogSummary,
+  ContractTemplateResponse,
   MagicLinkResponse,
   ManagerAuthResponse,
   ManagerMeResponse,
@@ -8,6 +10,8 @@ import type {
   RenterDetailResponse,
   RenterResponse,
   RoomResponse,
+  SetupMotelResult,
+  TemplatePreview,
 } from "../../src/lib/api/types";
 
 type Fixture<T> = T | { status: number; body: T | ApiErrorBody };
@@ -34,7 +38,14 @@ type ApiFixturePath =
   | `POST /api/manager/motels/${string}/renters`
   | `PATCH /api/manager/motels/${string}/renters/${string}`
   | `GET /api/manager/motels/${string}/renters/${string}`
-  | `POST /api/manager/motels/${string}/renters/${string}/magic-link`;
+  | `POST /api/manager/motels/${string}/renters/${string}/magic-link`
+  | "POST /api/manager/motels/setup"
+  | `GET /api/manager/motels/setup-requests/${string}`
+  | "GET /api/manager/contract-template-catalog"
+  | `GET /api/manager/contract-template-catalog/${string}/${string}`
+  | `GET /api/manager/motels/${string}/contract-templates/${string}/setup-preview`
+  | `POST /api/manager/motels/${string}/contract-templates/from-catalog`
+  | `GET /api/manager/motels/${string}/contract-templates`;
 type FixtureForPath<Path extends ApiFixturePath> = Path extends "GET /api/auth/me"
   ? Fixture<ManagerMeResponse>
   : Path extends "POST /api/auth/login"
@@ -63,7 +74,21 @@ type FixtureForPath<Path extends ApiFixturePath> = Path extends "GET /api/auth/m
                           ? Fixture<RenterResponse>
                           : Path extends `PATCH /api/manager/motels/${string}`
                             ? Fixture<MotelResponse>
-                            : never;
+                            : Path extends "POST /api/manager/motels/setup"
+                              ? Fixture<SetupMotelResult>
+                              : Path extends `GET /api/manager/motels/setup-requests/${string}`
+                                ? Fixture<SetupMotelResult>
+                                : Path extends "GET /api/manager/contract-template-catalog"
+                                  ? Fixture<CatalogSummary[]>
+                                  : Path extends `GET /api/manager/contract-template-catalog/${string}/${string}`
+                                    ? Fixture<TemplatePreview>
+                                    : Path extends `GET /api/manager/motels/${string}/contract-templates/${string}/setup-preview`
+                                      ? Fixture<TemplatePreview>
+                                      : Path extends `POST /api/manager/motels/${string}/contract-templates/from-catalog`
+                                        ? Fixture<ContractTemplateResponse>
+                                        : Path extends `GET /api/manager/motels/${string}/contract-templates`
+                                          ? Fixture<ContractTemplateResponse[]>
+                                          : never;
 /** Route-keyed DTOs: assigning a motel to a rooms fixture is a compile error. */
 export type ApiFixtures<Paths extends ApiFixturePath> = Partial<{
   [Path in Paths]: FixtureForPath<Path>;

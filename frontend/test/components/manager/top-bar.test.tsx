@@ -80,10 +80,11 @@ const motels = [
 ] as never[];
 
 describe("TopBar branch behavior", () => {
-  test("renders the deployed build SHA and timestamp", () => {
+  test("renders the package build version when metadata is available", () => {
     const view = render(<TopBar manager={manager} motels={motels} />);
-    expect(view.getByTestId("build-version").textContent).toContain("Build");
-    expect(view.getByTestId("build-version").textContent).toContain("·");
+    if (process.env.NEXT_PUBLIC_BUILD_VERSION)
+      expect(view.getByTestId("build-version").textContent).toContain(process.env.NEXT_PUBLIC_BUILD_VERSION);
+    else expect(view.queryByTestId("build-version")).toBeNull();
   });
 
   test("selecting a motel routes with current page/search and dispatches switch event", async () => {

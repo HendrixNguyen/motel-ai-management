@@ -1,6 +1,6 @@
 {
-  "id": "dbde9dad-89d4-4a09-9671-6a837fe6ebd5",
-  "prevId": "7ca37abd-243c-464e-8f96-a4dcd1d95215",
+  "id": "b674c910-7438-4d78-b97c-b2ec1112ba80",
+  "prevId": "6cf6d598-fc31-4f60-b22b-5c136b80ed82",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -564,6 +564,146 @@
         "motels_public_access_code_nonempty": {
           "name": "motels_public_access_code_nonempty",
           "value": "length(trim(\"motels\".\"public_access_code\")) >= 20"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.motel_setup_requests": {
+      "name": "motel_setup_requests",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "manager_id": {
+          "name": "manager_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "request_id": {
+          "name": "request_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "fingerprint": {
+          "name": "fingerprint",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "motel_id": {
+          "name": "motel_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "template_id": {
+          "name": "template_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "mode": {
+          "name": "mode",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "room_count": {
+          "name": "room_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "motel_setup_requests_manager_request_uq": {
+          "name": "motel_setup_requests_manager_request_uq",
+          "columns": [
+            {
+              "expression": "manager_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "request_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "motel_setup_requests_manager_id_managers_id_fk": {
+          "name": "motel_setup_requests_manager_id_managers_id_fk",
+          "tableFrom": "motel_setup_requests",
+          "tableTo": "managers",
+          "columnsFrom": [
+            "manager_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "motel_setup_requests_motel_id_motels_id_fk": {
+          "name": "motel_setup_requests_motel_id_motels_id_fk",
+          "tableFrom": "motel_setup_requests",
+          "tableTo": "motels",
+          "columnsFrom": [
+            "motel_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "motel_setup_requests_template_id_contract_templates_id_fk": {
+          "name": "motel_setup_requests_template_id_contract_templates_id_fk",
+          "tableFrom": "motel_setup_requests",
+          "tableTo": "contract_templates",
+          "columnsFrom": [
+            "template_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "motel_setup_requests_mode_check": {
+          "name": "motel_setup_requests_mode_check",
+          "value": "\"motel_setup_requests\".\"mode\" IN ('full', 'quick')"
+        },
+        "motel_setup_requests_room_count_check": {
+          "name": "motel_setup_requests_room_count_check",
+          "value": "(\"motel_setup_requests\".\"mode\" = 'full' AND \"motel_setup_requests\".\"room_count\" >= 1 AND \"motel_setup_requests\".\"room_count\" <= 100) OR (\"motel_setup_requests\".\"mode\" = 'quick' AND \"motel_setup_requests\".\"room_count\" = 0)"
         }
       },
       "isRLSEnabled": false
@@ -1651,7 +1791,7 @@
           "type": "boolean",
           "primaryKey": false,
           "notNull": true,
-          "default": true
+          "default": false
         },
         "created_at": {
           "name": "created_at",
@@ -1710,7 +1850,7 @@
         },
         "contract_template_catalog_clauses_array": {
           "name": "contract_template_catalog_clauses_array",
-          "value": "jsonb_typeof(\"contract_template_catalog\".\"clauses\") = 'array'"
+          "value": "jsonb_typeof(\"contract_template_catalog\".\"clauses\") = 'array' AND NOT jsonb_path_exists(\"contract_template_catalog\".\"clauses\", '$[*] ? (@.title.type() != \"string\" || @.content.type() != \"string\" || @.title == \"\" || @.content == \"\")')"
         }
       },
       "isRLSEnabled": false

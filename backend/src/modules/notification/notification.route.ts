@@ -12,9 +12,13 @@ import {
   savePushSubscription,
 } from "./notification.service";
 
-function validSignature(raw: Uint8Array, signature: string | undefined): boolean {
-  if (!signature) return false;
-  const expected = createHmac("sha256", env.zalo.webhookSecret).update(raw).digest("hex");
+function validSignature(
+  raw: Uint8Array,
+  signature: string | undefined,
+  webhookSecret: string,
+): boolean {
+  if (!webhookSecret || !signature) return false;
+  const expected = createHmac("sha256", webhookSecret).update(raw).digest("hex");
   const actual = Buffer.from(signature);
   const wanted = Buffer.from(expected);
   return actual.length === wanted.length && timingSafeEqual(actual, wanted);
@@ -57,8 +61,12 @@ export const notificationRoutes = new Elysia({ name: "notification-routes" })
   .post(
     "/webhooks/zalo",
     async ({ request, headers, set }) => {
+      if (!env.zalo.enabled) {
+        set.status = 404;
+        return { error: "Không tìm thấy", code: "NOT_FOUND" };
+      }
       const raw = new Uint8Array(await request.arrayBuffer());
-      if (!validSignature(raw, headers["x-zalo-signature"])) {
+      if (!validSignature(raw, headers["x-zalo-signature"], env.zalo.webhookSecret)) {
         set.status = 401;
         return { error: "Chữ ký không hợp lệ", code: "UNAUTHORIZED" };
       }
@@ -110,9 +118,7 @@ export const notificationRoutes = new Elysia({ name: "notification-routes" })
         set.status = 400;
         return { error: "Dữ liệu webhook không hợp lệ", code: "VALIDATION_ERROR" };
       }
-      const eventId =
-        event.event_id?.trim() ??
-        createHmac("sha256", env.zalo.webhookSecret).update(raw).digest("hex");
+      const eventId = event.event_id?.trim() ?? createHmac("sha256", env.zalo.webhookSecret).update(raw).digest("hex");
       const followerId = follower;
       try {
         await processZaloWebhook(eventId, {

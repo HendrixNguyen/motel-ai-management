@@ -1,4 +1,4 @@
-import { apiSend } from "./client";
+import { apiGet, apiSend } from "./client";
 import type { CreateMotelInput, MotelResponse, UpdateMotelInput } from "./types";
 
 /**
@@ -32,6 +32,15 @@ export function createMotel(input: CreateMotelInput): Promise<MotelResponse> {
  */
 export function updateMotel(motelId: string, input: UpdateMotelInput): Promise<MotelResponse> {
   return apiSend<MotelResponse>(`${MOTELS}/${encodeURIComponent(motelId)}`, "PATCH", input);
+}
+
+/**
+ * Deletes a motel — `motel.route.ts:88`. Answers 204, so this resolves `undefined`.
+ *
+ * `409` while any room is occupied, which the caller shows as a message rather than a crash.
+ */
+export function listMotelsClient(): Promise<MotelResponse[]> {
+  return apiGet<MotelResponse[]>(MOTELS);
 }
 
 /**

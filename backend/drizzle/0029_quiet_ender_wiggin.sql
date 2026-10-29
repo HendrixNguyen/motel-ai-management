@@ -1,2 +1,0 @@
-ALTER TABLE "contract_template_catalog" DROP CONSTRAINT "contract_template_catalog_clauses_array";--> statement-breakpoint
-ALTER TABLE "contract_template_catalog" ADD CONSTRAINT "contract_template_catalog_clauses_array" CHECK (jsonb_typeof("contract_template_catalog"."clauses") = 'array' AND NOT jsonb_path_exists("contract_template_catalog"."clauses", '$[*] ? (@.title.type() != "string" || @.content.type() != "string" || @.title == "" || @.content == "")'));

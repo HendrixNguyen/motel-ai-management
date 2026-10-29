@@ -1,10 +1,12 @@
 export * from "@/modules/auth/auth.schema";
 export * from "@/modules/auth/renter-login-request.schema";
 export * from "@/modules/motel/motel.schema";
+export * from "@/modules/motel/motel-setup.schema";
 export * from "@/modules/room/room.schema";
 export * from "@/modules/renter/renter.schema";
 export * from "@/modules/billing/billing.schema";
-export { contractStatus, contracts, contractTemplates, contractTemplateCatalog } from "@/modules/contract/contract.schema";
+export * from "@/modules/contract/contract.schema";
+export * from "@/modules/contract/contract-catalog.schema";
 export * from "@/modules/ticket/ticket.schema";
 export * from "@/modules/ticket/ticket-upload.schema";
 export * from "@/modules/billing/upload.schema";

@@ -1,6 +1,10 @@
-import { describe, expect, test } from "bun:test";
+import { beforeEach, describe, expect, setDefaultTimeout, test } from "bun:test";
 import { db } from "@/db";
-import { contractTemplateCatalog } from "@/modules/contract/contract.schema";
+import { resetDb } from "@/db/test-db";
+import { contractTemplateCatalog } from "@/modules/contract/contract-catalog.schema";
+
+setDefaultTimeout(30_000);
+beforeEach(resetDb);
 
 describe("Contract template catalog database constraints", () => {
   test("unique key/version rejects duplicate catalog rows", async () => {

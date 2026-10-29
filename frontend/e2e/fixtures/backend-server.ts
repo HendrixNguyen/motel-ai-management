@@ -20,14 +20,17 @@ import type {
   CreateRenterInput,
   CreateRoomInput,
   InvoiceResponse,
+  MeterType,
   MotelResponse,
   RenterDetailResponse,
   RenterResponse,
   RoomResponse,
   UpdateMotelInput,
+  UpdateReadingsInput,
   UpdateRenterInput,
   UpdateRoomInput,
 } from "../../src/lib/api/types";
+import { parseMeterInput } from "../../src/lib/billing-calculation";
 
 export function createFixtureBackend(
   onMissingFixture: (failure: Error) => void = (failure) => {
@@ -59,6 +62,8 @@ export function createFixtureBackend(
           signedUrl: string;
         }
       >;
+      /** Latest manager-side meter readings keyed by billing period id. */
+      meterReadings: Map<string, UpdateReadingsInput["readings"]>;
     }
   >();
   const templateStore = new Map<
@@ -70,6 +75,18 @@ export function createFixtureBackend(
       clauses: { title: string; content: string }[];
       isDefault: boolean;
       createdAt: string;
+    }
+  >();
+  const setupRequests = new Map<
+    string,
+    {
+      result: {
+        motelId: string;
+        mode: "full" | "quick";
+        roomCount: number;
+        templateId: string | null;
+      };
+      createdAt: number;
     }
   >();
   const signedRenters = new Map<string, string>();
@@ -252,9 +269,132 @@ export function createFixtureBackend(
               ]
             : [],
         ),
+        meterReadings: new Map(),
       });
     return states.get(session)!;
   };
+
+  function diffUsageAndCost(
+    previous: string,
+    current: string,
+    unitPrice: string,
+  ): { usage: string; cost: string } {
+    const before = parseMeterInput(previous);
+    const after = parseMeterInput(current);
+    if (before === null || after === null)
+      throw new Error("fixtureBackend: invalid meter inputs for usage diff");
+    const beforeScaled = BigInt(before.replace(".", ""));
+    const afterScaled = BigInt(after.replace(".", ""));
+    if (afterScaled < beforeScaled)
+      throw new Error("fixtureBackend: decreasing meter value rejected at diff stage");
+    const usageScaled = afterScaled - beforeScaled;
+    const price = BigInt(unitPrice);
+    const usage = `${usageScaled / 100n}.${String(usageScaled % 100n).padStart(2, "0")}`;
+    const cost = ((usageScaled * price + 50n) / 100n).toString();
+    return { usage, cost };
+  }
+
+  function generateInvoicesForPeriod(
+    state: {
+      motels: MotelResponse[];
+      rooms: RoomResponse[];
+      renters: RenterResponse[];
+      invoices: InvoiceResponse[];
+      proofs: Map<
+        string,
+        {
+          id: string;
+          invoiceId: string;
+          renterId: string;
+          status: "pending" | "approved" | "rejected";
+          contentType: "image/jpeg";
+          size: number;
+          submittedAt: string;
+          reviewedAt: string | null;
+          reviewedByManagerId: string | null;
+          rejectionReason: string | null;
+          signedUrl: string;
+        }
+      >;
+      meterReadings: Map<string, UpdateReadingsInput["readings"]>;
+    },
+    motelId: string,
+    periodId: string,
+  ): InvoiceResponse[] {
+    const motel = state.motels.find((row) => row.id === motelId);
+    if (!motel) return [];
+
+    const readings = state.meterReadings.get(periodId) ?? [];
+    if (!readings.length) return [];
+
+    const room = ROOMS.find((candidate) => candidate.motelId === motelId);
+    if (!room) return [];
+
+    const previousElectric = CAPTURE_PERIOD_DETAIL.rooms[0]?.readings.find(
+      (reading) => reading.type === "electric",
+    );
+    const previousWater = CAPTURE_PERIOD_DETAIL.rooms[0]?.readings.find(
+      (reading) => reading.type === "water",
+    );
+    if (!previousElectric || !previousWater) return [];
+
+    const electricUpdate = readings.find(
+      (reading) => reading.roomId === room.id && reading.type === "electric",
+    );
+    const waterUpdate = readings.find(
+      (reading) => reading.roomId === room.id && reading.type === "water",
+    );
+    if (!electricUpdate || !waterUpdate) return [];
+
+    const electric = diffUsageAndCost(
+      previousElectric.previousReading,
+      electricUpdate.currentReading,
+      motel.electricityPrice,
+    );
+    const water = diffUsageAndCost(
+      previousWater.previousReading,
+      waterUpdate.currentReading,
+      motel.waterPrice,
+    );
+
+    const otherFees = motel.otherFees;
+    const rentAmount = room.basePrice;
+    const totalAmount = (
+      BigInt(rentAmount) +
+      BigInt(electric.cost) +
+      BigInt(water.cost) +
+      otherFees.reduce((total, fee) => total + BigInt(fee.amount), 0n)
+    ).toString();
+
+    const invoice: InvoiceResponse = {
+      id: INVOICE_ID,
+      billingPeriodId: periodId,
+      roomId: room.id,
+      roomName: room.name,
+      renterId: RENTER_ID,
+      motelId,
+      rentAmount,
+      electricityUsage: electric.usage,
+      electricityCost: electric.cost,
+      waterUsage: water.usage,
+      waterCost: water.cost,
+      otherFees,
+      totalAmount,
+      qrCodeData: "000201010212",
+      paymentStatus: "unpaid",
+      paymentMethod: null,
+      paidAt: null,
+      createdAt: new Date().toISOString(),
+    };
+
+    state.invoices = state.invoices.filter(
+      (row) => !(row.motelId === motelId && row.billingPeriodId === periodId),
+    );
+    state.invoices.push(invoice);
+    return state.invoices.filter(
+      (row) => row.motelId === motelId && row.billingPeriodId === periodId,
+    );
+  }
   return createServer(async (request, response) => {
     const url = new URL(request.url ?? "/", "http://127.0.0.1:3002");
     const path = url.pathname;
@@ -327,8 +467,7 @@ export function createFixtureBackend(
             motel: { id: "motel", name: "Nhà trọ Minh Anh" },
             activeContract: null,
           });
-        if (method === "GET" && path === "/api/renter/billing/unpaid-invoices")
-          return json([]);
+        if (method === "GET" && path === "/api/renter/billing/unpaid-invoices") return json([]);
         if (method === "GET" && path === "/api/renter/billing/periods")
           return json([
             {
@@ -427,6 +566,19 @@ export function createFixtureBackend(
         }
         if (method === "GET" && path.match(/^\/api\/renter\/invoices\/[^/]+\/payment-proof$/))
           return json(null);
+        if (method === "POST" && path.match(/^\/api\/renter\/invoices\/[^/]+\/payment-proof$/)) {
+          return json({
+            id: "proof-fixture",
+            invoiceId: path.split("/")[4],
+            status: "pending",
+            contentType: "image/jpeg",
+            size: 20,
+            submittedAt: new Date().toISOString(),
+            reviewedAt: null,
+            rejectionReason: null,
+            signedUrl: "https://private.invalid/test-proof.jpg",
+          });
+        }
         if (method === "GET" && path === "/api/renter/tickets") return json([]);
         if (path === "/api/renter/tickets" && method === "POST") {
           const body = await input<{ category: string; description: string }>();
@@ -461,6 +613,18 @@ export function createFixtureBackend(
                   clauses: [{ title: "Tiền thuê", content: "Đúng hạn" }],
                   otpSentAt: null,
                   otpSignedAt: null,
+                  managerSentAt:
+                    managerSession === "contract-active" ? "2026-01-02T00:00:00.000Z" : null,
+                  consentAcceptedAt:
+                    managerSession === "contract-active" ? "2026-01-03T00:00:00.000Z" : null,
+                  consentMethod: managerSession === "contract-active" ? "session_consent" : null,
+                  consentEvidence:
+                    managerSession === "contract-active"
+                      ? {
+                          termsVersion: "a".repeat(64),
+                          acceptedTermsSnapshot: { termsVersion: "a".repeat(64) },
+                        }
+                      : null,
                   status: managerSession === "contract-active" ? "active" : "draft",
                   createdAt: "2026-01-01T00:00:00.000Z",
                 },
@@ -554,6 +718,30 @@ export function createFixtureBackend(
           status: "terminated",
           createdAt: "2026-01-01T00:00:00.000Z",
         });
+      if (
+        method === "POST" &&
+        path.match(/^\/api\/manager\/motels\/[^/]+\/contracts\/contract-draft\/send$/) &&
+        managerSession === "contract-draft"
+      )
+        return json({
+          id: "contract-draft",
+          motelId: MOTEL.id,
+          renterId: RENTERS[0]!.id,
+          roomId: ROOMS[0]!.id,
+          startDate: "2026-01-01",
+          endDate: "2027-01-01",
+          monthlyRent: "3500000",
+          deposit: "1000000",
+          clauses: [{ title: "Tiền thuê", content: "Đúng hạn" }],
+          otpSentAt: null,
+          otpSignedAt: null,
+          managerSentAt: new Date().toISOString(),
+          consentAcceptedAt: null,
+          consentMethod: null,
+          consentEvidence: null,
+          status: "draft",
+          createdAt: "2026-01-01T00:00:00.000Z",
+        });
       if (method === "POST" && path.match(/^\/api\/manager\/motels\/[^/]+\/contracts$/)) {
         const body = await input<Record<string, unknown>>();
         return json(
@@ -639,13 +827,23 @@ export function createFixtureBackend(
         /^\/api\/manager\/motels\/([^/]+)\/billing\/periods\/([^/]+)\/invoices$/.exec(path);
       if (method === "GET" && invoiceList && managerSession === "invoice-error")
         return error(500, "INTERNAL_ERROR", "private database.internal");
-      if (method === "GET" && invoiceList)
-        return json(
-          state.invoices.filter(
-            (invoice) =>
-              invoice.motelId === invoiceList[1] && invoice.billingPeriodId === invoiceList[2],
-          ),
-        );
+      if (invoiceList) {
+        const motelId = invoiceList[1] as string;
+        const periodId = invoiceList[2] as string;
+        if (method === "GET")
+          return json(
+            state.invoices.filter(
+              (invoice) => invoice.motelId === motelId && invoice.billingPeriodId === periodId,
+            ),
+          );
+        if (method === "POST") {
+          const invoices = generateInvoicesForPeriod(state, motelId, periodId);
+          const skippedRooms = CAPTURE_PERIOD_DETAIL.rooms
+            .filter((room) => !invoices.some((invoice) => invoice.roomId === room.id))
+            .map((room) => ({ id: room.id, name: room.name }));
+          return json({ invoices, details: { skippedRooms } }, 201);
+        }
+      }
       const paymentRoute =
         /^\/api\/manager\/motels\/([^/]+)\/billing\/invoices\/([^/]+)\/(payment-proof(?:\/(?:approve|reject))?|cash-confirmation)$/.exec(
           path,
@@ -708,16 +906,180 @@ export function createFixtureBackend(
         path.match(/^\/api\/manager\/motels\/[^/]+\/billing\/periods\/[^/]+$/)
       )
         return json(CAPTURE_PERIOD_DETAIL);
-      if (
-        method === "GET" &&
-        path.match(/^\/api\/manager\/motels\/[^/]+\/billing\/periods\/[^/]+\/invoices$/)
-      )
-        return json([]);
-      if (
-        method === "PUT" &&
-        path.match(/^\/api\/manager\/motels\/[^/]+\/billing\/periods\/[^/]+\/readings$/)
-      )
+      const readingsPath =
+        /^\/api\/manager\/motels\/([^/]+)\/billing\/periods\/([^/]+)\/readings$/.exec(path);
+      if (method === "PUT" && readingsPath) {
+        const motelId = readingsPath[1] as string;
+        const periodId = readingsPath[2] as string;
+        const body = await input<UpdateReadingsInput>();
+        const readings = Array.isArray(body.readings) ? body.readings : [];
+
+        // For the capture fixture motel and period, enforce decreasing-value rejection so the
+        // manager billing UI can surface realistic validation behaviour.
+        if (motelId === MOTEL.id && periodId === BILLING_PERIOD_ID && readings.length > 0) {
+          for (const reading of readings) {
+            const baseRoom = CAPTURE_PERIOD_DETAIL.rooms.find((room) => room.id === reading.roomId);
+            const baseReading = baseRoom?.readings.find((row) => row.type === reading.type);
+            if (!baseReading)
+              return error(400, "VALIDATION_ERROR", "Không tìm thấy chỉ số gốc để so sánh.");
+            const before = parseMeterInput(baseReading.previousReading);
+            const after = parseMeterInput(reading.currentReading);
+            if (before === null || after === null)
+              return error(400, "VALIDATION_ERROR", "Chỉ số không hợp lệ.");
+            const beforeScaled = BigInt(before.replace(".", ""));
+            const afterScaled = BigInt(after.replace(".", ""));
+            if (afterScaled < beforeScaled)
+              return error(400, "VALIDATION_ERROR", "Chỉ số mới phải lớn hơn hoặc bằng chỉ số cũ.");
+          }
+        }
+
+        if (readings.length > 0) {
+          const existing = state.meterReadings.get(periodId) ?? [];
+          const remaining = existing.filter(
+            (current) =>
+              !readings.some(
+                (next) =>
+                  next.roomId === current.roomId && (next.type as MeterType) === current.type,
+              ),
+          );
+          state.meterReadings.set(periodId, [...remaining, ...readings]);
+        }
+
         return json({ ok: true });
+      }
+      if (method === "GET" && path === "/api/manager/contract-template-catalog") {
+        return json([
+          {
+            key: "standard-vn",
+            version: 1,
+            name: "Hợp đồng thuê phòng trọ chuẩn",
+            description: "Mẫu hợp đồng tuân thủ pháp luật Việt Nam",
+          },
+        ]);
+      }
+      const catalogPreview = /^\/api\/manager\/contract-template-catalog\/([^/]+)\/([^/]+)$/.exec(
+        path,
+      );
+      if (method === "GET" && catalogPreview) {
+        const [, key, versionStr] = catalogPreview;
+        return json({
+          name: "Hợp đồng thuê phòng trọ chuẩn",
+          clauses: [
+            { title: "Điều 1: Mục đích thuê", content: "Bên B thuê phòng trọ để ở." },
+            { title: "Điều 2: Giá thuê và thanh toán", content: "Thanh toán đầu tháng." },
+          ],
+          selection: { kind: "catalog", key: key!, version: Number(versionStr) },
+        });
+      }
+      const setupPreview =
+        /^\/api\/manager\/motels\/([^/]+)\/contract-templates\/([^/]+)\/setup-preview$/.exec(path);
+      if (method === "GET" && setupPreview) {
+        const [, motelId, templateId] = setupPreview;
+        return json({
+          name: "Mẫu hợp đồng nguồn",
+          clauses: [{ title: "Tiền thuê", content: "Đúng hạn" }],
+          selection: {
+            kind: "motel",
+            motelId: motelId!,
+            templateId: templateId!,
+            fingerprint: "fake-fingerprint",
+          },
+        });
+      }
+      const fromCatalog =
+        /^\/api\/manager\/motels\/([^/]+)\/contract-templates\/from-catalog$/.exec(path);
+      if (method === "POST" && fromCatalog) {
+        const [, motelId] = fromCatalog;
+        const body = await input<{
+          catalogKey: string;
+          catalogVersion: number;
+          isDefault: boolean;
+        }>();
+        const created = {
+          id: crypto.randomUUID(),
+          motelId: motelId!,
+          name: "Hợp đồng thuê phòng trọ chuẩn",
+          clauses: [
+            { title: "Điều 1: Mục đích thuê", content: "Bên B thuê phòng trọ để ở." },
+            { title: "Điều 2: Giá thuê và thanh toán", content: "Thanh toán đầu tháng." },
+          ],
+          isDefault: body.isDefault,
+          createdAt: new Date().toISOString(),
+        };
+        templateStore.set(managerSession, created);
+        return json(created, 201);
+      }
+      if (method === "POST" && path === "/api/manager/motels/setup") {
+        const body = await input<{
+          requestId: string;
+          mode: "full" | "quick";
+          motel: CreateMotelInput;
+          template?: unknown;
+          rooms?: CreateRoomInput[];
+        }>();
+        const existing = setupRequests.get(body.requestId);
+        if (existing) {
+          return json(existing.result, 200);
+        }
+        if (state.motels.length === 0 && body.mode === "quick") {
+          return error(409, "MOTEL_SETUP_REQUIRED", "Thiết lập đầy đủ nhà trọ đầu tiên");
+        }
+        const motelId = crypto.randomUUID();
+        const newMotel: MotelResponse = {
+          id: motelId,
+          managerId: MANAGER_ME.id,
+          name: body.motel.name,
+          address: body.motel.address ?? null,
+          electricityPrice: body.motel.electricityPrice,
+          waterPrice: body.motel.waterPrice,
+          otherFees: body.motel.otherFees ?? [],
+          bankAccount: body.motel.bankAccount ?? null,
+          createdAt: new Date().toISOString(),
+        };
+        state.motels.push(newMotel);
+        let createdRoomsCount = 0;
+        if (body.mode === "full" && Array.isArray(body.rooms)) {
+          for (const r of body.rooms) {
+            state.rooms.push({
+              id: crypto.randomUUID(),
+              motelId,
+              name: r.name,
+              basePrice: r.basePrice,
+              floor: r.floor ?? null,
+              status: "available",
+              createdAt: new Date().toISOString(),
+            });
+            createdRoomsCount++;
+          }
+        }
+        let templateId: string | null = null;
+        if (body.template) {
+          templateId = crypto.randomUUID();
+          templateStore.set(managerSession, {
+            id: templateId,
+            motelId,
+            name: "Hợp đồng chuẩn",
+            clauses: [{ title: "Tiền thuê", content: "Đúng hạn" }],
+            isDefault: true,
+            createdAt: new Date().toISOString(),
+          });
+        }
+        const result = {
+          motelId,
+          mode: body.mode,
+          roomCount: createdRoomsCount,
+          templateId,
+        };
+        setupRequests.set(body.requestId, { result, createdAt: Date.now() });
+        return json(result, 201);
+      }
+      const setupReqStatus = /^\/api\/manager\/motels\/setup-requests\/([^/]+)$/.exec(path);
+      if (method === "GET" && setupReqStatus) {
+        const [, requestId] = setupReqStatus;
+        const entry = setupRequests.get(requestId!);
+        if (!entry) return error(404, "NOT_FOUND", "Không tìm thấy yêu cầu");
+        return json(entry.result);
+      }
       if (path === "/api/manager/motels") {
         if (method === "GET")
           return managerSession === "motels-expired" ? unauthorized() : json(state.motels);
@@ -738,15 +1100,9 @@ export function createFixtureBackend(
           return json(motel, 201);
         }
       }
-      if (
-        method === "GET" &&
-        path.match(/^\/api\/manager\/motels\/[^/]+\/login-requests$/)
-      )
+      if (method === "GET" && path.match(/^\/api\/manager\/motels\/[^/]+\/login-requests$/))
         return json([]);
-      if (
-        method === "GET" &&
-        path.match(/^\/api\/manager\/motels\/[^/]+\/renter-recovery\/code$/)
-      )
+      if (method === "GET" && path.match(/^\/api\/manager\/motels\/[^/]+\/renter-recovery\/code$/))
         return json(null);
       const scope = /^\/api\/manager\/motels\/([^/]+)(?:\/(rooms|renters)(?:\/([^/]+))?)?$/.exec(
         path,

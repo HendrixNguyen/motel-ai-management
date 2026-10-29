@@ -6,10 +6,7 @@ import { SUPERADMIN_EMAIL, SUPERADMIN_NAME } from "@/modules/auth/superadmin-ide
 
 
 const REQUIRED_SCHEMA_MIGRATIONS = [
-  "0026_manager_admin",
-  "0027_contract_template_catalog",
-  "0028_cute_vance_astro",
-  "0029_quiet_ender_wiggin",
+  "0028_manager_admin",
 ] as const;
 
 async function verifyBootstrapSchema() {

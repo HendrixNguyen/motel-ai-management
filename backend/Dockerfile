@@ -9,9 +9,13 @@ COPY backend/src ./src
 RUN bun run typecheck
 
 FROM deps AS migration-job
+WORKDIR /app
+COPY --from=build /app/node_modules ./node_modules
+COPY --from=build /app/tsconfig.json ./tsconfig.json
+COPY --from=build /app/src ./src
 COPY backend/drizzle ./drizzle
 COPY backend/drizzle.config.ts ./drizzle.config.ts
-COPY backend/src ./src
+COPY backend/package.json ./
 CMD ["bun", "run", "db:migrate"]
 
 FROM deps AS runner

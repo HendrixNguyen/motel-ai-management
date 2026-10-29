@@ -1,1 +1,0 @@
-ALTER TABLE "managers" ALTER COLUMN "password_hash" SET NOT NULL;

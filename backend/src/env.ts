@@ -28,6 +28,7 @@ export interface Env {
     publicUrl: string;
   };
   zalo: {
+    enabled: boolean;
     oaId: string;
     oaSecret: string;
     accessToken: string;
@@ -117,19 +118,59 @@ function validateProductionSecrets(
 
 export function validateProductionConfig(input: Record<string, string | undefined>): void {
   required(input, "DATABASE_URL");
+  const testDatabaseUrl = input.TEST_DATABASE_URL?.trim();
+  if (input.TEST_DATABASE_URL !== undefined && !testDatabaseUrl)
+    throw new AppError("VALIDATION_ERROR", "TEST_DATABASE_URL không hợp lệ");
+  if (testDatabaseUrl) {
+    let productionDatabase: URL;
+    let testDatabase: URL;
+    try {
+      productionDatabase = new URL(input.DATABASE_URL!);
+      testDatabase = new URL(testDatabaseUrl);
+    } catch {
+      throw new AppError("VALIDATION_ERROR", "TEST_DATABASE_URL không hợp lệ");
+    }
+    const normalizeDatabaseName = (url: URL) => {
+      try {
+        return decodeURIComponent(url.pathname.replace(/^\/+/, "").split(/[?#]/, 1)[0] ?? "").toLowerCase();
+      } catch {
+        throw new AppError("VALIDATION_ERROR", "TEST_DATABASE_URL database name encoding không hợp lệ");
+      }
+    };
+    if (
+      testDatabase.hostname.toLowerCase() === productionDatabase.hostname.toLowerCase() &&
+      (testDatabase.port || "5432") === (productionDatabase.port || "5432") &&
+      normalizeDatabaseName(testDatabase) === normalizeDatabaseName(productionDatabase)
+    )
+      throw new AppError("VALIDATION_ERROR", "TEST_DATABASE_URL phải dùng database riêng, không được trỏ vào production");
+    let password: string;
+    try {
+      password = decodeURIComponent(testDatabase.password);
+    } catch {
+      throw new AppError("VALIDATION_ERROR", "TEST_DATABASE_URL credential encoding không hợp lệ");
+    }
+    if (password && (/^(placeholder|change[-_ ]?me|secret|mock|test|dev|development|password|super_secret)/i.test(password) || password.length < 32))
+      throw new AppError("VALIDATION_ERROR", "TEST_DATABASE_URL credential không đủ mạnh");
+  }
+  const zaloOaId = input.ZALO_OA_ID?.trim() ?? "";
+  const zaloSecrets = ["ZALO_OA_SECRET", "ZALO_ACCESS_TOKEN", "ZALO_WEBHOOK_SECRET"];
+  if (zaloOaId) {
+    validateProductionSecrets(input, zaloSecrets);
+    if (zaloOaId.length > 128 || /^(placeholder|change[-_ ]?me|test|mock)/i.test(zaloOaId))
+      throw new AppError("VALIDATION_ERROR", "ZALO_OA_ID không hợp lệ");
+  } else if (zaloSecrets.some((key) => input[key] !== undefined && input[key] !== ""))
+    throw new AppError("VALIDATION_ERROR", "Zalo credentials được cấu hình một phần nhưng thiếu ZALO_OA_ID");
   validateProductionSecrets(input, [
     "MANAGER_JWT_SECRET",
     "ADMIN_JWT_SECRET",
     "RENTER_SESSION_SECRET",
-    ...(input.ZALO_OA_ID ? ["ZALO_OA_SECRET", "ZALO_ACCESS_TOKEN", "ZALO_WEBHOOK_SECRET"] : []),
-    ...(input.TEST_DATABASE_URL?.trim() && input.TEST_DATABASE_URL.trim() !== input.DATABASE_URL?.trim() ? ["TEST_DATABASE_URL"] : []),
     "R2_ACCESS_KEY_ID",
     "R2_SECRET_ACCESS_KEY",
   ]);
   const adminSecret = secret(input, "ADMIN_JWT_SECRET");
   if (new Set([input.MANAGER_JWT_SECRET, adminSecret, input.RENTER_SESSION_SECRET]).size !== 3)
     throw new AppError("VALIDATION_ERROR", "Production secrets phải khác nhau");
-  publicUrl(input, "RENTER_PORTAL_URL", "", true);
+  if (input.ZALO_OA_ID) publicUrl(input, "RENTER_PORTAL_URL", "", true);
   publicUrl(input, "FRONTEND_URL", "", true);
   if (input.R2_PUBLIC_URL) publicUrl(input, "R2_PUBLIC_URL", "", true);
 }
@@ -159,6 +200,8 @@ export function parseEnv(input: Record<string, string | undefined>): Env {
   if (!Number.isInteger(port) || port <= 0)
     throw new AppError("VALIDATION_ERROR", `PORT không hợp lệ: ${input.PORT}`);
 
+  if (!input.TEST_DATABASE_URL?.trim() && nodeEnv === "test")
+    throw new AppError("VALIDATION_ERROR", "Thiếu biến môi trường: TEST_DATABASE_URL");
   const r2Bucket = required(input, "R2_BUCKET");
   if (r2Bucket === "public" || /placeholder|replace-me/i.test(r2Bucket))
     throw new AppError("VALIDATION_ERROR", "R2_BUCKET phải là bucket riêng tư đã cấu hình");
@@ -167,8 +210,8 @@ export function parseEnv(input: Record<string, string | undefined>): Env {
     rateLimitStore,
     port,
     databaseUrl: required(input, "DATABASE_URL"),
-    testDatabaseUrl: input.TEST_DATABASE_URL ?? "",
-    renterPortalUrl: publicUrl(input, "RENTER_PORTAL_URL", "http://localhost:3000", production),
+    testDatabaseUrl: input.TEST_DATABASE_URL?.trim() ?? "",
+    renterPortalUrl: input.ZALO_OA_ID?.trim() ? publicUrl(input, "RENTER_PORTAL_URL", "http://localhost:3000", production) : (input.RENTER_PORTAL_URL ?? "http://localhost:3000"),
     frontendUrl: publicUrl(input, "FRONTEND_URL", "http://localhost:3001", production),
     trustedProxyHeader: input.TRUSTED_PROXY_HEADER?.trim() || null,
     trustedProxyAssertionHeader: input.TRUSTED_PROXY_ASSERTION_HEADER?.trim() || null,
@@ -194,10 +237,11 @@ export function parseEnv(input: Record<string, string | undefined>): Env {
           }
         : null,
     zalo: {
-      oaId: input.ZALO_OA_ID ?? "",
-      oaSecret: input.ZALO_OA_ID ? required(input, "ZALO_OA_SECRET") : "",
-      accessToken: input.ZALO_OA_ID ? required(input, "ZALO_ACCESS_TOKEN") : "",
-      webhookSecret: input.ZALO_OA_ID ? required(input, "ZALO_WEBHOOK_SECRET") : "",
+      enabled: Boolean(input.ZALO_OA_ID?.trim()),
+      oaId: input.ZALO_OA_ID?.trim() ?? "",
+      oaSecret: input.ZALO_OA_ID?.trim() ? required(input, "ZALO_OA_SECRET") : "",
+      accessToken: input.ZALO_OA_ID?.trim() ? required(input, "ZALO_ACCESS_TOKEN") : "",
+      webhookSecret: input.ZALO_OA_ID?.trim() ? required(input, "ZALO_WEBHOOK_SECRET") : "",
       templates: Object.fromEntries(
         Object.entries(ZNS_KEYS).map(([key, variable]) => [key, input[variable] ?? "PLACEHOLDER"]),
       ) as Record<ZnsTemplateKey, string>,

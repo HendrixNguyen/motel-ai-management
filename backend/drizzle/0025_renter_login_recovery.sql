@@ -1,3 +1,5 @@
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+--> statement-breakpoint
 ALTER TABLE motels ADD COLUMN public_access_code text;
 UPDATE motels SET public_access_code = replace(encode(gen_random_bytes(24), 'base64'), '/', '_') WHERE public_access_code IS NULL;
 ALTER TABLE motels ALTER COLUMN public_access_code SET NOT NULL;
@@ -18,9 +20,7 @@ CREATE TABLE renter_login_requests (
 CREATE INDEX renter_login_requests_motel_status_idx ON renter_login_requests(motel_id, status, requested_at);
 CREATE UNIQUE INDEX renter_login_requests_pending_owner_uq ON renter_login_requests(motel_id, renter_id) WHERE status = 'pending';
 DELETE FROM magic_links;
-ALTER TABLE magic_links DROP CONSTRAINT magic_links_token_key;
 ALTER TABLE magic_links DROP COLUMN token;
 ALTER TABLE magic_links ADD COLUMN token_hash text NOT NULL;
 ALTER TABLE magic_links ADD CONSTRAINT magic_links_token_hash_uq UNIQUE (token_hash);
 ALTER TABLE magic_links ADD CONSTRAINT magic_links_token_hash_format CHECK (token_hash ~ '^[a-f0-9]{64}$');
-ALTER TABLE magic_links DROP COLUMN token;

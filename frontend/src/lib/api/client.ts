@@ -61,6 +61,7 @@ export class ApiError extends Error {
  * status-derived code answers instead.
  */
 const STATUS_FOR_CODE: Record<ErrorCode, true> = {
+  MOTEL_SETUP_REQUIRED: true,
   VALIDATION_ERROR: true,
   UNAUTHORIZED: true,
   MAGIC_LINK_EXPIRED: true,

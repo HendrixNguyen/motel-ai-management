@@ -15,12 +15,12 @@ product test failure.
 
 ## The standard
 
-| Layer | What it proves | Explicit assertions | When |
-|-------|----------------|---------------------|------|
-| Database constraints | The rule holds even when the API is bypassed | Invalid insert/update rejects; valid boundary value persists; no partial rows remain | Every new constraint |
-| Service unit tests | The calculation or rule is correct | Each branch returns exact value, status, error code, and side effects; collaborator failure preserves required state | Every service function with a branch |
-| HTTP boundary tests | Tenant scoping holds through a real request | Status, error envelope, response body redaction, and unchanged state match contract for own and foreign resources | Every route that filters by tenant |
-| Pure-function tests | Money, phone, dates, formatting | Exact output for valid boundaries and exact rejection for malformed input | Once, then they never change |
+| Layer                | What it proves                               | Explicit assertions                                                                                                  | When                                 |
+| -------------------- | -------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- | ------------------------------------ |
+| Database constraints | The rule holds even when the API is bypassed | Invalid insert/update rejects; valid boundary value persists; no partial rows remain                                 | Every new constraint                 |
+| Service unit tests   | The calculation or rule is correct           | Each branch returns exact value, status, error code, and side effects; collaborator failure preserves required state | Every service function with a branch |
+| HTTP boundary tests  | Tenant scoping holds through a real request  | Status, error envelope, response body redaction, and unchanged state match contract for own and foreign resources    | Every route that filters by tenant   |
+| Pure-function tests  | Money, phone, dates, formatting              | Exact output for valid boundaries and exact rejection for malformed input                                            | Once, then they never change         |
 
 ### Database constraints are tested, not just declared
 
@@ -32,7 +32,7 @@ a test that tries to violate it and asserts PostgreSQL refuses:
 test("a meter cannot read lower than its previous reading", async () => {
   await seed();
   await expect(
-    db.insert(meterReadings).values({ /* currentReading < previousReading */ }),
+    db.insert(meterReadings).values({/* currentReading < previousReading */}),
   ).rejects.toThrow();
 });
 ```
@@ -104,6 +104,21 @@ destroys the schema it is given.
 | Notifications | push subscription ownership/deduplication, Web Push-first ordering, bounded retries, permanent-failure fallback, stable event-key idempotency, redacted payloads |
 | Meter capture | manager ownership, motel+period scoping, wrong-manager rejection, stale-motel queue clearing on switch, logout cleanup, draft-only enqueue, and offline reload/reconnect sync (unit + browser-level tests) |
 | Manager contracts | active-renter/room motel scoping, decimal-safe VND normalization, valid dates, draft-only PATCH fields, cross-motel template rejection, and lifecycle transitions (unit + HTTP + E2E) |
+| Motel setup & catalog | full/quick setup, selective copy groups (bank/services/templates), idempotency request recovery, contract catalog preview/copy, and after-setup template assignment (unit + HTTP + E2E) |
+
+## Motel Setup Acceptance Matrix & Release Gates
+
+| Mode / Flow             | Input / Options                                                                | Assertions & Boundaries                                                                                                                    | Verification Layer                                                          |
+| ----------------------- | ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------- |
+| Full Setup (`full`)     | Motel basic info + services + bank + catalog template + generated rooms        | Single atomic transaction; creates motel, default template from catalog, rooms with base price; returns `SetupMotelResult`; selected in UI | `backend/test/motel-setup.test.ts`, `frontend/e2e/motel-setup.spec.ts`      |
+| Quick Setup (`quick`)   | Motel basic info + optional copy groups; skips rooms and template steps        | Creates motel with 0 rooms, no template, selected copied settings (bank/services); source motel unchanged                                  | `backend/test/motel-setup.test.ts`, `frontend/e2e/motel-setup.spec.ts`      |
+| Copy Configuration      | Existing owned motel source; selective checkboxes for bank, services, template | Copies bank account and utility prices; copies template only if selected; never copies room inventory, source name, or public access code  | `backend/test/motel-copy.test.ts`, `frontend/e2e/motel-setup.spec.ts`       |
+| Idempotency & Replay    | Same `requestId` re-submitted or queried via status endpoint                   | Replays saved result (200 OK); does not create duplicate motels/rooms/templates; recovers lost response on page refresh                    | `backend/test/motel-setup.test.ts`, `frontend/e2e/motel-setup.spec.ts`      |
+| Catalog Selection Later | Quick motel created; manager visits Contracts page to select catalog template  | Lists active catalog; previews clauses; creates template copy linked to motel; supports setting as default                                 | `backend/test/contract-catalog.test.ts`, `frontend/e2e/motel-setup.spec.ts` |
+
+### Explicit Legal Publication Gate
+
+Catalog templates seeded in the system or tested in automated fixtures represent technical data structures and draft schemas only. **Fixture-only and mock-based tests are not proof of production legal compliance or real-world usability.** Prior to activating or publishing any standard Vietnamese rental contract templates for live production use, legal counsel must explicitly review and sign off on all clause texts, statutory compliance, and default terms. Initial seed data must remain marked as inactive/draft until formal review and authorization.
 
 ## What not to test
 
@@ -133,11 +148,11 @@ merging anything that touches auth, tenancy, or money.
 
 Two runners, two layers, no overlap.
 
-| Layer | Runner | Files | Needs a database or backend? | Needs a launchable browser? |
-|-------|--------|-------|-------------------------------|----------------------------|
-| Unit | Vitest (`node` environment) | `src/**/*.test.ts` | no | no |
-| Browser | Playwright `chromium-mobile` | `e2e/**/*.spec.ts` | no | yes |
-| Browser, live stack | Playwright `real-stack` | `e2e/real/**`, only with `E2E_REAL=1` | yes | yes |
+| Layer               | Runner                       | Files                                 | Needs a database or backend? | Needs a launchable browser? |
+| ------------------- | ---------------------------- | ------------------------------------- | ---------------------------- | --------------------------- |
+| Unit                | Vitest (`node` environment)  | `src/**/*.test.ts`                    | no                           | no                          |
+| Browser             | Playwright `chromium-mobile` | `e2e/**/*.spec.ts`                    | no                           | yes                         |
+| Browser, live stack | Playwright `real-stack`      | `e2e/real/**`, only with `E2E_REAL=1` | yes                          | yes                         |
 
 The browser layer is fixture-backed on purpose: `mockApi(page, fixtures)` in `e2e/fixtures/api.ts`
 intercepts `**/api/**` and answers from a literal, so the suite asserts UI behaviour without

@@ -187,29 +187,22 @@
     {
       "idx": 26,
       "version": "7",
-      "when": 1792910400000,
-      "tag": "0026_manager_admin",
+      "when": 1793076728473,
+      "tag": "0026_contract_catalog",
       "breakpoints": true
     },
     {
       "idx": 27,
       "version": "7",
-      "when": 1793086412294,
-      "tag": "0027_contract_template_catalog",
+      "when": 1793078971376,
+      "tag": "0027_motel_setup_requests",
       "breakpoints": true
     },
     {
       "idx": 28,
       "version": "7",
-      "when": 1793108681190,
-      "tag": "0028_cute_vance_astro",
-      "breakpoints": true
-    },
-    {
-      "idx": 29,
-      "version": "7",
-      "when": 1793244057396,
-      "tag": "0029_quiet_ender_wiggin",
+      "when": 1793269600000,
+      "tag": "0028_manager_admin",
       "breakpoints": true
     }
   ]

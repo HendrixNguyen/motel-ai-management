@@ -53,6 +53,10 @@ test.describe("capture queue delivery states", () => {
     ]);
     await page.reload();
     await expect(page.getByLabel("Chỉ số hiện tại")).toBeVisible();
+    await page.unroute("**/api/manager/motels/*/billing/periods/*/readings");
+    await page.route("**/api/manager/motels/*/billing/periods/*/readings", (route) =>
+      route.fulfill({ json: { ok: true } }),
+    );
     await page.unrouteAll({ behavior: "ignoreErrors" });
     await page.route("**/api/manager/motels/*/billing/periods/*/readings", (route) =>
       route.fulfill({ json: { ok: true } }),
