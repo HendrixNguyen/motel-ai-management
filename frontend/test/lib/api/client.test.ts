@@ -86,7 +86,12 @@ describe("apiGet", () => {
 describe("apiSend", () => {
   it("sends custom same-origin CSRF headers with JSON requests", async () => {
     fetchMock.mockResolvedValue(jsonResponse({ ok: true }));
-    await apiSend("/api/admin/managers", "POST", { email: "a@example.test" }, { "x-csrf-token": "b".repeat(43) });
+    await apiSend(
+      "/api/admin/managers",
+      "POST",
+      { email: "a@example.test" },
+      { "x-csrf-token": "b".repeat(43) },
+    );
     const init = fetchMock.mock.calls[0]![1] as RequestInit;
     expect(new Headers(init.headers).get("x-csrf-token")).toBe("b".repeat(43));
     expect(init.body).toBe('{"email":"a@example.test"}');

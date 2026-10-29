@@ -90,17 +90,17 @@ Money is `NUMERIC(14,0)` (VND has no practical subunit). Meter values are `NUMER
 
 ### managers
 
-| Field | Type | Notes |
-|-------|------|-------|
-| id | UUID | PK |
-| email | TEXT | UNIQUE, NOT NULL, lowercased |
-| passwordHash | TEXT | NOT NULL, Argon2id |
-| name | TEXT | NOT NULL |
-| phone | TEXT | nullable |
-| role | ENUM | `manager` (default) or `superadmin`; one superadmin maximum |
-| disabledAt | TIMESTAMPTZ | nullable; disables manager login |
-| sessionVersion | INTEGER | DEFAULT 0; increment revokes all existing manager sessions |
-| createdAt | TIMESTAMPTZ | DEFAULT now() |
+| Field          | Type        | Notes                                                       |
+| -------------- | ----------- | ----------------------------------------------------------- |
+| id             | UUID        | PK                                                          |
+| email          | TEXT        | UNIQUE, NOT NULL, lowercased                                |
+| passwordHash   | TEXT        | NOT NULL, Argon2id                                          |
+| name           | TEXT        | NOT NULL                                                    |
+| phone          | TEXT        | nullable                                                    |
+| role           | ENUM        | `manager` (default) or `superadmin`; one superadmin maximum |
+| disabledAt     | TIMESTAMPTZ | nullable; disables manager login                            |
+| sessionVersion | INTEGER     | DEFAULT 0; increment revokes all existing manager sessions  |
+| createdAt      | TIMESTAMPTZ | DEFAULT now()                                               |
 
 Superadmin manages manager accounts only; it cannot access tenant business endpoints or renter
 records. Manager creation is restricted to authenticated superadmins. Managers receive passwords directly from Superadmins; password reset and disable increment

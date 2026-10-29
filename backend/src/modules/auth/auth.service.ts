@@ -4,21 +4,38 @@ import { managers } from "./auth.schema";
 import { AppError } from "@/shared/errors";
 import type { ManagerRow } from "./auth.types";
 
-export async function registerManager(input: { email: string; password: string; name: string; phone?: string }): Promise<ManagerRow> {
+export async function registerManager(input: {
+  email: string;
+  password: string;
+  name: string;
+  phone?: string;
+}): Promise<ManagerRow> {
   const email = input.email.trim().toLowerCase();
   const name = input.name.trim();
-  if (email === "manage@example.com") throw AppError.conflict("Email này được dành riêng cho tài khoản quản trị nền tảng");
+  if (email === "manage@example.com")
+    throw AppError.conflict("Email này được dành riêng cho tài khoản quản trị nền tảng");
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw AppError.badRequest("Email không hợp lệ");
-  if (input.password.length < 8 || input.password.length > 256) throw AppError.badRequest("Mật khẩu phải có từ 8 đến 256 ký tự");
+  if (input.password.length < 8 || input.password.length > 256)
+    throw AppError.badRequest("Mật khẩu phải có từ 8 đến 256 ký tự");
   if (!name || name.length > 160) throw AppError.badRequest("Họ tên không hợp lệ");
   try {
     const [row] = await db.transaction(async (tx) => {
-      const [manager] = await tx.insert(managers).values({ email, name, phone: input.phone?.trim() || null, passwordHash: await Bun.password.hash(input.password, { algorithm: "argon2id" }), role: "manager" }).returning();
+      const [manager] = await tx
+        .insert(managers)
+        .values({
+          email,
+          name,
+          phone: input.phone?.trim() || null,
+          passwordHash: await Bun.password.hash(input.password, { algorithm: "argon2id" }),
+          role: "manager",
+        })
+        .returning();
       return [manager!];
     });
     return row;
   } catch (error) {
-    if (typeof error === "object" && error !== null && "code" in error && error.code === "23505") throw AppError.conflict("Email đã được sử dụng");
+    if (typeof error === "object" && error !== null && "code" in error && error.code === "23505")
+      throw AppError.conflict("Email đã được sử dụng");
     throw error;
   }
 }

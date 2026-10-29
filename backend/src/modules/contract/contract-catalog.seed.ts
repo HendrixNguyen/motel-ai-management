@@ -118,7 +118,9 @@ export const STARTER_TEMPLATES: SeedCatalogItem[] = [
   },
 ];
 
-export async function seedContractTemplateCatalog(executor: Pick<typeof db, "insert"> = db): Promise<string[]> {
+export async function seedContractTemplateCatalog(
+  executor: Pick<typeof db, "insert"> = db,
+): Promise<string[]> {
   const insertedKeys: string[] = [];
   for (const template of STARTER_TEMPLATES) {
     const [inserted] = await executor

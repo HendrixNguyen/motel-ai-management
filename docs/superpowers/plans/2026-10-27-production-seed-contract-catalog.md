@@ -34,6 +34,7 @@
 ### Task 1: Schema migration and DB constraints
 
 **Files:**
+
 - Modify `backend/src/modules/auth/auth.schema.ts`, `backend/src/modules/contract/contract.schema.ts`, `backend/src/db/schemas.ts`, `backend/src/db/test-db.ts`, `backend/drizzle/meta/_journal.json`
 - Create migrations/snapshots for manager-admin fields and contract catalog, numbering after the latest verified QA/main migration head. Existing working branch has draft 0026/0027 files; reconcile metadata and SQL against that head; no duplicate index/tag.
 - Test `backend/test/schema-constraints.test.ts`

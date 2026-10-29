@@ -290,10 +290,7 @@ export async function listUnpaidInvoicesForRenter(
     .from(invoices)
     .innerJoin(
       billingPeriods,
-      and(
-        eq(billingPeriods.id, invoices.billingPeriodId),
-        eq(billingPeriods.motelId, motelId),
-      ),
+      and(eq(billingPeriods.id, invoices.billingPeriodId), eq(billingPeriods.motelId, motelId)),
     )
     .where(
       and(

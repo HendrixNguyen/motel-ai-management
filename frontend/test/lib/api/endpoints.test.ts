@@ -357,8 +357,12 @@ describe("writes (client components, relative URL through the proxy)", () => {
   });
 
   it("login response carries a CSRF token for Superadmin sessions", async () => {
-    fetchMock.mockResolvedValue(jsonResponse({ ...MANAGER_AUTH, role: "superadmin", csrfToken: "a".repeat(43) }));
-    await expect(login({ email: "root@example.vn", password: "correct horse" })).resolves.toMatchObject({ role: "superadmin", csrfToken: "a".repeat(43) });
+    fetchMock.mockResolvedValue(
+      jsonResponse({ ...MANAGER_AUTH, role: "superadmin", csrfToken: "a".repeat(43) }),
+    );
+    await expect(
+      login({ email: "root@example.vn", password: "correct horse" }),
+    ).resolves.toMatchObject({ role: "superadmin", csrfToken: "a".repeat(43) });
     expect(lastUrl()).toBe("/api/auth/login");
   });
 

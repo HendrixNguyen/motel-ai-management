@@ -90,21 +90,21 @@ destroys the schema it is given.
 
 ## Coverage expectations by area
 
-| Area | Minimum |
-|------|---------|
-| Money calculation (`sumVnd`, invoice totals) | every branch, plus a value above `Number.MAX_SAFE_INTEGER` |
-| Billing utility rounding | meter parsing rejects invalid precision; utility costs cover below-half, exact-half, and above-half VND, with exact halves rounded up |
-| Billing workflows | readings batch is atomic and conflict-safe; sent periods reject mutation; invoice generation is idempotent with snapshots; payment transitions and tenant 404 are covered |
-| Phone normalisation | mobile, landline, each malformed form |
-| Auth | public registration forced to Manager role, role-bound Manager/Superadmin JWTs, both roles on `/auth/me` and logout, wrong-role 403, cross-key rejection, per-login CSRF header, missing/stale/forged CSRF denial, disable/reset sessionVersion revocation, wrong password, unknown email |
-| Contract signing | renter-only read, hashed OTP, five-minute expiry/cooldown, three-attempt limit, atomic activation, safe error codes |
-| Tenant scoping | both isolation directions, over HTTP |
-| Billing rules | meter's `basePrice` is never read by the calculation |
-| Renter payment | one-proof invariant, JPEG/PNG byte and 5,000,000-byte payment-proof limit, proof state transitions, manager-only approval/cash payment, signed URL TTL, renter paid-mutation denial |
-| Notifications | push subscription ownership/deduplication, Web Push-first ordering, bounded retries, permanent-failure fallback, stable event-key idempotency, redacted payloads |
-| Meter capture | manager ownership, motel+period scoping, wrong-manager rejection, stale-motel queue clearing on switch, logout cleanup, draft-only enqueue, and offline reload/reconnect sync (unit + browser-level tests) |
-| Manager contracts | active-renter/room motel scoping, decimal-safe VND normalization, valid dates, draft-only PATCH fields, cross-motel template rejection, and lifecycle transitions (unit + HTTP + E2E) |
-| Motel setup & catalog | full/quick setup, selective copy groups (bank/services/templates), idempotency request recovery, contract catalog preview/copy, and after-setup template assignment (unit + HTTP + E2E) |
+| Area                                         | Minimum                                                                                                                                                                                                                                                                                   |
+| -------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Money calculation (`sumVnd`, invoice totals) | every branch, plus a value above `Number.MAX_SAFE_INTEGER`                                                                                                                                                                                                                                |
+| Billing utility rounding                     | meter parsing rejects invalid precision; utility costs cover below-half, exact-half, and above-half VND, with exact halves rounded up                                                                                                                                                     |
+| Billing workflows                            | readings batch is atomic and conflict-safe; sent periods reject mutation; invoice generation is idempotent with snapshots; payment transitions and tenant 404 are covered                                                                                                                 |
+| Phone normalisation                          | mobile, landline, each malformed form                                                                                                                                                                                                                                                     |
+| Auth                                         | public registration forced to Manager role, role-bound Manager/Superadmin JWTs, both roles on `/auth/me` and logout, wrong-role 403, cross-key rejection, per-login CSRF header, missing/stale/forged CSRF denial, disable/reset sessionVersion revocation, wrong password, unknown email |
+| Contract signing                             | renter-only read, hashed OTP, five-minute expiry/cooldown, three-attempt limit, atomic activation, safe error codes                                                                                                                                                                       |
+| Tenant scoping                               | both isolation directions, over HTTP                                                                                                                                                                                                                                                      |
+| Billing rules                                | meter's `basePrice` is never read by the calculation                                                                                                                                                                                                                                      |
+| Renter payment                               | one-proof invariant, JPEG/PNG byte and 5,000,000-byte payment-proof limit, proof state transitions, manager-only approval/cash payment, signed URL TTL, renter paid-mutation denial                                                                                                       |
+| Notifications                                | push subscription ownership/deduplication, Web Push-first ordering, bounded retries, permanent-failure fallback, stable event-key idempotency, redacted payloads                                                                                                                          |
+| Meter capture                                | manager ownership, motel+period scoping, wrong-manager rejection, stale-motel queue clearing on switch, logout cleanup, draft-only enqueue, and offline reload/reconnect sync (unit + browser-level tests)                                                                                |
+| Manager contracts                            | active-renter/room motel scoping, decimal-safe VND normalization, valid dates, draft-only PATCH fields, cross-motel template rejection, and lifecycle transitions (unit + HTTP + E2E)                                                                                                     |
+| Motel setup & catalog                        | full/quick setup, selective copy groups (bank/services/templates), idempotency request recovery, contract catalog preview/copy, and after-setup template assignment (unit + HTTP + E2E)                                                                                                   |
 
 ## Motel Setup Acceptance Matrix & Release Gates
 

@@ -132,9 +132,14 @@ export function validateProductionConfig(input: Record<string, string | undefine
     }
     const normalizeDatabaseName = (url: URL) => {
       try {
-        return decodeURIComponent(url.pathname.replace(/^\/+/, "").split(/[?#]/, 1)[0] ?? "").toLowerCase();
+        return decodeURIComponent(
+          url.pathname.replace(/^\/+/, "").split(/[?#]/, 1)[0] ?? "",
+        ).toLowerCase();
       } catch {
-        throw new AppError("VALIDATION_ERROR", "TEST_DATABASE_URL database name encoding không hợp lệ");
+        throw new AppError(
+          "VALIDATION_ERROR",
+          "TEST_DATABASE_URL database name encoding không hợp lệ",
+        );
       }
     };
     if (
@@ -142,14 +147,23 @@ export function validateProductionConfig(input: Record<string, string | undefine
       (testDatabase.port || "5432") === (productionDatabase.port || "5432") &&
       normalizeDatabaseName(testDatabase) === normalizeDatabaseName(productionDatabase)
     )
-      throw new AppError("VALIDATION_ERROR", "TEST_DATABASE_URL phải dùng database riêng, không được trỏ vào production");
+      throw new AppError(
+        "VALIDATION_ERROR",
+        "TEST_DATABASE_URL phải dùng database riêng, không được trỏ vào production",
+      );
     let password: string;
     try {
       password = decodeURIComponent(testDatabase.password);
     } catch {
       throw new AppError("VALIDATION_ERROR", "TEST_DATABASE_URL credential encoding không hợp lệ");
     }
-    if (password && (/^(placeholder|change[-_ ]?me|secret|mock|test|dev|development|password|super_secret)/i.test(password) || password.length < 32))
+    if (
+      password &&
+      (/^(placeholder|change[-_ ]?me|secret|mock|test|dev|development|password|super_secret)/i.test(
+        password,
+      ) ||
+        password.length < 32)
+    )
       throw new AppError("VALIDATION_ERROR", "TEST_DATABASE_URL credential không đủ mạnh");
   }
   const zaloOaId = input.ZALO_OA_ID?.trim() ?? "";
@@ -159,7 +173,10 @@ export function validateProductionConfig(input: Record<string, string | undefine
     if (zaloOaId.length > 128 || /^(placeholder|change[-_ ]?me|test|mock)/i.test(zaloOaId))
       throw new AppError("VALIDATION_ERROR", "ZALO_OA_ID không hợp lệ");
   } else if (zaloSecrets.some((key) => input[key] !== undefined && input[key] !== ""))
-    throw new AppError("VALIDATION_ERROR", "Zalo credentials được cấu hình một phần nhưng thiếu ZALO_OA_ID");
+    throw new AppError(
+      "VALIDATION_ERROR",
+      "Zalo credentials được cấu hình một phần nhưng thiếu ZALO_OA_ID",
+    );
   validateProductionSecrets(input, [
     "MANAGER_JWT_SECRET",
     "ADMIN_JWT_SECRET",
@@ -211,7 +228,9 @@ export function parseEnv(input: Record<string, string | undefined>): Env {
     port,
     databaseUrl: required(input, "DATABASE_URL"),
     testDatabaseUrl: input.TEST_DATABASE_URL?.trim() ?? "",
-    renterPortalUrl: input.ZALO_OA_ID?.trim() ? publicUrl(input, "RENTER_PORTAL_URL", "http://localhost:3000", production) : (input.RENTER_PORTAL_URL ?? "http://localhost:3000"),
+    renterPortalUrl: input.ZALO_OA_ID?.trim()
+      ? publicUrl(input, "RENTER_PORTAL_URL", "http://localhost:3000", production)
+      : (input.RENTER_PORTAL_URL ?? "http://localhost:3000"),
     frontendUrl: publicUrl(input, "FRONTEND_URL", "http://localhost:3001", production),
     trustedProxyHeader: input.TRUSTED_PROXY_HEADER?.trim() || null,
     trustedProxyAssertionHeader: input.TRUSTED_PROXY_ASSERTION_HEADER?.trim() || null,

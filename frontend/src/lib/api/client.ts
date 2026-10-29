@@ -175,7 +175,12 @@ export async function apiSend<T>(
  * A rejected `fetch` carries a `TypeError` whose `cause` can hold the host and port it tried; that
  * must not become an error message, so the cause is dropped and `status: 0` records what happened.
  */
-async function send(path: string, method: string, body?: unknown, headers?: Record<string, string>): Promise<Response> {
+async function send(
+  path: string,
+  method: string,
+  body?: unknown,
+  headers?: Record<string, string>,
+): Promise<Response> {
   try {
     return await fetch(path, {
       method,

@@ -30,6 +30,7 @@
 ### Managers
 
 Extend `managers` with:
+
 - `role` PostgreSQL enum `manager_role=('manager','superadmin')`, default `manager`.
 - `disabled_at` nullable timestamptz.
 - `session_version` nonnegative integer default 0.
@@ -42,6 +43,7 @@ Add auth-owned `manager_audit_events` with actor/target IDs, action, timestamp. 
 ### Contract template catalog
 
 Add `contract_template_catalog` to contract module:
+
 - `id uuid` PK, `key text`, positive `version`, localized `name` and `description`, `clauses jsonb` typed `ContractTemplateClause[]`, `active boolean` default true, timestamps.
 - Unique `(key, version)`; DB checks for key/version/non-empty name/array clauses.
 - v1 keys: `vn-residential-standard`, `vn-flexible-term`, `vn-service-fees`.
@@ -50,6 +52,7 @@ Add `contract_template_catalog` to contract module:
 ## 4. Backend APIs and access rules
 
 ### Superadmin-only
+
 - `GET /api/admin/managers?limit=50&offset=0`: list normal managers only; never include hashes or Superadmin; return current session-bound `X-CSRF-Token`.
 - `POST /api/admin/managers`: `{ email, name, password, phone? }`; normalize email, validate name/phone/password, hash Argon2id, insert active Manager. Return safe profile only. Superadmin cannot claim the hidden `manage@example.com` identity; reject that reserved email if absent from Superadmin bootstrap state.
 - `PATCH /api/admin/managers/:managerId`: `{ enabled: boolean }`; target must be manager, otherwise 404. Any status change increments session version, revoking existing sessions; disable blocks login.
@@ -58,6 +61,7 @@ Add `contract_template_catalog` to contract module:
 - Superadmin cannot reset its own credential through manager-account APIs. Recovery for the single hidden Superadmin remains an operator-only manual procedure outside this feature.
 
 ### Manager catalog endpoints
+
 - `GET /api/manager/contract-template-catalog`: list active summary entries. Normal managers use manager auth. Superadmin may use an explicit catalog-read route or this route only if authorization is added deliberately; never grant Superadmin business access.
 - `GET /api/manager/contract-template-catalog/:key/:version`: active template and clauses.
 - `POST /api/manager/motels/:motelId/contract-templates/from-catalog`: `{ catalogKey, catalogVersion, name?, isDefault? }`. Manager auth, resolve owned motel first, load active catalog row, copy clauses into motel-owned table in one transaction. No arbitrary clause payload. Setting default affects only that motel.

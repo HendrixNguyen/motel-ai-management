@@ -3,7 +3,9 @@ import { login } from "@/lib/api/auth.client";
 import { ApiError, GENERIC_ERROR_MESSAGE } from "@/lib/api/client";
 
 export type LoginFieldErrors = { email?: string; password?: string };
-type LoginResult = { ok: true; role: "manager" | "superadmin" } | { ok: false; fields?: LoginFieldErrors; error?: string };
+type LoginResult =
+  | { ok: true; role: "manager" | "superadmin" }
+  | { ok: false; fields?: LoginFieldErrors; error?: string };
 
 export function validateLogin(input: LoginInput): LoginFieldErrors {
   const errors: LoginFieldErrors = {};

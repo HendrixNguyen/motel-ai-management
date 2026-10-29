@@ -98,7 +98,7 @@ async function seed() {
       qrCodeData: "PAYLOAD",
     })
     .returning();
-    await db
+  await db
 
     .insert(invoices)
     .values({

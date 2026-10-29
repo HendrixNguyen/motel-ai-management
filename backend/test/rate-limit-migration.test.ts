@@ -6,7 +6,9 @@ import { afterAll, describe, expect, setDefaultTimeout, test } from "bun:test";
 setDefaultTimeout(120_000);
 const adminUrl = process.env.MIGRATION_TEST_ADMIN_URL ?? process.env.TEST_DATABASE_URL ?? "";
 if (!adminUrl)
-  throw new Error("MIGRATION_TEST_ADMIN_URL or TEST_DATABASE_URL must point to disposable local PostgreSQL");
+  throw new Error(
+    "MIGRATION_TEST_ADMIN_URL or TEST_DATABASE_URL must point to disposable local PostgreSQL",
+  );
 const admin = postgres(adminUrl, { max: 1, onnotice: () => {} });
 const databaseUrl = new URL(adminUrl);
 const migration = await readFile(

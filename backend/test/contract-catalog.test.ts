@@ -388,7 +388,9 @@ describe("contract catalog and template preview/copy", () => {
   });
 
   test("rejects malformed persisted clauses with a controlled error", async () => {
-    await db.execute(sql`ALTER TABLE contract_template_catalog DROP CONSTRAINT IF EXISTS contract_template_catalog_clauses_array`);
+    await db.execute(
+      sql`ALTER TABLE contract_template_catalog DROP CONSTRAINT IF EXISTS contract_template_catalog_clauses_array`,
+    );
     await db.insert(contractTemplateCatalog).values({
       key: "vn-malformed",
       version: 1,
@@ -397,7 +399,11 @@ describe("contract catalog and template preview/copy", () => {
       clauses: [{ title: "Invalid", content: "valid" }],
       active: true,
     });
-    await db.execute(sql`UPDATE contract_template_catalog SET clauses = '[{"title": 7, "content": false}]'::jsonb WHERE key = 'vn-malformed'`);
-    await expect(getActiveContractTemplateCatalog("vn-malformed", 1)).rejects.toThrow("không hợp lệ");
+    await db.execute(
+      sql`UPDATE contract_template_catalog SET clauses = '[{"title": 7, "content": false}]'::jsonb WHERE key = 'vn-malformed'`,
+    );
+    await expect(getActiveContractTemplateCatalog("vn-malformed", 1)).rejects.toThrow(
+      "không hợp lệ",
+    );
   });
 });

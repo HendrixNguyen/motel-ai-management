@@ -20,7 +20,9 @@ test.describe("capture queue delivery states", () => {
   }) => {
     await openCapture(page);
     const writes: unknown[] = [];
-    const writeRequest = page.waitForRequest((request) => request.url().includes("/readings") && request.method() === "PUT");
+    const writeRequest = page.waitForRequest(
+      (request) => request.url().includes("/readings") && request.method() === "PUT",
+    );
     await page.route("**/api/manager/motels/*/billing/periods/*/readings", async (route) => {
       writes.push(route.request().postDataJSON());
       await route.abort();

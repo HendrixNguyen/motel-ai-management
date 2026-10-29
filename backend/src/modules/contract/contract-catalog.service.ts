@@ -16,7 +16,9 @@ export type CatalogTemplateResponse = {
   clauses: { title: string; content: string }[];
 };
 
-function catalogResponse(row: typeof contractTemplateCatalog.$inferSelect): CatalogTemplateResponse {
+function catalogResponse(
+  row: typeof contractTemplateCatalog.$inferSelect,
+): CatalogTemplateResponse {
   if (
     !Array.isArray(row.clauses) ||
     row.clauses.some(
