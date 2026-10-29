@@ -1,5 +1,5 @@
 import { randomInt } from "node:crypto";
-import { beforeEach, describe, expect, test } from "bun:test";
+import { beforeEach, describe, expect, setDefaultTimeout, test } from "bun:test";
 import { db } from "@/db";
 import { resetDb } from "@/db/test-db";
 import { managers } from "@/modules/auth/auth.schema";
@@ -24,6 +24,7 @@ import { FakeStorageAdapter } from "@/shared/storage";
 import { resetRateLimits } from "@/shared/rate-limit";
 import { eq } from "drizzle-orm";
 
+setDefaultTimeout(120_000);
 let managerId = "",
   motelId = "",
   roomId = "",

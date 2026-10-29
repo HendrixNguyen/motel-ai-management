@@ -18,6 +18,7 @@ export interface Env {
   trustedProxyAssertionValue: string | null;
   webPush: { publicKey: string; privateKey: string; subject: string } | null;
   managerJwtSecret: string;
+  adminJwtSecret: string;
   renterSessionSecret: string;
   r2: {
     accountId: string;
@@ -131,9 +132,14 @@ export function validateProductionConfig(input: Record<string, string | undefine
     }
     const normalizeDatabaseName = (url: URL) => {
       try {
-        return decodeURIComponent(url.pathname.replace(/^\/+/, "").split(/[?#]/, 1)[0] ?? "").toLowerCase();
+        return decodeURIComponent(
+          url.pathname.replace(/^\/+/, "").split(/[?#]/, 1)[0] ?? "",
+        ).toLowerCase();
       } catch {
-        throw new AppError("VALIDATION_ERROR", "TEST_DATABASE_URL database name encoding không hợp lệ");
+        throw new AppError(
+          "VALIDATION_ERROR",
+          "TEST_DATABASE_URL database name encoding không hợp lệ",
+        );
       }
     };
     if (
@@ -141,14 +147,23 @@ export function validateProductionConfig(input: Record<string, string | undefine
       (testDatabase.port || "5432") === (productionDatabase.port || "5432") &&
       normalizeDatabaseName(testDatabase) === normalizeDatabaseName(productionDatabase)
     )
-      throw new AppError("VALIDATION_ERROR", "TEST_DATABASE_URL phải dùng database riêng, không được trỏ vào production");
+      throw new AppError(
+        "VALIDATION_ERROR",
+        "TEST_DATABASE_URL phải dùng database riêng, không được trỏ vào production",
+      );
     let password: string;
     try {
       password = decodeURIComponent(testDatabase.password);
     } catch {
       throw new AppError("VALIDATION_ERROR", "TEST_DATABASE_URL credential encoding không hợp lệ");
     }
-    if (password && (/^(placeholder|change[-_ ]?me|secret|mock|test|dev|development|password|super_secret)/i.test(password) || password.length < 32))
+    if (
+      password &&
+      (/^(placeholder|change[-_ ]?me|secret|mock|test|dev|development|password|super_secret)/i.test(
+        password,
+      ) ||
+        password.length < 32)
+    )
       throw new AppError("VALIDATION_ERROR", "TEST_DATABASE_URL credential không đủ mạnh");
   }
   const zaloOaId = input.ZALO_OA_ID?.trim() ?? "";
@@ -158,13 +173,20 @@ export function validateProductionConfig(input: Record<string, string | undefine
     if (zaloOaId.length > 128 || /^(placeholder|change[-_ ]?me|test|mock)/i.test(zaloOaId))
       throw new AppError("VALIDATION_ERROR", "ZALO_OA_ID không hợp lệ");
   } else if (zaloSecrets.some((key) => input[key] !== undefined && input[key] !== ""))
-    throw new AppError("VALIDATION_ERROR", "Zalo credentials được cấu hình một phần nhưng thiếu ZALO_OA_ID");
+    throw new AppError(
+      "VALIDATION_ERROR",
+      "Zalo credentials được cấu hình một phần nhưng thiếu ZALO_OA_ID",
+    );
   validateProductionSecrets(input, [
     "MANAGER_JWT_SECRET",
+    "ADMIN_JWT_SECRET",
     "RENTER_SESSION_SECRET",
     "R2_ACCESS_KEY_ID",
     "R2_SECRET_ACCESS_KEY",
   ]);
+  const adminSecret = secret(input, "ADMIN_JWT_SECRET");
+  if (new Set([input.MANAGER_JWT_SECRET, adminSecret, input.RENTER_SESSION_SECRET]).size !== 3)
+    throw new AppError("VALIDATION_ERROR", "Production secrets phải khác nhau");
   if (input.ZALO_OA_ID) publicUrl(input, "RENTER_PORTAL_URL", "", true);
   publicUrl(input, "FRONTEND_URL", "", true);
   if (input.R2_PUBLIC_URL) publicUrl(input, "R2_PUBLIC_URL", "", true);
@@ -180,8 +202,6 @@ export function parseEnv(input: Record<string, string | undefined>): Env {
     validateProductionConfig(input);
     if (input.DATABASE_URL?.includes("localhost") || input.DATABASE_URL?.includes("127.0.0.1"))
       throw new AppError("VALIDATION_ERROR", "DATABASE_URL production không được dùng localhost");
-    if (input.MANAGER_JWT_SECRET === input.RENTER_SESSION_SECRET)
-      throw new AppError("VALIDATION_ERROR", "Production secrets phải khác nhau");
     if (
       input.TRUSTED_PROXY_HEADER &&
       (!input.TRUSTED_PROXY_ASSERTION_HEADER ||
@@ -208,12 +228,15 @@ export function parseEnv(input: Record<string, string | undefined>): Env {
     port,
     databaseUrl: required(input, "DATABASE_URL"),
     testDatabaseUrl: input.TEST_DATABASE_URL?.trim() ?? "",
-    renterPortalUrl: input.ZALO_OA_ID?.trim() ? publicUrl(input, "RENTER_PORTAL_URL", "http://localhost:3000", production) : (input.RENTER_PORTAL_URL ?? "http://localhost:3000"),
+    renterPortalUrl: input.ZALO_OA_ID?.trim()
+      ? publicUrl(input, "RENTER_PORTAL_URL", "http://localhost:3000", production)
+      : (input.RENTER_PORTAL_URL ?? "http://localhost:3000"),
     frontendUrl: publicUrl(input, "FRONTEND_URL", "http://localhost:3001", production),
     trustedProxyHeader: input.TRUSTED_PROXY_HEADER?.trim() || null,
     trustedProxyAssertionHeader: input.TRUSTED_PROXY_ASSERTION_HEADER?.trim() || null,
     trustedProxyAssertionValue: input.TRUSTED_PROXY_ASSERTION_VALUE || null,
     managerJwtSecret: secret(input, "MANAGER_JWT_SECRET"),
+    adminJwtSecret: required(input, "ADMIN_JWT_SECRET"),
     renterSessionSecret: secret(input, "RENTER_SESSION_SECRET"),
     r2: {
       accountId: required(input, "R2_ACCOUNT_ID"),

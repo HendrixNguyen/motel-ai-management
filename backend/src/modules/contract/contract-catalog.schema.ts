@@ -27,7 +27,12 @@ export const contractTemplateCatalog = pgTable(
   },
   (t) => [
     uniqueIndex("contract_template_catalog_key_version_uq").on(t.key, t.version),
-    check("contract_template_catalog_key_nonempty", sql`length(trim(${t.key})) > 0`),
+    check("contract_template_catalog_key_format", sql`${t.key} ~ '^[a-z0-9]+(-[a-z0-9]+)*$'`),
     check("contract_template_catalog_version_positive", sql`${t.version} > 0`),
+    check("contract_template_catalog_name_nonempty", sql`length(trim(${t.name})) > 0`),
+    check(
+      "contract_template_catalog_clauses_array",
+      sql`jsonb_typeof(${t.clauses}) = 'array' AND NOT jsonb_path_exists(${t.clauses}, '$[*] ? (@.title.type() != "string" || @.content.type() != "string" || @.title == "" || @.content == "")')`,
+    ),
   ],
 );

@@ -90,14 +90,25 @@ Money is `NUMERIC(14,0)` (VND has no practical subunit). Meter values are `NUMER
 
 ### managers
 
-| Field        | Type        | Notes                        |
-| ------------ | ----------- | ---------------------------- |
-| id           | UUID        | PK                           |
-| email        | TEXT        | UNIQUE, NOT NULL, lowercased |
-| passwordHash | TEXT        | NOT NULL (argon2id)          |
-| name         | TEXT        | NOT NULL                     |
-| phone        | TEXT        | nullable                     |
-| createdAt    | TIMESTAMPTZ | DEFAULT now()                |
+| Field          | Type        | Notes                                                       |
+| -------------- | ----------- | ----------------------------------------------------------- |
+| id             | UUID        | PK                                                          |
+| email          | TEXT        | UNIQUE, NOT NULL, lowercased                                |
+| passwordHash   | TEXT        | NOT NULL, Argon2id                                          |
+| name           | TEXT        | NOT NULL                                                    |
+| phone          | TEXT        | nullable                                                    |
+| role           | ENUM        | `manager` (default) or `superadmin`; one superadmin maximum |
+| disabledAt     | TIMESTAMPTZ | nullable; disables manager login                            |
+| sessionVersion | INTEGER     | DEFAULT 0; increment revokes all existing manager sessions  |
+| createdAt      | TIMESTAMPTZ | DEFAULT now()                                               |
+
+Superadmin manages manager accounts only; it cannot access tenant business endpoints or renter
+records. Manager creation is restricted to authenticated superadmins. Managers receive passwords directly from Superadmins; password reset and disable increment
+`sessionVersion`, invalidating prior manager sessions. Public registration remains available for
+normal managers and must never assign the superadmin role. Production bootstrap creates one hidden
+superadmin only and never seeds demo business data.
+
+`manager_audit_events` stores actor, target, action and timestamp, never credentials or secret values.
 
 ### motels
 

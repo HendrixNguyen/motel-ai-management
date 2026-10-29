@@ -5,6 +5,7 @@ import { billingPeriods, meterReadings, invoices } from "./billing.schema";
 import { resolveOwnedMotel } from "@/middleware/tenancy";
 import { AppError } from "@/shared/errors";
 import { listRoomsForBilling } from "@/modules/room/room.service";
+import { motels } from "@/modules/motel/motel.schema";
 import {
   type BillingPeriodDetailResponse,
   type BillingPeriodResponse,
@@ -159,12 +160,18 @@ export async function hasRenterInvoicePeriod(
 
 export async function getRenterInvoiceDetail(renterId: string, motelId: string, invoiceId: string) {
   const row = await db
-    .select({ invoice: invoices, month: billingPeriods.month, year: billingPeriods.year })
+    .select({
+      invoice: invoices,
+      month: billingPeriods.month,
+      year: billingPeriods.year,
+      bankAccount: motels.bankAccount,
+    })
     .from(invoices)
     .innerJoin(
       billingPeriods,
       and(eq(billingPeriods.id, invoices.billingPeriodId), eq(billingPeriods.motelId, motelId)),
     )
+    .innerJoin(motels, eq(motels.id, invoices.motelId))
     .where(
       and(
         eq(invoices.id, invoiceId),
@@ -212,6 +219,7 @@ export async function getRenterInvoiceDetail(renterId: string, motelId: string, 
     year: item.year,
     roomId: item.invoice.roomId,
     roomName: room.name,
+    bankAccount: item.bankAccount,
     rentAmount: item.invoice.rentAmount,
     electricityUsage: item.invoice.electricityUsage,
     electricityCost: item.invoice.electricityCost,
@@ -282,10 +290,7 @@ export async function listUnpaidInvoicesForRenter(
     .from(invoices)
     .innerJoin(
       billingPeriods,
-      and(
-        eq(billingPeriods.id, invoices.billingPeriodId),
-        eq(billingPeriods.motelId, motelId),
-      ),
+      and(eq(billingPeriods.id, invoices.billingPeriodId), eq(billingPeriods.motelId, motelId)),
     )
     .where(
       and(

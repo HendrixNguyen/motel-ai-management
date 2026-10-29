@@ -1,6 +1,11 @@
 import { Elysia, t } from "elysia";
 import { cookie } from "@elysiajs/cookie";
 import { managerAuth } from "@/middleware/manager-auth";
+import {
+  listActiveContractTemplateCatalog,
+  getActiveContractTemplateCatalog,
+  copyContractTemplateCatalogToMotel,
+} from "./contract-catalog.service";
 import { renterAuth } from "@/middleware/renter-auth";
 import {
   createContract,
@@ -63,6 +68,30 @@ const contractPatch = t.Object({
   deposit: t.Optional(vnd),
   clauses: t.Optional(t.Array(clause)),
 });
+const contractCatalogRoutes = new Elysia({ name: "contract-catalog-routes" })
+  .use(cookie())
+  .use(managerAuth)
+  .get("/manager/contract-template-catalog", () => listActiveContractTemplateCatalog())
+  .get(
+    "/manager/contract-template-catalog/:key/:version",
+    ({ params }) => getActiveContractTemplateCatalog(params.key, Number(params.version)),
+    { params: t.Object({ key: t.String(), version: t.Numeric({ minimum: 1 }) }) },
+  )
+  .post(
+    "/manager/motels/:motelId/contract-templates/from-catalog",
+    ({ params, body, auth }) =>
+      copyContractTemplateCatalogToMotel(params.motelId, auth!.userId, body),
+    {
+      params: t.Object({ motelId: t.String({ format: "uuid" }) }),
+      body: t.Object({
+        catalogKey: t.String({ minLength: 1, maxLength: 96 }),
+        catalogVersion: t.Integer({ minimum: 1 }),
+        name: t.Optional(t.String({ minLength: 1, maxLength: 160 })),
+        isDefault: t.Optional(t.Boolean()),
+      }),
+    },
+  );
+
 const managerContractRoutes = new Elysia({ name: "manager-contract-routes" })
   .use(cookie())
   .use(managerAuth)
@@ -191,5 +220,6 @@ const renterContractRoutes = new Elysia({ name: "renter-contract-routes" })
   );
 
 export const contractRoutes = new Elysia({ name: "contract-routes" })
+  .use(contractCatalogRoutes)
   .use(managerContractRoutes)
   .use(renterContractRoutes);

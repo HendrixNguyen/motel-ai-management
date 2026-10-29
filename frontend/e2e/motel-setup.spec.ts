@@ -206,7 +206,7 @@ test("quick_motel_selects_catalog_later", async ({ page, context }) => {
   await expect(page.getByText("Đã thêm mẫu hợp đồng từ thư viện")).toBeVisible();
   expect(fromCatalogPayload).not.toBeNull();
   expect(fromCatalogPayload).toMatchObject({
-    catalogKey: "standard-vn",
+    catalogKey: "vn-residential-standard",
     catalogVersion: 1,
     isDefault: true,
   });

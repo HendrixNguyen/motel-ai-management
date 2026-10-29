@@ -10,17 +10,20 @@ import { useToast } from "@/components/ui/toast";
 import {
   createContract,
   createContractTemplate,
+  copyContractTemplateFromCatalog,
   deleteContractTemplate,
+  listContractTemplateCatalog,
   sendContract,
   terminateContract,
   updateContract,
   updateContractTemplate,
 } from "@/lib/api/contracts.client";
-import { copyCatalogTemplate } from "@/lib/api/motel-setup.client";
+import { copyCatalogTemplate as copyCatalogTemplateApi } from "@/lib/api/motel-setup.client";
 import ContractTemplatePicker from "./contract-template-picker";
 import type {
   ContractResponse,
   ContractStatus,
+  ContractTemplateCatalogResponse,
   ContractTemplateResponse,
   RenterResponse,
   RoomResponse,
@@ -62,6 +65,9 @@ export default function ContractManagementClient({
   const notify = useToast();
   const [rows, setRows] = useState(contracts);
   const [templateRows, setTemplateRows] = useState(templates);
+  const [catalogRows, setCatalogRows] = useState<ContractTemplateCatalogResponse[]>([]);
+  const [catalogLoaded, setCatalogLoaded] = useState(false);
+  const [catalogError, setCatalogError] = useState("");
   const [dialog, setDialog] = useState<"create" | "templates" | { edit: ContractResponse } | null>(
     null,
   );
@@ -77,6 +83,35 @@ export default function ContractManagementClient({
   const [errors, setErrors] = useState<Partial<Record<keyof ContractDraft, string>>>({});
   const [formError, setFormError] = useState("");
   const [pending, setPending] = useState(false);
+
+  async function openTemplates() {
+    setFormError("");
+    setDialog("templates");
+    if (catalogLoaded) return;
+    try {
+      setCatalogRows(await listContractTemplateCatalog());
+      setCatalogLoaded(true);
+    } catch (error) {
+      setCatalogError(error instanceof Error ? error.message : "Không thể tải mẫu hệ thống");
+    }
+  }
+
+  async function copyCatalogTemplate(template: ContractTemplateCatalogResponse) {
+    setPending(true);
+    setCatalogError("");
+    try {
+      const copied = await copyContractTemplateFromCatalog(motelId, {
+        catalogKey: template.key,
+        catalogVersion: template.version,
+      });
+      setTemplateRows((current) => [copied, ...current]);
+      notify({ message: `Đã sao chép mẫu “${template.name}” vào nhà trọ này` });
+    } catch (error) {
+      setCatalogError(error instanceof Error ? error.message : "Không thể sao chép mẫu");
+    } finally {
+      setPending(false);
+    }
+  }
 
   async function create(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -225,7 +260,7 @@ export default function ContractManagementClient({
     setPending(true);
     setFormError("");
     try {
-      const created = await copyCatalogTemplate(motelId, {
+      const created = await copyCatalogTemplateApi(motelId, {
         catalogKey: selectedCatalogTemplate.selection.key,
         catalogVersion: selectedCatalogTemplate.selection.version,
         isDefault: isDefaultCatalog,
@@ -256,13 +291,7 @@ export default function ContractManagementClient({
         >
           Tạo hợp đồng
         </Button>
-        <Button
-          variant="secondary"
-          onClick={() => {
-            setFormError("");
-            setDialog("templates");
-          }}
-        >
+        <Button variant="secondary" onClick={() => void openTemplates()}>
           Mẫu hợp đồng
         </Button>
       </div>
@@ -521,146 +550,204 @@ export default function ContractManagementClient({
             if (!pending) setDialog(null);
           }}
           title="Mẫu hợp đồng"
-          description="Xem, sửa hoặc tạo mẫu cho nhà trọ hiện tại."
+          description="Mẫu hệ thống là nội dung tham khảo. Hãy sao chép rồi điều chỉnh cho nhà trọ của bạn."
         >
           <div className="max-h-[65dvh] space-y-4 overflow-y-auto">
-            {templateRows
-              .filter((item) => item.motelId === motelId)
-              .map((item) => (
-                <article key={item.id} className="rounded-input border border-border p-3">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <h3 className="font-semibold">{item.name}</h3>
-                    <Badge
-                      label={item.isDefault ? "Mặc định" : "Mẫu"}
-                      tone={item.isDefault ? "success" : "neutral"}
-                    />
-                  </div>
-                  {item.clauses.map((clause, index) => (
-                    <div key={index} className="mt-2">
-                      <p className="font-medium">{clause.title}</p>
-                      <p className="whitespace-pre-wrap text-text-muted">{clause.content}</p>
+            <section className="space-y-3 rounded-input border border-primary/30 bg-canvas p-3">
+              <h3 className="font-semibold">Mẫu hệ thống dùng chung</h3>
+              <p className="text-sm text-text-muted">
+                Mẫu chỉ để tham khảo, chưa được thẩm định pháp lý. Bản sao thuộc nhà trọ này; chỉnh
+                sửa không ảnh hưởng mẫu hệ thống hoặc nhà trọ khác.
+              </p>
+              {!catalogRows.length && !catalogError && (
+                <p role="status" className="text-sm text-text-muted">
+                  Đang tải mẫu hợp đồng…
+                </p>
+              )}
+              {catalogRows.map((item) => (
+                <article
+                  key={`${item.key}:${item.version}`}
+                  className="rounded-input border border-border bg-surface p-3"
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div>
+                      <h4 className="font-semibold">{item.name}</h4>
+                      <p className="text-sm text-text-muted">{item.description}</p>
                     </div>
-                  ))}
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    <Button variant="secondary" onClick={() => setEditingTemplate(item)}>
-                      Sửa mẫu {item.name}
-                    </Button>
-                    <Button
-                      variant="danger"
-                      disabled={item.isDefault || pending}
-                      onClick={() => void removeTemplate(item)}
-                    >
-                      Xóa mẫu {item.name}
-                    </Button>
+                    <Badge label={`v${item.version}`} tone="neutral" />
                   </div>
+                  <details className="mt-2">
+                    <summary className="min-h-10 cursor-pointer content-center text-sm font-medium">
+                      Xem {item.clauses.length} điều khoản
+                    </summary>
+                    {item.clauses.map((clause, index) => (
+                      <div key={index} className="mt-2">
+                        <p className="font-medium">{clause.title}</p>
+                        <p className="whitespace-pre-wrap text-sm text-text-muted">
+                          {clause.content}
+                        </p>
+                      </div>
+                    ))}
+                  </details>
+                  <Button
+                    className="mt-3"
+                    variant="secondary"
+                    disabled={pending || templateRows.some((row) => row.name === item.name)}
+                    pending={pending}
+                    onClick={() => void copyCatalogTemplate(item)}
+                  >
+                    {templateRows.some((row) => row.name === item.name)
+                      ? "Đã có trong nhà trọ"
+                      : "Sao chép vào nhà trọ"}
+                  </Button>
                 </article>
               ))}
-            {editingTemplate ? (
-              <form
-                onSubmit={(event) => void saveTemplate(event, editingTemplate)}
-                className="space-y-3 border-t border-border pt-4"
-              >
-                <h3 className="font-semibold">Sửa mẫu</h3>
-                <Field id="template-edit-name" label="Tên mẫu">
-                  {(props) => (
-                    <input {...props} name="name" defaultValue={editingTemplate.name} required />
-                  )}
-                </Field>
-                <Field id="template-edit-title" label="Tiêu đề điều khoản">
-                  {(props) => (
-                    <input
-                      {...props}
-                      name="title"
-                      defaultValue={editingTemplate.clauses[0]?.title ?? ""}
-                      required
-                    />
-                  )}
-                </Field>
-                <Field id="template-edit-content" label="Nội dung điều khoản">
-                  {(props) => (
-                    <textarea
-                      {...props}
-                      name="content"
-                      rows={4}
-                      defaultValue={editingTemplate.clauses
-                        .map((clause) => `${clause.title}: ${clause.content}`)
-                        .join("\n")}
-                      required
-                    />
-                  )}
-                </Field>
-                <div className="flex gap-2">
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    onClick={() => setEditingTemplate(null)}
-                  >
-                    Hủy sửa
-                  </Button>
-                  <Button type="submit" pending={pending}>
-                    Cập nhật mẫu
-                  </Button>
-                </div>
-              </form>
-            ) : catalogPickerOpen ? (
-              <div className="space-y-4 border-t border-border pt-4">
-                <h3 className="font-semibold">Chọn mẫu từ thư viện</h3>
-                <ContractTemplatePicker
-                  value={selectedCatalogTemplate}
-                  onChange={setSelectedCatalogTemplate}
-                />
-                <label className="flex items-center gap-2 text-sm text-text">
-                  <input
-                    type="checkbox"
-                    checked={isDefaultCatalog}
-                    onChange={(e) => setIsDefaultCatalog(e.target.checked)}
-                  />
-                  Đặt làm mẫu mặc định cho nhà trọ này
-                </label>
-                <div className="flex gap-2">
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    onClick={() => setCatalogPickerOpen(false)}
-                  >
-                    Hủy
-                  </Button>
-                  <Button
-                    disabled={!selectedCatalogTemplate || pending}
-                    onClick={() => void handleCopyFromCatalog()}
-                  >
-                    Áp dụng mẫu
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-4 border-t border-border pt-4">
-                <div className="flex gap-2">
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    onClick={() => setCatalogPickerOpen(true)}
-                  >
-                    Chọn mẫu có sẵn
-                  </Button>
-                </div>
-                <form onSubmit={(event) => void saveTemplate(event)} className="space-y-3">
-                  <h3 className="font-semibold">Hoặc tự tạo mẫu mới</h3>
-                  <Field id="template-name" label="Tên mẫu">
-                    {(props) => <input {...props} name="name" required />}
+              {catalogError && (
+                <p role="alert" className="text-sm text-danger">
+                  {catalogError}
+                </p>
+              )}
+            </section>
+            <section className="space-y-3 border-t border-border pt-4">
+              <h3 className="font-semibold">Mẫu riêng của nhà trọ</h3>
+              {templateRows
+                .filter((item) => item.motelId === motelId)
+                .map((item) => (
+                  <article key={item.id} className="rounded-input border border-border p-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <h3 className="font-semibold">{item.name}</h3>
+                      <Badge
+                        label={item.isDefault ? "Mặc định" : "Mẫu"}
+                        tone={item.isDefault ? "success" : "neutral"}
+                      />
+                    </div>
+                    {item.clauses.map((clause, index) => (
+                      <div key={index} className="mt-2">
+                        <p className="font-medium">{clause.title}</p>
+                        <p className="whitespace-pre-wrap text-text-muted">{clause.content}</p>
+                      </div>
+                    ))}
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <Button variant="secondary" onClick={() => setEditingTemplate(item)}>
+                        Sửa mẫu {item.name}
+                      </Button>
+                      <Button
+                        variant="danger"
+                        disabled={item.isDefault || pending}
+                        onClick={() => void removeTemplate(item)}
+                      >
+                        Xóa mẫu {item.name}
+                      </Button>
+                    </div>
+                  </article>
+                ))}
+              {editingTemplate ? (
+                <form
+                  onSubmit={(event) => void saveTemplate(event, editingTemplate)}
+                  className="space-y-3 border-t border-border pt-4"
+                >
+                  <h3 className="font-semibold">Sửa mẫu</h3>
+                  <Field id="template-edit-name" label="Tên mẫu">
+                    {(props) => (
+                      <input {...props} name="name" defaultValue={editingTemplate.name} required />
+                    )}
                   </Field>
-                  <Field id="template-title" label="Tiêu đề điều khoản">
-                    {(props) => <input {...props} name="title" required />}
+                  <Field id="template-edit-title" label="Tiêu đề điều khoản">
+                    {(props) => (
+                      <input
+                        {...props}
+                        name="title"
+                        defaultValue={editingTemplate.clauses[0]?.title ?? ""}
+                        required
+                      />
+                    )}
                   </Field>
-                  <Field id="template-content" label="Nội dung điều khoản">
-                    {(props) => <textarea {...props} name="content" rows={4} required />}
+                  <Field id="template-edit-content" label="Nội dung điều khoản">
+                    {(props) => (
+                      <textarea
+                        {...props}
+                        name="content"
+                        rows={4}
+                        defaultValue={editingTemplate.clauses
+                          .map((clause) => `${clause.title}: ${clause.content}`)
+                          .join("\n")}
+                        required
+                      />
+                    )}
                   </Field>
-                  <Button type="submit" pending={pending}>
-                    Lưu mẫu
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      onClick={() => setEditingTemplate(null)}
+                    >
+                      Hủy sửa
+                    </Button>
+                    <Button type="submit" pending={pending}>
+                      Cập nhật mẫu
+                    </Button>
+                  </div>
                 </form>
-              </div>
-            )}
+              ) : catalogPickerOpen ? (
+                <div className="space-y-4 border-t border-border pt-4">
+                  <h3 className="font-semibold">Chọn mẫu từ thư viện</h3>
+                  <ContractTemplatePicker
+                    value={selectedCatalogTemplate}
+                    onChange={setSelectedCatalogTemplate}
+                  />
+                  <label className="flex items-center gap-2 text-sm text-text">
+                    <input
+                      type="checkbox"
+                      checked={isDefaultCatalog}
+                      onChange={(e) => setIsDefaultCatalog(e.target.checked)}
+                    />
+                    Đặt làm mẫu mặc định cho nhà trọ này
+                  </label>
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      onClick={() => setCatalogPickerOpen(false)}
+                    >
+                      Hủy
+                    </Button>
+                    <Button
+                      disabled={!selectedCatalogTemplate || pending}
+                      onClick={() => void handleCopyFromCatalog()}
+                    >
+                      Áp dụng mẫu
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-4 border-t border-border pt-4">
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      onClick={() => setCatalogPickerOpen(true)}
+                    >
+                      Chọn mẫu có sẵn
+                    </Button>
+                  </div>
+                  <form onSubmit={(event) => void saveTemplate(event)} className="space-y-3">
+                    <h3 className="font-semibold">Hoặc tự tạo mẫu mới</h3>
+                    <Field id="template-name" label="Tên mẫu">
+                      {(props) => <input {...props} name="name" required />}
+                    </Field>
+                    <Field id="template-title" label="Tiêu đề điều khoản">
+                      {(props) => <input {...props} name="title" required />}
+                    </Field>
+                    <Field id="template-content" label="Nội dung điều khoản">
+                      {(props) => <textarea {...props} name="content" rows={4} required />}
+                    </Field>
+                    <Button type="submit" pending={pending}>
+                      Lưu mẫu
+                    </Button>
+                  </form>
+                </div>
+              )}
+            </section>
             {formError && (
               <p role="alert" className="text-danger">
                 {formError}

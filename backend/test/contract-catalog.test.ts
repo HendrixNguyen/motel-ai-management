@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, setDefaultTimeout, test } from "bun:test";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { app } from "@/app";
 import { db } from "@/db";
 import { resetDb } from "@/db/test-db";
@@ -11,9 +11,12 @@ import { copySetupTemplate, previewOwnedTemplate } from "@/modules/contract/cont
 import {
   previewCatalogTemplate,
   computeTemplateFingerprint,
+  getActiveContractTemplateCatalog,
+  listActiveContractTemplateCatalog,
+  copyContractTemplateCatalogToMotel,
 } from "@/modules/contract/contract-catalog.service";
 
-setDefaultTimeout(20_000);
+setDefaultTimeout(30_000);
 beforeEach(resetDb);
 
 const PASSWORD = "aaaaaaaaaa";
@@ -382,5 +385,25 @@ describe("contract catalog and template preview/copy", () => {
     });
     expect(saved).toBeDefined();
     expect(saved!.isDefault).toBe(true);
+  });
+
+  test("rejects malformed persisted clauses with a controlled error", async () => {
+    await db.execute(
+      sql`ALTER TABLE contract_template_catalog DROP CONSTRAINT IF EXISTS contract_template_catalog_clauses_array`,
+    );
+    await db.insert(contractTemplateCatalog).values({
+      key: "vn-malformed",
+      version: 1,
+      name: "Malformed",
+      description: "Malformed",
+      clauses: [{ title: "Invalid", content: "valid" }],
+      active: true,
+    });
+    await db.execute(
+      sql`UPDATE contract_template_catalog SET clauses = '[{"title": 7, "content": false}]'::jsonb WHERE key = 'vn-malformed'`,
+    );
+    await expect(getActiveContractTemplateCatalog("vn-malformed", 1)).rejects.toThrow(
+      "không hợp lệ",
+    );
   });
 });

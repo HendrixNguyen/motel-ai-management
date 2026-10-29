@@ -13,6 +13,8 @@
 | Renter portal     | Mobile-first, `375px–430px`, centred, max `480px` on desktop | Single column, sticky header                                                 |
 | Meter capture PWA | Mobile-only, `360px–430px`, installed to home screen         | Full-screen, one-handed, no chrome                                           |
 
+Superadmin is separate from manager business navigation and sees account administration and the read-only shared contract catalog only. Login redirects Superadmin to `/admin/managers` and Manager to `/`. Admin screen creates normal managers with email, name, password and optional phone; it can directly reset password and disable/re-enable accounts. Password fields are masked and never echoed. Superadmin UI does not show motel, renter, invoice, or ticket data. Manager contract-template management lists system catalog samples and copies a selected template into the active motel before editing; system samples are never edited directly.
+
 Locale `vi-VN`. Currency VND, formatted `3.500.000 ₫` (dot thousands separator, no
 decimals). Dates `DD/MM/YYYY`. Support narrow viewports from `360px`; never require horizontal
 page scrolling. Tables must reflow into readable rows or focused detail editors on phones.

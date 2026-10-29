@@ -2,7 +2,7 @@ import { db } from "@/db";
 import { contractTemplateCatalog } from "./contract-catalog.schema";
 import type { ContractTemplateClause } from "./contract.schema";
 
-interface SeedCatalogItem {
+export interface SeedCatalogItem {
   key: string;
   version: number;
   name: string;
@@ -11,7 +11,7 @@ interface SeedCatalogItem {
   active: boolean;
 }
 
-const STARTER_TEMPLATES: SeedCatalogItem[] = [
+export const STARTER_TEMPLATES: SeedCatalogItem[] = [
   {
     key: "vn-residential-standard",
     version: 1,
@@ -118,14 +118,24 @@ const STARTER_TEMPLATES: SeedCatalogItem[] = [
   },
 ];
 
-export async function seedContractCatalog(): Promise<void> {
-  await db
-    .insert(contractTemplateCatalog)
-    .values(STARTER_TEMPLATES)
-    .onConflictDoNothing({
-      target: [contractTemplateCatalog.key, contractTemplateCatalog.version],
-    });
+export async function seedContractTemplateCatalog(
+  executor: Pick<typeof db, "insert"> = db,
+): Promise<string[]> {
+  const insertedKeys: string[] = [];
+  for (const template of STARTER_TEMPLATES) {
+    const [inserted] = await executor
+      .insert(contractTemplateCatalog)
+      .values(template)
+      .onConflictDoNothing({
+        target: [contractTemplateCatalog.key, contractTemplateCatalog.version],
+      })
+      .returning({ key: contractTemplateCatalog.key });
+    if (inserted) insertedKeys.push(inserted.key);
+  }
+  return insertedKeys;
 }
+
+export const seedContractCatalog = seedContractTemplateCatalog;
 
 if (import.meta.main) {
   await seedContractCatalog();
