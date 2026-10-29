@@ -55,6 +55,7 @@ function required(input: Record<string, string | undefined>, key: string): strin
 
 function secret(input: Record<string, string | undefined>, key: string): string {
   const value = required(input, key);
+  if (/\$\{[^}]+\}/.test(value)) throw new AppError("VALIDATION_ERROR", `${key} is unresolved`);
   if (value.length < 32 || value === "PLACEHOLDER")
     throw new AppError("VALIDATION_ERROR", `${key} không hợp lệ`);
   return value;
