@@ -124,6 +124,18 @@ describe("parseEnv", () => {
     expect(() => parseEnv(rest)).toThrow(/DATABASE_URL/);
   });
 
+  test("rejects TEST_DATABASE_URL with unresolved compose variables at production startup", () => {
+    const production = {
+      ...valid,
+      NODE_ENV: "production",
+      DATABASE_URL: "postgres://u:p@db.internal:5432/motel",
+      TEST_DATABASE_URL: "postgres://DB_USER:DB_PASSWORD@postgres:5432/DB_TEST_NAME",
+      FRONTEND_URL: "https://app.example.com",
+      RENTER_PORTAL_URL: "https://renter.example.com",
+    };
+    expect(() => parseEnv(production)).toThrow(/TEST_DATABASE_URL/);
+  });
+
   test("trims configured production TEST_DATABASE_URL on output", () => {
     const production = {
       ...valid,
