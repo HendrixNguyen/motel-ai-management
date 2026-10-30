@@ -87,7 +87,9 @@ export async function seedSystem(
     insertedCatalogKeys.push(...(await seedContractCatalog(tx)));
     return id;
   });
-  writeSummary(`System seed complete; catalog entries added: ${insertedCatalogKeys.length}\n`);
+  try {
+    writeSummary(`System seed complete; catalog entries added: ${insertedCatalogKeys.length}\n`);
+  } catch {}
   return { superadminId, insertedCatalogKeys };
 }
 

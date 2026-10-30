@@ -57,6 +57,16 @@ describe("system seed", () => {
     }
   });
 
+  it("keeps committed seed data when summary output throws", async () => {
+    const result = await seedSystem(env, () => {
+      throw new Error("private writer failure");
+    });
+    expect(result.superadminId).toBeTruthy();
+    expect(await db.select().from(managers)).toHaveLength(1);
+    expect(await db.select().from(managerAuditEvents)).toHaveLength(1);
+    expect(await db.select().from(contractTemplateCatalog)).toHaveLength(3);
+  });
+
   it("creates only canonical Superadmin and catalog; repeat is idempotent", async () => {
     const outputs: string[] = [];
     const first = await seedSystem(env, (message) => outputs.push(message));
