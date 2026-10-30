@@ -1,10 +1,10 @@
 import { eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { managerAuditEvents, managers } from "@/modules/auth/auth.schema";
-import { seedContractTemplateCatalog as seedCatalog } from "@/modules/contract/contract-catalog.seed";
+import { seedContractTemplateCatalog } from "@/modules/contract/contract-catalog.seed";
 import { SUPERADMIN_EMAIL, SUPERADMIN_NAME } from "@/modules/auth/superadmin-identity";
 
-async function verifyBootstrapSchema() {
+async function verifySeedSchema() {
   const schema = await db.execute(sql`
     SELECT
       to_regclass('public.managers') IS NOT NULL AS managers,
@@ -21,24 +21,19 @@ async function verifyBootstrapSchema() {
     throw new Error("Database schema is incomplete; run and verify the migration job first");
 }
 
-export { SUPERADMIN_EMAIL };
-
-export async function bootstrapSuperadmin(
+export async function seedSystem(
   env: NodeJS.ProcessEnv = process.env,
   writeSummary: (message: string) => void = (message) => process.stdout.write(message),
-) {
+): Promise<{ superadminId: string; insertedCatalogKeys: string[] }> {
   if (env.NODE_ENV !== "production" && env.NODE_ENV !== "staging")
-    throw new Error("Superadmin bootstrap requires NODE_ENV=production");
-  if (env.PRODUCTION_SUPERADMIN_CONFIRM?.trim().toLowerCase() !== SUPERADMIN_EMAIL)
-    throw new Error(`Set explicit production confirmation to ${SUPERADMIN_EMAIL}`);
+    throw new Error("System seed requires NODE_ENV=production or staging");
   const password = env.SUPERADMIN_PASSWORD;
-  if (!password || password.trim().length < 12 || password.length > 256)
+  if (!password || !password.trim() || password.length < 12 || password.length > 256)
     throw new Error("Set SUPERADMIN_PASSWORD via a protected secret input (12-256 characters)");
 
-  await verifyBootstrapSchema();
-  const createdCatalogKeys: string[] = [];
-  const passwordHash = await Bun.password.hash(password, { algorithm: "argon2id" });
-  const rootId = await db.transaction(async (tx) => {
+  await verifySeedSchema();
+  const insertedCatalogKeys: string[] = [];
+  const superadminId = await db.transaction(async (tx) => {
     await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext('motel-superadmin-bootstrap'))`);
     const [existing] = await tx
       .select()
@@ -46,48 +41,41 @@ export async function bootstrapSuperadmin(
       .where(eq(managers.email, SUPERADMIN_EMAIL))
       .for("update")
       .limit(1);
-    let superadminId: string;
+    let id: string;
     if (existing) {
-      if (
-        existing.role !== "superadmin" ||
-        existing.disabledAt ||
-        !(await Bun.password.verify(password, existing.passwordHash))
-      )
-        throw new Error("Superadmin identity conflicts; no data was changed");
-      superadminId = existing.id;
+      if (existing.role !== "superadmin")
+        throw new Error("Canonical Superadmin identity has conflicting role; no data was changed");
+      if (existing.disabledAt)
+        throw new Error("Canonical Superadmin account is disabled; no data was changed");
+      if (!(await Bun.password.verify(password, existing.passwordHash)))
+        throw new Error("Canonical Superadmin password does not match; no data was changed");
+      id = existing.id;
     } else {
+      const passwordHash = await Bun.password.hash(password, { algorithm: "argon2id" });
       const [created] = await tx
         .insert(managers)
-        .values({
-          email: SUPERADMIN_EMAIL,
-          name: SUPERADMIN_NAME,
-          passwordHash,
-          role: "superadmin",
-        })
+        .values({ email: SUPERADMIN_EMAIL, name: SUPERADMIN_NAME, passwordHash, role: "superadmin" })
         .returning({ id: managers.id });
-      superadminId = created!.id;
+      id = created!.id;
       await tx.insert(managerAuditEvents).values({
-        actorId: superadminId,
-        targetId: superadminId,
+        actorId: id,
+        targetId: id,
         action: "superadmin.bootstrapped",
       });
     }
-    createdCatalogKeys.push(...(await seedCatalog(tx)));
-    return superadminId;
+    insertedCatalogKeys.push(...(await seedContractTemplateCatalog(tx)));
+    return id;
   });
-
-  writeSummary(`Superadmin ready; catalog added: ${createdCatalogKeys.length}\n`);
-  return { superadminId: rootId, insertedCatalogKeys: createdCatalogKeys };
+  writeSummary(`System seed complete; catalog entries added: ${insertedCatalogKeys.length}\n`);
+  return { superadminId, insertedCatalogKeys };
 }
 
 if (import.meta.main) {
   try {
-    await bootstrapSuperadmin();
+    await seedSystem();
     process.exitCode = 0;
   } catch (error) {
-    process.stderr.write(
-      `${error instanceof Error ? error.message : "Superadmin bootstrap failed"}\n`,
-    );
+    process.stderr.write(`${error instanceof Error ? error.message : "System seed failed"}\n`);
     process.exitCode = 1;
   } finally {
     await (await import("./index")).closeDb();
