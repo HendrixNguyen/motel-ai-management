@@ -44,11 +44,14 @@ const ZALO_NOTIF_1_ID = "30303030-3030-3030-3030-303030303030";
 const ZALO_NOTIF_2_ID = "40404040-4040-4040-4040-404040404040";
 const ZALO_NOTIF_3_ID = "50505050-5050-5050-5050-505050505050";
 
-export async function seedData() {
-  // Safety check - never run in production
-  if (process.env.NODE_ENV === "production") {
-    throw new Error("Seed data cannot be run in production");
+export function assertDemoSeedAllowed(env: NodeJS.ProcessEnv = process.env): void {
+  if (env.APP_ENV !== "qa" || env.SEED_DATABASE !== "true") {
+    throw new Error("Demo seed requires APP_ENV=qa and SEED_DATABASE=true");
   }
+}
+
+export async function seedData() {
+  assertDemoSeedAllowed();
 
   console.log("Seeding deterministic data...");
 
