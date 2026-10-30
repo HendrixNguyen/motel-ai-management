@@ -6,7 +6,7 @@
 
 ## 1. Goal and decisions
 
-- Bootstrap exactly one hidden operator account, `manage@example.com`, with role `superadmin`, via protected one-shot `bun run db:bootstrap-superadmin`. Superadmin manages accounts and catalog only; cannot access motel/business APIs.
+- Seed canonical operator account `superadmin@motel.huyndg.io.vn` with role `superadmin` through explicit one-shot `bun run db:seed-system` after migrations. `SUPERADMIN_PASSWORD` comes from protected Dokploy runtime secret injection. Superadmin manages accounts and catalog only; cannot access motel/business APIs.
 - Superadmin creates normal manager accounts directly with email, name, password (8–256 chars), and optional phone. Hash immediately with Argon2id. Manager signs in directly via `/login` without email/token setup flow.
 - Superadmin can reset manager passwords directly. Reset, disable, and re-enable increment `sessionVersion`, invalidating existing JWTs. Re-enable allows login with the last set password.
 - Managers retain all business permissions inside their own tenant. Cross-tenant access continues returning 404.
@@ -35,7 +35,6 @@ Extend `managers` with:
 - `disabled_at` nullable timestamptz.
 - `session_version` nonnegative integer default 0.
 - `password_hash` remains NOT NULL; every account has an Argon2id hash.
-- Partial unique index permits at most one Superadmin.
 - Preserve unique lowercase email and existing manager data.
 
 Add auth-owned `manager_audit_events` with actor/target IDs, action, timestamp. Account mutation and bootstrap audit inserts are transactionally atomic with the state change. Never record passwords, hashes, or credential payloads. Do not add setup-token tables or setup-link behavior.
@@ -54,7 +53,7 @@ Add `contract_template_catalog` to contract module:
 ### Superadmin-only
 
 - `GET /api/admin/managers?limit=50&offset=0`: list normal managers only; never include hashes or Superadmin; return current session-bound `X-CSRF-Token`.
-- `POST /api/admin/managers`: `{ email, name, password, phone? }`; normalize email, validate name/phone/password, hash Argon2id, insert active Manager. Return safe profile only. Superadmin cannot claim the hidden `manage@example.com` identity; reject that reserved email if absent from Superadmin bootstrap state.
+- `POST /api/admin/managers`: `{ email, name, password, phone? }`; normalize email, validate name/phone/password, hash Argon2id, insert active Manager. Return safe profile only. Superadmin cannot claim the reserved `superadmin@motel.huyndg.io.vn` identity.
 - `PATCH /api/admin/managers/:managerId`: `{ enabled: boolean }`; target must be manager, otherwise 404. Any status change increments session version, revoking existing sessions; disable blocks login.
 - `POST /api/admin/managers/:managerId/reset-password`: `{ password }`; target must be manager; hash, increment session version, audit atomically.
 - All writes require current CSRF token, rate limiting, and transactionally consistent audit. Superadmin cannot promote/create another Superadmin via these routes.
@@ -67,16 +66,17 @@ Add `contract_template_catalog` to contract module:
 - `POST /api/manager/motels/:motelId/contract-templates/from-catalog`: `{ catalogKey, catalogVersion, name?, isDefault? }`. Manager auth, resolve owned motel first, load active catalog row, copy clauses into motel-owned table in one transaction. No arbitrary clause payload. Setting default affects only that motel.
 - Catalog deactivation/updates do not modify copied rows or existing contracts. Unknown/inactive catalog and foreign motel return 404.
 
-## 5. Superadmin bootstrap CLI
+## 5. One-shot system seed
 
-Command: `bun run db:bootstrap-superadmin`.
+Command: `bun run db:seed-system`, explicitly invoked after database migrations complete.
 
-- Requires `NODE_ENV=production`, `PRODUCTION_SUPERADMIN_CONFIRM=manage@example.com`, and `SUPERADMIN_PASSWORD` through protected one-shot secret input. Fixed identity: `manage@example.com`, display name `Motel Platform Admin`. Password minimum 12 characters.
-- Existing Manager with the same email is a hard conflict and causes zero writes; never promote or replace it. Existing disabled Superadmin or a password mismatch also aborts with zero writes. This feature does not reset Superadmin credentials.
-- Secret must never appear in argv, logs, source, deployment descriptions, output, or persistent runtime app env. If Dokploy cannot provide secret-safe one-shot injection, stop for operator console.
-- Runs `migrateDatabase()` first, then transaction advisory lock `hashtext('motel-superadmin-bootstrap')`.
-- If email absent, insert one active Superadmin with Argon2id and safe audit event. If enabled Superadmin exists and supplied password verifies, account operation is a no-op. A normal Manager using that email, disabled Superadmin, or password mismatch aborts before catalog/account writes; do not update or recover passwords in this command.
-- Seed three catalog v1 rows idempotently; do not create/read/update managers beyond Superadmin, motel, or business rows. Any error rolls back all changes. No HTTP bootstrap endpoint; never invoke destructive `backend/src/db/seed.ts`.
+- Canonical identity: `superadmin@motel.huyndg.io.vn`, display name `Motel Platform Admin`; `SUPERADMIN_PASSWORD` comes from protected Dokploy runtime secret injection. Never pass password as a CLI argument or write it to logs, source, deployment descriptions, output, or reports.
+- The system seed does not run migrations and is not imported or invoked by backend startup. Startup must not require `SUPERADMIN_PASSWORD` or create system/demo data.
+- Before invocation, perform read-only preflight for an existing canonical email and inspect role/enabled state without reading password hashes. A Manager collision, disabled Superadmin, or password mismatch aborts with zero writes. Never promote, enable, rename, delete, or reset an existing account automatically.
+- If the identity is absent, insert one active Superadmin with Argon2id and safe audit event. If enabled Superadmin exists and supplied password verifies, account operation is a no-op.
+- Seed three catalog v1 rows idempotently; do not create manager, motel, or business rows. Any error rolls back account/catalog writes. Never invoke destructive `backend/src/db/seed.ts` as the system seed.
+- The destructive demo seed is QA-only and requires both `APP_ENV=qa` and explicit `SEED_DATABASE=true`; never run it in Prod.
+- QA deployment and seed do not authorize Prod changes. Prod deployment and system seed require separate explicit approval and a fresh read-only identity/schema preflight.
 
 ## 6. UI
 
@@ -86,16 +86,17 @@ Command: `bun run db:bootstrap-superadmin`.
 
 ## 7. Validation and test requirements
 
-- DB tests: partial unique Superadmin, session version nonnegative, catalog key/version uniqueness and checks enforced by PostgreSQL.
+- DB tests: session version nonnegative, catalog key/version uniqueness and checks enforced by PostgreSQL. This design adds no global uniqueness constraint on Superadmin role.
 - Auth HTTP tests: Superadmin can access admin operations and is denied motel/business; Manager is denied admin; public `/api/auth/register` remains available but always creates role `manager`; reset/disable invalidate existing session cookies; CSRF failures reject writes.
 - Account tests: direct manager creation/login, duplicate normalized email, min/max password, disable/re-enable, reset audit/session version, safe responses and output.
 - Catalog tests: active list/detail, inactive 404, owned motel copy, foreign motel 404, copy independence after source change, per-motel default only.
-- Bootstrap tests: non-production/missing confirmation/password refusal; one Superadmin only; same-password rerun idempotent; mismatch/role conflict abort; concurrent invocation safe; catalog seeded once; zero manager/motel/business inserts; rollback on failure; secret sentinel absent from output/audit.
+- System-seed tests: invalid/missing password refusal; canonical Superadmin creation and matching rerun idempotency; mismatch/role conflict abort without writes; concurrent invocation safe; catalog seeded once; zero manager/motel/business inserts; rollback on failure; secret sentinel absent from output/audit.
 - Run BE typecheck/lint/focused DB tests serially on verified disposable local DB; frontend typecheck/lint/build/unit; E2E only when affected UI. Independent security/code review before Prod execution.
 
 ## 8. Production gates and out of scope
 
-- Reconcile Dokploy runtime task env (DB/JWT/R2) without exposing values. BE must be healthy with `/health`=200 before migration/bootstrap steps.
-- If using migration-job stage on app, always restore runner stage immediately after attempt, including failure. Migration failure blocks bootstrap.
-- Bootstrap is one-shot via a protected operator task. Verify exactly one enabled Superadmin and three active catalog rows; assert no regular manager/motel/business rows created. If pre-existing rows conflict with Superadmin identity, bootstrap aborts with zero catalog inserts.
-- No manager/motel seed, wizard, setup token/link, default password, direct shared-template attachment, legal-certification claim, QA mutation, public domain changes, or launch in scope. Existing public manager registration remains, but must be verified to create only role `manager`.
+- Configure Dokploy runtime task env (DB/JWT/R2) without exposing values. Verify migration completion before system seed; the seed does not run migrations.
+- System seed is explicit one-shot via `bun run db:seed-system` with protected `SUPERADMIN_PASSWORD`. Perform read-only canonical-email preflight first. Verify canonical Superadmin and three active catalog rows; assert no manager/motel/business rows were created. Identity conflict blocks execution without writes.
+- Backend startup has no seed side effects. Destructive demo seed is QA-only with both `APP_ENV=qa` and `SEED_DATABASE=true`; never run it on Prod.
+- QA work does not include Prod deployment or mutation. A future Prod ship requires separate explicit approval, fresh read-only preflight, migrations before seed, protected Dokploy secret, and explicit verification.
+- No manager/motel seed, wizard, setup token/link, default password, direct shared-template attachment, legal-certification claim, public domain changes, or launch in scope. Existing public manager registration remains, but must be verified to create only role `manager`.

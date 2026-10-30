@@ -105,6 +105,7 @@ destroys the schema it is given.
 | Meter capture                                | manager ownership, motel+period scoping, wrong-manager rejection, stale-motel queue clearing on switch, logout cleanup, draft-only enqueue, and offline reload/reconnect sync (unit + browser-level tests)                                                                                |
 | Manager contracts                            | active-renter/room motel scoping, decimal-safe VND normalization, valid dates, draft-only PATCH fields, cross-motel template rejection, and lifecycle transitions (unit + HTTP + E2E)                                                                                                     |
 | Motel setup & catalog                        | full/quick setup, selective copy groups (bank/services/templates), idempotency request recovery, contract catalog preview/copy, and after-setup template assignment (unit + HTTP + E2E)                                                                                                   |
+| System seed and demo seed                    | one-shot canonical Superadmin/catalog seed; matching rerun idempotent; role/disabled/password conflicts fail without writes; no startup seed side effects; QA demo seed requires exact QA opt-in and refusal occurs before destructive writes |
 
 ## Motel Setup Acceptance Matrix & Release Gates
 
@@ -127,11 +128,13 @@ Catalog templates seeded in the system or tested in automated fixtures represent
 - Implementation details that a refactor would change without changing behaviour. Test the
   interface a caller uses.
 
-## Deployment startup and migration verification
+## Deployment startup and migration/seed verification
 
-The local `docker-compose.yml` waits for PostgreSQL health, then runs one `migration-job` before the backend starts. The job uses the backend image's migration target and `bun run db:migrate`; the backend image does not migrate on startup. Production must run one migration job to completion before starting or rolling out backend replicas; replicas must not migrate concurrently. `db:bootstrap-superadmin` verifies the required migration ledger hashes and schema read-only, then writes Superadmin/audit/catalog data in one transaction; it never runs migrations.
+Backend startup must not create or update system identity, contract catalog, or demo data; it must not require `SUPERADMIN_PASSWORD`. No test or deploy path may rely on startup to seed. The seed contract is an explicit one-shot `bun run db:seed-system` after migrations complete. It does not run migrations. It reads `SUPERADMIN_PASSWORD` from protected Dokploy runtime secret injection, never from CLI arguments or logs, and creates/verifies only `superadmin@motel.huyndg.io.vn` plus missing catalog versions. Read-only preflight checks canonical-email identity conflicts before execution; conflicts must stop the operation without changing an existing account.
 
-Full-flow and deployment smoke checks must verify migration completion and backend health. Test migration startup against production-like data without `db:push` or database reset.
+The destructive demo seed is separate and QA-only. It may run only when both `APP_ENV=qa` and `SEED_DATABASE=true`; never invoke it against Prod. Tests must prove refusal occurs before destructive statements for every non-QA or missing-opt-in case, including production.
+
+Migration verification must establish completion before system seed. Test migration startup against production-like data without `db:push` or database reset. QA rollout and any future Prod rollout are distinct approvals; Prod execution is never part of QA verification.
 
 ## Review gate
 
