@@ -28,23 +28,44 @@ async function verifySeedSchema() {
   `);
   const state = schema[0] as SeedSchemaState | undefined;
   if (
-    !state || state.managers !== true || state.audit_events !== true || state.catalog !== true ||
-    state.contract_status !== true || state.manager_role !== true || state.has_role_col !== true ||
-    state.has_disabled_col !== true || state.has_session_col !== true
-  ) throw new Error("Database schema is incomplete; run and verify the migration job first");
+    !state ||
+    state.managers !== true ||
+    state.audit_events !== true ||
+    state.catalog !== true ||
+    state.contract_status !== true ||
+    state.manager_role !== true ||
+    state.has_role_col !== true ||
+    state.has_disabled_col !== true ||
+    state.has_session_col !== true
+  )
+    throw new Error("Database schema is incomplete; run and verify the migration job first");
 }
 
 const SAFE_SEED_ERRORS = new Map([
-  ["System seed requires NODE_ENV=production or staging", "System seed requires NODE_ENV=production or staging"],
-  ["Set SUPERADMIN_PASSWORD via a protected secret input (12-256 characters)", "Set SUPERADMIN_PASSWORD via a protected secret input (12-256 characters)"],
-  ["Database schema is incomplete; run and verify the migration job first", "Database schema is incomplete; run and verify the migration job first"],
+  [
+    "System seed requires NODE_ENV=production or staging",
+    "System seed requires NODE_ENV=production or staging",
+  ],
+  [
+    "Set SUPERADMIN_PASSWORD via a protected secret input (12-256 characters)",
+    "Set SUPERADMIN_PASSWORD via a protected secret input (12-256 characters)",
+  ],
+  [
+    "Database schema is incomplete; run and verify the migration job first",
+    "Database schema is incomplete; run and verify the migration job first",
+  ],
 ]);
 
 export function systemSeedErrorMessage(error: unknown): string {
-  if (error instanceof Error && "safeSystemSeedError" in error && error.safeSystemSeedError === true)
+  if (
+    error instanceof Error &&
+    "safeSystemSeedError" in error &&
+    error.safeSystemSeedError === true
+  )
     return error.message;
   return error instanceof Error
-    ? SAFE_SEED_ERRORS.get(error.message) ?? "System seed failed; check database schema and connectivity"
+    ? (SAFE_SEED_ERRORS.get(error.message) ??
+        "System seed failed; check database schema and connectivity")
     : "System seed failed; check database schema and connectivity";
 }
 

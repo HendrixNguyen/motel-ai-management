@@ -25,7 +25,13 @@ describe("demo seed QA guard", () => {
       name: "Existing manager",
       passwordHash: "existing-hash",
     });
-    await db.insert(motels).values({ managerId: (await db.select({ id: managers.id }).from(managers))[0]!.id, name: "Existing motel", address: "Existing address", electricityPrice: "3000", waterPrice: "15000" });
+    await db.insert(motels).values({
+      managerId: (await db.select({ id: managers.id }).from(managers))[0]!.id,
+      name: "Existing motel",
+      address: "Existing address",
+      electricityPrice: "3000",
+      waterPrice: "15000",
+    });
     const managersBefore = await db.select().from(managers);
     const motelsBefore = await db.select().from(motels);
     const roomsBefore = await db.select().from(rooms);
@@ -38,7 +44,9 @@ describe("demo seed QA guard", () => {
   });
 
   it("allows only explicit QA opt-in", () => {
-    expect(() => assertDemoSeedAllowed({ NODE_ENV: "production", APP_ENV: "qa", SEED_DATABASE: "true" })).not.toThrow();
+    expect(() =>
+      assertDemoSeedAllowed({ NODE_ENV: "production", APP_ENV: "qa", SEED_DATABASE: "true" }),
+    ).not.toThrow();
     expect(() => assertDemoSeedAllowed({ APP_ENV: "qa", SEED_DATABASE: "true" })).not.toThrow();
   });
 
@@ -53,7 +61,11 @@ describe("demo seed QA guard", () => {
 });
 
 async function seedDataWithEnv(env: NodeJS.ProcessEnv) {
-  const original = { NODE_ENV: process.env.NODE_ENV, APP_ENV: process.env.APP_ENV, SEED_DATABASE: process.env.SEED_DATABASE };
+  const original = {
+    NODE_ENV: process.env.NODE_ENV,
+    APP_ENV: process.env.APP_ENV,
+    SEED_DATABASE: process.env.SEED_DATABASE,
+  };
   for (const key of ["NODE_ENV", "APP_ENV", "SEED_DATABASE"] as const) {
     if (env[key] === undefined) delete process.env[key];
     else process.env[key] = env[key]!;

@@ -208,7 +208,7 @@ describe("manager auth", () => {
         method: "POST",
         headers: { cookie, "x-csrf-token": csrfToken, "content-type": "application/json" },
         body: JSON.stringify({
-          email: SUPERADMIN_EMAIL,
+          email: "SuperAdmin@Motel.Huyndg.io.vn",
           name: "Impersonator",
           password: "secure password 123",
         }),

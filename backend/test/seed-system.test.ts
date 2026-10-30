@@ -26,14 +26,20 @@ describe("system seed", () => {
     const rendered = systemSeedErrorMessage(new Error(sentinel));
     expect(rendered).not.toContain(sentinel);
     expect(rendered).toBe("System seed failed; check database schema and connectivity");
-    expect(systemSeedErrorMessage(new Error("Canonical Superadmin account is disabled; no data was changed"))).toBe(
-      "System seed failed; check database schema and connectivity",
-    );
     expect(
-      systemSeedErrorMessage(new Error("Canonical Superadmin name does not match; no data was changed")),
+      systemSeedErrorMessage(
+        new Error("Canonical Superadmin account is disabled; no data was changed"),
+      ),
     ).toBe("System seed failed; check database schema and connectivity");
     expect(
-      systemSeedErrorMessage(new Error("Canonical Superadmin account is disabled; password hash leaked")),
+      systemSeedErrorMessage(
+        new Error("Canonical Superadmin name does not match; no data was changed"),
+      ),
+    ).toBe("System seed failed; check database schema and connectivity");
+    expect(
+      systemSeedErrorMessage(
+        new Error("Canonical Superadmin account is disabled; password hash leaked"),
+      ),
     ).toBe("System seed failed; check database schema and connectivity");
   });
 
@@ -54,13 +60,21 @@ describe("system seed", () => {
   it("creates only canonical Superadmin and catalog; repeat is idempotent", async () => {
     const outputs: string[] = [];
     const first = await seedSystem(env, (message) => outputs.push(message));
-    const firstManager = await db.query.managers.findFirst({ where: eq(managers.email, SUPERADMIN_EMAIL) });
+    const firstManager = await db.query.managers.findFirst({
+      where: eq(managers.email, SUPERADMIN_EMAIL),
+    });
     const second = await seedSystem(env, (message) => outputs.push(message));
-    const secondManager = await db.query.managers.findFirst({ where: eq(managers.email, SUPERADMIN_EMAIL) });
+    const secondManager = await db.query.managers.findFirst({
+      where: eq(managers.email, SUPERADMIN_EMAIL),
+    });
     expect(first.insertedCatalogKeys).toHaveLength(3);
     expect(second.insertedCatalogKeys).toHaveLength(0);
     expect(secondManager?.passwordHash).toBe(firstManager?.passwordHash);
-    expect(firstManager).toMatchObject({ role: "superadmin", disabledAt: null, name: SUPERADMIN_NAME });
+    expect(firstManager).toMatchObject({
+      role: "superadmin",
+      disabledAt: null,
+      name: SUPERADMIN_NAME,
+    });
     expect(await db.select().from(managers)).toHaveLength(1);
     expect(await db.select().from(managerAuditEvents)).toHaveLength(1);
     expect(await db.select().from(contractTemplateCatalog)).toHaveLength(3);
@@ -94,7 +108,9 @@ describe("system seed", () => {
   it("fails safely and rolls back when Superadmin insert returns no row", async () => {
     const statements: string[] = [];
     const executor = {
-      select: () => ({ from: () => ({ where: () => ({ for: () => ({ limit: async () => [] }) }) }) }),
+      select: () => ({
+        from: () => ({ where: () => ({ for: () => ({ limit: async () => [] }) }) }),
+      }),
       insert: (table: unknown) => ({
         values: () => {
           statements.push(table === managers ? "manager" : "audit");
@@ -125,10 +141,14 @@ describe("system seed", () => {
     } catch (caught) {
       error = caught;
     }
-    expect(systemSeedErrorMessage(error)).toBe("Canonical Superadmin name does not match; no data was changed");
-    expect(systemSeedErrorMessage(new Error("Canonical Superadmin name does not match; no data was changed"))).toBe(
-      "System seed failed; check database schema and connectivity",
+    expect(systemSeedErrorMessage(error)).toBe(
+      "Canonical Superadmin name does not match; no data was changed",
     );
+    expect(
+      systemSeedErrorMessage(
+        new Error("Canonical Superadmin name does not match; no data was changed"),
+      ),
+    ).toBe("System seed failed; check database schema and connectivity");
     expect(await db.select().from(managers)).toEqual(managersBefore);
     expect(await db.select().from(managerAuditEvents)).toEqual(auditsBefore);
     expect(await db.select().from(contractTemplateCatalog)).toEqual(catalogBefore);
@@ -136,7 +156,10 @@ describe("system seed", () => {
 
   it("rejects disabled Superadmin and wrong password without writes", async () => {
     const seeded = await seedSystem(env);
-    await db.update(managers).set({ disabledAt: new Date() }).where(eq(managers.email, SUPERADMIN_EMAIL));
+    await db
+      .update(managers)
+      .set({ disabledAt: new Date() })
+      .where(eq(managers.email, SUPERADMIN_EMAIL));
     const disabledBefore = await db.select().from(managers);
     const disabledAuditsBefore = await db.select().from(managerAuditEvents);
     const disabledCatalogBefore = await db.select().from(contractTemplateCatalog);
@@ -148,7 +171,9 @@ describe("system seed", () => {
     const before = await db.select().from(managers);
     const auditsBefore = await db.select().from(managerAuditEvents);
     const catalogBefore = await db.select().from(contractTemplateCatalog);
-    await expect(seedSystem({ ...env, SUPERADMIN_PASSWORD: "different-safe-password-2026" })).rejects.toThrow("password");
+    await expect(
+      seedSystem({ ...env, SUPERADMIN_PASSWORD: "different-safe-password-2026" }),
+    ).rejects.toThrow("password");
     expect(await db.select().from(managers)).toEqual(before);
     expect(await db.select().from(managerAuditEvents)).toEqual(auditsBefore);
     expect(await db.select().from(contractTemplateCatalog)).toEqual(catalogBefore);
