@@ -34,7 +34,8 @@ export async function seedSystemSuperadmin(executor: Executor, password: string)
     .insert(managers)
     .values({ email: SUPERADMIN_EMAIL, name: SUPERADMIN_NAME, passwordHash, role: "superadmin" })
     .returning({ id: managers.id });
-  const id = created!.id;
+  if (!created) throw safeError("Superadmin insert returned no row; no data was changed");
+  const id = created.id;
   await executor.insert(managerAuditEvents).values({
     actorId: id,
     targetId: id,

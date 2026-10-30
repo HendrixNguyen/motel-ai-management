@@ -69,6 +69,8 @@
   - Run: `cd backend && PATH="$HOME/.bun/bin:$PATH" bun test test/seed-system.test.ts`
   - Expected: PASS, including transaction rollback and no-secret assertions.
 
+**Review follow-up report:** Explicit missing `RETURNING` row check now throws a marked safe error before audit/catalog writes. Regression test verifies the actual marked name-conflict error maps to its fixed safe message. `bun run typecheck` and `bun test test/seed-system.test.ts` pass (9 tests). Missing-row regression verifies audit is not attempted; transaction-level rollback not directly asserted.
+
 ### Task 2: Isolate system seed from backend startup and reserve canonical email
 
 **Files:**

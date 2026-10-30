@@ -9,6 +9,7 @@ import { renters } from "@/modules/renter/renter.schema";
 import { rooms } from "@/modules/room/room.schema";
 import { contractTemplateCatalog } from "@/modules/contract/contract.schema";
 import { seedSystem, systemSeedErrorMessage } from "@/db/seed-system";
+import { seedSystemSuperadmin } from "@/modules/auth/system-superadmin-bootstrap.service";
 
 setDefaultTimeout(120_000);
 
@@ -90,6 +91,23 @@ describe("system seed", () => {
     expect(await db.select().from(contractTemplateCatalog)).toEqual(catalogBefore);
   });
 
+  it("fails safely and rolls back when Superadmin insert returns no row", async () => {
+    const statements: string[] = [];
+    const executor = {
+      select: () => ({ from: () => ({ where: () => ({ for: () => ({ limit: async () => [] }) }) }) }),
+      insert: (table: unknown) => ({
+        values: () => {
+          statements.push(table === managers ? "manager" : "audit");
+          return { returning: async () => [] };
+        },
+      }),
+    } as unknown as Parameters<typeof seedSystemSuperadmin>[0];
+    await expect(seedSystemSuperadmin(executor, password)).rejects.toThrow(
+      "Superadmin insert returned no row; no data was changed",
+    );
+    expect(statements).toEqual(["manager"]);
+  });
+
   it("rejects conflicting Superadmin display name before catalog writes", async () => {
     await db.insert(managers).values({
       email: SUPERADMIN_EMAIL,
@@ -101,6 +119,13 @@ describe("system seed", () => {
     const auditsBefore = await db.select().from(managerAuditEvents);
     const catalogBefore = await db.select().from(contractTemplateCatalog);
     await expect(seedSystem(env)).rejects.toThrow("name");
+    let error: unknown;
+    try {
+      await seedSystem(env);
+    } catch (caught) {
+      error = caught;
+    }
+    expect(systemSeedErrorMessage(error)).toBe("Canonical Superadmin name does not match; no data was changed");
     expect(systemSeedErrorMessage(new Error("Canonical Superadmin name does not match; no data was changed"))).toBe(
       "System seed failed; check database schema and connectivity",
     );
