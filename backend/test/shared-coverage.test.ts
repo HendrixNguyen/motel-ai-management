@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { AppError } from "@/shared/errors";
 import { resetRateLimits } from "@/shared/rate-limit";
-import { enforceRateLimit } from "@/shared/rate-limit";
+import { enforceLocalRateLimit } from "@/shared/rate-limit";
 import { parseEnv } from "@/env";
 import { formatVnd, parseAmount, parseVnd, sumVnd } from "@/shared/money";
 import { formatPhone, normalisePhone } from "@/shared/phone";
@@ -10,6 +10,7 @@ const validEnv = {
   DATABASE_URL: "postgres://u:p@localhost:5432/motel",
   TEST_DATABASE_URL: "postgres://u:p@localhost:5432/motel_test",
   MANAGER_JWT_SECRET: "m".repeat(48),
+  ADMIN_JWT_SECRET: "a".repeat(48),
   RENTER_SESSION_SECRET: "r".repeat(48),
   R2_ACCOUNT_ID: "acct",
   R2_BUCKET: "motel-test",
@@ -93,9 +94,9 @@ describe("shared low-coverage branches", () => {
 
   test("validates VAPID key pair consistency and resets in-memory limits", () => {
     resetRateLimits();
-    expect(() => enforceRateLimit("coverage", 1)).not.toThrow();
-    expect(() => enforceRateLimit("coverage", 1)).toThrow(AppError);
+    expect(() => enforceLocalRateLimit("coverage", 1, 0)).not.toThrow();
+    expect(() => enforceLocalRateLimit("coverage", 1, 1)).toThrow(AppError);
     resetRateLimits();
-    expect(() => enforceRateLimit("coverage", 1)).not.toThrow();
+    expect(() => enforceLocalRateLimit("coverage", 1, 0)).not.toThrow();
   });
 });

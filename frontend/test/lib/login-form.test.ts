@@ -38,7 +38,7 @@ describe("login submission", () => {
     vi.stubGlobal("fetch", fetchMock);
     expect(
       await authenticateManager({ email: "minhanh@example.vn", password: " password " }),
-    ).toEqual({ ok: true });
+    ).toEqual({ ok: true, role: "manager" });
     expect(fetchMock).toHaveBeenCalledWith(
       "/api/auth/login",
       expect.objectContaining({

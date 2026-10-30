@@ -73,28 +73,30 @@ export function prepareMotelInput(
   };
   if (!input.name) fields.name = "Nhập tên nhà trọ";
 
-  if (original) {
+  if (draft.otherFees.length > 0 || original) {
     input.otherFees = draft.otherFees.map((fee, index) => {
       const name = fee.name.trim();
       if (!name) fields[`otherFees.${index}.name`] = "Nhập tên phí";
       return { name, amount: amount(fee.amount, `otherFees.${index}.amount`) };
     });
-    input.bankAccount = null;
-    if (draft.bankEnabled) {
-      input.bankAccount = {
-        bankCode: draft.bankAccount.bankCode.trim(),
-        accountNumber: draft.bankAccount.accountNumber.trim(),
-        accountName: draft.bankAccount.accountName.trim(),
-      };
-      const labels = {
-        bankCode: "Nhập mã ngân hàng",
-        accountNumber: "Nhập số tài khoản",
-        accountName: "Nhập tên chủ tài khoản",
-      };
-      for (const key of ["bankCode", "accountNumber", "accountName"] as const) {
-        if (!input.bankAccount[key]) fields[`bankAccount.${key}`] = labels[key];
-      }
+  }
+
+  if (draft.bankEnabled) {
+    input.bankAccount = {
+      bankCode: draft.bankAccount.bankCode.trim(),
+      accountNumber: draft.bankAccount.accountNumber.trim(),
+      accountName: draft.bankAccount.accountName.trim(),
+    };
+    const labels = {
+      bankCode: "Nhập mã ngân hàng",
+      accountNumber: "Nhập số tài khoản",
+      accountName: "Nhập tên chủ tài khoản",
+    };
+    for (const key of ["bankCode", "accountNumber", "accountName"] as const) {
+      if (!input.bankAccount[key]) fields[`bankAccount.${key}`] = labels[key];
     }
+  } else if (original) {
+    input.bankAccount = null;
   }
   if (Object.keys(fields).length) return { ok: false, fields };
   if (!original) return { ok: true, input };

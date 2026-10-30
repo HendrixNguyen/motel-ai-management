@@ -34,6 +34,26 @@ vi.mock("@/lib/motel-form", async () => {
   };
 });
 vi.mock("@/components/ui/toast", () => ({ useToast: () => mocks.notify }));
+vi.mock("@/components/manager/motel-setup-wizard", () => ({
+  default: ({ open, onClose }: { open: boolean; onClose: () => void }) => {
+    if (!open) return null;
+    return (
+      <div role="dialog">
+        <p>MotelSetupWizard</p>
+        <button
+          type="button"
+          onClick={() => {
+            mocks.submit();
+            mocks.notify({ message: "Đã tạo nhà trọ" });
+            onClose();
+          }}
+        >
+          Hoàn tất thiết lập
+        </button>
+      </div>
+    );
+  },
+}));
 
 const motel = {
   id: "m1",
@@ -57,14 +77,11 @@ describe("MotelEditor workflow coverage", () => {
     mocks.submit.mockReset();
   });
 
-  test("empty state opens create, submits, and announces success", async () => {
-    mocks.submit.mockResolvedValue({ ok: true, motel: { ...motel, name: "Nhà mới" } });
+  test("empty state opens create wizard and delegates creation", async () => {
     const view = render(<MotelEditor empty />);
     fireEvent.click(view.getByRole("button", { name: "Tạo nhà trọ" }));
-    fireEvent.change(view.getByLabelText("Tên nhà trọ"), { target: { value: "Nhà mới" } });
-    fireEvent.change(view.getByLabelText("Giá điện (₫/kWh)"), { target: { value: "3500" } });
-    fireEvent.change(view.getByLabelText("Giá nước (₫/m³)"), { target: { value: "25000" } });
-    fireEvent.submit(view.container.querySelector("form")!);
+    expect(view.getByText("MotelSetupWizard")).toBeInTheDocument();
+    fireEvent.click(view.getByRole("button", { name: "Hoàn tất thiết lập" }));
     await waitFor(() => expect(mocks.notify).toHaveBeenCalledWith({ message: "Đã tạo nhà trọ" }));
     expect(mocks.submit).toHaveBeenCalled();
   });

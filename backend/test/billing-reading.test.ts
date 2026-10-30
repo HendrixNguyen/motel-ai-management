@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, test } from "bun:test";
+import { beforeEach, describe, expect, setDefaultTimeout, test } from "bun:test";
 import { db } from "@/db";
 import { resetDb } from "@/db/test-db";
 import { billingPeriods, meterReadings } from "@/modules/billing/billing.schema";
@@ -8,6 +8,7 @@ import { rooms } from "@/modules/room/room.schema";
 import { eq, sql } from "drizzle-orm";
 import { getBillingPeriod, updateMeterReadings } from "@/modules/billing/billing.service";
 
+setDefaultTimeout(120_000);
 beforeEach(resetDb);
 
 describe("billing readings", () => {

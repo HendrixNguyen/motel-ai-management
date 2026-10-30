@@ -40,6 +40,7 @@ export type { RenterStatus, RoomStatus };
  * useless.
  */
 export type ErrorCode =
+  | "MOTEL_SETUP_REQUIRED"
   | "VALIDATION_ERROR"
   | "UNAUTHORIZED"
   | "MAGIC_LINK_EXPIRED"
@@ -469,6 +470,14 @@ export interface ContractClause {
   title: string;
   content: string;
 }
+export interface ContractTemplateCatalogResponse {
+  id: string;
+  key: string;
+  version: number;
+  name: string;
+  description: string;
+  clauses: ContractClause[];
+}
 export interface ContractTemplateResponse {
   id: string;
   motelId: string;
@@ -567,21 +576,33 @@ export interface RenterTicket {
 /* -------------------------------------------------------------------------- */
 
 /**
- * What `POST /api/auth/register` and `POST /api/auth/login` answer with:
- * `{ id, email, name }` (`auth.route.ts:32`, `:56`).
+ * What `POST /api/auth/login` answers with: `{ id, email, name, role }`.
  *
  * Both set `manager_session` on the response, so both are called from the **browser** through the
  * proxied path — a Server Action would have to forward `Set-Cookie` by hand and get every attribute
  * right. See `auth.client.ts`.
  */
+export interface ManagerAccountResponse {
+  id: string;
+  email: string;
+  name: string;
+  phone: string | null;
+  role: "manager";
+  disabledAt: string | null;
+  passwordReady: boolean;
+  createdAt: string;
+}
+
 export interface ManagerAuthResponse {
   id: string;
   email: string;
   name: string;
+  role: "manager" | "superadmin";
+  csrfToken?: string;
 }
 
 /**
- * What `GET /api/auth/me` answers with: `{ id, email }` (`auth.route.ts:77`).
+ * What `GET /api/auth/me` answers with: `{ id, email, role }`.
  *
  * **Not** the same type as `ManagerAuthResponse`, though the two look similar, and the missing
  * `name` is not an oversight to tidy up: `/me` reads the claims off the JWT
@@ -591,16 +612,10 @@ export interface ManagerAuthResponse {
 export interface ManagerMeResponse {
   id: string;
   email: string;
+  role: "manager" | "superadmin";
 }
 
 /** The `POST /api/auth/register` body (`auth.route.ts:35-40`). */
-export interface RegisterManagerInput {
-  email: string;
-  /** ≥ 8 characters, enforced by the route schema. */
-  password: string;
-  name: string;
-  phone?: string;
-}
 
 /** The `POST /api/auth/login` body (`auth.route.ts:59-63`). */
 export interface LoginInput {
@@ -618,4 +633,53 @@ export interface LoginInput {
 export interface MagicLinkResponse {
   token: string;
   url: string;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Motel Setup — backend/src/modules/motel/motel-setup.types.ts               */
+/* -------------------------------------------------------------------------- */
+
+export type TemplateSelection =
+  | { kind: "catalog"; key: string; version: number }
+  | { kind: "motel"; motelId: string; templateId: string; fingerprint: string };
+
+export interface CatalogSummary {
+  key: string;
+  version: number;
+  name: string;
+  description: string;
+}
+
+export interface TemplatePreview {
+  name: string;
+  clauses: ContractClause[];
+  selection: TemplateSelection;
+}
+
+export interface SetupRoomInput {
+  name: string;
+  basePrice: VndString;
+  floor?: number | null;
+}
+
+export type SetupMotelInput =
+  | {
+      requestId: string;
+      mode: "full";
+      motel: CreateMotelInput;
+      template: TemplateSelection;
+      rooms: SetupRoomInput[];
+    }
+  | {
+      requestId: string;
+      mode: "quick";
+      motel: CreateMotelInput;
+      template?: TemplateSelection;
+    };
+
+export interface SetupMotelResult {
+  motelId: string;
+  mode: "full" | "quick";
+  roomCount: number;
+  templateId: string | null;
 }

@@ -26,7 +26,7 @@ export default function LoginPage() {
       password: String(data.get("password") ?? ""),
     });
     if (result.ok) {
-      router.replace("/");
+      router.replace(result.role === "superadmin" ? "/admin/managers" : "/");
       router.refresh();
     } else {
       setFields(result.fields ?? {});

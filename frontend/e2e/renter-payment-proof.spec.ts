@@ -102,7 +102,7 @@ test("renter uploads payment proof and sees pending status without leaking URLs"
       },
     }),
   );
-  let currentProof: any = null;
+  let currentProof: Record<string, unknown> | null = null;
   await page.route(`**/api/renter/invoices/${invoiceId}/payment-proof`, async (route) => {
     if (route.request().method() === "POST") {
       currentProof = {

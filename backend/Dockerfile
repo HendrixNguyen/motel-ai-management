@@ -14,6 +14,7 @@ COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/tsconfig.json ./tsconfig.json
 COPY --from=build /app/src ./src
 COPY backend/drizzle ./drizzle
+COPY backend/drizzle.config.ts ./drizzle.config.ts
 COPY backend/package.json ./
 CMD ["bun", "run", "db:migrate"]
 
@@ -27,4 +28,4 @@ COPY backend/package.json ./
 EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
   CMD wget --quiet --spider http://127.0.0.1:3000/health || exit 1
-CMD ["bun", "run", "start"]
+CMD ["bun", "run", "start:server"]

@@ -208,17 +208,19 @@ export const RENTER_DETAIL_WITHOUT_HISTORY: RenterDetailResponse = {
   invoices: [],
 };
 
-/** What `POST /api/auth/register` and `POST /api/auth/login` answer with. */
+/** What `POST /api/auth/login` answers with. */
 export const MANAGER_AUTH: ManagerAuthResponse = {
   id: MANAGER_ID,
   email: "minhanh@example.vn",
   name: "Nguyễn Minh Anh",
+  role: "manager",
 };
 
 /** What `GET /api/auth/me` answers with — no `name`, and a type that does not pretend otherwise. */
 export const MANAGER_ME: ManagerMeResponse = {
   id: MANAGER_ID,
   email: "minhanh@example.vn",
+  role: "manager",
 };
 
 export const CREATE_MOTEL: CreateMotelInput = {

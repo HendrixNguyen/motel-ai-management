@@ -10,7 +10,9 @@ import ManagerShell from "@/components/ui/manager-shell";
 
 export default async function ManagerLayout({ children }: { children: React.ReactNode }) {
   if (!(await cookies()).get("manager_session")?.value) redirect("/login");
-  const [manager, motels] = await Promise.all([getMe(), listMotels()]);
+  const manager = await getMe();
+  if (manager.role !== "manager") redirect("/admin/managers");
+  const motels = await listMotels();
   return (
     <ToastProvider>
       <>

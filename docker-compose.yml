@@ -15,27 +15,14 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init.sql:ro
 
-  migration:
+  migration-job:
     build:
-      context: ./backend
-      dockerfile: Dockerfile
-    command: ["bun", "run", "start:migration-job"]
+      context: .
+      dockerfile: backend/Dockerfile
+      target: migration-job
     environment:
-      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
-      TEST_DATABASE_URL: ${TEST_DATABASE_URL:?TEST_DATABASE_URL is required}
       NODE_ENV: production
-      MANAGER_JWT_SECRET: ${MANAGER_JWT_SECRET:?MANAGER_JWT_SECRET is required}
-      RENTER_SESSION_SECRET: ${RENTER_SESSION_SECRET:?RENTER_SESSION_SECRET is required}
-      R2_ACCOUNT_ID: ${R2_ACCOUNT_ID:?R2_ACCOUNT_ID is required}
-      R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID:?R2_ACCESS_KEY_ID is required}
-      R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY:?R2_SECRET_ACCESS_KEY is required}
-      R2_BUCKET: ${R2_BUCKET:-motel-uploads}
-      ZALO_OA_ID: ${ZALO_OA_ID:?ZALO_OA_ID is required}
-      ZALO_OA_SECRET: ${ZALO_OA_SECRET:?ZALO_OA_SECRET is required}
-      ZALO_ACCESS_TOKEN: ${ZALO_ACCESS_TOKEN:?ZALO_ACCESS_TOKEN is required}
-      ZALO_WEBHOOK_SECRET: ${ZALO_WEBHOOK_SECRET:?ZALO_WEBHOOK_SECRET is required}
-      RENTER_PORTAL_URL: ${RENTER_PORTAL_URL:?RENTER_PORTAL_URL is required}
-      FRONTEND_URL: ${FRONTEND_URL:?FRONTEND_URL is required}
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
     depends_on:
       postgres:
         condition: service_healthy
@@ -43,25 +30,25 @@ services:
 
   backend:
     build:
-      context: ./backend
-      dockerfile: Dockerfile
-    ports:
-      - "3000:3000"
+      context: .
+      dockerfile: backend/Dockerfile
     environment:
       DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
-      TEST_DATABASE_URL: ${TEST_DATABASE_URL:?TEST_DATABASE_URL is required}
+      TEST_DATABASE_URL: ${TEST_DATABASE_URL:-}
       NODE_ENV: production
+      AUTO_MIGRATE: "false"
       MANAGER_JWT_SECRET: ${MANAGER_JWT_SECRET:?MANAGER_JWT_SECRET is required}
+      ADMIN_JWT_SECRET: ${ADMIN_JWT_SECRET:?ADMIN_JWT_SECRET is required}
       RENTER_SESSION_SECRET: ${RENTER_SESSION_SECRET:?RENTER_SESSION_SECRET is required}
       R2_ACCOUNT_ID: ${R2_ACCOUNT_ID:?R2_ACCOUNT_ID is required}
       R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID:?R2_ACCESS_KEY_ID is required}
       R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY:?R2_SECRET_ACCESS_KEY is required}
       R2_BUCKET: ${R2_BUCKET:-motel-uploads}
       R2_PUBLIC_URL: ${R2_PUBLIC_URL:-}
-      ZALO_OA_ID: ${ZALO_OA_ID:?ZALO_OA_ID is required}
-      ZALO_OA_SECRET: ${ZALO_OA_SECRET:?ZALO_OA_SECRET is required}
-      ZALO_ACCESS_TOKEN: ${ZALO_ACCESS_TOKEN:?ZALO_ACCESS_TOKEN is required}
-      ZALO_WEBHOOK_SECRET: ${ZALO_WEBHOOK_SECRET:?ZALO_WEBHOOK_SECRET is required}
+      ZALO_OA_ID: ${ZALO_OA_ID:-}
+      ZALO_OA_SECRET: ${ZALO_OA_SECRET:-}
+      ZALO_ACCESS_TOKEN: ${ZALO_ACCESS_TOKEN:-}
+      ZALO_WEBHOOK_SECRET: ${ZALO_WEBHOOK_SECRET:-}
       ZNS_TEMPLATE_WELCOME: ${ZNS_TEMPLATE_WELCOME:-PLACEHOLDER}
       ZNS_TEMPLATE_BILL: ${ZNS_TEMPLATE_BILL:-PLACEHOLDER}
       ZNS_TEMPLATE_PAYMENT_CONFIRMED: ${ZNS_TEMPLATE_PAYMENT_CONFIRMED:-PLACEHOLDER}
@@ -69,23 +56,23 @@ services:
       ZNS_TEMPLATE_OTP: ${ZNS_TEMPLATE_OTP:-PLACEHOLDER}
       ZNS_TEMPLATE_EXPIRY: ${ZNS_TEMPLATE_EXPIRY:-PLACEHOLDER}
       ZNS_TEMPLATE_TICKET: ${ZNS_TEMPLATE_TICKET:-PLACEHOLDER}
-      RENTER_PORTAL_URL: ${RENTER_PORTAL_URL:?RENTER_PORTAL_URL is required}
+      RENTER_PORTAL_URL: ${RENTER_PORTAL_URL:-}
       FRONTEND_URL: ${FRONTEND_URL:?FRONTEND_URL is required}
     restart: unless-stopped
     depends_on:
-      migration:
+      migration-job:
         condition: service_completed_successfully
     volumes:
       - backend_data:/app/data
 
   frontend:
     build:
-      context: ./frontend
-      dockerfile: Dockerfile
-    ports:
-      - "3001:3000"
+      context: .
+      dockerfile: frontend/Dockerfile
+      args:
+        BACKEND_URL: ${BACKEND_URL:?BACKEND_URL is required}
     environment:
-      BACKEND_URL: http://backend:3000
+      BACKEND_URL: ${BACKEND_URL:?BACKEND_URL is required}
     depends_on:
       - backend
 

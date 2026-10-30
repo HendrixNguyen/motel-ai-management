@@ -1,17 +1,15 @@
 # Production startup and migration order
 
-Production uses one backend replica. Run migration as a separate one-shot job from the same backend image and production environment:
+The supported Compose startup gates backend runners on PostgreSQL health and a separate one-shot `migration-job` (`backend` Dockerfile target `migration-job`, command `bun run db:migrate`). The normal backend image starts without migration side effects. Migration failure blocks backend startup; never run migrations concurrently from replicas. Production requires HTTPS `FRONTEND_URL`, production database URL, R2 credentials and distinct `MANAGER_JWT_SECRET`, `ADMIN_JWT_SECRET` and `RENTER_SESSION_SECRET`; Zalo values are required only when Zalo OA integration is enabled. `TEST_DATABASE_URL` is optional in production and must point to a separate disposable database if supplied. Compose passes database URLs as complete values, keeping PostgreSQL private with no host port mapping.
 
-```sh
-bun run db:migrate
-```
+`bun run db:bootstrap-superadmin` is a separate, one-shot operation after the migration job and backend release are verified. It refuses unless `NODE_ENV=production`, `PRODUCTION_SUPERADMIN_CONFIRM=manage@example.com`, and a protected `SUPERADMIN_PASSWORD` are supplied. It checks the applied release migration hashes and required schema read-only; it never runs migrations. A successful bootstrap atomically creates the initial Superadmin/audit and inserts only missing catalog versions. A matching rerun is a no-op. Identity conflict or data failure aborts bootstrap writes. Supply the password through a protected one-shot secret input, never a CLI argument, PR, persistent service environment or logs.
 
-Start backend only after that job exits successfully:
+### Account bootstrap and demo seed
 
-```sh
-bun run start
-```
+Never run `SEED_DATABASE=true` or `src/db/seed.ts` against production: that seed deletes business rows and inserts demo motel, renter, invoice, and notification data. Run migration-job first, then explicitly bootstrap hidden `manage@example.com` using `bun run db:bootstrap-superadmin` with `SUPERADMIN_PASSWORD` and `PRODUCTION_SUPERADMIN_CONFIRM=manage@example.com` injected through protected operator execution (not command args or logs). Bootstrap creates only Superadmin and system contract catalog; no normal manager or motel. A pre-existing Manager row with this email is a hard conflict. Superadmin can create/reset Managers with direct passwords through `/admin/managers`.
 
-The backend image does not migrate on startup. This prevents concurrent replicas from racing migrations and makes migration failure block traffic admission. Local development may keep explicit `NODE_ENV=development` defaults in `.env`; production must provide real secrets, HTTPS public URLs, and complete `DATABASE_URL`/`TEST_DATABASE_URL` values. Compose passes database URLs as complete environment values, avoiding shell interpolation of reserved-character credentials. Set `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, `DATABASE_URL`, and `TEST_DATABASE_URL` in a local uncommitted `.env` file for development; no credential defaults exist in Compose. PostgreSQL stays private to the compose network with no host port mapping. Its healthcheck uses the configured `POSTGRES_USER` and `POSTGRES_DB`.
+### Roles and manager setup
 
-Deployment order: configure secrets and URLs, run migration job, verify `/health` and `/ready`, start one backend replica, then start frontend and route HTTPS traffic only to ready backend instances.
+Superadmin sessions can administer Manager accounts and read the shared contract catalog only; tenant business endpoints reject Superadmin role. Manager sessions remain tenant-scoped with full access to their own motel business features. Superadmin manager creation and password reset accept direct passwords and store only Argon2id hashes. Reset/disable revokes sessions by incrementing `sessionVersion`; disabled manager accounts do not alter renter portal access or tenant data. Public `/api/auth/register` remains available for normal manager onboarding and can only create role `manager`.
+
+Deployment order: configure production secrets, start one backend replica to migrate and serve privately, run the explicit bootstrap command through operator-only execution, verify login and database readiness privately, then provision frontend without public domain routing. Keep public HTTPS domains and traffic routing disabled until separate launch approval.

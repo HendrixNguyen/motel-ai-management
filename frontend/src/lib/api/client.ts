@@ -61,6 +61,7 @@ export class ApiError extends Error {
  * status-derived code answers instead.
  */
 const STATUS_FOR_CODE: Record<ErrorCode, true> = {
+  MOTEL_SETUP_REQUIRED: true,
   VALIDATION_ERROR: true,
   UNAUTHORIZED: true,
   MAGIC_LINK_EXPIRED: true,
@@ -162,9 +163,10 @@ export async function apiSend<T>(
   path: string,
   method: "POST" | "PATCH" | "PUT" | "DELETE",
   body?: unknown,
+  headers?: Record<string, string>,
 ): Promise<T> {
   assertRelativePath(path);
-  return decodeResponse<T>(await send(path, method, body));
+  return decodeResponse<T>(await send(path, method, body, headers));
 }
 
 /**
@@ -173,12 +175,18 @@ export async function apiSend<T>(
  * A rejected `fetch` carries a `TypeError` whose `cause` can hold the host and port it tried; that
  * must not become an error message, so the cause is dropped and `status: 0` records what happened.
  */
-async function send(path: string, method: string, body?: unknown): Promise<Response> {
+async function send(
+  path: string,
+  method: string,
+  body?: unknown,
+  headers?: Record<string, string>,
+): Promise<Response> {
   try {
     return await fetch(path, {
       method,
       credentials: "same-origin",
       headers: {
+        ...headers,
         accept: "application/json",
         ...(body === undefined || body instanceof FormData
           ? {}

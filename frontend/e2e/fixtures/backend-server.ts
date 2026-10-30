@@ -77,6 +77,18 @@ export function createFixtureBackend(
       createdAt: string;
     }
   >();
+  const setupRequests = new Map<
+    string,
+    {
+      result: {
+        motelId: string;
+        mode: "full" | "quick";
+        roomCount: number;
+        templateId: string | null;
+      };
+      createdAt: number;
+    }
+  >();
   const signedRenters = new Map<string, string>();
   const magicLinks = new Map([
     ["flow-token", { expiresAt: Date.now() + 24 * 60 * 60 * 1000 }],
@@ -257,7 +269,7 @@ export function createFixtureBackend(
               ]
             : [],
         ),
-      meterReadings: new Map(),
+        meterReadings: new Map(),
       });
     return states.get(session)!;
   };
@@ -455,8 +467,7 @@ export function createFixtureBackend(
             motel: { id: "motel", name: "Nhà trọ Minh Anh" },
             activeContract: null,
           });
-        if (method === "GET" && path === "/api/renter/billing/unpaid-invoices")
-          return json([]);
+        if (method === "GET" && path === "/api/renter/billing/unpaid-invoices") return json([]);
         if (method === "GET" && path === "/api/renter/billing/periods")
           return json([
             {
@@ -602,8 +613,10 @@ export function createFixtureBackend(
                   clauses: [{ title: "Tiền thuê", content: "Đúng hạn" }],
                   otpSentAt: null,
                   otpSignedAt: null,
-                  managerSentAt: managerSession === "contract-active" ? "2026-01-02T00:00:00.000Z" : null,
-                  consentAcceptedAt: managerSession === "contract-active" ? "2026-01-03T00:00:00.000Z" : null,
+                  managerSentAt:
+                    managerSession === "contract-active" ? "2026-01-02T00:00:00.000Z" : null,
+                  consentAcceptedAt:
+                    managerSession === "contract-active" ? "2026-01-03T00:00:00.000Z" : null,
                   consentMethod: managerSession === "contract-active" ? "session_consent" : null,
                   consentEvidence:
                     managerSession === "contract-active"
@@ -638,6 +651,16 @@ export function createFixtureBackend(
           status: "draft",
           createdAt: "2026-01-01T00:00:00.000Z",
         });
+      if (method === "GET" && path === "/api/manager/contract-template-catalog")
+        return json([
+          {
+            key: "vn-residential-standard",
+            version: 1,
+            name: "Hợp đồng thuê nhà ở",
+            description: "Mẫu hợp đồng thuê nhà ở tiêu chuẩn",
+            clauses: [{ title: "Thời hạn thuê", content: "Theo thỏa thuận của hai bên." }],
+          },
+        ]);
       if (method === "GET" && path.match(/^\/api\/manager\/motels\/[^/]+\/contract-templates$/)) {
         const created = templateStore.get(managerSession);
         return json([
@@ -895,9 +918,7 @@ export function createFixtureBackend(
         // manager billing UI can surface realistic validation behaviour.
         if (motelId === MOTEL.id && periodId === BILLING_PERIOD_ID && readings.length > 0) {
           for (const reading of readings) {
-            const baseRoom = CAPTURE_PERIOD_DETAIL.rooms.find(
-              (room) => room.id === reading.roomId,
-            );
+            const baseRoom = CAPTURE_PERIOD_DETAIL.rooms.find((room) => room.id === reading.roomId);
             const baseReading = baseRoom?.readings.find((row) => row.type === reading.type);
             if (!baseReading)
               return error(400, "VALIDATION_ERROR", "Không tìm thấy chỉ số gốc để so sánh.");
@@ -908,11 +929,7 @@ export function createFixtureBackend(
             const beforeScaled = BigInt(before.replace(".", ""));
             const afterScaled = BigInt(after.replace(".", ""));
             if (afterScaled < beforeScaled)
-              return error(
-                400,
-                "VALIDATION_ERROR",
-                "Chỉ số mới phải lớn hơn hoặc bằng chỉ số cũ.",
-              );
+              return error(400, "VALIDATION_ERROR", "Chỉ số mới phải lớn hơn hoặc bằng chỉ số cũ.");
           }
         }
 
@@ -929,6 +946,139 @@ export function createFixtureBackend(
         }
 
         return json({ ok: true });
+      }
+      if (method === "GET" && path === "/api/manager/contract-template-catalog") {
+        return json([
+          {
+            key: "standard-vn",
+            version: 1,
+            name: "Hợp đồng thuê phòng trọ chuẩn",
+            description: "Mẫu hợp đồng tuân thủ pháp luật Việt Nam",
+          },
+        ]);
+      }
+      const catalogPreview = /^\/api\/manager\/contract-template-catalog\/([^/]+)\/([^/]+)$/.exec(
+        path,
+      );
+      if (method === "GET" && catalogPreview) {
+        const [, key, versionStr] = catalogPreview;
+        return json({
+          name: "Hợp đồng thuê phòng trọ chuẩn",
+          clauses: [
+            { title: "Điều 1: Mục đích thuê", content: "Bên B thuê phòng trọ để ở." },
+            { title: "Điều 2: Giá thuê và thanh toán", content: "Thanh toán đầu tháng." },
+          ],
+          selection: { kind: "catalog", key: key!, version: Number(versionStr) },
+        });
+      }
+      const setupPreview =
+        /^\/api\/manager\/motels\/([^/]+)\/contract-templates\/([^/]+)\/setup-preview$/.exec(path);
+      if (method === "GET" && setupPreview) {
+        const [, motelId, templateId] = setupPreview;
+        return json({
+          name: "Mẫu hợp đồng nguồn",
+          clauses: [{ title: "Tiền thuê", content: "Đúng hạn" }],
+          selection: {
+            kind: "motel",
+            motelId: motelId!,
+            templateId: templateId!,
+            fingerprint: "fake-fingerprint",
+          },
+        });
+      }
+      const fromCatalog =
+        /^\/api\/manager\/motels\/([^/]+)\/contract-templates\/from-catalog$/.exec(path);
+      if (method === "POST" && fromCatalog) {
+        const [, motelId] = fromCatalog;
+        const body = await input<{
+          catalogKey: string;
+          catalogVersion: number;
+          isDefault: boolean;
+        }>();
+        const created = {
+          id: crypto.randomUUID(),
+          motelId: motelId!,
+          name: "Hợp đồng thuê phòng trọ chuẩn",
+          clauses: [
+            { title: "Điều 1: Mục đích thuê", content: "Bên B thuê phòng trọ để ở." },
+            { title: "Điều 2: Giá thuê và thanh toán", content: "Thanh toán đầu tháng." },
+          ],
+          isDefault: body.isDefault,
+          createdAt: new Date().toISOString(),
+        };
+        templateStore.set(managerSession, created);
+        return json(created, 201);
+      }
+      if (method === "POST" && path === "/api/manager/motels/setup") {
+        const body = await input<{
+          requestId: string;
+          mode: "full" | "quick";
+          motel: CreateMotelInput;
+          template?: unknown;
+          rooms?: CreateRoomInput[];
+        }>();
+        const existing = setupRequests.get(body.requestId);
+        if (existing) {
+          return json(existing.result, 200);
+        }
+        if (state.motels.length === 0 && body.mode === "quick") {
+          return error(409, "MOTEL_SETUP_REQUIRED", "Thiết lập đầy đủ nhà trọ đầu tiên");
+        }
+        const motelId = crypto.randomUUID();
+        const newMotel: MotelResponse = {
+          id: motelId,
+          managerId: MANAGER_ME.id,
+          name: body.motel.name,
+          address: body.motel.address ?? null,
+          electricityPrice: body.motel.electricityPrice,
+          waterPrice: body.motel.waterPrice,
+          otherFees: body.motel.otherFees ?? [],
+          bankAccount: body.motel.bankAccount ?? null,
+          createdAt: new Date().toISOString(),
+        };
+        state.motels.push(newMotel);
+        let createdRoomsCount = 0;
+        if (body.mode === "full" && Array.isArray(body.rooms)) {
+          for (const r of body.rooms) {
+            state.rooms.push({
+              id: crypto.randomUUID(),
+              motelId,
+              name: r.name,
+              basePrice: r.basePrice,
+              floor: r.floor ?? null,
+              status: "available",
+              createdAt: new Date().toISOString(),
+            });
+            createdRoomsCount++;
+          }
+        }
+        let templateId: string | null = null;
+        if (body.template) {
+          templateId = crypto.randomUUID();
+          templateStore.set(managerSession, {
+            id: templateId,
+            motelId,
+            name: "Hợp đồng chuẩn",
+            clauses: [{ title: "Tiền thuê", content: "Đúng hạn" }],
+            isDefault: true,
+            createdAt: new Date().toISOString(),
+          });
+        }
+        const result = {
+          motelId,
+          mode: body.mode,
+          roomCount: createdRoomsCount,
+          templateId,
+        };
+        setupRequests.set(body.requestId, { result, createdAt: Date.now() });
+        return json(result, 201);
+      }
+      const setupReqStatus = /^\/api\/manager\/motels\/setup-requests\/([^/]+)$/.exec(path);
+      if (method === "GET" && setupReqStatus) {
+        const [, requestId] = setupReqStatus;
+        const entry = setupRequests.get(requestId!);
+        if (!entry) return error(404, "NOT_FOUND", "Không tìm thấy yêu cầu");
+        return json(entry.result);
       }
       if (path === "/api/manager/motels") {
         if (method === "GET")
@@ -950,15 +1100,9 @@ export function createFixtureBackend(
           return json(motel, 201);
         }
       }
-      if (
-        method === "GET" &&
-        path.match(/^\/api\/manager\/motels\/[^/]+\/login-requests$/)
-      )
+      if (method === "GET" && path.match(/^\/api\/manager\/motels\/[^/]+\/login-requests$/))
         return json([]);
-      if (
-        method === "GET" &&
-        path.match(/^\/api\/manager\/motels\/[^/]+\/renter-recovery\/code$/)
-      )
+      if (method === "GET" && path.match(/^\/api\/manager\/motels\/[^/]+\/renter-recovery\/code$/))
         return json(null);
       const scope = /^\/api\/manager\/motels\/([^/]+)(?:\/(rooms|renters)(?:\/([^/]+))?)?$/.exec(
         path,
