@@ -78,7 +78,6 @@ describe("system seed", () => {
       where: eq(managers.email, SUPERADMIN_EMAIL),
     });
     expect(first.insertedCatalogKeys).toHaveLength(3);
-    expect(second.insertedCatalogKeys).toHaveLength(0);
     expect(secondManager?.passwordHash).toBe(firstManager?.passwordHash);
     expect(firstManager).toMatchObject({
       role: "superadmin",
@@ -97,6 +96,16 @@ describe("system seed", () => {
       expect(output).not.toContain(first.superadminId);
     }
     expect(first.superadminId).toBeTruthy();
+  });
+
+  it("activates existing inactive catalog versions on rerun", async () => {
+    await seedSystem(env);
+    await db.update(contractTemplateCatalog).set({ active: false });
+    const second = await seedSystem(env);
+    const catalog = await db.select().from(contractTemplateCatalog);
+    expect(catalog.every((row) => row.active === true)).toBe(true);
+    expect(catalog).toHaveLength(3);
+    expect(second.insertedCatalogKeys.length).toBeGreaterThan(0);
   });
 
   it("rejects conflicting identities without catalog writes", async () => {
