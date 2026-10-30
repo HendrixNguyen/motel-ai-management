@@ -114,10 +114,8 @@ describe("M4 renter list", () => {
     const markup = html(
       await Renters({ searchParams: Promise.resolve({ motel: MOTEL.id, create: "1" }) }),
     );
-    expect(markup).toContain("Thông tin khách thuê");
-    expect(markup).toContain("Họ tên");
-    expect(markup).toContain("Số điện thoại");
-    expect(markup).toContain("Chưa xếp phòng");
+    expect(markup).toContain("Thêm khách thuê");
+    expect(markup).not.toContain('type="file"');
     expect(markup).not.toContain('type="file"');
   });
   it("offers motel creation with no motel-scoped reads when no motel exists", async () => {

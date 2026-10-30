@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Dropdown from "./dropdown";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./shadcn/select";
 
 export type Theme = "light" | "dark" | "system";
 
@@ -72,12 +72,18 @@ export default function ThemeSelect() {
   return (
     <label htmlFor="theme-select-button" className="block text-sm text-text">
       <span className="mb-1 block font-semibold">Giao diện</span>
-      <Dropdown
-        id="theme-select"
-        options={themeOptions}
-        value={theme}
-        onChange={(value) => change(value as Theme)}
-      />
+      <Select value={theme} onValueChange={(value) => change(value as Theme)}>
+        <SelectTrigger id="theme-select-button" aria-label="Giao diện">
+          <SelectValue>{themeOptions.find((option) => option.value === theme)?.label}</SelectValue>
+        </SelectTrigger>
+        <SelectContent position="popper" align="start">
+          {themeOptions.map((option) => (
+            <SelectItem key={option.value} value={option.value}>
+              {option.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
     </label>
   );
 }

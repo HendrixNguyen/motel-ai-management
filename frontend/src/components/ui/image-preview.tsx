@@ -1,5 +1,5 @@
 import Image from "next/image";
-import Button from "./button";
+import { Button } from "@/components/ui/shadcn/button";
 
 export default function ImagePreview({
   src,
@@ -21,7 +21,13 @@ export default function ImagePreview({
         className="max-h-48 max-w-full rounded-input object-contain"
       />
       {onRemove && (
-        <Button type="button" variant="danger" size="sm" aria-label="Xóa ảnh" onClick={onRemove}>
+        <Button
+          type="button"
+          variant="destructive"
+          size="sm"
+          aria-label="Xóa ảnh"
+          onClick={onRemove}
+        >
           Xóa
         </Button>
       )}

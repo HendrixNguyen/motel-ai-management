@@ -3,7 +3,16 @@
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import Badge, { type BadgeTone } from "@/components/ui/badge";
-import Button from "@/components/ui/button";
+import { Button } from "@/components/ui/shadcn/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/shadcn/select";
+import { Input } from "@/components/ui/shadcn/input";
+import { Textarea } from "@/components/ui/shadcn/textarea";
 import Field from "@/components/ui/field";
 import Modal from "@/components/ui/modal";
 import { useToast } from "@/components/ui/toast";
@@ -277,74 +286,104 @@ export default function ContractManagementClient({
           <form onSubmit={create} noValidate className="space-y-4">
             <Field id="contract-renter" label="Khách thuê" error={errors.renterId}>
               {(props) => (
-                <select
-                  {...props}
-                  required
-                  value={draft.renterId}
-                  onChange={(event) => setDraft({ ...draft, renterId: event.target.value })}
+                <Select
+                  value={draft.renterId || "__choose_renter__"}
+                  onValueChange={(renterId) =>
+                    setDraft({
+                      ...draft,
+                      renterId: renterId === "__choose_renter__" ? "" : renterId,
+                    })
+                  }
                 >
-                  <option value="">Chọn khách thuê</option>
-                  {renters
-                    .filter((item) => item.motelId === motelId && item.status === "active")
-                    .map((item) => (
-                      <option key={item.id} value={item.id}>
-                        {item.name} · {item.phone}
-                      </option>
-                    ))}
-                </select>
+                  <SelectTrigger id={props.id} aria-label="Khách thuê">
+                    <SelectValue>
+                      {renters.find((item) => item.id === draft.renterId)?.name ??
+                        "Chọn khách thuê"}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent position="popper" align="start">
+                    <SelectItem value="__choose_renter__">Chọn khách thuê</SelectItem>
+                    {renters
+                      .filter((item) => item.motelId === motelId && item.status === "active")
+                      .map((item) => (
+                        <SelectItem
+                          key={item.id}
+                          value={item.id}
+                          textValue={`${item.name} · ${item.phone}`}
+                        >
+                          {item.name} · {item.phone}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
               )}
             </Field>
             <Field id="contract-room" label="Phòng" error={errors.roomId}>
               {(props) => (
-                <select
-                  {...props}
-                  required
-                  value={draft.roomId}
-                  onChange={(event) => setDraft({ ...draft, roomId: event.target.value })}
+                <Select
+                  value={draft.roomId || "__choose_room__"}
+                  onValueChange={(roomId) =>
+                    setDraft({ ...draft, roomId: roomId === "__choose_room__" ? "" : roomId })
+                  }
                 >
-                  <option value="">Chọn phòng</option>
-                  {rooms
-                    .filter((item) => item.motelId === motelId && item.status !== "maintenance")
-                    .map((item) => (
-                      <option key={item.id} value={item.id}>
-                        {item.name}
-                      </option>
-                    ))}
-                </select>
+                  <SelectTrigger id={props.id} aria-label="Phòng">
+                    <SelectValue>
+                      {rooms.find((item) => item.id === draft.roomId)?.name ?? "Chọn phòng"}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent position="popper" align="start">
+                    <SelectItem value="__choose_room__">Chọn phòng</SelectItem>
+                    {rooms
+                      .filter((item) => item.motelId === motelId && item.status !== "maintenance")
+                      .map((item) => (
+                        <SelectItem key={item.id} value={item.id}>
+                          {item.name}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
               )}
             </Field>
             <Field id="contract-template" label="Mẫu điều khoản" error={errors.templateId}>
               {(props) => (
-                <select
-                  {...props}
-                  value={draft.templateId}
-                  onChange={(event) => {
+                <Select
+                  value={draft.templateId || "__custom__"}
+                  onValueChange={(templateId) => {
+                    const value = templateId === "__custom__" ? "" : templateId;
                     const template = templateRows.find(
-                      (item) => item.id === event.target.value && item.motelId === motelId,
+                      (item) => item.id === value && item.motelId === motelId,
                     );
                     setDraft({
                       ...draft,
-                      templateId: event.target.value,
+                      templateId: value,
                       clauses: template ? template.clauses.map((clause) => ({ ...clause })) : [],
                     });
                   }}
                 >
-                  <option value="">Điều khoản tùy chỉnh</option>
-                  {templateRows
-                    .filter((item) => item.motelId === motelId)
-                    .map((item) => (
-                      <option key={item.id} value={item.id}>
-                        {item.name}
-                        {item.isDefault ? " · Mặc định" : ""}
-                      </option>
-                    ))}
-                </select>
+                  <SelectTrigger id={props.id} aria-label="Mẫu điều khoản">
+                    <SelectValue>
+                      {templateRows.find((item) => item.id === draft.templateId)?.name ??
+                        "Điều khoản tùy chỉnh"}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent position="popper" align="start">
+                    <SelectItem value="__custom__">Điều khoản tùy chỉnh</SelectItem>
+                    {templateRows
+                      .filter((item) => item.motelId === motelId)
+                      .map((item) => (
+                        <SelectItem key={item.id} value={item.id}>
+                          {item.name}
+                          {item.isDefault ? " · Mặc định" : ""}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
               )}
             </Field>
             <div className="grid gap-4 sm:grid-cols-2">
               <Field id="contract-start" label="Ngày bắt đầu" error={errors.startDate}>
                 {(props) => (
-                  <input
+                  <Input
                     {...props}
                     type="date"
                     required
@@ -355,7 +394,7 @@ export default function ContractManagementClient({
               </Field>
               <Field id="contract-end" label="Ngày kết thúc" error={errors.endDate}>
                 {(props) => (
-                  <input
+                  <Input
                     {...props}
                     type="date"
                     required
@@ -366,7 +405,7 @@ export default function ContractManagementClient({
               </Field>
               <Field id="contract-rent" label="Tiền thuê/tháng" error={errors.monthlyRent}>
                 {(props) => (
-                  <input
+                  <Input
                     {...props}
                     inputMode="numeric"
                     required
@@ -377,7 +416,7 @@ export default function ContractManagementClient({
               </Field>
               <Field id="contract-deposit" label="Tiền cọc" error={errors.deposit}>
                 {(props) => (
-                  <input
+                  <Input
                     {...props}
                     inputMode="numeric"
                     required
@@ -401,8 +440,8 @@ export default function ContractManagementClient({
               <Button variant="secondary" disabled={pending} onClick={() => setDialog(null)}>
                 Hủy
               </Button>
-              <Button type="submit" pending={pending} pendingLabel="Đang tạo…">
-                Tạo hợp đồng nháp
+              <Button type="submit" disabled={pending} aria-busy={pending}>
+                {pending ? "Đang tạo…" : "Tạo hợp đồng nháp"}
               </Button>
             </div>
           </form>
@@ -476,8 +515,8 @@ export default function ContractManagementClient({
               <Button variant="secondary" disabled={pending} onClick={() => setDialog(null)}>
                 Hủy
               </Button>
-              <Button type="submit" pending={pending}>
-                Lưu bản nháp
+              <Button type="submit" disabled={pending} aria-busy={pending}>
+                {pending ? "Đang lưu…" : "Lưu bản nháp"}
               </Button>
             </div>
           </form>
@@ -515,7 +554,7 @@ export default function ContractManagementClient({
                       Sửa mẫu {item.name}
                     </Button>
                     <Button
-                      variant="danger"
+                      variant="destructive"
                       disabled={item.isDefault || pending}
                       onClick={() => void removeTemplate(item)}
                     >
@@ -532,12 +571,12 @@ export default function ContractManagementClient({
                 <h3 className="font-semibold">Sửa mẫu</h3>
                 <Field id="template-edit-name" label="Tên mẫu">
                   {(props) => (
-                    <input {...props} name="name" defaultValue={editingTemplate.name} required />
+                    <Input {...props} name="name" defaultValue={editingTemplate.name} required />
                   )}
                 </Field>
                 <Field id="template-edit-title" label="Tiêu đề điều khoản">
                   {(props) => (
-                    <input
+                    <Input
                       {...props}
                       name="title"
                       defaultValue={editingTemplate.clauses[0]?.title ?? ""}
@@ -547,7 +586,7 @@ export default function ContractManagementClient({
                 </Field>
                 <Field id="template-edit-content" label="Nội dung điều khoản">
                   {(props) => (
-                    <textarea
+                    <Textarea
                       {...props}
                       name="content"
                       rows={4}
@@ -566,8 +605,8 @@ export default function ContractManagementClient({
                   >
                     Hủy sửa
                   </Button>
-                  <Button type="submit" pending={pending}>
-                    Cập nhật mẫu
+                  <Button type="submit" disabled={pending} aria-busy={pending}>
+                    {pending ? "Đang lưu…" : "Cập nhật mẫu"}
                   </Button>
                 </div>
               </form>
@@ -578,16 +617,16 @@ export default function ContractManagementClient({
               >
                 <h3 className="font-semibold">Tạo mẫu</h3>
                 <Field id="template-name" label="Tên mẫu">
-                  {(props) => <input {...props} name="name" required />}
+                  {(props) => <Input {...props} name="name" required />}
                 </Field>
                 <Field id="template-title" label="Tiêu đề điều khoản">
-                  {(props) => <input {...props} name="title" required />}
+                  {(props) => <Input {...props} name="title" required />}
                 </Field>
                 <Field id="template-content" label="Nội dung điều khoản">
-                  {(props) => <textarea {...props} name="content" rows={4} required />}
+                  {(props) => <Textarea {...props} name="content" rows={4} required />}
                 </Field>
-                <Button type="submit" pending={pending}>
-                  Lưu mẫu
+                <Button type="submit" disabled={pending} aria-busy={pending}>
+                  {pending ? "Đang lưu…" : "Lưu mẫu"}
                 </Button>
               </form>
             )}
@@ -666,7 +705,7 @@ function ContractCard({
         )}
         {contract.status === "active" && (
           <Button
-            variant="danger"
+            variant="destructive"
             disabled={pending}
             onClick={() => {
               if (window.confirm(`Chấm dứt hợp đồng của ${party.renter} tại ${party.room}?`))

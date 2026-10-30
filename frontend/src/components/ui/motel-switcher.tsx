@@ -1,5 +1,12 @@
+import { useState } from "react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/shadcn/select";
 import type { MotelResponse } from "@/lib/api/types";
-import Dropdown from "./dropdown";
 
 export default function MotelSwitcher({
   motels,
@@ -12,18 +19,38 @@ export default function MotelSwitcher({
   onChange: (id: string) => void;
   disabled?: boolean;
 }) {
+  const [open, setOpen] = useState(false);
   const options = motels.map((motel) => ({ value: motel.id, label: motel.name }));
+  const placeholder = motels.length ? "Chọn nhà trọ" : "Chưa có nhà trọ";
+  const selected = options.find((option) => option.value === selectedId);
   return (
-    <label htmlFor="motel-selector-button" className="block min-w-0">
+    <div className="min-w-0">
       <span className="sr-only">Nhà trọ</span>
-      <Dropdown
-        id="motel-selector"
-        options={options}
-        value={selectedId ?? ""}
-        onChange={onChange}
-        placeholder={motels.length ? "Chọn nhà trọ" : "Chưa có nhà trọ"}
-        disabled={motels.length === 0 || disabled}
-      />
-    </label>
+      <Select
+        open={open}
+        onOpenChange={setOpen}
+        value={selected?.value}
+        disabled={!motels.length || disabled}
+        onValueChange={onChange}
+      >
+        <label htmlFor="motel-selector-button" className="sr-only">
+          Nhà trọ
+        </label>
+        <SelectTrigger id="motel-selector-button" aria-label="Nhà trọ">
+          <SelectValue
+            placeholder={selectedId && !selected ? placeholder : (selected?.label ?? placeholder)}
+          >
+            {selected?.label ?? placeholder}
+          </SelectValue>
+        </SelectTrigger>
+        <SelectContent position="popper" align="start">
+          {options.map((option) => (
+            <SelectItem key={option.value} value={option.value} textValue={option.label}>
+              {option.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
   );
 }

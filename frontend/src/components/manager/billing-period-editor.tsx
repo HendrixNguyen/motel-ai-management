@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import Button from "@/components/ui/button";
+import { Button } from "@/components/ui/shadcn/button";
+import { Input } from "@/components/ui/shadcn/input";
 import Modal from "@/components/ui/modal";
 import { createBillingPeriod } from "@/lib/api/billing.client";
 
@@ -41,7 +42,7 @@ export default function BillingPeriodEditor({ motelId }: { motelId: string }) {
           <div className="grid grid-cols-2 gap-3">
             <label className="space-y-1 text-sm text-text">
               Tháng
-              <input
+              <Input
                 required
                 min="1"
                 max="12"
@@ -53,7 +54,7 @@ export default function BillingPeriodEditor({ motelId }: { motelId: string }) {
             </label>
             <label className="space-y-1 text-sm text-text">
               Năm
-              <input
+              <Input
                 required
                 type="number"
                 value={year}

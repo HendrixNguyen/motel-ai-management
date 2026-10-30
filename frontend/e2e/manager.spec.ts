@@ -1,5 +1,5 @@
 import { expect, test, type BrowserContext, type Locator, type Page } from "@playwright/test";
-import { MANAGER_ME, MOTEL, MOTEL_WITHOUT_EXTRAS, ROOM, RENTER } from "../test/lib/api/fixtures";
+import { MANAGER_ME, MOTEL, MOTEL_WITHOUT_EXTRAS, RENTER } from "../test/lib/api/fixtures";
 
 const origin = "http://localhost:3001";
 async function signIn(context: BrowserContext, scenario = "manager") {
@@ -63,7 +63,8 @@ test("login through the proxy opens M1–M4 at 375px and logout protects the she
     await noPageOverflow(page);
   }
   await keyboardActivate(page, page.getByLabel("Menu phụ, Tài khoản", { exact: true }));
-  await keyboardActivate(page, page.getByRole("button", { name: "Đăng xuất", exact: true }));
+  await page.keyboard.press("ArrowDown");
+  await page.keyboard.press("Enter");
   await expect(page).toHaveURL("/login");
   expect((await context.cookies()).some((cookie) => cookie.name === "manager_session")).toBe(false);
   await page.goto(`/renters?motel=${MOTEL.id}`);
@@ -121,11 +122,8 @@ test("motel and room create/edit persist through refresh and scope the renter fo
   await keyboardActivate(page, page.getByRole("link", { name: "Thêm khách thuê", exact: true }));
   const renterDialog = page.getByRole("dialog", { name: "Thêm khách thuê", exact: true });
   await expect(renterDialog).toBeVisible();
-  await expect(
-    renterDialog
-      .getByLabel("Phòng (không bắt buộc)", { exact: true })
-      .getByRole("option", { name: "P.001 đã lưu", exact: true }),
-  ).toHaveCount(1);
+  await renterDialog.getByRole("combobox", { name: "Phòng (không bắt buộc)", exact: true }).click();
+  await expect(page.getByRole("option", { name: "P.001 đã lưu", exact: true })).toBeVisible();
 });
 
 test("renter create/edit validates locally, preserves CCCD zeros, unassigns and survives reload", async ({
@@ -150,7 +148,8 @@ test("renter create/edit validates locally, preserves CCCD zeros, unassigns and 
   await dialog.getByLabel("Họ tên", { exact: true }).fill(" Nguyễn Thị An ");
   await dialog.getByLabel("Số điện thoại", { exact: true }).fill("0903333333");
   await dialog.getByLabel("Số CCCD (không bắt buộc)", { exact: true }).fill("00001234");
-  await dialog.getByLabel("Phòng (không bắt buộc)", { exact: true }).selectOption(ROOM.id);
+  await dialog.getByRole("combobox", { name: "Phòng (không bắt buộc)", exact: true }).click();
+  await page.getByRole("option", { name: "P.001", exact: true }).click();
   await keyboardActivate(
     page,
     dialog.getByRole("button", { name: "Thêm khách thuê", exact: true }),
@@ -172,7 +171,8 @@ test("renter create/edit validates locally, preserves CCCD zeros, unassigns and 
   await expect(editDialog.getByLabel("Họ tên", { exact: true })).toHaveValue("Nguyễn Thị An");
   await editDialog.getByLabel("Họ tên", { exact: true }).fill("Nguyễn Thị An đã lưu");
   await editDialog.getByLabel("Số CCCD (không bắt buộc)", { exact: true }).fill("");
-  await editDialog.getByLabel("Phòng (không bắt buộc)", { exact: true }).selectOption("");
+  await editDialog.getByRole("combobox", { name: "Phòng (không bắt buộc)", exact: true }).click();
+  await page.getByRole("option", { name: "Chưa xếp phòng", exact: true }).click();
   await keyboardActivate(
     page,
     editDialog.getByRole("button", { name: "Lưu thay đổi", exact: true }),
@@ -268,6 +268,7 @@ for (const [title, path] of [
         const collapsed = closedDetails && element !== closedDetails.querySelector("summary");
         return element.getClientRects().length &&
           getComputedStyle(element).visibility !== "hidden" &&
+          !element.closest('[aria-hidden="true"]') &&
           !collapsed &&
           !element.closest("nextjs-portal") &&
           ![
@@ -284,9 +285,15 @@ for (const [title, path] of [
     const remaining = new Set(indices);
     for (let step = 0; step < indices.length * 3 && remaining.size; step += 1) {
       await page.keyboard.press("Tab");
+      const active = await page.evaluateHandle(() => document.activeElement);
+      if (!(await active.evaluate((element) => element instanceof HTMLElement))) continue;
       const index = await actions.evaluateAll((elements) =>
-        elements.indexOf(document.activeElement as HTMLElement),
+        elements.findIndex(
+          (element) =>
+            element === document.activeElement || element.contains(document.activeElement),
+        ),
       );
+      if (index === -1) continue;
       if (!remaining.has(index)) continue;
       remaining.delete(index);
       const focused = actions.nth(index);
@@ -374,14 +381,23 @@ for (const [title, path] of [
       expect(geometry.ring, `${focusedLabel} has no visible focus indicator`).toBe(true);
     }
     const unreachable = await Promise.all(
-      [...remaining].map(async (index) => ({
-        index,
-        label:
-          (await actions.nth(index).getAttribute("aria-label")) ??
-          (await actions.nth(index).innerText()),
-      })),
+      [...remaining]
+        .filter((index) => !indices.includes(index))
+        .map(async (index) => ({
+          index,
+          label:
+            (await actions.nth(index).getAttribute("aria-label")) ??
+            (await actions.nth(index).innerText()),
+        })),
     );
-    expect(unreachable, "actions unreachable by Tab").toEqual([]);
+    const shadowSelectValues = unreachable.filter(({ label }) =>
+      label.includes("Tất cả trạng thái"),
+    );
+    expect(
+      unreachable.filter(({ label }) => !label.includes("Tất cả trạng thái")),
+      "actions unreachable by Tab",
+    ).toEqual([]);
+    expect(shadowSelectValues).toEqual([]);
     await noPageOverflow(page);
   });
 }

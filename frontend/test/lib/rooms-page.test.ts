@@ -90,7 +90,8 @@ describe("M3 room management", () => {
     expect(roomRead.search).toBe("?floor=0&status=maintenance&search=P.001");
     expect(html).toContain('value="0"');
     expect(html).toContain('value="P.001"');
-    expect(html).toContain('value="maintenance" selected=""');
+    expect(html).toContain('data-slot="select-trigger"');
+    expect(html).toContain("Bảo trì");
     expect(html).toContain("Xóa bộ lọc");
   });
   it("offers room creation on an unfiltered empty motel and clearing filters on an empty result", async () => {

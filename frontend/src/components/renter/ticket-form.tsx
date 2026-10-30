@@ -4,7 +4,15 @@ import Image from "next/image";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createRenterTicket } from "@/lib/api/renter";
-import Button from "@/components/ui/button";
+import { Button } from "@/components/ui/shadcn/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/shadcn/select";
+import { Textarea } from "@/components/ui/shadcn/textarea";
 import Field from "@/components/ui/field";
 import type { RenterTicketCategory } from "@/lib/api/types";
 
@@ -51,16 +59,29 @@ export default function TicketForm() {
       )}
       <Field id="category" label="Loại sự cố">
         {(props) => (
-          <select
-            {...props}
+          <Select
             value={category}
-            onChange={(event) => setCategory(event.target.value as RenterTicketCategory)}
+            onValueChange={(value) => setCategory(value as RenterTicketCategory)}
           >
-            <option value="electricity">Điện</option>
-            <option value="water">Nước</option>
-            <option value="facilities">Cơ sở vật chất</option>
-            <option value="other">Khác</option>
-          </select>
+            <SelectTrigger id={props.id} aria-label="Loại sự cố">
+              <SelectValue>
+                {
+                  {
+                    electricity: "Điện",
+                    water: "Nước",
+                    facilities: "Cơ sở vật chất",
+                    other: "Khác",
+                  }[category]
+                }
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent position="popper" align="start">
+              <SelectItem value="electricity">Điện</SelectItem>
+              <SelectItem value="water">Nước</SelectItem>
+              <SelectItem value="facilities">Cơ sở vật chất</SelectItem>
+              <SelectItem value="other">Khác</SelectItem>
+            </SelectContent>
+          </Select>
         )}
       </Field>
       <Field
@@ -70,7 +91,7 @@ export default function TicketForm() {
         error={error}
       >
         {(props) => (
-          <textarea
+          <Textarea
             {...props}
             rows={5}
             maxLength={500}
@@ -122,8 +143,8 @@ export default function TicketForm() {
           ))}
         </div>
       )}
-      <Button type="submit" pending={pending} pendingLabel="Đang gửi…">
-        Gửi yêu cầu
+      <Button type="submit" disabled={pending} aria-busy={pending}>
+        {pending ? "Đang gửi…" : "Gửi yêu cầu"}
       </Button>
     </form>
   );

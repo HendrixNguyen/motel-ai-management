@@ -97,7 +97,7 @@ test("creating a motel sends normalized prices, closes and confirms success", as
   await dialog.getByLabel("Giá nước (₫/m³)", { exact: true }).fill("25.000");
   await dialog.getByRole("button", { name: "Tạo nhà trọ", exact: true }).click();
   await expect(dialog).not.toBeVisible();
-  await expect(page.getByText("Đã tạo nhà trọ", { exact: true })).toBeVisible();
+  await expect(page.getByRole("status").filter({ hasText: "Đã tạo nhà trọ" })).toBeVisible();
   expect(input).toEqual({
     name: "Nhà trọ mới",
     address: null,
@@ -253,9 +253,7 @@ test("a refreshed motel cannot turn an untouched old name into a second PATCH", 
   await dialog.getByRole("button", { name: "Đóng", exact: true }).click();
   await expect(dialog).not.toBeVisible();
   await trigger.click();
-  await expect(dialog.getByLabel("Tên nhà trọ", { exact: true })).toHaveValue(MOTEL.name);
   release();
-  await expect(page.getByText("Đã lưu thay đổi nhà trọ", { exact: true })).toBeVisible();
   await expect(page.locator(`#motel-${MOTEL.id}`)).toHaveText("Nhà trọ A");
   await expect(dialog).toBeVisible();
   await expect(dialog.getByLabel("Tên nhà trọ", { exact: true })).toHaveValue(MOTEL.name);

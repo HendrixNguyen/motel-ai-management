@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { useEffect, useState } from "react";
 import FileUpload from "@/components/ui/file-upload";
-import Button from "@/components/ui/button";
+import { Button } from "@/components/ui/shadcn/button";
 import { getRenterCccdUrl, uploadRenterCccd } from "@/lib/api/renters.client";
 
 const MAX_BYTES = 5_000_000;

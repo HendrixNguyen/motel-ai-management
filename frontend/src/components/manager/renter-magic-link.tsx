@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import Button from "@/components/ui/button";
+import { Button } from "@/components/ui/shadcn/button";
 import CopyButton from "@/components/ui/copy-button";
 import { createMagicLinkSession } from "@/lib/renter-magic-link";
 
@@ -47,8 +47,8 @@ export default function RenterMagicLink({
 
   return (
     <div className="min-w-0 space-y-4">
-      <Button pending={pending} pendingLabel="Đang tạo…" onClick={create}>
-        Tạo magic link
+      <Button disabled={pending} aria-busy={pending} onClick={create}>
+        {pending ? "Đang tạo…" : "Tạo magic link"}
       </Button>
       {error && (
         <div

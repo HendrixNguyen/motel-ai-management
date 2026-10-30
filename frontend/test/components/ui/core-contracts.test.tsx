@@ -6,6 +6,20 @@ import { act } from "react";
 import { JSDOM } from "jsdom";
 import { beforeAll } from "vitest";
 import Button from "@/components/ui/button";
+import { Button as ShadcnButton } from "@/components/ui/shadcn/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/shadcn/dropdown-menu";
+import {
+  Dialog as ShadcnDialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/shadcn/dialog";
 import Field from "@/components/ui/field";
 import Badge from "@/components/ui/badge";
 import StatCard from "@/components/ui/stat-card";
@@ -56,6 +70,41 @@ describe("Core UI v2 compatibility contracts", () => {
     expect(html).toContain("focus-visible:ring-offset-2");
   });
 
+  test("shadcn button keeps default button type, touch target, and focus state", () => {
+    const html = markup(<ShadcnButton>Save</ShadcnButton>);
+    expect(html).toContain('type="button"');
+    expect(html).toContain("min-h-11");
+    expect(html).toContain("focus-visible:ring-2");
+  });
+
+  test("Radix dropdown trigger supports keyboard and accessible menu relationships", () => {
+    const html = markup(
+      <DropdownMenu>
+        <DropdownMenuTrigger>Actions</DropdownMenuTrigger>
+        <DropdownMenuContent>
+          <DropdownMenuItem>Save</DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>,
+    );
+    expect(html).toContain('aria-haspopup="menu"');
+    expect(html).toContain('data-state="closed"');
+  });
+
+  test("Radix dialog content exposes title and description relationships", () => {
+    const html = markup(
+      <ShadcnDialog open>
+        <DialogTrigger>Open</DialogTrigger>
+        <DialogContent>
+          <DialogTitle>Details</DialogTitle>
+          <DialogDescription>Room details</DialogDescription>
+        </DialogContent>
+      </ShadcnDialog>,
+    );
+    expect(html).toContain('aria-haspopup="dialog"');
+    expect(html).toContain("aria-controls=");
+    expect(html).toContain('data-slot="dialog-trigger"');
+  });
+
   test("Field keeps label and error association", () => {
     const html = markup(
       <Field id="name" label="Name" error="Required">
@@ -91,7 +140,7 @@ describe("Core UI v2 compatibility contracts", () => {
     expect(focus).toHaveBeenCalledOnce();
   });
 
-  test("Modal and Drawer preserve headings and mobile width", () => {
+  test("Modal and Drawer retain centered and side-sheet layout contracts", () => {
     const modal = markup(
       <Modal open={false} onClose={() => {}} title="Edit">
         Body
@@ -102,10 +151,8 @@ describe("Core UI v2 compatibility contracts", () => {
         Body
       </Drawer>,
     );
-    expect(modal).toContain("Edit");
-    expect(modal).toContain("relative z-50");
-    expect(modal).toContain("w-[min(32rem,calc(100vw-2rem))]");
-    expect(drawer).toContain("w-[min(100vw,32rem)]");
+    expect(modal).toBe("");
+    expect(drawer).toBe("");
   });
 
   test("Badge preserves tone and label", () => {

@@ -1,17 +1,21 @@
 // @vitest-environment jsdom
-import { act, cleanup, fireEvent, render, waitFor, within } from "@testing-library/react";
+import React from "react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
 import { afterEach, beforeAll, beforeEach, describe, expect, test, vi } from "vitest";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/shadcn/dialog";
 import MotelEditor from "@/components/manager/motel-editor";
 
 beforeAll(() => {
-  HTMLDialogElement.prototype.showModal = function () {
-    this.open = true;
-  };
-  HTMLDialogElement.prototype.close = function () {
-    this.open = false;
-    this.dispatchEvent(new Event("close"));
-  };
+  HTMLElement.prototype.hasPointerCapture = () => false;
+  HTMLElement.prototype.setPointerCapture = () => {};
+  HTMLElement.prototype.releasePointerCapture = () => {};
 });
 
 const mocks = vi.hoisted(() => ({
@@ -60,11 +64,19 @@ describe("MotelEditor workflow coverage", () => {
   test("empty state opens create, submits, and announces success", async () => {
     mocks.submit.mockResolvedValue({ ok: true, motel: { ...motel, name: "Nhà mới" } });
     const view = render(<MotelEditor empty />);
+    await view.findByRole("button", { name: "Tạo nhà trọ" });
     fireEvent.click(view.getByRole("button", { name: "Tạo nhà trọ" }));
-    fireEvent.change(view.getByLabelText("Tên nhà trọ"), { target: { value: "Nhà mới" } });
-    fireEvent.change(view.getByLabelText("Giá điện (₫/kWh)"), { target: { value: "3500" } });
-    fireEvent.change(view.getByLabelText("Giá nước (₫/m³)"), { target: { value: "25000" } });
-    fireEvent.submit(view.container.querySelector("form")!);
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.change(within(dialog).getByLabelText("Tên nhà trọ"), {
+      target: { value: "Nhà mới" },
+    });
+    fireEvent.change(within(dialog).getByLabelText("Giá điện (₫/kWh)"), {
+      target: { value: "3500" },
+    });
+    fireEvent.change(within(dialog).getByLabelText("Giá nước (₫/m³)"), {
+      target: { value: "25000" },
+    });
+    fireEvent.submit(document.querySelector("[data-dialog-content] form")!);
     await waitFor(() => expect(mocks.notify).toHaveBeenCalledWith({ message: "Đã tạo nhà trọ" }));
     expect(mocks.submit).toHaveBeenCalled();
   });
@@ -73,7 +85,7 @@ describe("MotelEditor workflow coverage", () => {
     mocks.submit.mockResolvedValue({ ok: true, motel: { ...motel, bankAccount: null } });
     const view = render(<MotelEditor motel={motel as never} />);
     fireEvent.click(view.getByRole("button", { name: "Chỉnh sửa Nhà A" }));
-    const dialog = view.getByRole("dialog");
+    const dialog = await screen.findByRole("dialog");
     expect(within(dialog).getByDisplayValue("Wifi")).toBeInTheDocument();
     fireEvent.click(within(dialog).getByRole("button", { name: /Xóa phí/ }));
     expect(within(dialog).getByText("Chưa có phí khác")).toBeInTheDocument();
@@ -81,7 +93,7 @@ describe("MotelEditor workflow coverage", () => {
     expect(within(dialog).getByLabelText("Tên phí 1")).toBeInTheDocument();
     fireEvent.click(within(dialog).getByLabelText("Thiết lập tài khoản nhận tiền"));
     expect(within(dialog).queryByLabelText("Mã ngân hàng")).toBeNull();
-    fireEvent.submit(within(dialog).getByRole("button", { name: "Lưu thay đổi" }).closest("form")!);
+    fireEvent.submit(dialog.querySelector("form")!);
     await waitFor(() =>
       expect(mocks.notify).toHaveBeenCalledWith({ message: "Đã lưu thay đổi nhà trọ" }),
     );
@@ -98,8 +110,8 @@ describe("MotelEditor workflow coverage", () => {
     mocks.submit.mockResolvedValue(result);
     const view = render(<MotelEditor motel={motel as never} />);
     fireEvent.click(view.getByRole("button", { name: "Chỉnh sửa Nhà A" }));
-    const dialog = view.getByRole("dialog");
-    fireEvent.submit(within(dialog).getByRole("button", { name: "Lưu thay đổi" }).closest("form")!);
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.submit(dialog.querySelector("form")!);
     if (branch === "redirect")
       await waitFor(() => expect(mocks.replace).toHaveBeenCalledWith("/login"));
     if (branch === "reload")
@@ -111,8 +123,8 @@ describe("MotelEditor workflow coverage", () => {
     mocks.submit.mockRejectedValueOnce(new Error("private database.internal"));
     const view = render(<MotelEditor motel={motel as never} />);
     fireEvent.click(view.getByRole("button", { name: "Chỉnh sửa Nhà A" }));
-    const dialog = view.getByRole("dialog");
-    fireEvent.submit(within(dialog).getByRole("button", { name: "Lưu thay đổi" }).closest("form")!);
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.submit(dialog.querySelector("form")!);
     expect(await view.findByRole("alert")).toHaveTextContent(
       "Không thể lưu nhà trọ. Vui lòng thử lại.",
     );
@@ -122,7 +134,7 @@ describe("MotelEditor workflow coverage", () => {
       status: 409,
       error: "Nhà trọ đang được sử dụng",
     });
-    fireEvent.submit(within(dialog).getByRole("button", { name: "Lưu thay đổi" }).closest("form")!);
+    fireEvent.submit(dialog.querySelector("form")!);
     await waitFor(() => expect(mocks.submit).toHaveBeenCalledTimes(2));
   });
 
@@ -130,7 +142,7 @@ describe("MotelEditor workflow coverage", () => {
     mocks.submit.mockResolvedValue({ ok: false, status: 409, error: "Nhà trọ đang được sử dụng" });
     const view = render(<MotelEditor motel={motel as never} />);
     fireEvent.click(view.getByRole("button", { name: "Chỉnh sửa Nhà A" }));
-    const dialog = view.getByRole("dialog");
+    const dialog = await screen.findByRole("dialog");
     const input = within(dialog).getByLabelText("Tên nhà trọ") as HTMLInputElement;
     await act(async () => {
       fireEvent.change(input, { target: { value: "Bản nháp giữ lại" } });
@@ -149,13 +161,41 @@ describe("MotelEditor workflow coverage", () => {
       expect(within(dialog).getByRole("alert")).toHaveTextContent("Nhà trọ đang được sử dụng");
       expect(within(dialog).getByLabelText("Tên nhà trọ")).toHaveValue("Bản nháp giữ lại");
     });
-    fireEvent.click(within(dialog).getByRole("button", { name: "Đóng" }));
+    fireEvent.click(dialog.querySelector("[data-slot='dialog-close']")!);
+  });
+
+  test("Radix Dialog restores focus to opener by default", async () => {
+    function FocusDialog() {
+      const [open, setOpen] = React.useState(false);
+      return (
+        <>
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+              <button type="button">Open dialog</button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogTitle>Focus restoration</DialogTitle>
+              <DialogClose asChild>
+                <button type="button">Close dialog</button>
+              </DialogClose>
+            </DialogContent>
+          </Dialog>
+        </>
+      );
+    }
+    render(<FocusDialog />);
+    const opener = screen.getByRole("button", { name: "Open dialog" });
+    opener.focus();
+    fireEvent.click(opener);
+    await screen.findByRole("dialog", { name: "Focus restoration" });
+    fireEvent.click(screen.getByRole("button", { name: "Close dialog" }));
+    await waitFor(() => expect(opener).toHaveFocus());
   });
 
   test("limits additional fee rows and returns to no-fee state", async () => {
     const view = render(<MotelEditor motel={motel as never} />);
     fireEvent.click(view.getByRole("button", { name: "Chỉnh sửa Nhà A" }));
-    const dialog = view.getByRole("dialog");
+    const dialog = await screen.findByRole("dialog");
     for (let i = 1; i < 6; i++)
       fireEvent.click(within(dialog).getByRole("button", { name: "Thêm phí" }));
     expect(within(dialog).getAllByLabelText(/Tên phí/)).toHaveLength(6);

@@ -30,14 +30,17 @@ test("room filters survive reload and clearing them keeps motel scope at 360px",
     `/renters?motel=${MOTEL.id}&roomId=${ROOM.id}`,
   );
   await page.getByLabel("Tầng", { exact: true }).fill("0");
-  await page.getByLabel("Trạng thái", { exact: true }).selectOption("available");
+  await page.getByRole("combobox", { name: "Trạng thái", exact: true }).click();
+  await page.getByRole("option", { name: "Trống", exact: true }).click();
   await page.getByLabel("Tìm theo tên phòng", { exact: true }).fill("P.001");
   await page.getByRole("button", { name: "Áp dụng bộ lọc" }).click();
   await expect(page).toHaveURL(`/rooms?motel=${MOTEL.id}&floor=0&status=available&search=P.001`);
   await expect(page.getByRole("heading", { name: "Không có phòng phù hợp" })).toBeVisible();
   await page.reload();
   await expect(page.getByLabel("Tầng", { exact: true })).toHaveValue("0");
-  await expect(page.getByLabel("Trạng thái", { exact: true })).toHaveValue("available");
+  await expect(page.getByRole("combobox", { name: "Trạng thái", exact: true })).toContainText(
+    "Trống",
+  );
   await expect(page.getByLabel("Tìm theo tên phòng", { exact: true })).toHaveValue("P.001");
   await page.getByRole("link", { name: "Xóa bộ lọc" }).first().click();
   await expect(page).toHaveURL(`/rooms?motel=${MOTEL.id}`);
@@ -116,7 +119,7 @@ test("room creation focuses linked local errors then sends exact VND with floor 
   await expect(dialog).not.toBeVisible();
   await expect(trigger).toBeFocused();
   expect(input).toEqual({ name: "P.102", basePrice: "3500000", floor: 0 });
-  await expect(page.getByText("Đã thêm phòng trọ", { exact: true })).toBeVisible();
+  await expect(page.getByRole("status").filter({ hasText: "Đã thêm phòng trọ" })).toBeVisible();
 });
 
 test("editing clears floor with a partial PATCH and cancellation discards the draft", async ({
@@ -170,7 +173,8 @@ test("status action submits only status and disables controls while pending", as
   await page.goto(`/rooms?motel=${MOTEL.id}`);
   await page.getByRole("button", { name: `Đổi trạng thái ${ROOM.name}`, exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Đổi trạng thái phòng" });
-  await dialog.getByLabel("Trạng thái phòng", { exact: true }).selectOption("maintenance");
+  await dialog.getByRole("combobox", { name: "Trạng thái phòng", exact: true }).click();
+  await page.getByRole("option", { name: "Bảo trì", exact: true }).click();
   await dialog.getByRole("button", { name: "Lưu trạng thái" }).click();
   await expect(dialog.getByLabel("Trạng thái phòng", { exact: true })).toBeDisabled();
   await expect(dialog.getByRole("button", { name: "Đang lưu…" })).toBeDisabled();
@@ -178,7 +182,9 @@ test("status action submits only status and disables controls while pending", as
   release();
   await expect(dialog).not.toBeVisible();
   expect(inputs).toEqual([{ status: "maintenance" }]);
-  await expect(page.getByText("Đã đổi trạng thái phòng", { exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("status").filter({ hasText: "Đã đổi trạng thái phòng" }),
+  ).toBeVisible();
 });
 
 for (const [status, code] of [

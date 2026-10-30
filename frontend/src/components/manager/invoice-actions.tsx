@@ -14,7 +14,8 @@ import {
   markInvoiceOverdue,
   rejectPaymentProof,
 } from "@/lib/api/billing.client";
-import Button from "@/components/ui/button";
+import { Button } from "@/components/ui/shadcn/button";
+import { Textarea } from "@/components/ui/shadcn/textarea";
 import type { InvoiceResponse, ManagerPaymentProof } from "@/lib/api/types";
 import { formatVnd } from "@/lib/format/vnd";
 import { paymentProofLabel } from "@/lib/payment-proof";
@@ -259,7 +260,7 @@ export default function InvoiceActions({
                   >
                     Lý do từ chối
                   </label>
-                  <textarea
+                  <Textarea
                     id={`reject-reason-${invoice.id}`}
                     value={reason}
                     onChange={(event) => setReason(event.target.value)}
@@ -269,21 +270,19 @@ export default function InvoiceActions({
                     className="min-h-20 w-full min-w-0 rounded-input border border-border p-3 text-text focus-visible:outline-2 focus-visible:outline-primary"
                   />
                   <Button
-                    variant="danger"
-                    pending={pending}
-                    pendingLabel="Đang từ chối"
-                    onClick={() => void transition("reject")}
+                    variant="destructive"
                     disabled={transitionPending || !reason.trim()}
+                    aria-busy={pending}
+                    onClick={() => void transition("reject")}
                   >
-                    Từ chối chứng từ
+                    {pending ? "Đang từ chối…" : "Từ chối chứng từ"}
                   </Button>
                   <Button
-                    pending={pending}
-                    pendingLabel="Đang duyệt"
+                    aria-busy={pending}
                     onClick={() => void transition("approve")}
                     disabled={transitionPending}
                   >
-                    Duyệt chứng từ
+                    {pending ? "Đang duyệt…" : "Duyệt chứng từ"}
                   </Button>
                 </div>
               )}
@@ -294,22 +293,20 @@ export default function InvoiceActions({
           <div className="flex flex-wrap gap-2">
             <Button
               variant="secondary"
-              pending={pending}
-              pendingLabel="Đang xác nhận"
+              aria-busy={pending}
               onClick={() => void transition("cash")}
               disabled={transitionPending}
             >
-              Xác nhận đã nhận tiền mặt
+              {pending ? "Đang xác nhận…" : "Xác nhận đã nhận tiền mặt"}
             </Button>
             {invoice.paymentStatus === "unpaid" && (
               <Button
                 variant="ghost"
-                pending={pending}
-                pendingLabel="Đang cập nhật"
+                aria-busy={pending}
                 onClick={() => void transition("overdue")}
                 disabled={transitionPending}
               >
-                Đánh dấu quá hạn
+                {pending ? "Đang cập nhật…" : "Đánh dấu quá hạn"}
               </Button>
             )}
           </div>

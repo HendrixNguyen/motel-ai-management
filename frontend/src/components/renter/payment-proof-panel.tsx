@@ -8,6 +8,7 @@ import { paymentProofLabel, PAYMENT_PROOF_SOURCE_MAX_BYTES } from "@/lib/payment
 import { convertPaymentProofImage, PAYMENT_PROOF_ACCEPT } from "@/lib/payment-proof-image";
 import ImagePreview from "@/components/ui/image-preview";
 import FileUpload from "@/components/ui/file-upload";
+import { Button } from "@/components/ui/shadcn/button";
 
 export default function PaymentProofPanel({
   invoiceId,
@@ -170,8 +171,8 @@ export default function PaymentProofPanel({
           Chứng từ chuyển khoản
         </h2>
         <p className="mt-1 text-sm text-text-muted">
-          Gửi một ảnh JPEG, PNG, WebP hoặc HEIC tối đa 20 MB. Ảnh WebP/HEIC được chuyển sang JPEG tối
-          đa 5 MB khi trình duyệt hỗ trợ. Chủ nhà sẽ kiểm tra và xác nhận.
+          Gửi một ảnh JPEG, PNG, WebP hoặc HEIC tối đa 20 MB. Ảnh WebP/HEIC được chuyển sang JPEG
+          tối đa 5 MB khi trình duyệt hỗ trợ. Chủ nhà sẽ kiểm tra và xác nhận.
         </p>
       </div>
       {status && (
@@ -203,14 +204,15 @@ export default function PaymentProofPanel({
               void choose(files[0]);
             }}
           />
-          <button
+          <Button
             type="button"
             onClick={() => void submit()}
             disabled={!file || pending || converting}
-            className="min-h-11 w-full rounded-input bg-primary px-4 py-2 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
+            aria-busy={pending || converting}
+            className="w-full"
           >
             {converting ? "Đang chuyển đổi ảnh…" : pending ? "Đang gửi…" : "Gửi chứng từ"}
-          </button>
+          </Button>
         </>
       )}
       {error && (

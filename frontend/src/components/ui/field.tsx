@@ -1,4 +1,5 @@
 import { cloneElement, isValidElement, type ReactNode } from "react";
+import { Label } from "@/components/ui/shadcn/label";
 
 export type FieldControlProps = {
   id: string;
@@ -30,9 +31,9 @@ export default function Field({
     undefined;
   return (
     <div className="min-w-0 space-y-2">
-      <label htmlFor={id} className="block text-sm font-semibold text-text">
+      <Label htmlFor={id} className="block text-sm font-semibold text-text">
         {label}
-      </label>
+      </Label>
       {typeof children === "function"
         ? children({
             id,

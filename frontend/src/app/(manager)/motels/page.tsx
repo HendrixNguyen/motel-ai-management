@@ -4,6 +4,7 @@ import { formatVnd } from "@/lib/format/vnd";
 import MotelEditor from "@/components/manager/motel-editor";
 import { resolveMotelId, type MotelSearchParams } from "@/lib/motel-selection";
 import PageHeader from "@/components/ui/page-header";
+import { Button } from "@/components/ui/shadcn/button";
 import Card from "@/components/ui/card";
 import Link from "next/link";
 import { motelHref } from "@/lib/motel-navigation";
@@ -80,9 +81,15 @@ export default async function Motels({
               <div className="mt-auto flex min-w-0 flex-wrap items-center justify-between gap-3 border-t border-border bg-canvas/60 px-4 py-3 sm:px-5">
                 <span className="text-sm text-text-muted">Cấu hình vận hành</span>
                 <div className="flex min-w-0 flex-wrap gap-2">
-                  <Link href={motelHref("/rooms", "", motel.id)} className="inline-flex min-h-11 items-center rounded-input border border-border-strong bg-surface px-3 font-semibold text-text hover:bg-canvas">Phòng</Link>
-                  <Link href={motelHref("/billing", "", motel.id)} className="inline-flex min-h-11 items-center rounded-input border border-border-strong bg-surface px-3 font-semibold text-text hover:bg-canvas">Hóa đơn</Link>
-                  <Link href={motelHref("/renters", "", motel.id)} className="inline-flex min-h-11 items-center rounded-input border border-border-strong bg-surface px-3 font-semibold text-text hover:bg-canvas">Khách thuê</Link>
+                  <Button asChild variant="outline" size="sm">
+                    <Link href={motelHref("/rooms", "", motel.id)}>Phòng</Link>
+                  </Button>
+                  <Button asChild variant="outline" size="sm">
+                    <Link href={motelHref("/billing", "", motel.id)}>Hóa đơn</Link>
+                  </Button>
+                  <Button asChild variant="outline" size="sm">
+                    <Link href={motelHref("/renters", "", motel.id)}>Khách thuê</Link>
+                  </Button>
                   <MotelEditor motel={motel} />
                 </div>
               </div>

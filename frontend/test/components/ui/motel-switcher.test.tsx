@@ -1,26 +1,11 @@
+// @vitest-environment jsdom
 import { cleanup, fireEvent, render } from "@testing-library/react";
-import { afterEach, beforeAll, describe, expect, test, vi } from "vitest";
+import { afterEach, describe, expect, test, vi } from "vitest";
 import "@testing-library/jest-dom/vitest";
-import { JSDOM } from "jsdom";
 import MotelSwitcher from "@/components/ui/motel-switcher";
-const dom = new JSDOM("<!doctype html><html><body></body></html>", { url: "http://localhost/" });
-Object.defineProperties(globalThis, {
-  window: { configurable: true, value: dom.window },
-  document: { configurable: true, value: dom.window.document },
-  navigator: { configurable: true, value: dom.window.navigator },
-  HTMLElement: { configurable: true, value: dom.window.HTMLElement },
-  Node: { configurable: true, value: dom.window.Node },
-  Event: { configurable: true, value: dom.window.Event },
-  MouseEvent: { configurable: true, value: dom.window.MouseEvent },
-  KeyboardEvent: { configurable: true, value: dom.window.KeyboardEvent },
-  IS_REACT_ACT_ENVIRONMENT: { configurable: true, writable: true, value: true },
-});
-beforeAll(() => {
-  Object.defineProperty(globalThis, "IS_REACT_ACT_ENVIRONMENT", {
-    configurable: true,
-    writable: true,
-    value: true,
-  });
+Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
+  configurable: true,
+  value: () => {},
 });
 afterEach(() => {
   cleanup();

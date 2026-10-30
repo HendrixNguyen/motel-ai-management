@@ -30,7 +30,7 @@ describe("accessible shell controls", () => {
         children: (props) => createElement("input", props),
       }),
     );
-    expect(html).toContain('<label for="email"');
+    expect(html).toContain('<label data-slot="label"');
     expect(html).toContain('id="email"');
     expect(html).toContain('aria-describedby="email-error"');
     expect(html).toContain('aria-invalid="true"');
@@ -70,7 +70,8 @@ describe("accessible shell controls", () => {
         createElement("section", null, "manager"),
       ),
     );
-    expect(html).toContain('class="motion-safe:animate-[page-enter_160ms_ease-out_both] w-full');
+    expect(html).toContain('data-motion="page"');
+    expect(html).toContain('class="w-full px-4');
     expect(html).not.toContain("max-w-7xl");
   });
 
@@ -138,25 +139,20 @@ describe("accessible shell controls", () => {
     expect(html).toContain('aria-label="Điều hướng chính trên điện thoại"');
     expect(html).toContain('aria-label="Điều hướng gọn trên điện thoại"');
     expect(html).not.toContain('aria-label="Thêm, các mục khác"');
-    expect(html).toContain('grid-cols-6');
+    expect(html).toContain("grid-cols-6");
   });
   it("uses the URL motel selection and renders labelled account controls", () => {
     const html = renderToStaticMarkup(
       createElement(TopBar, { manager: MANAGER_ME, motels: [MOTEL, MOTEL_WITHOUT_EXTRAS] }),
     );
-    expect(html).toContain('for="motel-selector"');
-    expect(html).toContain('min-w-[12rem] flex-1');
-    expect(html).toContain('for="motel-selector-button"');
-    expect(html).toContain(MOTEL_WITHOUT_EXTRAS.name);
-    expect(html).toContain(MANAGER_ME.email);
+    expect(html).not.toContain('for="motel-selector"');
+    expect(html).toContain('data-slot="select-trigger"');
+    expect(html).toContain('id="motel-selector-button"');
+    expect(html).toContain('aria-label="Nhà trọ"');
     expect(html).toContain("Menu phụ");
-    expect(html).toContain("Đăng xuất");
-    expect(html).toMatch(
-      /<button[^>]*aria-label="Menu phụ, Tài khoản"[^>]*aria-expanded="false"[^>]*aria-controls="manager-account-menu"/,
-    );
-    expect(html).toMatch(
-      /<div[^>]*id="manager-account-menu"[^>]*role="group"[^>]*aria-label="Tùy chọn tài khoản"/,
-    );
+    expect(html).toContain('data-slot="dropdown-menu-trigger"');
+    expect(html).toContain('aria-haspopup="menu"');
+    expect(html).toContain('aria-label="Menu phụ, Tài khoản"');
     expect(html).not.toContain('href="/contracts?');
   });
   it("renders shared page header actions and toast adapter", () => {

@@ -1,4 +1,4 @@
-import Button from "./button";
+import { Button } from "@/components/ui/shadcn/button";
 
 export default function EmptyState({
   title,

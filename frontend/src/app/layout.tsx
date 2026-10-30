@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Be_Vietnam_Pro, Noto_Sans } from "next/font/google";
 import "./globals.css";
 import ThemeInit from "@/components/ui/theme-init";
+import MotionProvider from "@/components/ui/motion-provider";
 import ServiceWorkerRegister from "@/components/pwa/service-worker-register";
 
 /**
@@ -50,7 +51,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="flex min-h-full flex-col bg-canvas text-text-body font-sans">
         <ThemeInit />
         <ServiceWorkerRegister />
-        {children}
+        <MotionProvider>{children}</MotionProvider>
       </body>
     </html>
   );

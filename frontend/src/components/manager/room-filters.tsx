@@ -3,7 +3,15 @@
 import { useId, useRef, useState, useTransition, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import Button from "@/components/ui/button";
+import { Button } from "@/components/ui/shadcn/button";
+import { Input } from "@/components/ui/shadcn/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/shadcn/select";
 import Field from "@/components/ui/field";
 import FilterBar from "@/components/ui/filter-bar";
 import type { ListRoomsFilters } from "@/lib/api/types";
@@ -54,7 +62,7 @@ export default function RoomFilters({
           <div className="min-w-0 sm:w-36">
             <Field id={`${prefix}-floor`} label="Tầng" hint="Để trống: tất cả tầng" error={error}>
               {(props) => (
-                <input
+                <Input
                   {...props}
                   ref={floorControl}
                   type="text"
@@ -71,25 +79,35 @@ export default function RoomFilters({
           <div className="min-w-0 sm:w-44">
             <Field id={`${prefix}-status`} label="Trạng thái">
               {(props) => (
-                <select
-                  {...props}
-                  value={status}
-                  onChange={(event) => setStatus(event.target.value as typeof status)}
+                <Select
+                  value={status || "__all__"}
+                  onValueChange={(value) =>
+                    setStatus(value === "__all__" ? "" : (value as typeof status))
+                  }
                 >
-                  <option value="">Tất cả trạng thái</option>
-                  {(["available", "occupied", "maintenance"] as const).map((value) => (
-                    <option key={value} value={value}>
-                      {roomStatusLabel(value)}
-                    </option>
-                  ))}
-                </select>
+                  <SelectTrigger id={props.id} aria-label="Trạng thái">
+                    <SelectValue>
+                      {status
+                        ? roomStatusLabel(status as NonNullable<ListRoomsFilters["status"]>)
+                        : "Tất cả trạng thái"}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent position="popper" align="start">
+                    <SelectItem value="__all__">Tất cả trạng thái</SelectItem>
+                    {(["available", "occupied", "maintenance"] as const).map((value) => (
+                      <SelectItem key={value} value={value}>
+                        {roomStatusLabel(value)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               )}
             </Field>
           </div>
         </FilterBar>
         <div className="flex flex-wrap items-center gap-2">
-          <Button type="submit" pending={pending} pendingLabel="Đang lọc…">
-            Áp dụng bộ lọc
+          <Button type="submit" disabled={pending} aria-busy={pending}>
+            {pending ? "Đang lọc…" : "Áp dụng bộ lọc"}
           </Button>
           {Object.keys(filters).length > 0 && (
             <Link

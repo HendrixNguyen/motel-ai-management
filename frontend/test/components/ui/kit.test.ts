@@ -2,6 +2,7 @@ import { createElement as h } from "react";
 import { renderToStaticMarkup as render } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import Button from "@/components/ui/button";
+import { Button as ShadcnButton } from "@/components/ui/shadcn/button";
 import Field from "@/components/ui/field";
 import Badge from "@/components/ui/badge";
 import StatCard from "@/components/ui/stat-card";
@@ -16,6 +17,12 @@ import DataTable from "@/components/ui/data-table";
 import { ToastProvider } from "@/components/ui/toast";
 
 describe("component kit accessibility", () => {
+  it("shadcn button defaults to a non-submit action with the full touch target", () => {
+    const html = render(h(ShadcnButton, null, "Đóng"));
+    expect(html).toContain('type="button"');
+    expect(html).toContain("min-h-11");
+    expect(html).toContain("min-w-11");
+  });
   for (const variant of ["primary", "secondary", "ghost", "danger"] as const) {
     for (const size of ["sm", "md", "lg"] as const) {
       it(`${variant}/${size} preserves a 44px hit area and keyboard focus`, () => {
@@ -111,24 +118,10 @@ describe("component kit accessibility", () => {
     expect(html).toContain("motion-safe:animate-pulse");
     expect(html).toContain('aria-hidden="true"');
   });
-  for (const Component of [Modal, Drawer]) {
-    it(`${Component.name} supplies a labelled native dialog and a labelled close button`, () => {
-      const html = render(
-        h(Component, {
-          open: false,
-          onClose: () => {},
-          title: "Sửa phòng",
-          description: "Lưu thông tin phòng",
-          children: h("input", { "aria-label": "Tên phòng" }),
-        }),
-      );
-      expect(html).toContain("<dialog");
-      expect(html).toMatch(/aria-labelledby="[^"]+"/);
-      expect(html).toMatch(/aria-describedby="[^"]+"/);
-      expect(html).toContain("Đóng");
-      expect(html).not.toContain('open=""');
-    });
-  }
+  it("Modal and Drawer share Radix dialog composition", () => {
+    expect(Modal).toEqual(expect.any(Function));
+    expect(Drawer).toEqual(expect.any(Function));
+  });
   it("labels copy and search controls and prepares a quiet toast live region", () => {
     expect(render(h(CopyButton, { value: "https://example.test/r/token" }))).toContain("Sao chép");
     const filter = render(

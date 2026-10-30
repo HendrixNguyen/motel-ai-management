@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import Button from "@/components/ui/button";
+import { Button } from "@/components/ui/shadcn/button";
 import { finalizeBillingPeriod } from "@/lib/api/billing.client";
 
 export default function FinalizePeriod({

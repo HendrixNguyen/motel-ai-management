@@ -77,9 +77,11 @@ overlays; use surface contrast and dividers for ordinary content hierarchy.
 Stat card, data table (sortable, paginated, searchable), modal, slide-over drawer, toast,
 status badge, filter bar, empty state, and a form field with label + inline error.
 
-The shared kit lives in `frontend/src/components/ui/`, with one default export per primitive.
+The shared kit lives in `frontend/src/components/ui/`; product facades use default exports,
+while vendored shadcn primitives use named exports from `frontend/src/components/ui/shadcn/`.
 Interactive callers are Client Components; render callbacks such as table columns and field
-controls stay within that client boundary. The public contracts are:
+controls stay within that client boundary. The shared kit contracts below remain authoritative
+for product-facing facades:
 
 - `Button`: `variant` (`primary`, `secondary`, `ghost`, `danger`), `size` (`sm`, `md`, `lg`),
   `pending`, `pendingLabel`, and native button props. Every size has a `44×44px` minimum target;
@@ -90,8 +92,10 @@ controls stay within that client boundary. The public contracts are:
   supplies a touch target, semantic border, and visible focus ring. Callers may extend or
   override that class while maintaining those requirements.
 - `Modal` / `Drawer`: controlled `open`, `onClose`, `title`, optional `description`, `children`,
-  and optional `footer`. Native `showModal()` provides inertness, focus trapping, and Escape.
-  Closing, including a controlled close or unmount, restores the opening control's focus.
+  and optional `footer`. Radix Dialog provides modal inertness, focus trapping, and Escape. `Modal`
+  dismisses on outside interaction unless a flow prevents it to protect pending or destructive
+  work; closing restores the opening control's focus. `Drawer` presents the same dialog content
+  in a right-side sheet on mobile.
 - `Badge`: required text `label` and `tone` (`success`, `warning`, `danger`, `neutral`), mapped
   to the semantic palette above. `StatCard` takes `label`, `value`, optional `description`;
   values use tabular numerals.
@@ -110,11 +114,16 @@ controls stay within that client boundary. The public contracts are:
   into readable rows; sort buttons remain reachable. Search and sort reset to page one,
   stale pages clamp to the result count, and no results names the next filtering action.
 - Named `ToastProvider` / `useToast`: the manager content is wrapped in the provider;
-  `useToast()` returns a notifier accepting `{ message, tone? }`. Messages are announced in
-  a polite live region and remain until dismissed, allowing time to read and use the controls.
-
-Only the skeleton animates; all other primitives use immediate state changes and have no
-motion requiring a reduced-motion override. No third-party UI library is added.
+  `useToast()` returns a notifier accepting `{ message, tone? }`. Powered by `sonner` with an
+  accessible aria-live region. Critical and danger messages persist until dismissed, other
+  messages auto-dismiss after 3000ms. The visual toast provides explicit dismiss action; toast
+  notifications are not used as the only feedback for validation or system-state changes.
+- `shadcn/ui` (Radix UI) and `motion`: vendored primitives include Dialog, DropdownMenu, Select,
+  Tabs, Accordion, Button, Input, Textarea, and Label, styled with the existing semantic Tailwind
+  tokens. Product-facing tables, searchable/paginated table behavior, form fields and status
+  badges remain first-party facades. Page and navigation Motion transitions stop positional and
+  opacity animation when reduced motion is requested; CSS transitions and keyframes also disable
+  under `prefers-reduced-motion`.
 
 ---
 
@@ -145,13 +154,13 @@ with no endpoint gets **no route and no nav item** — a sidebar entry that 404s
 affordance — and a measure with no endpoint is omitted rather than rendered zero-filled, since
 a "Doanh thu dự kiến 0 ₫" tile is a false claim about data that does not exist.
 
-| Surface | Built | Deferred — no endpoint exists |
-|---------|-------|-------------------------------|
-| Sidebar | **Tổng quan**, **Nhà trọ**, **Phòng trọ**, **Khách thuê**, **Tính tiền & Hóa đơn**, **Hợp đồng** (read-only list, draft create/edit, detail, template create/edit/delete, send request and terminate through existing APIs) | **Sự cố & Yêu cầu** manager administration (M8; no manager endpoint), dedicated **Cài đặt** route (M9; supported price/fee/bank fields remain in M2 edit) |
-| M1 Overview | **Phòng** card, live quick actions | **Doanh thu dự kiến**, **Tiền chưa thu**, **Sự cố chưa xử lý** cards, and both widgets |
-| M3 Phòng trọ | filters, cards, add/edit, change status | overdue indicator, meter history |
-| M4 Khách thuê | list, detail, **Tạo magic link** | provider-specific send/retry actions |
-| M9 Cài đặt | prices, `otherFees`, and bank account — carried by the M2 edit modal | the Zalo OA status panel |
+| Surface       | Built                                                                                                                                                                                                                       | Deferred — no endpoint exists                                                                                                                             |
+| ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Sidebar       | **Tổng quan**, **Nhà trọ**, **Phòng trọ**, **Khách thuê**, **Tính tiền & Hóa đơn**, **Hợp đồng** (read-only list, draft create/edit, detail, template create/edit/delete, send request and terminate through existing APIs) | **Sự cố & Yêu cầu** manager administration (M8; no manager endpoint), dedicated **Cài đặt** route (M9; supported price/fee/bank fields remain in M2 edit) |
+| M1 Overview   | **Phòng** card, live quick actions                                                                                                                                                                                          | **Doanh thu dự kiến**, **Tiền chưa thu**, **Sự cố chưa xử lý** cards, and both widgets                                                                    |
+| M3 Phòng trọ  | filters, cards, add/edit, change status                                                                                                                                                                                     | overdue indicator, meter history                                                                                                                          |
+| M4 Khách thuê | list, detail, **Tạo magic link**                                                                                                                                                                                            | provider-specific send/retry actions                                                                                                                      |
+| M9 Cài đặt    | prices, `otherFees`, and bank account — carried by the M2 edit modal                                                                                                                                                        | the Zalo OA status panel                                                                                                                                  |
 
 Each section below still describes the full intended screen. Read the table as what is
 delivered, not the section as what is.
@@ -456,6 +465,7 @@ technical error text. This route is never linked directly from the app UI.
 ### R1 — Trang chủ `/portal`
 
 Current and unpaid invoices:
+
 - Displays pending/overdue invoices across sent periods with direct "Xem QR" and "Gửi chứng từ" actions.
 - Lists billing periods linking to `/portal/bills?period=...`.
 
@@ -528,7 +538,6 @@ _Tạo yêu cầu mới (`/portal/tickets/new`):_ category selector, description
 remove, then **Gửi yêu cầu**. Submit shows a success toast and returns to the list.
 
 After submitting, the portal shows the renter's phone number with a copy button and the line "Chủ nhà trọ sẽ phản hồi theo kênh đã cấu hình" — the app does not promise Zalo or in-app replies.
-
 
 ---
 

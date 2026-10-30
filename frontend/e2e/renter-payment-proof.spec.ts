@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import type { RenterPaymentProof } from "../src/lib/api/types";
 import { RENTER_ID, MOTEL_ID } from "../test/lib/api/fixtures";
 
 test("renter uploads payment proof and sees pending status without leaking URLs", async ({
@@ -102,7 +103,7 @@ test("renter uploads payment proof and sees pending status without leaking URLs"
       },
     }),
   );
-  let currentProof: any = null;
+  let currentProof: RenterPaymentProof | null = null;
   await page.route(`**/api/renter/invoices/${invoiceId}/payment-proof`, async (route) => {
     if (route.request().method() === "POST") {
       currentProof = {

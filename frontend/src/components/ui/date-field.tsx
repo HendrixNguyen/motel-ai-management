@@ -1,4 +1,5 @@
 import type { InputHTMLAttributes } from "react";
+import { Input } from "@/components/ui/shadcn/input";
 import Field from "./field";
 
 type Props = Omit<InputHTMLAttributes<HTMLInputElement>, "value" | "onChange" | "id" | "type"> & {
@@ -25,7 +26,7 @@ export default function DateField({ value, onChange, ...props }: Props) {
   return (
     <Field {...props}>
       {(control) => (
-        <input
+        <Input
           {...control}
           {...props}
           type="date"

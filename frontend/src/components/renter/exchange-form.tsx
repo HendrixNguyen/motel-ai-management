@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ApiError } from "@/lib/api/client";
 import { exchangeRenterMagicLink, requestRenterLogin } from "@/lib/api/renter";
-import Button from "@/components/ui/button";
+import { Button } from "@/components/ui/shadcn/button";
 import Field from "@/components/ui/field";
 
 export default function RenterExchangeForm() {
@@ -50,7 +50,9 @@ export default function RenterExchangeForm() {
       setRequestSent(true);
       setError(result.message);
     } catch (cause) {
-      setError(cause instanceof ApiError ? cause.message : "Không thể gửi yêu cầu. Vui lòng thử lại.");
+      setError(
+        cause instanceof ApiError ? cause.message : "Không thể gửi yêu cầu. Vui lòng thử lại.",
+      );
     } finally {
       setPending(false);
     }
@@ -79,11 +81,14 @@ export default function RenterExchangeForm() {
             />
           )}
         </Field>
-        <Button type="submit" pending={pending} pendingLabel="Đang đăng nhập…">
-          Đăng nhập
+        <Button type="submit" disabled={pending} aria-busy={pending}>
+          {pending ? "Đang đăng nhập…" : "Đăng nhập"}
         </Button>
       </form>
-      <form onSubmit={requestLink} className="space-y-4 rounded-card border border-border bg-surface p-6">
+      <form
+        onSubmit={requestLink}
+        className="space-y-4 rounded-card border border-border bg-surface p-6"
+      >
         <div>
           <h2 className="font-heading text-lg font-semibold text-text">
             Hết hạn hoặc chưa có liên kết?
@@ -120,8 +125,8 @@ export default function RenterExchangeForm() {
             />
           )}
         </Field>
-        <Button type="submit" variant="secondary" pending={pending} pendingLabel="Đang gửi yêu cầu…">
-          Yêu cầu gửi liên kết
+        <Button type="submit" variant="secondary" disabled={pending} aria-busy={pending}>
+          {pending ? "Đang gửi yêu cầu…" : "Yêu cầu gửi liên kết"}
         </Button>
         {requestSent && (
           <p role="status" className="text-sm text-text-muted">

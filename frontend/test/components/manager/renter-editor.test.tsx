@@ -70,7 +70,7 @@ const renter: RenterResponse = {
 };
 
 describe("RenterEditor branches", () => {
-  test("cancel closes create dialog and restores focus to trigger", () => {
+  test("cancel closes create dialog and restores focus to trigger", async () => {
     const view = render(<RenterEditor motelId="m" rooms={rooms} />);
     expect(view.queryByLabelText("Ảnh CCCD")).toBeNull();
     const trigger = view.getByRole("button", { name: "Thêm khách thuê" });
@@ -78,12 +78,14 @@ describe("RenterEditor branches", () => {
     expect(view.getByRole("dialog")).toBeInTheDocument();
     fireEvent.click(view.getByRole("button", { name: "Hủy" }));
     expect(view.queryByRole("dialog")).toBeNull();
-    expect(trigger).toHaveFocus();
+    await waitFor(() => expect(trigger).toHaveFocus());
   });
 
   test("rejected renter save shows safe error, unlocks form and permits retry", async () => {
     const view = render(<RenterEditor motelId="m" rooms={rooms} renter={renter} />);
     fireEvent.click(view.getByRole("button", { name: "Chỉnh sửa Nguyễn A" }));
+    await view.findByRole("dialog");
+    await view.findByRole("dialog");
     const submit = view.getByRole("button", { name: "Lưu thay đổi" });
     mocks.submit.mockRejectedValueOnce(new Error("postgres://internal/private"));
     fireEvent.click(submit);
@@ -102,6 +104,7 @@ describe("RenterEditor branches", () => {
   test("edit handles success, unauthorized, server error and field validation", async () => {
     const view = render(<RenterEditor motelId="m" rooms={rooms} renter={renter} />);
     fireEvent.click(view.getByRole("button", { name: "Chỉnh sửa Nguyễn A" }));
+    await view.findByRole("dialog");
     mocks.submit.mockResolvedValueOnce({ ok: true });
     fireEvent.submit(view.getByRole("button", { name: "Lưu thay đổi" }).closest("form")!);
     await waitFor(() =>
@@ -113,6 +116,7 @@ describe("RenterEditor branches", () => {
   test("maps 401 to login redirect and 404 to reload action", async () => {
     const view = render(<RenterEditor motelId="m" rooms={rooms} renter={renter} />);
     fireEvent.click(view.getByRole("button", { name: "Chỉnh sửa Nguyễn A" }));
+    await view.findByRole("dialog");
     mocks.submit.mockResolvedValueOnce({ ok: false, status: 401, error: "Unauthorized" });
     fireEvent.submit(view.getByRole("button", { name: "Lưu thay đổi" }).closest("form")!);
     await waitFor(() => expect(mocks.replace).toHaveBeenCalledWith("/login"));
@@ -131,7 +135,9 @@ describe("RenterEditor branches", () => {
       <RenterEditor motelId="m" rooms={[]} renter={{ ...renter, roomId: "deleted-room" }} />,
     );
     fireEvent.click(view.getByRole("button", { name: "Chỉnh sửa Nguyễn A" }));
+    fireEvent.click(view.getByRole("combobox", { name: "Phòng (không bắt buộc)" }));
     expect(view.getByRole("option", { name: "Phòng chưa cập nhật" })).toBeInTheDocument();
+    fireEvent.click(view.getByRole("option", { name: "Phòng chưa cập nhật" }));
     mocks.submit.mockResolvedValueOnce({
       ok: false,
       status: 422,
@@ -145,10 +151,12 @@ describe("RenterEditor branches", () => {
   test("retains renter edit draft after conflict", async () => {
     const view = render(<RenterEditor motelId="m" rooms={rooms} renter={renter} />);
     fireEvent.click(view.getByRole("button", { name: "Chỉnh sửa Nguyễn A" }));
+    await view.findByRole("dialog");
     const input = view.getByLabelText("Họ tên") as HTMLInputElement;
     fireEvent.change(input, { target: { value: "Bản nháp" } });
     expect(view.getByLabelText("Họ tên")).toHaveValue("Bản nháp");
-    fireEvent.change(view.getByLabelText("Trạng thái thuê"), { target: { value: "inactive" } });
+    fireEvent.click(view.getByRole("combobox", { name: "Trạng thái thuê" }));
+    fireEvent.click(view.getByRole("option", { name: "Đã kết thúc hợp đồng" }));
     mocks.submit.mockResolvedValueOnce({ ok: false, status: 409, error: "Thông tin vừa thay đổi" });
     await act(async () => {
       fireEvent.submit(view.getByRole("button", { name: "Lưu thay đổi" }).closest("form")!);
@@ -170,6 +178,7 @@ describe("RenterEditor branches", () => {
   test("redacts unexpected CCCD upload failures but preserves safe API validation errors", async () => {
     const view = render(<RenterEditor motelId="m" rooms={rooms} renter={renter} />);
     fireEvent.click(view.getByRole("button", { name: "Chỉnh sửa Nguyễn A" }));
+    await view.findByRole("dialog");
     mocks.upload.mockRejectedValueOnce(new Error("https://r2.internal/private-key"));
     fireEvent.change(view.getByLabelText(/CCCD mặt trước/), {
       target: { files: [new File(["x"], "front.jpg", { type: "image/jpeg" })] },
@@ -190,6 +199,7 @@ describe("RenterEditor branches", () => {
   test("CCCD upload success/failure branches update only manager edit form", async () => {
     const view = render(<RenterEditor motelId="m" rooms={rooms} renter={renter} />);
     fireEvent.click(view.getByRole("button", { name: "Chỉnh sửa Nguyễn A" }));
+    await view.findByRole("dialog");
     mocks.upload.mockResolvedValueOnce({ uploaded: true });
     const input = view.getByLabelText(/CCCD mặt trước/);
     fireEvent.change(input, {

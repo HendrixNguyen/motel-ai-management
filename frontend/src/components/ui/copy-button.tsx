@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import Button from "./button";
+import { Button } from "@/components/ui/shadcn/button";
 
 export default function CopyButton({
   value,
@@ -15,8 +15,8 @@ export default function CopyButton({
     <div className="min-w-0 space-y-2">
       <Button
         variant="secondary"
-        pending={status === "pending"}
-        pendingLabel="Đang sao chép…"
+        disabled={status === "pending"}
+        aria-busy={status === "pending"}
         onClick={async () => {
           setStatus("pending");
           try {
@@ -27,7 +27,7 @@ export default function CopyButton({
           }
         }}
       >
-        {label}
+        {status === "pending" ? "Đang sao chép…" : label}
       </Button>
       <p
         role="status"

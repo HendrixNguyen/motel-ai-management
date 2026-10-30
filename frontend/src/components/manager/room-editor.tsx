@@ -2,8 +2,16 @@
 
 import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import Button from "@/components/ui/button";
+import { Button } from "@/components/ui/shadcn/button";
 import Field from "@/components/ui/field";
+import { Input } from "@/components/ui/shadcn/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/shadcn/select";
 import Modal from "@/components/ui/modal";
 import { useToast } from "@/components/ui/toast";
 import type { RoomResponse, RoomStatus } from "@/lib/api/types";
@@ -42,7 +50,6 @@ export default function RoomEditor({
   };
   const closeFromDialog = () => {
     close();
-    trigger.current?.focus();
   };
   const cancel = () => {
     closeFromDialog();
@@ -92,6 +99,12 @@ export default function RoomEditor({
       <Modal
         open={currentSession !== undefined}
         onClose={closeFromDialog}
+        onCloseAutoFocus={(event) => {
+          window.setTimeout(() => {
+            event.preventDefault();
+            trigger.current?.focus();
+          }, 0);
+        }}
         title={
           statusMode ? "Đổi trạng thái phòng" : room ? "Chỉnh sửa phòng trọ" : "Thêm phòng trọ"
         }
@@ -262,17 +275,21 @@ export function RoomForm({
             <p className="font-semibold text-text [overflow-wrap:anywhere]">{original?.name}</p>
             <Field id={id("status")} label="Trạng thái phòng">
               {(props) => (
-                <select
-                  {...props}
+                <Select
                   value={statusDraft}
-                  onChange={(event) => setStatusDraft(event.target.value as RoomStatus)}
+                  onValueChange={(value) => setStatusDraft(value as RoomStatus)}
                 >
-                  {(["available", "occupied", "maintenance"] as const).map((value) => (
-                    <option key={value} value={value}>
-                      {roomStatusLabel(value)}
-                    </option>
-                  ))}
-                </select>
+                  <SelectTrigger id={props.id} aria-label="Trạng thái phòng">
+                    <SelectValue>{roomStatusLabel(statusDraft)}</SelectValue>
+                  </SelectTrigger>
+                  <SelectContent position="popper" align="start">
+                    {(["available", "occupied", "maintenance"] as const).map((value) => (
+                      <SelectItem key={value} value={value}>
+                        {roomStatusLabel(value)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               )}
             </Field>
           </>
@@ -280,7 +297,7 @@ export function RoomForm({
           <>
             <Field id={id("name")} label="Tên phòng" error={fields.name}>
               {(props) => (
-                <input
+                <Input
                   {...props}
                   name="name"
                   autoComplete="off"
@@ -297,7 +314,7 @@ export function RoomForm({
               hint="Nhập số nguyên; 0 là tầng trệt. Để trống nếu chưa ghi tầng."
             >
               {(props) => (
-                <input
+                <Input
                   {...props}
                   name="floor"
                   type="text"
@@ -315,7 +332,7 @@ export function RoomForm({
               describedBy={preview !== null ? id("preview") : undefined}
             >
               {(props) => (
-                <input
+                <Input
                   {...props}
                   name="basePrice"
                   type="text"
@@ -341,8 +358,14 @@ export function RoomForm({
         <Button variant="secondary" disabled={pending} onClick={onCancel}>
           Hủy
         </Button>
-        <Button type="submit" pending={pending} pendingLabel="Đang lưu…">
-          {mode === "status" ? "Lưu trạng thái" : original ? "Lưu thay đổi" : "Thêm phòng"}
+        <Button type="submit" disabled={pending} aria-busy={pending}>
+          {pending
+            ? "Đang lưu…"
+            : mode === "status"
+              ? "Lưu trạng thái"
+              : original
+                ? "Lưu thay đổi"
+                : "Thêm phòng"}
         </Button>
       </div>
     </form>

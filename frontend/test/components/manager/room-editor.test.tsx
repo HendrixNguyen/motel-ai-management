@@ -1,5 +1,6 @@
 import { act, createElement } from "react";
 import { cleanup } from "@testing-library/react";
+import "@testing-library/jest-dom/vitest";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeAll, describe, expect, test, vi } from "vitest";
 import { JSDOM } from "jsdom";
@@ -28,6 +29,87 @@ vi.mock("@/lib/room-form", async () => {
   };
 });
 vi.mock("@/components/ui/toast", () => ({ useToast: () => mocks.notify }));
+vi.mock("@/components/ui/modal", async () => {
+  const React = await import("react");
+  return {
+    default: ({
+      open,
+      onClose,
+      title,
+      description,
+      children,
+      footer,
+      ...props
+    }: {
+      open: boolean;
+      onClose: () => void;
+      onCloseAutoFocus?: (event: { preventDefault: () => void }) => void;
+      title: string;
+      description?: string;
+      children: React.ReactNode;
+      footer?: React.ReactNode;
+      [key: string]: unknown;
+    }) =>
+      open
+        ? React.createElement(
+            "section",
+            { role: "dialog", "data-dialog": "true", ...props },
+            React.createElement("h2", null, title),
+            description && React.createElement("p", null, description),
+            children,
+            footer,
+            React.createElement("div", { role: "alert" }),
+            React.createElement(
+              "button",
+              { type: "button", "aria-label": "Đóng", onClick: onClose },
+              "Đóng",
+            ),
+          )
+        : null,
+  };
+});
+vi.mock("@/components/ui/modal", () => ({
+  default: ({
+    open,
+    onClose,
+    onCloseAutoFocus,
+    title,
+    description,
+    children,
+    footer,
+  }: {
+    open: boolean;
+    onClose: () => void;
+    onCloseAutoFocus?: (event: { preventDefault: () => void }) => void;
+    title: string;
+    description?: string;
+    children: React.ReactNode;
+    footer?: React.ReactNode;
+  }) =>
+    open
+      ? createElement(
+          "section",
+          { role: "dialog", "aria-label": title, "data-dialog": "true" },
+          createElement("h2", null, title),
+          description && createElement("p", null, description),
+          children,
+          footer,
+          createElement("div", { role: "alert" }),
+          createElement(
+            "button",
+            {
+              type: "button",
+              "aria-label": "Đóng",
+              onClick: () => {
+                onClose();
+                onCloseAutoFocus?.({ preventDefault: () => {} });
+              },
+            },
+            "Đóng",
+          ),
+        )
+      : null,
+}));
 import RoomEditor from "@/components/manager/room-editor";
 
 const dom = new JSDOM("<!doctype html><html><body></body></html>", { url: "http://localhost/" });
@@ -35,11 +117,13 @@ Object.defineProperties(globalThis, {
   window: { configurable: true, value: dom.window },
   document: { configurable: true, value: dom.window.document },
   navigator: { configurable: true, value: dom.window.navigator },
+  MutationObserver: { configurable: true, value: dom.window.MutationObserver },
   HTMLElement: { configurable: true, value: dom.window.HTMLElement },
   Node: { configurable: true, value: dom.window.Node },
+  HTMLFormElement: { configurable: true, value: dom.window.HTMLFormElement },
   Event: { configurable: true, value: dom.window.Event },
   MouseEvent: { configurable: true, value: dom.window.MouseEvent },
-  IS_REACT_ACT_ENVIRONMENT: { configurable: true, value: true },
+  IS_REACT_ACT_ENVIRONMENT: { configurable: true, writable: true, value: true },
 });
 dom.window.HTMLDialogElement.prototype.showModal = function () {
   this.open = true;
@@ -94,14 +178,15 @@ describe("RoomEditor behavior branches", () => {
     try {
       await view.render(createElement(RoomEditor, { motelId: "motel-1", empty: true }));
       await act(async () => (view.host.querySelector("button") as HTMLButtonElement).click());
-      const input = view.host.querySelector('input[name="name"]') as HTMLInputElement;
+      await vi.waitFor(() => expect(document.querySelector("[data-dialog]")).not.toBeNull());
+      const input = document.querySelector('input[name="name"]') as HTMLInputElement;
       await act(async () => {
         input.value = "102";
         input.dispatchEvent(new dom.window.Event("input", { bubbles: true }));
         input.dispatchEvent(new dom.window.Event("change", { bubbles: true }));
       });
       await act(async () => {
-        (view.host.querySelector("form") as HTMLFormElement).dispatchEvent(
+        (document.querySelector("form") as HTMLFormElement).dispatchEvent(
           new Event("submit", { bubbles: true, cancelable: true }),
         );
       });
@@ -123,18 +208,19 @@ describe("RoomEditor behavior branches", () => {
       await view.render(createElement(RoomEditor, { motelId: "motel-1", empty: true }));
       await act(async () => (view.host.querySelector("button") as HTMLButtonElement).click());
       await act(async () =>
-        (view.host.querySelector("form") as HTMLFormElement).dispatchEvent(
+        (document.querySelector("form") as HTMLFormElement).dispatchEvent(
           new Event("submit", { bubbles: true, cancelable: true }),
         ),
       );
-      const nameError = [...view.host.querySelectorAll("a")].find(
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      const nameError = [...document.querySelectorAll("a")].find(
         (link) => link.textContent === "Nhập tên phòng",
       )!;
       await act(async () =>
         nameError.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true })),
       );
       expect(document.activeElement?.getAttribute("name")).toBe("name");
-      expect(view.host.querySelector('[role="alert"]')).not.toBeNull();
+      expect(document.querySelector('[role="alert"]')).not.toBeNull();
     } finally {
       await view.cleanup();
     }
@@ -147,11 +233,11 @@ describe("RoomEditor behavior branches", () => {
       await view.render(createElement(RoomEditor, { motelId: "motel-1", room }));
       await act(async () => view.host.querySelectorAll("button")[1]?.click());
       await act(async () =>
-        (view.host.querySelector("form") as HTMLFormElement).dispatchEvent(
+        (document.querySelector("form") as HTMLFormElement).dispatchEvent(
           new Event("submit", { bubbles: true, cancelable: true }),
         ),
       );
-      expect(view.host.textContent).toContain("Tải lại danh sách");
+      expect(document.querySelector("form")?.textContent).toContain("Tải lại danh sách");
       expect(mocks.replace).not.toHaveBeenCalled();
     } finally {
       await view.cleanup();
@@ -163,13 +249,12 @@ describe("RoomEditor behavior branches", () => {
     try {
       await view.render(createElement(RoomEditor, { motelId: "motel-1", room }));
       const trigger = view.host.querySelector("button") as HTMLButtonElement;
-      await act(async () => {
-        trigger.focus();
-        trigger.click();
-      });
+      await act(async () => trigger.click());
+      const dialog = await vi.waitFor(() => document.querySelector("[data-dialog]") as HTMLElement);
       await act(async () =>
-        (view.host.querySelector('button[aria-label="Đóng"]') as HTMLButtonElement)?.click(),
+        (dialog.querySelector('[aria-label="Đóng"]') as HTMLButtonElement).click(),
       );
+      await act(async () => await new Promise((resolve) => setTimeout(resolve, 0)));
       expect(document.activeElement).toBe(trigger);
     } finally {
       await view.cleanup();
@@ -183,14 +268,14 @@ describe("RoomEditor behavior branches", () => {
       await view.render(createElement(RoomEditor, { motelId: "motel-1" }));
       await act(async () => (view.host.querySelector("button") as HTMLButtonElement).click());
       await act(async () =>
-        (view.host.querySelector("form") as HTMLFormElement).dispatchEvent(
+        (document.querySelector("form") as HTMLFormElement).dispatchEvent(
           new Event("submit", { bubbles: true, cancelable: true }),
         ),
       );
-      expect(view.host.querySelector("[role=alert]")?.textContent).toContain(
+      expect(document.querySelector("[data-dialog] [role=alert]")?.textContent).toContain(
         "Đã xảy ra lỗi hệ thống",
       );
-      expect((view.host.querySelector("fieldset") as HTMLFieldSetElement).disabled).toBe(false);
+      expect((document.querySelector("form fieldset") as HTMLFieldSetElement).disabled).toBe(false);
     } finally {
       await view.cleanup();
     }
@@ -206,14 +291,14 @@ describe("RoomEditor behavior branches", () => {
       )!;
       await act(async () => trigger.click());
       await act(async () =>
-        (view.host.querySelector("form") as HTMLFormElement).dispatchEvent(
+        (document.querySelector("form") as HTMLFormElement).dispatchEvent(
           new Event("submit", { bubbles: true, cancelable: true }),
         ),
       );
-      expect(view.host.querySelector("[role=alert]")?.textContent).toContain(
+      expect(document.querySelector("[data-dialog] [role=alert]")?.textContent).toContain(
         "Đã xảy ra lỗi hệ thống",
       );
-      expect((view.host.querySelector("fieldset") as HTMLFieldSetElement).disabled).toBe(false);
+      expect((document.querySelector("form fieldset") as HTMLFieldSetElement).disabled).toBe(false);
     } finally {
       await view.cleanup();
     }
@@ -229,7 +314,7 @@ describe("RoomEditor behavior branches", () => {
         buttons.find((button) => button.textContent === "Đổi trạng thái")?.click(),
       );
       await act(async () => {
-        (view.host.querySelector("form") as HTMLFormElement).dispatchEvent(
+        (document.querySelector("form") as HTMLFormElement).dispatchEvent(
           new Event("submit", { bubbles: true, cancelable: true }),
         );
       });
