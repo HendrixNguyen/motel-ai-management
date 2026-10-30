@@ -8,7 +8,7 @@ import { motels } from "@/modules/motel/motel.schema";
 import { renters } from "@/modules/renter/renter.schema";
 import { rooms } from "@/modules/room/room.schema";
 import { contractTemplateCatalog } from "@/modules/contract/contract.schema";
-import { seedSystem } from "@/db/seed-system";
+import { seedSystem, systemSeedErrorMessage } from "@/db/seed-system";
 
 setDefaultTimeout(120_000);
 
@@ -20,6 +20,16 @@ beforeEach(async () => {
 });
 
 describe("system seed", () => {
+  it("renders only fixed safe error messages", () => {
+    const sentinel = "secret-hash-driver-detail";
+    const rendered = systemSeedErrorMessage(new Error(sentinel));
+    expect(rendered).not.toContain(sentinel);
+    expect(rendered).toBe("System seed failed; check database schema and connectivity");
+    expect(systemSeedErrorMessage(new Error("Canonical Superadmin account is disabled; no data was changed"))).toBe(
+      "Canonical Superadmin account is disabled; no data was changed",
+    );
+  });
+
   it("refuses non-deployed mode", async () => {
     await expect(seedSystem({ ...env, NODE_ENV: "test" })).rejects.toThrow("NODE_ENV");
   });
@@ -65,19 +75,33 @@ describe("system seed", () => {
       passwordHash: await Bun.password.hash(password),
       role: "manager",
     });
+    const managersBefore = await db.select().from(managers);
+    const auditsBefore = await db.select().from(managerAuditEvents);
+    const catalogBefore = await db.select().from(contractTemplateCatalog);
     await expect(seedSystem(env)).rejects.toThrow("role");
-    expect(await db.select().from(contractTemplateCatalog)).toHaveLength(0);
+    expect(await db.select().from(managers)).toEqual(managersBefore);
+    expect(await db.select().from(managerAuditEvents)).toEqual(auditsBefore);
+    expect(await db.select().from(contractTemplateCatalog)).toEqual(catalogBefore);
   });
 
   it("rejects disabled Superadmin and wrong password without writes", async () => {
     const seeded = await seedSystem(env);
     await db.update(managers).set({ disabledAt: new Date() }).where(eq(managers.email, SUPERADMIN_EMAIL));
+    const disabledBefore = await db.select().from(managers);
+    const disabledAuditsBefore = await db.select().from(managerAuditEvents);
+    const disabledCatalogBefore = await db.select().from(contractTemplateCatalog);
     await expect(seedSystem(env)).rejects.toThrow("disabled");
+    expect(await db.select().from(managers)).toEqual(disabledBefore);
+    expect(await db.select().from(managerAuditEvents)).toEqual(disabledAuditsBefore);
+    expect(await db.select().from(contractTemplateCatalog)).toEqual(disabledCatalogBefore);
     await db.update(managers).set({ disabledAt: null }).where(eq(managers.email, SUPERADMIN_EMAIL));
-    const before = await db.query.managers.findFirst({ where: eq(managers.email, SUPERADMIN_EMAIL) });
+    const before = await db.select().from(managers);
+    const auditsBefore = await db.select().from(managerAuditEvents);
+    const catalogBefore = await db.select().from(contractTemplateCatalog);
     await expect(seedSystem({ ...env, SUPERADMIN_PASSWORD: "different-safe-password-2026" })).rejects.toThrow("password");
-    const after = await db.query.managers.findFirst({ where: eq(managers.email, SUPERADMIN_EMAIL) });
-    expect(after?.passwordHash).toBe(before?.passwordHash);
+    expect(await db.select().from(managers)).toEqual(before);
+    expect(await db.select().from(managerAuditEvents)).toEqual(auditsBefore);
+    expect(await db.select().from(contractTemplateCatalog)).toEqual(catalogBefore);
     expect(seeded.insertedCatalogKeys).toHaveLength(3);
   });
 
@@ -85,6 +109,9 @@ describe("system seed", () => {
     const results = await Promise.all([seedSystem(env), seedSystem(env)]);
     expect(new Set(results.map((result) => result.superadminId)).size).toBe(1);
     expect(await db.select().from(managers)).toHaveLength(1);
-    expect(await db.select().from(contractTemplateCatalog)).toHaveLength(3);
+    expect(await db.select().from(managerAuditEvents)).toHaveLength(1);
+    const catalogRows = await db.select().from(contractTemplateCatalog);
+    expect(catalogRows).toHaveLength(3);
+    expect(new Set(catalogRows.map((row) => `${row.key}:${row.version}`)).size).toBe(3);
   });
 });
