@@ -24,9 +24,9 @@ Product context: `README.md`.
 
 ## Repo shape
 
-- Two independent Bun packages. **There is no root `package.json` and no workspace file** —
-  run `bun install` inside `backend/` and `frontend/` separately; each has its own
-  `bun.lock`. No root-level `bun install`, `bun test`, or `bun run build` exists.
+- Three independent packages. **There is no root `package.json` and no workspace file** — run
+  `bun install` separately in `backend/` and `frontend/` (each has `bun.lock`) and `landing/`
+  (Vite+ package with its own `bun.lock`). No root-level install, test, or build command exists.
 - `backend/` — ElysiaJS + Drizzle + PostgreSQL, wired through `src/app.ts` → `src/index.ts`.
 - `frontend/` — Next.js 16.3.8 App Router. The root layout and the design tokens in
   `src/app/globals.css` are in place. Task 5 adds login and the manager shell with heading-only
@@ -37,6 +37,7 @@ Product context: `README.md`.
   motel's room counts, occupancy and live renter quick action. The later screen tasks supply
   remaining content.
   Renter and capture route groups remain specified in `docs/frontend-ui-specs.md`.
+- `landing/` — Vue 3 + Vite+, static Vietnamese marketing site; build output is `landing/dist/`.
 - Bun only. Never `npm`, `yarn`, or `npx`. On this machine Bun is installed at `~/.bun/bin/bun` (currently 1.4.2); shell `PATH` may omit `~/.bun/bin`, so use `PATH="$HOME/.bun/bin:$PATH" bun ...` or the absolute binary before deciding Bun is missing.
 - Git remote is **SSH**: `git@github.com:HendrixNguyen/motel-ai-management.git`. HTTPS push
   fails on this machine — there is no working credential prompt path.
@@ -64,7 +65,24 @@ bun run build
 bun run typecheck           # tsc --noEmit
 bun run test                # vitest run — unit tests under src/
 bun run test:e2e            # playwright  — e2e/**/*.spec.ts, fixture-backed
+
+# landing
+cd landing
+bun run dev
+bun run check
+bun run typecheck
+bun run test
+bun run build
+bun run preview
 ```
+
+## Landing formatting and deployment
+
+- In `landing/`, `bun run check` uses `vp check --no-fmt`; repository CI uses Prettier as the canonical formatter because Vite+ formatting differs. Do not apply both formatters to the same files.
+- Configure `VITE_FORMSPREE_ENDPOINT` as a build-time environment variable in the deployment environment before `cd landing && bun run build`. Vite embeds it in the public static bundle; runtime-only environment configuration does not work.
+- `landing/.env.example` is tracked and contains the public endpoint; `.env.example` is not auto-loaded. Copy value into `landing/.env.local` for local development and the deployment build environment. The endpoint ID is public configuration, not a secret.
+- Keep Formspree's free-plan limit at 50 submissions per month. Formspree enforces this quota; over-limit submissions are held and not processed into email notifications. Do not add a client-side counter as a quota control.
+- If the endpoint is absent, landing intentionally disables form submission and offers direct email as fallback. Never claim form delivery is active until a valid endpoint is set in the production build environment. Do not submit real contact forms during build/test verification.
 
 The frontend harness: `vitest.config.mts` collects `src/**/*.test.ts` only, and `playwright.config.ts`
 declares two projects — `chromium-mobile` (375x667, browser fixtures in `e2e/fixtures/api.ts`
@@ -86,7 +104,7 @@ Verify in this order: backend `typecheck` → `test`; frontend `typecheck` → `
   `backend/.env`. `src/db/index.ts` points its only pool at that URL when `NODE_ENV=test`,
   and there is no second client export, so a test cannot reach the dev database.
 - **`bun test` loads every test file even when all of them are filtered out.** The database
-  is therefore required for *any* `bun test` run, not just integration tests — without it you
+  is therefore required for _any_ `bun test` run, not just integration tests — without it you
   get `connect ECONNREFUSED 127.0.0.1:5432` plus one bogus failure. Pass an explicit file path
   (`bun test test/money.test.ts`) to run a pure test cleanly.
 - `docker-compose.yml` provides postgres 16 and `scripts/init-db.sql` creates `motel_test`. PostgreSQL healthchecks with `pg_isready` before backend startup; backend startup runs `bun run db:migrate` before `bun run start` and restarts unless stopped. This auto-migration flow is for one backend replica only; production multi-replica rollouts require a separate one-shot migration job before replicas start.
@@ -175,15 +193,15 @@ Modular monolith (ADR-0004). Each domain under `backend/src/modules/<domain>/` o
 These are the project's memory. Code follows them; when a change forces a document to change,
 they change in the same commit.
 
-| Document | Owns |
-|----------|------|
-| `docs/superpowers/specs/2026-10-03-motel-management-design.md` | Data model, flows, security rules, build order |
-| `docs/api-contract.md` | Endpoints, request/response bodies, error codes |
-| `docs/frontend-ui-specs.md` | Screens, states, badges, copy |
-| `docs/testing-strategy.md` | What must be tested and at which layer |
-| `docs/adr/` | Decisions that were argued or that add a dependency |
-| `backend/.env.example` | Backend env var names, with honest placeholders |
-| `frontend/.env.example` | Frontend env var names, with honest placeholders |
+| Document                                                       | Owns                                                |
+| -------------------------------------------------------------- | --------------------------------------------------- |
+| `docs/superpowers/specs/2026-10-03-motel-management-design.md` | Data model, flows, security rules, build order      |
+| `docs/api-contract.md`                                         | Endpoints, request/response bodies, error codes     |
+| `docs/frontend-ui-specs.md`                                    | Screens, states, badges, copy                       |
+| `docs/testing-strategy.md`                                     | What must be tested and at which layer              |
+| `docs/adr/`                                                    | Decisions that were argued or that add a dependency |
+| `backend/.env.example`                                         | Backend env var names, with honest placeholders     |
+| `frontend/.env.example`                                        | Frontend env var names, with honest placeholders    |
 
 - State a fact once, in the document that owns it. Link from the others; do not restate.
 - Changing a table → design spec, plus the API contract if the field is exposed over HTTP,
@@ -197,10 +215,10 @@ they change in the same commit.
 
 ## Review before merging
 
-| Command | Agent | Use for |
-|---------|----------|---------|
-| `/review-security` | `security-reviewer` | auth, tenancy, uploads, money, Zalo webhook |
-| `/review-code` | `code-reviewer` | ADR-0004 boundaries, spec conformance, types, tests, doc drift |
+| Command            | Agent               | Use for                                                        |
+| ------------------ | ------------------- | -------------------------------------------------------------- |
+| `/review-security` | `security-reviewer` | auth, tenancy, uploads, money, Zalo webhook                    |
+| `/review-code`     | `code-reviewer`     | ADR-0004 boundaries, spec conformance, types, tests, doc drift |
 
 Both are read-only, report `file_path:line_number` with severity, and treat a missing test as
 a finding. **Both review uncommitted changes only** (`git diff` plus untracked files), so run

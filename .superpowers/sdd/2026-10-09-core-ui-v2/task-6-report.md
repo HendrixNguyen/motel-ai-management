@@ -1,12 +1,14 @@
 # Task 6 report
 
 ## Scope
+
 - Added AppShell, ManagerShell, PortalShell, MotelSwitcher, BottomNav compositions.
 - Migrated manager and renter layouts to compositions without changing auth or data loading.
 - Preserved five manager destinations and motel query scope.
 - Added shell unit coverage for composition, accessibility labels, safe-area class, and mobile navigation.
 
 ## Verification
+
 - Focused shell Vitest: pass, 9 tests.
 - Frontend typecheck: pass.
 - Frontend ESLint: pass.
@@ -15,10 +17,12 @@
 - Playwright not run; browser dependency blocker documented in AGENTS.md.
 
 ## Unrelated failures
+
 - Theme test expects prior theme implementation behavior and CSS safe-area literal.
 - Build fails in generated Next route validator types, outside Task 6.
 
 ## Review follow-up
+
 - Compact mobile billing label now renders `Hóa đơn`; full accessible name remains `Tính tiền & Hóa đơn`.
 - Mobile compact label and billing accessible name are scoped under `Điều hướng gọn trên điện thoại`; desktop navigation remains unchanged.
 - Navigation links expose explicit accessible labels and retain `?motel=` scope.
