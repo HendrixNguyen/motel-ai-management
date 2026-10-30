@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { resetDb } from "@/db/test-db";
 import { managerAuditEvents, managers } from "@/modules/auth/auth.schema";
-import { SUPERADMIN_EMAIL } from "@/modules/auth/superadmin-identity";
+import { SUPERADMIN_EMAIL, SUPERADMIN_NAME } from "@/modules/auth/superadmin-identity";
 import { motels } from "@/modules/motel/motel.schema";
 import { renters } from "@/modules/renter/renter.schema";
 import { rooms } from "@/modules/room/room.schema";
@@ -26,8 +26,14 @@ describe("system seed", () => {
     expect(rendered).not.toContain(sentinel);
     expect(rendered).toBe("System seed failed; check database schema and connectivity");
     expect(systemSeedErrorMessage(new Error("Canonical Superadmin account is disabled; no data was changed"))).toBe(
-      "Canonical Superadmin account is disabled; no data was changed",
+      "System seed failed; check database schema and connectivity",
     );
+    expect(
+      systemSeedErrorMessage(new Error("Canonical Superadmin name does not match; no data was changed")),
+    ).toBe("System seed failed; check database schema and connectivity");
+    expect(
+      systemSeedErrorMessage(new Error("Canonical Superadmin account is disabled; password hash leaked")),
+    ).toBe("System seed failed; check database schema and connectivity");
   });
 
   it("refuses non-deployed mode", async () => {
@@ -53,7 +59,7 @@ describe("system seed", () => {
     expect(first.insertedCatalogKeys).toHaveLength(3);
     expect(second.insertedCatalogKeys).toHaveLength(0);
     expect(secondManager?.passwordHash).toBe(firstManager?.passwordHash);
-    expect(firstManager).toMatchObject({ role: "superadmin", disabledAt: null });
+    expect(firstManager).toMatchObject({ role: "superadmin", disabledAt: null, name: SUPERADMIN_NAME });
     expect(await db.select().from(managers)).toHaveLength(1);
     expect(await db.select().from(managerAuditEvents)).toHaveLength(1);
     expect(await db.select().from(contractTemplateCatalog)).toHaveLength(3);
@@ -79,6 +85,25 @@ describe("system seed", () => {
     const auditsBefore = await db.select().from(managerAuditEvents);
     const catalogBefore = await db.select().from(contractTemplateCatalog);
     await expect(seedSystem(env)).rejects.toThrow("role");
+    expect(await db.select().from(managers)).toEqual(managersBefore);
+    expect(await db.select().from(managerAuditEvents)).toEqual(auditsBefore);
+    expect(await db.select().from(contractTemplateCatalog)).toEqual(catalogBefore);
+  });
+
+  it("rejects conflicting Superadmin display name before catalog writes", async () => {
+    await db.insert(managers).values({
+      email: SUPERADMIN_EMAIL,
+      name: "Unexpected Identity",
+      passwordHash: await Bun.password.hash(password),
+      role: "superadmin",
+    });
+    const managersBefore = await db.select().from(managers);
+    const auditsBefore = await db.select().from(managerAuditEvents);
+    const catalogBefore = await db.select().from(contractTemplateCatalog);
+    await expect(seedSystem(env)).rejects.toThrow("name");
+    expect(systemSeedErrorMessage(new Error("Canonical Superadmin name does not match; no data was changed"))).toBe(
+      "System seed failed; check database schema and connectivity",
+    );
     expect(await db.select().from(managers)).toEqual(managersBefore);
     expect(await db.select().from(managerAuditEvents)).toEqual(auditsBefore);
     expect(await db.select().from(contractTemplateCatalog)).toEqual(catalogBefore);

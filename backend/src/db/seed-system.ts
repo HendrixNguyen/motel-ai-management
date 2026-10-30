@@ -1,8 +1,7 @@
-import { eq, sql } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 import { db } from "@/db";
-import { managerAuditEvents, managers } from "@/modules/auth/auth.schema";
+import { seedSystemSuperadmin } from "@/modules/auth/system-superadmin-bootstrap.service";
 import { seedContractTemplateCatalog } from "@/modules/contract/contract-catalog.seed";
-import { SUPERADMIN_EMAIL, SUPERADMIN_NAME } from "@/modules/auth/superadmin-identity";
 
 type SeedSchemaState = {
   managers: boolean | null;
@@ -27,37 +26,26 @@ async function verifySeedSchema() {
       EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='managers' AND column_name='disabled_at') AS has_disabled_col,
       EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='managers' AND column_name='session_version') AS has_session_col
   `);
-  const state: unknown = schema[0];
+  const state = schema[0] as SeedSchemaState | undefined;
   if (
-    !state ||
-    typeof state !== "object" ||
-    !("managers" in state && state.managers === true) ||
-    !("audit_events" in state && state.audit_events === true) ||
-    !("catalog" in state && state.catalog === true) ||
-    !("contract_status" in state && state.contract_status === true) ||
-    !("manager_role" in state && state.manager_role === true) ||
-    !("has_role_col" in state && state.has_role_col === true) ||
-    !("has_disabled_col" in state && state.has_disabled_col === true) ||
-    !("has_session_col" in state && state.has_session_col === true)
-  )
-    throw new Error("Database schema is incomplete; run and verify the migration job first");
+    !state || state.managers !== true || state.audit_events !== true || state.catalog !== true ||
+    state.contract_status !== true || state.manager_role !== true || state.has_role_col !== true ||
+    state.has_disabled_col !== true || state.has_session_col !== true
+  ) throw new Error("Database schema is incomplete; run and verify the migration job first");
 }
 
+const SAFE_SEED_ERRORS = new Map([
+  ["System seed requires NODE_ENV=production or staging", "System seed requires NODE_ENV=production or staging"],
+  ["Set SUPERADMIN_PASSWORD via a protected secret input (12-256 characters)", "Set SUPERADMIN_PASSWORD via a protected secret input (12-256 characters)"],
+  ["Database schema is incomplete; run and verify the migration job first", "Database schema is incomplete; run and verify the migration job first"],
+]);
+
 export function systemSeedErrorMessage(error: unknown): string {
-  if (error instanceof Error) {
-    const message = error.message;
-    if (message === "System seed requires NODE_ENV=production or staging") return message;
-    if (message.startsWith("Set SUPERADMIN_PASSWORD via a protected secret input"))
-      return "Set SUPERADMIN_PASSWORD via a protected secret input (12-256 characters)";
-    if (message === "Database schema is incomplete; run and verify the migration job first")
-      return message;
-    if (message === "Canonical Superadmin identity has conflicting role; no data was changed")
-      return message;
-    if (message === "Canonical Superadmin account is disabled; no data was changed") return message;
-    if (message === "Canonical Superadmin password does not match; no data was changed")
-      return message;
-  }
-  return "System seed failed; check database schema and connectivity";
+  if (error instanceof Error && "safeSystemSeedError" in error && error.safeSystemSeedError === true)
+    return error.message;
+  return error instanceof Error
+    ? SAFE_SEED_ERRORS.get(error.message) ?? "System seed failed; check database schema and connectivity"
+    : "System seed failed; check database schema and connectivity";
 }
 
 export async function seedSystem(
@@ -74,34 +62,7 @@ export async function seedSystem(
   const insertedCatalogKeys: string[] = [];
   const superadminId = await db.transaction(async (tx) => {
     await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext('motel-superadmin-bootstrap'))`);
-    const [existing] = await tx
-      .select()
-      .from(managers)
-      .where(eq(managers.email, SUPERADMIN_EMAIL))
-      .for("update")
-      .limit(1);
-    let id: string;
-    if (existing) {
-      if (existing.role !== "superadmin")
-        throw new Error("Canonical Superadmin identity has conflicting role; no data was changed");
-      if (existing.disabledAt)
-        throw new Error("Canonical Superadmin account is disabled; no data was changed");
-      if (!(await Bun.password.verify(password, existing.passwordHash)))
-        throw new Error("Canonical Superadmin password does not match; no data was changed");
-      id = existing.id;
-    } else {
-      const passwordHash = await Bun.password.hash(password, { algorithm: "argon2id" });
-      const [created] = await tx
-        .insert(managers)
-        .values({ email: SUPERADMIN_EMAIL, name: SUPERADMIN_NAME, passwordHash, role: "superadmin" })
-        .returning({ id: managers.id });
-      id = created!.id;
-      await tx.insert(managerAuditEvents).values({
-        actorId: id,
-        targetId: id,
-        action: "superadmin.bootstrapped",
-      });
-    }
+    const id = await seedSystemSuperadmin(tx, password);
     insertedCatalogKeys.push(...(await seedContractTemplateCatalog(tx)));
     return id;
   });
@@ -110,13 +71,18 @@ export async function seedSystem(
 }
 
 if (import.meta.main) {
+  let exitCode = 0;
   try {
     await seedSystem();
-    process.exitCode = 0;
   } catch (error) {
     process.stderr.write(`${systemSeedErrorMessage(error)}\n`);
-    process.exitCode = 1;
-  } finally {
-    await (await import("./index")).closeDb();
+    exitCode = 1;
   }
+  try {
+    await (await import("./index")).closeDb();
+  } catch {
+    process.stderr.write("System seed failed; database connection could not be closed safely\n");
+    exitCode = 1;
+  }
+  process.exitCode = exitCode;
 }
