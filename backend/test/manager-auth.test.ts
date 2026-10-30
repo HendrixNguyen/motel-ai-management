@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { resetRateLimits } from "@/shared/rate-limit";
 import { managers } from "@/modules/auth/auth.schema";
+import { SUPERADMIN_EMAIL } from "@/modules/auth/superadmin-identity";
 import { adminAccountRoutes } from "@/modules/auth/auth.route";
 import { verifyManager } from "@/modules/auth/auth.service";
 import { app, createApp } from "@/app";
@@ -61,13 +62,13 @@ describe("manager auth", () => {
     ).toMatchObject({ role: "manager" });
   });
 
-  test("public registration rejects reserved Superadmin email", async () => {
+  test("public registration rejects reserved Superadmin email, including mixed case", async () => {
     const response = await createApp().handle(
       new Request("http://localhost/api/auth/register", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          email: "manage@example.com",
+          email: "SuPeRaDmIn@Motel.Huyndg.Io.Vn",
           name: "Impersonator",
           password: "password 123",
         }),
@@ -75,7 +76,7 @@ describe("manager auth", () => {
     );
     expect([400, 409, 422]).toContain(response.status);
     expect(
-      await db.query.managers.findFirst({ where: eq(managers.email, "manage@example.com") }),
+      await db.query.managers.findFirst({ where: eq(managers.email, SUPERADMIN_EMAIL) }),
     ).toBeUndefined();
   });
 
@@ -207,7 +208,7 @@ describe("manager auth", () => {
         method: "POST",
         headers: { cookie, "x-csrf-token": csrfToken, "content-type": "application/json" },
         body: JSON.stringify({
-          email: "manage@example.com",
+          email: SUPERADMIN_EMAIL,
           name: "Impersonator",
           password: "secure password 123",
         }),
@@ -215,7 +216,7 @@ describe("manager auth", () => {
     );
     expect([400, 409, 422]).toContain(response.status);
     expect(
-      await db.query.managers.findFirst({ where: eq(managers.email, "manage@example.com") }),
+      await db.query.managers.findFirst({ where: eq(managers.email, SUPERADMIN_EMAIL) }),
     ).toBeUndefined();
   });
 
