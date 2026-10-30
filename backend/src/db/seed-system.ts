@@ -1,7 +1,7 @@
 import { sql } from "drizzle-orm";
 import { db } from "@/db";
 import { seedSystemSuperadmin } from "@/modules/auth/system-superadmin-bootstrap.service";
-import { seedContractTemplateCatalog } from "@/modules/contract/contract-catalog.seed";
+import { seedContractCatalog } from "@/modules/contract/contract-catalog.service";
 
 type SeedSchemaState = {
   managers: boolean | null;
@@ -84,7 +84,7 @@ export async function seedSystem(
   const superadminId = await db.transaction(async (tx) => {
     await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext('motel-superadmin-bootstrap'))`);
     const id = await seedSystemSuperadmin(tx, password);
-    insertedCatalogKeys.push(...(await seedContractTemplateCatalog(tx)));
+    insertedCatalogKeys.push(...(await seedContractCatalog(tx)));
     return id;
   });
   writeSummary(`System seed complete; catalog entries added: ${insertedCatalogKeys.length}\n`);
