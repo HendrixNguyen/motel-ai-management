@@ -28,4 +28,5 @@ Prod deployment and seeding are outside QA work. Perform these steps only after 
 4. Run `bun run db:seed-system` once with protected Dokploy `SUPERADMIN_PASSWORD` injection. The seed does not migrate. Never pass password as CLI argument or log it.
 5. Verify one enabled canonical Superadmin, expected catalog rows, successful login and backend health; confirm no demo/business rows were created by system seed.
 6. Do not run `backend/src/db/seed.ts` in Prod. QA-only demo seed requires `APP_ENV=qa` and `SEED_DATABASE=true`.
-7. Record outcome without credentials. Keep public routing/launch steps subject to their own approval.
+7. If canonical identity preflight finds an existing account with conflicting role or disabled state, stop. Do not seed, promote, enable, rename, or delete it automatically; resolve through a separately authorized operator action, then repeat read-only preflight.
+8. Record outcome without credentials. Keep public routing/launch steps subject to their own approval.
