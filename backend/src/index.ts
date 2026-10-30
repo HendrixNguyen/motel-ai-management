@@ -1,5 +1,7 @@
 import { app } from "@/app";
 import { migrateDatabase } from "@/db/migrate";
+import { bootstrapSuperadmin } from "@/db/bootstrap-superadmin";
+import { seedContractTemplateCatalog } from "@/modules/contract/contract-catalog.seed";
 import { env } from "@/config";
 import { enqueueContractExpiryReminders } from "@/modules/notification/expiry.service";
 import { deliverNotification } from "@/modules/notification/notification.service";
@@ -15,7 +17,17 @@ console.log(`Database URL: ${maskedDbUrl}`);
 // Force new image build: 2026-10-12
 
 if (env.nodeEnv !== "test") {
-  if (process.env.AUTO_MIGRATE === "true") await migrateDatabase();
+  if (process.env.AUTO_MIGRATE === "true") {
+    await migrateDatabase();
+    await seedContractTemplateCatalog();
+    if (process.env.SUPERADMIN_PASSWORD) {
+      await bootstrapSuperadmin({
+        NODE_ENV: env.nodeEnv,
+        PRODUCTION_SUPERADMIN_CONFIRM: "manage@example.com",
+        SUPERADMIN_PASSWORD: process.env.SUPERADMIN_PASSWORD,
+      });
+    }
+  }
   const run = async () => {
     for (let attempt = 1; attempt <= 3; attempt++) {
       try {

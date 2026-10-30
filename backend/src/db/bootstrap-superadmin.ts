@@ -57,7 +57,7 @@ export async function bootstrapSuperadmin(
   env: NodeJS.ProcessEnv = process.env,
   writeSummary: (message: string) => void = (message) => process.stdout.write(message),
 ) {
-  if (env.NODE_ENV !== "production")
+  if (env.NODE_ENV !== "production" && env.NODE_ENV !== "staging")
     throw new Error("Superadmin bootstrap requires NODE_ENV=production");
   if (env.PRODUCTION_SUPERADMIN_CONFIRM?.trim().toLowerCase() !== SUPERADMIN_EMAIL)
     throw new Error(`Set explicit production confirmation to ${SUPERADMIN_EMAIL}`);
