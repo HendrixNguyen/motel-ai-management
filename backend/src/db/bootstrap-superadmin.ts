@@ -4,47 +4,17 @@ import { managerAuditEvents, managers } from "@/modules/auth/auth.schema";
 import { seedContractTemplateCatalog as seedCatalog } from "@/modules/contract/contract-catalog.seed";
 import { SUPERADMIN_EMAIL, SUPERADMIN_NAME } from "@/modules/auth/superadmin-identity";
 
-const REQUIRED_SCHEMA_MIGRATIONS = ["0028_manager_admin"] as const;
-
 async function verifyBootstrapSchema() {
-  const journalPath = new URL("../../drizzle/meta/_journal.json", import.meta.url);
-  const journal = JSON.parse(await Bun.file(journalPath).text()) as {
-    entries: { tag: string }[];
-  };
-  const entriesByTag = new Map(journal.entries.map((entry) => [entry.tag, entry]));
-  const pending = REQUIRED_SCHEMA_MIGRATIONS.filter((tag) => !entriesByTag.has(tag));
-  if (pending.length)
-    throw new Error(`Required migration ${pending[0]} is absent from release journal`);
-  const recordedLedger = await db.execute(sql`SELECT id, hash FROM drizzle.__drizzle_migrations`);
-  const byId = new Map(
-    recordedLedger.map((row) => [
-      Number((row as { id: number }).id),
-      String((row as { hash: string }).hash),
-    ]),
-  );
-  const expectedHashes = await Promise.all(
-    REQUIRED_SCHEMA_MIGRATIONS.map(async (tag) => {
-      const migration = Bun.file(new URL(`../../drizzle/${tag}.sql`, import.meta.url));
-      if (!(await migration.exists()))
-        throw new Error(`Required migration ${tag} is absent from this release`);
-      return new Bun.CryptoHasher("sha256").update(await migration.text()).digest("hex");
-    }),
-  );
-  for (const tag of REQUIRED_SCHEMA_MIGRATIONS) {
-    const index = journal.entries.findIndex((entry) => entry.tag === tag);
-    const migrationId = index + 1;
-    if (byId.get(migrationId) !== expectedHashes[REQUIRED_SCHEMA_MIGRATIONS.indexOf(tag)])
-      throw new Error(
-        `Required schema migration ${tag} is not applied; run and verify the migration job first`,
-      );
-  }
   const schema = await db.execute(sql`
     SELECT
       to_regclass('public.managers') IS NOT NULL AS managers,
       to_regclass('public.manager_audit_events') IS NOT NULL AS audit_events,
       to_regclass('public.contract_template_catalog') IS NOT NULL AS catalog,
       to_regtype('public.contract_status') IS NOT NULL AS contract_status,
-      EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='managers' AND column_name='role') AS manager_role
+      to_regtype('public.manager_role') IS NOT NULL AS manager_role,
+      EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='managers' AND column_name='role') AS has_role_col,
+      EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='managers' AND column_name='disabled_at') AS has_disabled_col,
+      EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='managers' AND column_name='session_version') AS has_session_col
   `);
   const state = schema[0] as Record<string, boolean> | undefined;
   if (!state || Object.values(state).some((present) => !present))
