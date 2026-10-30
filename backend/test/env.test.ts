@@ -456,6 +456,7 @@ describe("parseEnv", () => {
         RENTER_PORTAL_URL: "https://renter.example.com",
         FRONTEND_URL: "https://app.example.com",
         MANAGER_JWT_SECRET: "a".repeat(48),
+        ADMIN_JWT_SECRET: "a".repeat(48),
         RENTER_SESSION_SECRET: "a".repeat(48),
         ZALO_OA_SECRET: "d".repeat(48),
         ZALO_ACCESS_TOKEN: "e".repeat(48),
