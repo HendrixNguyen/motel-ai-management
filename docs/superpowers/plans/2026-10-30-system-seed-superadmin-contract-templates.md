@@ -39,6 +39,7 @@
 ### Task 1: Introduce explicit system seed command
 
 **Files:**
+
 - Create: `backend/src/db/seed-system.ts`
 - Modify: `backend/package.json`
 - Modify: `backend/src/modules/auth/superadmin-identity.ts`
@@ -46,6 +47,7 @@
 - Modify: `backend/src/db/bootstrap-superadmin.ts` (remove after tests pass)
 
 **Interfaces:**
+
 - Consumes: `SUPERADMIN_EMAIL` and `SUPERADMIN_NAME` from `superadmin-identity.ts`; `seedContractTemplateCatalog(executor)` accepts the transaction executor.
 - Produces: `export async function seedSystem(env: NodeJS.ProcessEnv = process.env, writeSummary: (message: string) => void = ...): Promise<{ superadminId: string; insertedCatalogKeys: string[] }>` in `seed-system.ts`.
 - Command: `bun run db:seed-system` maps to `bun run src/db/seed-system.ts`.
@@ -74,6 +76,7 @@
 ### Task 2: Isolate system seed from backend startup and reserve canonical email
 
 **Files:**
+
 - Modify: `backend/src/index.ts`
 - Modify: `backend/src/modules/auth/auth.service.ts`
 - Modify: `backend/src/modules/auth/admin-account.service.ts`
@@ -81,6 +84,7 @@
 - Test: `backend/test/manager-auth.test.ts`
 
 **Interfaces:**
+
 - Consumes: `SUPERADMIN_EMAIL` from `superadmin-identity.ts`.
 - Startup does not import or call `seedSystem`, `bootstrapSuperadmin`, or `seedContractTemplateCatalog`.
 
@@ -101,11 +105,13 @@
 ### Task 3: Guard destructive demo seed to QA only
 
 **Files:**
+
 - Modify: `backend/src/db/seed.ts`
 - Test: Create `backend/test/demo-seed-guard.test.ts`
 - Modify: QA seed invocation config/scripts only if an existing QA invocation is present; do not invent a deployment hook.
 
 **Interfaces:**
+
 - Demo seed entry point remains `seedData()` and direct `bun run src/db/seed.ts`.
 - Add a small injectable guard `assertDemoSeedAllowed(env: NodeJS.ProcessEnv = process.env): void` in `seed.ts`; `seedData()` calls it before any DB write.
 - Allowed only when `APP_ENV=qa` and `SEED_DATABASE=true`; reject `NODE_ENV=production`, unset/mismatched APP_ENV, or missing opt-in before first delete. `NODE_ENV` remains the standard runtime mode, while APP_ENV identifies QA vs Prod.
@@ -125,6 +131,7 @@
 ### Task 4: Reconcile documentation and deployment runbooks
 
 **Files:**
+
 - Modify: `docs/operations/production-startup.md`
 - Modify: `docs/testing-strategy.md`
 - Modify: `docs/superpowers/specs/2026-10-27-production-seed-shared-contract-catalog-design.md`
@@ -145,6 +152,7 @@
 ### Task 5: Full validation and safe rollout checklist
 
 **Files:**
+
 - No new source files. Update plan/spec checklist only if verification reveals an ambiguity.
 
 - [ ] **Step 1: Run backend checks in required order**

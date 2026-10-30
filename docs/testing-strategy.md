@@ -105,7 +105,7 @@ destroys the schema it is given.
 | Meter capture                                | manager ownership, motel+period scoping, wrong-manager rejection, stale-motel queue clearing on switch, logout cleanup, draft-only enqueue, and offline reload/reconnect sync (unit + browser-level tests)                                                                                |
 | Manager contracts                            | active-renter/room motel scoping, decimal-safe VND normalization, valid dates, draft-only PATCH fields, cross-motel template rejection, and lifecycle transitions (unit + HTTP + E2E)                                                                                                     |
 | Motel setup & catalog                        | full/quick setup, selective copy groups (bank/services/templates), idempotency request recovery, contract catalog preview/copy, and after-setup template assignment (unit + HTTP + E2E)                                                                                                   |
-| System seed and demo seed                    | one-shot canonical Superadmin/catalog seed; matching rerun idempotent; role/disabled/password conflicts fail without writes; no startup seed side effects; QA demo seed requires exact QA opt-in and refusal occurs before destructive writes |
+| System seed and demo seed                    | one-shot canonical Superadmin/catalog seed; matching rerun idempotent; role/disabled/password conflicts fail without writes; no startup seed side effects; QA demo seed requires exact QA opt-in and refusal occurs before destructive writes                                             |
 
 ## Motel Setup Acceptance Matrix & Release Gates
 
