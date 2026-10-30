@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { managers } from "./auth.schema";
 import { AppError } from "@/shared/errors";
+import { SUPERADMIN_EMAIL } from "./superadmin-identity";
 import type { ManagerRow } from "./auth.types";
 
 export async function registerManager(input: {
@@ -12,7 +13,7 @@ export async function registerManager(input: {
 }): Promise<ManagerRow> {
   const email = input.email.trim().toLowerCase();
   const name = input.name.trim();
-  if (email === "manage@example.com")
+  if (email === SUPERADMIN_EMAIL)
     throw AppError.conflict("Email này được dành riêng cho tài khoản quản trị nền tảng");
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw AppError.badRequest("Email không hợp lệ");
   if (input.password.length < 8 || input.password.length > 256)
