@@ -15,6 +15,10 @@ beforeEach(resetDb);
 describe("demo seed QA guard", () => {
   it.each([
     ["production APP_ENV", { APP_ENV: "production", SEED_DATABASE: "true" }],
+    [
+      "production NODE_ENV with QA opt-in",
+      { NODE_ENV: "production", APP_ENV: "qa", SEED_DATABASE: "true" },
+    ],
     ["staging APP_ENV", { APP_ENV: "staging", SEED_DATABASE: "true" }],
     ["unset APP_ENV", { SEED_DATABASE: "true" }],
     ["QA without opt-in", { APP_ENV: "qa" }],
@@ -36,7 +40,7 @@ describe("demo seed QA guard", () => {
     const motelsBefore = await db.select().from(motels);
     const roomsBefore = await db.select().from(rooms);
     const rentersBefore = await db.select().from(renters);
-    await expect(seedDataWithEnv(overrides)).rejects.toThrow("APP_ENV=qa");
+    await expect(seedDataWithEnv(overrides)).rejects.toThrow();
     expect(await db.select().from(managers)).toEqual(managersBefore);
     expect(await db.select().from(motels)).toEqual(motelsBefore);
     expect(await db.select().from(rooms)).toEqual(roomsBefore);
@@ -46,12 +50,15 @@ describe("demo seed QA guard", () => {
   it("allows only explicit QA opt-in", () => {
     expect(() =>
       assertDemoSeedAllowed({ NODE_ENV: "production", APP_ENV: "qa", SEED_DATABASE: "true" }),
+    ).toThrow("NODE_ENV=production");
+    expect(() =>
+      assertDemoSeedAllowed({ NODE_ENV: "development", APP_ENV: "qa", SEED_DATABASE: "true" }),
     ).not.toThrow();
     expect(() => assertDemoSeedAllowed({ APP_ENV: "qa", SEED_DATABASE: "true" })).not.toThrow();
   });
 
   it("retains deterministic seed behavior in QA with opt-in", async () => {
-    await seedDataWithEnv({ NODE_ENV: "production", APP_ENV: "qa", SEED_DATABASE: "true" });
+    await seedDataWithEnv({ NODE_ENV: "development", APP_ENV: "qa", SEED_DATABASE: "true" });
     expect(await db.select().from(managers)).toHaveLength(1);
     expect(await db.select().from(motels)).toHaveLength(1);
     await seedDataWithEnv({ APP_ENV: "qa", SEED_DATABASE: "true" });

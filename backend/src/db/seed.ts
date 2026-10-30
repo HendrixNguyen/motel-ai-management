@@ -45,6 +45,9 @@ const ZALO_NOTIF_2_ID = "40404040-4040-4040-4040-404040404040";
 const ZALO_NOTIF_3_ID = "50505050-5050-5050-5050-505050505050";
 
 export function assertDemoSeedAllowed(env: NodeJS.ProcessEnv = process.env): void {
+  if (env.NODE_ENV === "production") {
+    throw new Error("Demo seed is disabled when NODE_ENV=production");
+  }
   if (env.APP_ENV !== "qa" || env.SEED_DATABASE !== "true") {
     throw new Error("Demo seed requires APP_ENV=qa and SEED_DATABASE=true");
   }
