@@ -1,6 +1,6 @@
 {
   "name": "backend",
-  "version": "1.0.58",
+  "version": "1.0.60",
   "type": "module",
   "scripts": {
     "dev": "bun run --watch src/index.ts",
@@ -10,7 +10,7 @@
     "db:generate": "drizzle-kit generate",
     "db:seed-contract-catalog": "bun run src/modules/contract/contract-catalog.seed.ts",
     "db:migrate": "bun run src/db/migrate.ts",
-    "db:bootstrap-superadmin": "bun run src/db/bootstrap-superadmin.ts",
+    "db:seed-system": "bun run src/db/seed-system.ts",
     "start:migration-job": "bun run db:migrate",
     "start:server": "bun run src/index.ts",
     "db:studio": "drizzle-kit studio",

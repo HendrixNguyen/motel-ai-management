@@ -15,7 +15,9 @@ console.log(`Database URL: ${maskedDbUrl}`);
 // Force new image build: 2026-10-12
 
 if (env.nodeEnv !== "test") {
-  if (process.env.AUTO_MIGRATE === "true") await migrateDatabase();
+  if (process.env.AUTO_MIGRATE === "true") {
+    await migrateDatabase();
+  }
   const run = async () => {
     for (let attempt = 1; attempt <= 3; attempt++) {
       try {

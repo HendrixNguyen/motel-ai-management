@@ -1,11 +1,16 @@
 import { and, asc, desc, eq } from "drizzle-orm";
 import { createHash } from "node:crypto";
-import { db, type DbExecutor } from "@/db";
+import { db, type DbExecutor, type DbTransaction } from "@/db";
+import { seedContractTemplateCatalog } from "./contract-catalog.seed";
 import { resolveOwnedMotel } from "@/middleware/tenancy";
 import { AppError } from "@/shared/errors";
 import { contractTemplateCatalog } from "./contract-catalog.schema";
 import { contractTemplates, type ContractTemplateClause } from "./contract.schema";
 import type { CatalogSummary, TemplatePreview } from "./contract-catalog.types";
+
+export function seedContractCatalog(executor: DbTransaction): Promise<string[]> {
+  return seedContractTemplateCatalog(executor);
+}
 
 export type CatalogTemplateResponse = {
   id: string;
