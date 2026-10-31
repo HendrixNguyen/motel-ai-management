@@ -125,9 +125,10 @@ export async function seedContractTemplateCatalog(
   for (const template of STARTER_TEMPLATES) {
     const [inserted] = await executor
       .insert(contractTemplateCatalog)
-      .values(template)
-      .onConflictDoNothing({
+      .values({ ...template, active: true })
+      .onConflictDoUpdate({
         target: [contractTemplateCatalog.key, contractTemplateCatalog.version],
+        set: { active: true },
       })
       .returning({ key: contractTemplateCatalog.key });
     if (inserted) insertedKeys.push(inserted.key);
