@@ -1,5 +1,5 @@
 import { and, asc, eq, ilike } from "drizzle-orm";
-import { db } from "@/db";
+import { db, type DbExecutor, type DbTransaction } from "@/db";
 import { resolveOwnedMotel, resolveRoomInMotel } from "@/middleware/tenancy";
 import { hasActiveContractForRoom } from "@/modules/contract/contract.service";
 import { countRentersInRoom } from "@/modules/renter/renter.service";
@@ -32,6 +32,40 @@ const UNIQUE_VIOLATION = "23505";
 /** SQLSTATE for `foreign_key_violation`. */
 const FOREIGN_KEY_VIOLATION = "23503";
 
+export interface RenterRoomProjection {
+  id: string;
+  name: string;
+  floor: number | null;
+}
+export interface BillingRoomProjection {
+  id: string;
+  name: string;
+}
+
+export async function getRoomForRenter(
+  roomId: string,
+  motelId: string,
+): Promise<RenterRoomProjection | null> {
+  const row = await db.query.rooms.findFirst({
+    where: and(eq(rooms.id, roomId), eq(rooms.motelId, motelId)),
+    columns: { id: true, name: true, floor: true },
+  });
+  return row ?? null;
+}
+
+type RoomReader = Pick<typeof db, "select">;
+
+export async function listRoomsForBilling(
+  motelId: string,
+  reader: RoomReader = db,
+): Promise<BillingRoomProjection[]> {
+  return reader
+    .select({ id: rooms.id, name: rooms.name })
+    .from(rooms)
+    .where(eq(rooms.motelId, motelId))
+    .orderBy(asc(rooms.name), asc(rooms.id));
+}
+
 export async function countRoomsForMotel(motelId: string): Promise<number> {
   return db.$count(rooms, eq(rooms.motelId, motelId));
 }
@@ -54,7 +88,10 @@ function escapeLike(input: string): string {
  * carrying the SQLSTATE and the constraint name. Both layers are read so no check below depends on
  * the wrapper being there.
  */
-function driverError(error: unknown): { code?: unknown; constraint_name?: unknown } {
+function driverError(error: unknown): {
+  code?: unknown;
+  constraint_name?: unknown;
+} {
   const driver = (error as { cause?: unknown } | null)?.cause ?? error;
   return (driver ?? {}) as { code?: unknown; constraint_name?: unknown };
 }
@@ -130,6 +167,45 @@ export async function listRooms(
  * Fields are copied one by one rather than spread, so nothing the client sent beyond the
  * documented body — a `motelId` or `managerId`, for instance — can ever reach the insert.
  */
+export async function createSetupRooms(
+  tx: DbExecutor,
+  motelId: string,
+  managerId: string,
+  inputs: Array<Pick<CreateRoomInput, "name" | "basePrice" | "floor">>,
+): Promise<RoomResponse[]> {
+  if (inputs.length === 0) return [];
+  await resolveOwnedMotel(motelId, managerId, tx);
+
+  const seen = new Set<string>();
+  for (const input of inputs) {
+    if (seen.has(input.name)) {
+      throw AppError.conflict(`Phòng "${input.name}" đã tồn tại trong nhà trọ này`);
+    }
+    seen.add(input.name);
+  }
+
+  try {
+    const rows = await tx
+      .insert(rooms)
+      .values(
+        inputs.map((input) => ({
+          motelId,
+          name: input.name,
+          basePrice: parseAmount(input.basePrice),
+          floor: input.floor ?? null,
+          status: "available" as const,
+        })),
+      )
+      .returning();
+    return rows.map(toResponse);
+  } catch (error) {
+    if (isDuplicateRoomName(error)) {
+      throw AppError.conflict("Phòng đã tồn tại trong nhà trọ này");
+    }
+    throw error;
+  }
+}
+
 export async function createRoom(
   motelId: string,
   managerId: string,
@@ -155,6 +231,14 @@ export async function createRoom(
     }
     throw error;
   }
+}
+
+export async function getRoomName(roomId: string): Promise<string | null> {
+  const row = await db.query.rooms.findFirst({
+    where: eq(rooms.id, roomId),
+    columns: { name: true },
+  });
+  return row?.name ?? null;
 }
 
 export async function getRoom(

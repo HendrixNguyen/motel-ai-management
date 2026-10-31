@@ -103,7 +103,8 @@ the session cookie plus `motel-scope`, with cross-tenant denial returning `404`.
   unauthenticated. The failure is a `401` and a redirect to `/login`, not a wrong answer, so it
   is loud.
 - **`RENTER_PORTAL_URL` on the backend is now named for what it is.** It builds the renter's
-  magic-link URL, so it is the *frontend's* origin. It was previously undeclared and defaulted
+  magic-link URL, so it is the *renter frontend's* origin. `FRONTEND_URL` remains the manager
+  frontend origin and must not be used to build renter portal links. It was previously undeclared and defaulted
   to the backend's own port, which happened to be right in development and wrong everywhere
   else.
 

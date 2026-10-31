@@ -2,12 +2,36 @@ import { Elysia } from "elysia";
 import { cors } from "@elysiajs/cors";
 import { env } from "@/config";
 import { errorHandler } from "@/middleware/error-handler";
-import { authRoutes } from "@/modules/auth/auth.route";
+import { adminAccountRoutes, authRoutes } from "@/modules/auth/auth.route";
 import { magicLinkRoutes } from "@/modules/auth/magic-link.route";
 import { motelRoutes } from "@/modules/motel/motel.route";
 import { renterRoutes } from "@/modules/renter/renter.route";
 import { roomRoutes } from "@/modules/room/room.route";
+import { billingRoutes } from "@/modules/billing/billing.route";
+import { contractRoutes } from "@/modules/contract/contract.route";
+import { contractCatalogRoutes } from "@/modules/contract/contract-catalog.route";
+import { motelSetupRoutes } from "@/modules/motel/motel-setup.route";
 import { AppError } from "@/shared/errors";
+import { notificationRoutes } from "@/modules/notification/notification.route";
+import { renterPortalRoutes } from "@/modules/renter-portal/renter-portal.route";
+import { ticketRoutes } from "@/modules/ticket/ticket.route";
+import { paymentRoutes } from "@/modules/payment/payment.route";
+import { getRenterNotificationRecipient } from "@/modules/renter/renter.service";
+import { setNotificationRecipientResolver } from "@/modules/notification/notification.service";
+import { R2StorageAdapter } from "@/shared/storage.r2";
+import { configureUploadStorage } from "@/modules/billing/billing.service";
+import { configurePaymentStorage } from "@/modules/payment/payment.service";
+import { configureTicketStorage } from "@/modules/ticket/ticket.service";
+import { configureCccdStorage } from "@/modules/renter/renter.route";
+
+setNotificationRecipientResolver(getRenterNotificationRecipient);
+if (env.nodeEnv !== "test") {
+  const privateStorage = new R2StorageAdapter();
+  configureUploadStorage(privateStorage);
+  configurePaymentStorage(privateStorage);
+  configureTicketStorage(privateStorage);
+  configureCccdStorage(privateStorage);
+}
 
 /**
  * A fresh instance per call. `app` is the one the server listens on; tests build their own
@@ -31,10 +55,19 @@ export function createApp() {
     .group("/api", (api) =>
       api
         .use(authRoutes)
+        .use(adminAccountRoutes)
         .use(magicLinkRoutes)
         .use(motelRoutes)
+        .use(motelSetupRoutes)
         .use(roomRoutes)
-        .use(renterRoutes),
+        .use(billingRoutes)
+        .use(contractRoutes)
+        .use(contractCatalogRoutes)
+        .use(renterRoutes)
+        .use(notificationRoutes)
+        .use(renterPortalRoutes)
+        .use(ticketRoutes)
+        .use(paymentRoutes),
     )
     .all("*", () => {
       throw AppError.notFound("Không tìm thấy");

@@ -9,8 +9,6 @@ export interface CreateRenterInput {
   /** Local or `+84` form; normalised to `84XXXXXXXXX` before it is stored. */
   phone: string;
   idNumber?: string | null;
-  idCardFrontUrl?: string | null;
-  idCardBackUrl?: string | null;
   /** Must be a room of *this* motel, or the request is 404. */
   roomId?: string | null;
 }
@@ -26,8 +24,6 @@ export interface UpdateRenterInput {
   name?: string;
   phone?: string;
   idNumber?: string | null;
-  idCardFrontUrl?: string | null;
-  idCardBackUrl?: string | null;
   /** Must be a room of *this* motel, or the request is 404. An explicit `null` unassigns. */
   roomId?: string | null;
   status?: RenterStatus;
@@ -46,8 +42,8 @@ export interface RenterResponse {
   /** Always the normalised `84XXXXXXXXX` form, whatever the client sent. */
   phone: string;
   idNumber: string | null;
-  idCardFrontUrl: string | null;
-  idCardBackUrl: string | null;
+  idCardFrontUploaded: boolean;
+  idCardBackUploaded: boolean;
   /** Null until the renter is assigned a room. */
   roomId: string | null;
   zaloOaId: string | null;

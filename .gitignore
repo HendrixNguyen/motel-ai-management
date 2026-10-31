@@ -32,6 +32,8 @@ yarn-debug.log*
 
 # misc
 .vercel
+.worktrees/
+.kilo/
 **/*.trace
 **/*.zip
 **/*.tar.gz
@@ -39,3 +41,8 @@ yarn-debug.log*
 package-lock.json
 __pycache__/
 *.pyc
+
+# test cookies
+*.txt
+!*.example.txt
+!*.md.txt

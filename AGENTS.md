@@ -24,14 +24,21 @@ Product context: `README.md`.
 
 ## Repo shape
 
-- Two independent Bun packages. **There is no root `package.json` and no workspace file** —
-  run `bun install` inside `backend/` and `frontend/` separately; each has its own
-  `bun.lock`. No root-level `bun install`, `bun test`, or `bun run build` exists.
+- Three independent packages. **There is no root `package.json` and no workspace file** — run
+  `bun install` separately in `backend/` and `frontend/` (each has `bun.lock`) and `landing/`
+  (Vite+ package with its own `bun.lock`). No root-level install, test, or build command exists.
 - `backend/` — ElysiaJS + Drizzle + PostgreSQL, wired through `src/app.ts` → `src/index.ts`.
-- `frontend/` — Next.js 16.3.8 App Router, still the default scaffold
-  (`src/app/{layout,page}.tsx` only). The manager / renter / capture route groups are
-  specified in `docs/frontend-ui-specs.md` but not implemented yet.
-- Bun only. Never `npm`, `yarn`, or `npx`.
+- `frontend/` — Next.js 16.3.8 App Router. The root layout and the design tokens in
+  `src/app/globals.css` are in place. Task 5 adds login and the manager shell with heading-only
+  frames at `/`, `/rooms`, and `/renters`; Task 7 supplies the `/motels` grid and create/edit
+  settings dialogs. Task 8 supplies `/rooms` with URL filters, joined renter cards and
+  create/edit/status dialogs. Task 9 supplies the `/renters` list and `/renters/[renterId]`
+  detail with a copyable magic-link action. Task 10 supplies the `/` overview with the selected
+  motel's room counts, occupancy and live renter quick action. The later screen tasks supply
+  remaining content.
+  Renter and capture route groups remain specified in `docs/frontend-ui-specs.md`.
+- `landing/` — Vue 3 + Vite+, static Vietnamese marketing site; build output is `landing/dist/`.
+- Bun only. Never `npm`, `yarn`, or `npx`. On this machine Bun is installed at `~/.bun/bin/bun` (currently 1.4.2); shell `PATH` may omit `~/.bun/bin`, so use `PATH="$HOME/.bun/bin:$PATH" bun ...` or the absolute binary before deciding Bun is missing.
 - Git remote is **SSH**: `git@github.com:HendrixNguyen/motel-ai-management.git`. HTTPS push
   fails on this machine — there is no working credential prompt path.
 - `.kilo/worktrees/fish-steed` is a stale Agent Manager checkout pinned to an old commit. It
@@ -45,26 +52,51 @@ cd backend
 bun run dev                 # --watch src/index.ts, PORT (default 3000)
 bun run typecheck           # tsc --noEmit
 bun test                    # everything; needs a live PostgreSQL, see below
-bun test src/test/money.test.ts   # one file — the only clean way to isolate from the DB
+bun test test/money.test.ts   # one file — the only clean way to isolate from the DB
 bun test -t "test name"           # name filter — still loads every test file
 bun run db:generate && bun run db:migrate
 bun run db:studio
 
 # frontend
 cd frontend
-bun run dev                 # next dev
+bun run dev                 # next dev -p 3001; 3000 is the backend's PORT
 bun run lint                # eslint, silent when clean
 bun run build
-bun run typecheck           # tsc --noEmit      — lands with the frontend test harness
-bun run test                # vitest            — lands with the frontend test harness
-bun run test:e2e            # playwright        — lands with the frontend test harness
+bun run typecheck           # tsc --noEmit
+bun run test                # vitest run — unit tests under src/
+bun run test:e2e            # playwright  — e2e/**/*.spec.ts, fixture-backed
+
+# landing
+cd landing
+bun run dev
+bun run check
+bun run typecheck
+bun run test
+bun run build
+bun run preview
 ```
 
-`frontend/` has **no test runner**. `docs/testing-strategy.md` leaves the frontend runner
-undecided; the three commands above are reserved for it and do not exist in
-`frontend/package.json` yet — do not add a runner silently before then.
+## Landing formatting and deployment
 
-Verify in this order: backend `typecheck` → `test`; frontend `lint` → `build`.
+- In `landing/`, `bun run check` uses `vp check --no-fmt`; repository CI uses Prettier as the canonical formatter because Vite+ formatting differs. Do not apply both formatters to the same files.
+- Configure `VITE_FORMSPREE_ENDPOINT` as a build-time environment variable in the deployment environment before `cd landing && bun run build`. Vite embeds it in the public static bundle; runtime-only environment configuration does not work.
+- `landing/.env.example` is tracked and contains the public endpoint; `.env.example` is not auto-loaded. Copy value into `landing/.env.local` for local development and the deployment build environment. The endpoint ID is public configuration, not a secret.
+- Keep Formspree's free-plan limit at 50 submissions per month. Formspree enforces this quota; over-limit submissions are held and not processed into email notifications. Do not add a client-side counter as a quota control.
+- If the endpoint is absent, landing intentionally disables form submission and offers direct email as fallback. Never claim form delivery is active until a valid endpoint is set in the production build environment. Do not submit real contact forms during build/test verification.
+
+The frontend harness: `vitest.config.mts` collects `src/**/*.test.ts` only, and `playwright.config.ts`
+declares two projects — `chromium-mobile` (375x667, browser fixtures in `e2e/fixtures/api.ts`
+plus a test-only fixture server for Server Component reads, so **no database or real backend is needed**) and `real-stack`
+(`e2e/real/**`, filtered out unless `E2E_REAL=1`). The two runners never overlap: Vitest's include
+is rooted at `src/`, Playwright's `testMatch` at `e2e/`. `docs/testing-strategy.md` owns what each
+layer must test.
+
+`bun run test` runs anywhere the dependencies install. `bun run test:e2e` additionally needs a
+browser that can start, which on a minimal Linux image needs a one-time
+`sudo bunx playwright install-deps chromium`; see the "Known state" section below.
+
+Verify in this order: backend `typecheck` → `test`; frontend `typecheck` → `lint` → `build` →
+`test` → `test:e2e`.
 
 ## The local database (this is where the time goes)
 
@@ -72,10 +104,10 @@ Verify in this order: backend `typecheck` → `test`; frontend `lint` → `build
   `backend/.env`. `src/db/index.ts` points its only pool at that URL when `NODE_ENV=test`,
   and there is no second client export, so a test cannot reach the dev database.
 - **`bun test` loads every test file even when all of them are filtered out.** The database
-  is therefore required for *any* `bun test` run, not just integration tests — without it you
+  is therefore required for _any_ `bun test` run, not just integration tests — without it you
   get `connect ECONNREFUSED 127.0.0.1:5432` plus one bogus failure. Pass an explicit file path
-  (`bun test src/test/money.test.ts`) to run a pure test cleanly.
-- `docker-compose.yml` provides postgres 16 and `scripts/init-db.sql` creates `motel_test`.
+  (`bun test test/money.test.ts`) to run a pure test cleanly.
+- `docker-compose.yml` provides postgres 16 and `scripts/init-db.sql` creates `motel_test`. PostgreSQL healthchecks with `pg_isready` before backend startup; backend startup runs `bun run db:migrate` before `bun run start` and restarts unless stopped. This auto-migration flow is for one backend replica only; production multi-replica rollouts require a separate one-shot migration job before replicas start.
   **Its credentials disagree with `.env.example`**: compose sets `POSTGRES_PASSWORD=password`
   while `.env.example` uses `postgres:postgres`. Align them or authentication fails.
   A postgres 16 container is running on this machine (`motel-postgres`, reachable on
@@ -138,6 +170,9 @@ Modular monolith (ADR-0004). Each domain under `backend/src/modules/<domain>/` o
 - UUID primary keys, `timestamptz` with `now()` defaults, `snake_case` columns mapped by
   Drizzle. Backend also sets `noUncheckedIndexedAccess`; both packages are strict TypeScript.
 - Frontend imports use `@/*` → `frontend/src/*`.
+- Route and layout prop types generated by Next (`LayoutProps<"/">` etc.) are **not used**: they are
+  emitted into `.next/types/` only after a build or dev server has run, so `tsc --noEmit` on a fresh
+  clone fails with `Cannot find name 'LayoutProps'`. Use an explicit inline prop type instead.
 - `docs/superpowers/plans/` holds the current sub-project plan; work proceeds in the eight
   sub-projects listed in `README.md`, one plan written just before its sub-project is built.
 
@@ -151,22 +186,22 @@ Modular monolith (ADR-0004). Each domain under `backend/src/modules/<domain>/` o
   session cookie and a real foreign id, in both directions.
 - A behaviour change without a test is an unfinished change.
 - A test that cannot fail is worse than no test — delete it and write a real one.
-- Tests live in `backend/src/test/*.test.ts`.
+- Tests live in `backend/test/*.test.ts`.
 
 ## Docs are part of the change
 
 These are the project's memory. Code follows them; when a change forces a document to change,
 they change in the same commit.
 
-| Document | Owns |
-|----------|------|
-| `docs/superpowers/specs/2026-10-03-motel-management-design.md` | Data model, flows, security rules, build order |
-| `docs/api-contract.md` | Endpoints, request/response bodies, error codes |
-| `docs/frontend-ui-specs.md` | Screens, states, badges, copy |
-| `docs/testing-strategy.md` | What must be tested and at which layer |
-| `docs/adr/` | Decisions that were argued or that add a dependency |
-| `backend/.env.example` | Backend env var names, with honest placeholders |
-| `frontend/.env.example` | Frontend env var names, with honest placeholders |
+| Document                                                       | Owns                                                |
+| -------------------------------------------------------------- | --------------------------------------------------- |
+| `docs/superpowers/specs/2026-10-03-motel-management-design.md` | Data model, flows, security rules, build order      |
+| `docs/api-contract.md`                                         | Endpoints, request/response bodies, error codes     |
+| `docs/frontend-ui-specs.md`                                    | Screens, states, badges, copy                       |
+| `docs/testing-strategy.md`                                     | What must be tested and at which layer              |
+| `docs/adr/`                                                    | Decisions that were argued or that add a dependency |
+| `backend/.env.example`                                         | Backend env var names, with honest placeholders     |
+| `frontend/.env.example`                                        | Frontend env var names, with honest placeholders    |
 
 - State a fact once, in the document that owns it. Link from the others; do not restate.
 - Changing a table → design spec, plus the API contract if the field is exposed over HTTP,
@@ -180,10 +215,10 @@ they change in the same commit.
 
 ## Review before merging
 
-| Command | Agent | Use for |
-|---------|----------|---------|
-| `/review-security` | `security-reviewer` | auth, tenancy, uploads, money, Zalo webhook |
-| `/review-code` | `code-reviewer` | ADR-0004 boundaries, spec conformance, types, tests, doc drift |
+| Command            | Agent               | Use for                                                        |
+| ------------------ | ------------------- | -------------------------------------------------------------- |
+| `/review-security` | `security-reviewer` | auth, tenancy, uploads, money, Zalo webhook                    |
+| `/review-code`     | `code-reviewer`     | ADR-0004 boundaries, spec conformance, types, tests, doc drift |
 
 Both are read-only, report `file_path:line_number` with severity, and treat a missing test as
 a finding. **Both review uncommitted changes only** (`git diff` plus untracked files), so run
@@ -199,3 +234,11 @@ them before committing or the reviewer sees an empty diff.
 - `frontend/AGENTS.md` is generated by `next dev` (Next 16.3.8 differs from training data).
   Read the relevant guide in `frontend/node_modules/next/dist/docs/` before writing Next code,
   and leave that block in the file.
+- **Playwright's browser downloads, but this Debian image cannot launch it without root.**
+  `bunx playwright install chromium` succeeds; Chromium then dies with
+  `error while loading shared libraries: libnspr4.so` and ~16 more (`libnss3`, `libatk-1.0`,
+  `libgbm`, `libasound`, the `libX*` set). **Cure, once per machine, needs sudo:**
+  `sudo bunx playwright install-deps chromium`. There is no passwordless sudo on this box, so
+  `bun run test:e2e` fails at browser launch until someone runs it. That is a missing OS package,
+  not a harness defect — `bun run test` and `bun run build` are unaffected. Report the launch
+  failure; do not work around it in the repo.

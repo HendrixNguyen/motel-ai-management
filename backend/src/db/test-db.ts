@@ -9,16 +9,28 @@ import { connectionString, isTestRun } from "./index";
 const migrationsFolder = path.join(import.meta.dir, "../../drizzle");
 
 const TABLES = [
+  "rate_limit_buckets",
+  "payment_proofs",
+  "uploads",
+  "zalo_oa_motel_mappings",
+  "notification_webhook_events",
+  "notification_events",
+  "push_subscriptions",
   "zalo_notifications",
+  "contract_template_catalog",
+  "manager_audit_events",
   "magic_links",
+  "ticket_photo_uploads",
   "help_tickets",
   "invoices",
   "meter_readings",
   "billing_periods",
   "contracts",
   "contract_templates",
+  "contract_template_catalog",
   "renters",
   "rooms",
+  "motel_setup_requests",
   "motels",
   "managers",
 ];
@@ -38,6 +50,7 @@ const TABLES = [
  * destroys a schema, and a developer's real database must not be reachable from here.
  */
 export async function resetDb(): Promise<void> {
+  if (process.env.SKIP_DB_RESET === "1") return;
   if (!isTestRun)
     throw new Error(
       `resetDb() refused: NODE_ENV is ${process.env.NODE_ENV ?? "unset"}, expected "test".`,
@@ -50,12 +63,15 @@ export async function resetDb(): Promise<void> {
   const resetDb = drizzle(client);
 
   try {
-    await client.unsafe("SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = 'motel_test' AND pid <> pg_backend_pid()");
+    await client.unsafe(
+      "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = 'motel_test' AND pid <> pg_backend_pid()",
+    );
     await resetDb.execute(sql.raw("DROP SCHEMA IF EXISTS public CASCADE"));
     await resetDb.execute(sql.raw("DROP SCHEMA IF EXISTS drizzle CASCADE"));
     await resetDb.execute(sql.raw("CREATE SCHEMA public"));
     await resetDb.execute(sql.raw("CREATE SCHEMA drizzle"));
     await resetDb.execute(sql.raw("SET search_path TO public, drizzle"));
+    await resetDb.execute(sql.raw("CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA public"));
     await migrate(resetDb, { migrationsFolder });
     await resetDb.execute(sql.raw(`TRUNCATE ${TABLES.join(", ")} RESTART IDENTITY CASCADE`));
   } finally {

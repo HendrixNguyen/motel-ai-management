@@ -25,7 +25,7 @@ Explicitly out of scope. Do not build these without a new spec:
 - Payment gateway integration (VNPay, MoMo, ZaloPay) — VietQR + manual confirmation only
 - In-app chat between manager and renter — communication happens in Zalo
 - E-signature provider integration (FPT.eSign, VNPT SmartSign, Viettel CA)
-- SMS delivery for OTPs — Zalo only
+- SMS delivery for OTPs — no SMS in MVP; configured Zalo transport or another explicitly documented fallback only
 - Bank transaction webhooks / auto-reconciliation
 - Multi-currency, multi-language UI (Vietnamese only)
 - Room amenities catalogue
@@ -33,23 +33,23 @@ Explicitly out of scope. Do not build these without a new spec:
 
 ## Tech Stack
 
-| Layer | Choice |
-|-------|--------|
-| Frontend | Next.js (React, Tailwind CSS, TypeScript) — one app, two route groups |
-| Backend | ElysiaJS on Bun (TypeScript) |
-| Database | PostgreSQL + Drizzle ORM |
-| Messaging | Zalo OA API (free follower messages) + Zalo ZNS (paid, first-contact/critical) |
-| Payment | VietQR payload generation, manual confirmation by manager |
-| File storage | Cloudflare R2 (S3-compatible API) |
-| Capture surface | Installable PWA — service worker app-shell cache + IndexedDB write queue |
-| Package manager | Bun (workspace-wide; never npm/yarn) |
+| Layer           | Choice                                                                         |
+| --------------- | ------------------------------------------------------------------------------ |
+| Frontend        | Next.js (React, Tailwind CSS, TypeScript) — one app, two route groups          |
+| Backend         | ElysiaJS on Bun (TypeScript)                                                   |
+| Database        | PostgreSQL + Drizzle ORM                                                       |
+| Messaging       | Zalo OA API (free follower messages) + Zalo ZNS (paid, first-contact/critical) |
+| Payment         | VietQR payload generation, manual confirmation by manager                      |
+| File storage    | Cloudflare R2 (S3-compatible API)                                              |
+| Capture surface | Installable PWA — service worker app-shell cache + IndexedDB write queue       |
+| Package manager | Bun (workspace-wide; never npm/yarn)                                           |
 
 ## Authentication
 
-| Role | Mechanism |
-|------|-----------|
-| Manager | Email + password login. JWT in httpOnly cookie. |
-| Renter | No account, no password. Identity is `phone` + `motelId`. Access via emailed/sent magic-link token. |
+| Role    | Mechanism                                                                                           |
+| ------- | --------------------------------------------------------------------------------------------------- |
+| Manager | Email + password login. JWT in httpOnly cookie.                                                     |
+| Renter  | No account, no password. Identity is `phone` + `motelId`. Access via emailed/sent magic-link token. |
 
 ### Renter session lifecycle
 
@@ -83,45 +83,74 @@ Money is `NUMERIC(14,0)` (VND has no practical subunit). Meter values are `NUMER
 - `payment_status`: `unpaid` | `paid` | `overdue`
 - `ticket_category`: `electricity` | `water` | `facilities` | `other`
 - `ticket_status`: `open` | `in_progress` | `resolved`
-- `notification_channel`: `oa_message` | `zns`
-- `notification_status`: `pending` | `sent` | `failed`
+- `notification_channel`: `web_push` | `oa_message` | `zns` | `zbs`
+- `notification_status`: `pending` | `sent` | `failed` | `permanently_failed`
+
+`notification_channel` names transport only. Outbound domain events are stored in the generic `notification_events` outbox with a unique `eventKey`; legacy `zalo_notifications` rows remain a Zalo delivery audit/read model and reference their source event when present. Domain mutation and outbox insert commit in one database transaction. Provider delivery runs only after commit; provider failure changes delivery state and never rolls back the domain mutation.
 
 ### managers
 
-| Field | Type | Notes |
-|-------|------|-------|
-| id | UUID | PK |
-| email | TEXT | UNIQUE, NOT NULL, lowercased |
-| passwordHash | TEXT | NOT NULL (argon2id) |
-| name | TEXT | NOT NULL |
-| phone | TEXT | nullable |
-| createdAt | TIMESTAMPTZ | DEFAULT now() |
+| Field          | Type        | Notes                                                       |
+| -------------- | ----------- | ----------------------------------------------------------- |
+| id             | UUID        | PK                                                          |
+| email          | TEXT        | UNIQUE, NOT NULL, lowercased                                |
+| passwordHash   | TEXT        | NOT NULL, Argon2id                                          |
+| name           | TEXT        | NOT NULL                                                    |
+| phone          | TEXT        | nullable                                                    |
+| role           | ENUM        | `manager` (default) or `superadmin`; one superadmin maximum |
+| disabledAt     | TIMESTAMPTZ | nullable; disables manager login                            |
+| sessionVersion | INTEGER     | DEFAULT 0; increment revokes all existing manager sessions  |
+| createdAt      | TIMESTAMPTZ | DEFAULT now()                                               |
+
+Superadmin manages manager accounts only; it cannot access tenant business endpoints or renter
+records. Manager creation is restricted to authenticated superadmins. Managers receive passwords directly from Superadmins; password reset and disable increment
+`sessionVersion`, invalidating prior manager sessions. Public registration remains available for
+normal managers and must never assign the superadmin role. Production bootstrap creates one hidden
+superadmin only and never seeds demo business data.
+
+`manager_audit_events` stores actor, target, action and timestamp, never credentials or secret values.
 
 ### motels
 
-| Field | Type | Notes |
-|-------|------|-------|
-| id | UUID | PK |
-| managerId | UUID | FK → managers, NOT NULL, indexed |
-| name | TEXT | NOT NULL |
-| address | TEXT | nullable |
-| electricityPrice | NUMERIC(14,0) | VND per kWh |
-| waterPrice | NUMERIC(14,0) | VND per m³ |
-| otherFees | JSONB | `[{name, amount}]` — internet, garbage, parking. Default `[]` |
-| bankAccount | JSONB | `{bankCode, accountNumber, accountName}` for VietQR. Default `null` |
-| createdAt | TIMESTAMPTZ | DEFAULT now() |
+| Field            | Type          | Notes                                                               |
+| ---------------- | ------------- | ------------------------------------------------------------------- |
+| id               | UUID          | PK                                                                  |
+| managerId        | UUID          | FK → managers, NOT NULL, indexed                                    |
+| name             | TEXT          | NOT NULL                                                            |
+| address          | TEXT          | nullable                                                            |
+| electricityPrice | NUMERIC(14,0) | VND per kWh                                                         |
+| waterPrice       | NUMERIC(14,0) | VND per m³                                                          |
+| otherFees        | JSONB         | `[{name, amount}]` — internet, garbage, parking. Default `[]`       |
+| bankAccount      | JSONB         | `{bankCode, accountNumber, accountName}` for VietQR. Default `null` |
+| createdAt        | TIMESTAMPTZ   | DEFAULT now()                                                       |
+
+### motel_setup_requests
+
+| Field       | Type        | Notes                                                                                                           |
+| ----------- | ----------- | --------------------------------------------------------------------------------------------------------------- |
+| id          | UUID        | PK                                                                                                              |
+| managerId   | UUID        | FK → managers, NOT NULL, ON DELETE CASCADE                                                                      |
+| requestId   | UUID        | NOT NULL                                                                                                        |
+| fingerprint | TEXT        | NOT NULL                                                                                                        |
+| motelId     | UUID        | FK → motels, nullable, ON DELETE SET NULL                                                                       |
+| templateId  | UUID        | FK → contract_templates, nullable, ON DELETE SET NULL                                                           |
+| mode        | TEXT        | NOT NULL, CHECK in ('full', 'quick')                                                                            |
+| roomCount   | INT         | NOT NULL, CHECK ((mode = 'full' AND roomCount >= 1 AND roomCount <= 100) OR (mode = 'quick' AND roomCount = 0)) |
+| createdAt   | TIMESTAMPTZ | DEFAULT now()                                                                                                   |
+
+UNIQUE (`managerId`, `requestId`). Null `motelId` represents deleted motel result (returning 410 on lookup/replay).
 
 ### rooms
 
-| Field | Type | Notes |
-|-------|------|-------|
-| id | UUID | PK |
-| motelId | UUID | FK → motels, NOT NULL, indexed |
-| name | TEXT | NOT NULL, room number as displayed (e.g. `P.101`) |
-| basePrice | NUMERIC(14,0) | Default monthly rent, NOT NULL DEFAULT 0 |
-| floor | INT | nullable |
-| status | room_status | DEFAULT `available` |
-| createdAt | TIMESTAMPTZ | DEFAULT now() |
+| Field     | Type          | Notes                                             |
+| --------- | ------------- | ------------------------------------------------- |
+| id        | UUID          | PK                                                |
+| motelId   | UUID          | FK → motels, NOT NULL, indexed                    |
+| name      | TEXT          | NOT NULL, room number as displayed (e.g. `P.101`) |
+| basePrice | NUMERIC(14,0) | Default monthly rent, NOT NULL DEFAULT 0          |
+| floor     | INT           | nullable                                          |
+| status    | room_status   | DEFAULT `available`                               |
+| createdAt | TIMESTAMPTZ   | DEFAULT now()                                     |
 
 UNIQUE (`motelId`, `name`).
 
@@ -131,18 +160,28 @@ invoice. See [ADR-0005](../../../adr/0005-room-base-price.md).
 
 ### renters
 
-| Field | Type | Notes |
-|-------|------|-------|
-| id | UUID | PK |
-| motelId | UUID | FK → motels, NOT NULL, indexed |
-| name | TEXT | NOT NULL |
-| phone | TEXT | NOT NULL, normalized to `84XXXXXXXXX` (no leading `0`/`+`) |
-| idNumber | TEXT | CCCD number, nullable |
-| idCardFrontUrl | TEXT | Cloudflare R2 URL, nullable |
-| idCardBackUrl | TEXT | Cloudflare R2 URL, nullable |
+| Field                  | Type    | Notes                                                       |
+| ---------------------- | ------- | ----------------------------------------------------------- |
+| id                     | UUID    | PK                                                          |
+| motelId                | UUID    | FK → motels, NOT NULL, indexed                              |
+| name                   | TEXT    | NOT NULL                                                    |
+| phone                  | TEXT    | NOT NULL, normalized to `84XXXXXXXXX` (no leading `0`/`+`)  |
+| idNumber               | TEXT    | CCCD number, nullable                                       |
+| legacyIdCardFrontUrl   | TEXT    | historical arbitrary URL, nullable, never served or trusted |
+| legacyIdCardBackUrl    | TEXT    | historical arbitrary URL, nullable, never served or trusted |
+| idCardFrontObjectKey   | TEXT    | private R2 object key, nullable                             |
+| idCardFrontContentType | TEXT    | JPEG/PNG metadata, nullable                                 |
+| idCardFrontSize        | INTEGER | bytes, 1–5,000,000, nullable                                |
+| idCardFrontChecksum    | TEXT    | content checksum, nullable                                  |
+| idCardBackObjectKey    | TEXT    | private R2 object key, nullable                             |
+| idCardBackContentType  | TEXT    | JPEG/PNG metadata, nullable                                 |
+| idCardBackSize         | INTEGER | bytes, 1–5,000,000, nullable                                |
+| idCardBackChecksum     | TEXT    | content checksum, nullable                                  |
+
+Only manager motel-owner sessions may upload or read CCCD images. Renter sessions cannot access CCCD images. Manager previews use signed URLs expiring after 300 seconds. No automatic retention period is set; deletion/retention policy requires legal/operational approval.
 | roomId | UUID | FK → rooms, nullable (unassigned) |
-| zaloOaId | TEXT | Set by OA follow webhook, nullable |
-| isOaFollower | BOOLEAN | DEFAULT false |
+| legacyZaloOaId | TEXT | historical OA linkage, nullable; no OA delivery |
+| isOaFollower | BOOLEAN | DEFAULT false; retained for compatibility only |
 | status | renter_status | DEFAULT `active` |
 | createdAt | TIMESTAMPTZ | DEFAULT now() |
 
@@ -151,66 +190,93 @@ different motel is a distinct renter row.
 
 ### contract_templates
 
-| Field | Type | Notes |
-|-------|------|-------|
-| id | UUID | PK |
-| motelId | UUID | FK → motels, NOT NULL, indexed |
-| name | TEXT | NOT NULL |
-| clauses | JSONB | `[{title, content}]`, NOT NULL |
-| isDefault | BOOLEAN | DEFAULT false |
-| createdAt | TIMESTAMPTZ | DEFAULT now() |
+| Field     | Type        | Notes                          |
+| --------- | ----------- | ------------------------------ |
+| id        | UUID        | PK                             |
+| motelId   | UUID        | FK → motels, NOT NULL, indexed |
+| name      | TEXT        | NOT NULL                       |
+| clauses   | JSONB       | `[{title, content}]`, NOT NULL |
+| isDefault | BOOLEAN     | DEFAULT false                  |
+| createdAt | TIMESTAMPTZ | DEFAULT now()                  |
 
 Partial UNIQUE (`motelId`) WHERE `isDefault` — at most one default per motel.
 
+### contract_template_catalog
+
+Shared system catalog of starter contract templates for setup and reuse. Starter templates are seeded inactive (`active = false`) pending formal legal review.
+
+| Field       | Type        | Notes                          |
+| ----------- | ----------- | ------------------------------ |
+| id          | UUID        | PK                             |
+| key         | TEXT        | NOT NULL, nonempty trimmed     |
+| version     | INT         | NOT NULL, positive integer     |
+| name        | TEXT        | NOT NULL                       |
+| description | TEXT        | NOT NULL                       |
+| clauses     | JSONB       | `[{title, content}]`, NOT NULL |
+| active      | BOOLEAN     | NOT NULL, DEFAULT false        |
+| createdAt   | TIMESTAMPTZ | DEFAULT now()                  |
+| updatedAt   | TIMESTAMPTZ | DEFAULT now()                  |
+
+Constraints:
+
+- UNIQUE (`key`, `version`)
+- CHECK `length(trim(key)) > 0`
+- CHECK `version > 0`
+- Legal release gate: starter templates remain inactive until reviewed and activated; seeding never automatically activates templates.
+
 ### contracts
 
-| Field | Type | Notes |
-|-------|------|-------|
-| id | UUID | PK |
-| renterId | UUID | FK → renters, NOT NULL, indexed |
-| roomId | UUID | FK → rooms, NOT NULL, indexed |
-| motelId | UUID | FK → motels, NOT NULL, indexed |
-| templateId | UUID | FK → contract_templates, nullable |
-| startDate | DATE | NOT NULL |
-| endDate | DATE | NOT NULL |
-| monthlyRent | NUMERIC(14,0) | NOT NULL |
-| deposit | NUMERIC(14,0) | NOT NULL DEFAULT 0 |
-| clauses | JSONB | Snapshot of template clauses at contract creation |
-| otpSentAt | TIMESTAMPTZ | nullable |
-| otpSignedAt | TIMESTAMPTZ | nullable |
-| status | contract_status | DEFAULT `draft` |
-| createdAt | TIMESTAMPTZ | DEFAULT now() |
+| Field                 | Type            | Notes                                                            |
+| --------------------- | --------------- | ---------------------------------------------------------------- |
+| id                    | UUID            | PK                                                               |
+| renterId              | UUID            | FK → renters, NOT NULL, indexed                                  |
+| roomId                | UUID            | FK → rooms, NOT NULL, indexed                                    |
+| motelId               | UUID            | FK → motels, NOT NULL, indexed                                   |
+| templateId            | UUID            | FK → contract_templates, nullable                                |
+| startDate             | DATE            | NOT NULL                                                         |
+| endDate               | DATE            | NOT NULL                                                         |
+| monthlyRent           | NUMERIC(14,0)   | NOT NULL                                                         |
+| deposit               | NUMERIC(14,0)   | NOT NULL DEFAULT 0                                               |
+| clauses               | JSONB           | Snapshot of template clauses at contract creation                |
+| acceptedTermsVersion  | TEXT            | nullable SHA-256 of the canonical contract terms shown to renter |
+| acceptedTermsSnapshot | JSONB           | nullable immutable terms snapshot accepted by renter             |
+| consentMethod         | TEXT            | nullable `session_consent`                                       |
+| consentAcceptedAt     | TIMESTAMPTZ     | nullable server-recorded consent time                            |
+| otpSentAt             | TIMESTAMPTZ     | legacy nullable history only                                     |
+| otpSignedAt           | TIMESTAMPTZ     | legacy nullable history only                                     |
+| status                | contract_status | DEFAULT `draft`                                                  |
+| createdAt             | TIMESTAMPTZ     | DEFAULT now()                                                    |
 
 CHECK (`endDate` > `startDate`). At most one `active` contract per room:
 partial UNIQUE (`roomId`) WHERE `status = 'active'`.
 
 ### billing_periods
 
-| Field | Type | Notes |
-|-------|------|-------|
-| id | UUID | PK |
-| motelId | UUID | FK → motels, NOT NULL, indexed |
-| month | INT | NOT NULL, 1–12 |
-| year | INT | NOT NULL |
-| status | billing_period_status | DEFAULT `draft` |
-| createdAt | TIMESTAMPTZ | DEFAULT now() |
+| Field     | Type                  | Notes                          |
+| --------- | --------------------- | ------------------------------ |
+| id        | UUID                  | PK                             |
+| motelId   | UUID                  | FK → motels, NOT NULL, indexed |
+| month     | INT                   | NOT NULL, 1–12                 |
+| year      | INT                   | NOT NULL                       |
+| status    | billing_period_status | DEFAULT `draft`                |
+| createdAt | TIMESTAMPTZ           | DEFAULT now()                  |
 
 UNIQUE (`motelId`, `month`, `year`).
 
 ### meter_readings
 
-| Field | Type | Notes |
-|-------|------|-------|
-| id | UUID | PK |
-| roomId | UUID | FK → rooms, NOT NULL, indexed |
-| billingPeriodId | UUID | FK → billing_periods, NOT NULL, indexed |
-| type | meter_type | NOT NULL |
-| previousReading | NUMERIC(12,2) | NOT NULL, seeded from the prior period |
-| currentReading | NUMERIC(12,2) | nullable until the manager submits it |
-| photoUrl | TEXT | R2 URL of the meter at reading time, nullable |
-| readingDate | DATE | nullable |
-| createdAt | TIMESTAMPTZ | DEFAULT now() |
-| updatedAt | TIMESTAMPTZ | NOT NULL DEFAULT now() — bumped on every accepted write |
+| Field           | Type          | Notes                                                   |
+| --------------- | ------------- | ------------------------------------------------------- |
+| id              | UUID          | PK                                                      |
+| roomId          | UUID          | FK → rooms, NOT NULL, indexed                           |
+| billingPeriodId | UUID          | FK → billing_periods, NOT NULL, indexed                 |
+| type            | meter_type    | NOT NULL                                                |
+| previousReading | NUMERIC(12,2) | NOT NULL, seeded from the prior period                  |
+| currentReading  | NUMERIC(12,2) | nullable until the manager submits it                   |
+| photoUrl        | TEXT          | R2 URL of the meter at reading time, nullable           |
+| readingDate     | DATE          | nullable                                                |
+| createdAt       | TIMESTAMPTZ   | DEFAULT now()                                           |
+| updatedAt       | TIMESTAMPTZ   | NOT NULL DEFAULT now() — bumped on every accepted write |
 
 UNIQUE (`billingPeriodId`, `roomId`, `type`). CHECK (`currentReading` IS NULL OR
 `currentReading` >= `previousReading`) — a meter never runs backwards.
@@ -223,69 +289,91 @@ so "same value" is treated as success.
 
 ### invoices
 
-| Field | Type | Notes |
-|-------|------|-------|
-| id | UUID | PK |
-| billingPeriodId | UUID | FK → billing_periods, NOT NULL, indexed |
-| roomId | UUID | FK → rooms, NOT NULL |
-| renterId | UUID | FK → renters, NOT NULL, indexed |
-| motelId | UUID | FK → motels, NOT NULL, indexed |
-| rentAmount | NUMERIC(14,0) | From the active contract's `monthlyRent` |
-| electricityUsage | NUMERIC(12,2) | kWh consumed |
-| electricityCost | NUMERIC(14,0) | NOT NULL |
-| waterUsage | NUMERIC(12,2) | m³ consumed |
-| waterCost | NUMERIC(14,0) | NOT NULL |
-| otherFees | JSONB | Snapshot of the motel's `otherFees` at generation time |
-| totalAmount | NUMERIC(14,0) | NOT NULL, sum of the components |
-| qrCodeData | TEXT | VietQR payload string (see below) |
-| paymentStatus | payment_status | DEFAULT `unpaid` |
-| paidAt | TIMESTAMPTZ | nullable |
-| createdAt | TIMESTAMPTZ | DEFAULT now() |
+| Field            | Type           | Notes                                                  |
+| ---------------- | -------------- | ------------------------------------------------------ |
+| id               | UUID           | PK                                                     |
+| billingPeriodId  | UUID           | FK → billing_periods, NOT NULL, indexed                |
+| roomId           | UUID           | FK → rooms, NOT NULL                                   |
+| renterId         | UUID           | FK → renters, NOT NULL, indexed                        |
+| motelId          | UUID           | FK → motels, NOT NULL, indexed                         |
+| rentAmount       | NUMERIC(14,0)  | From the active contract's `monthlyRent`               |
+| electricityUsage | NUMERIC(12,2)  | kWh consumed                                           |
+| electricityCost  | NUMERIC(14,0)  | NOT NULL                                               |
+| waterUsage       | NUMERIC(12,2)  | m³ consumed                                            |
+| waterCost        | NUMERIC(14,0)  | NOT NULL                                               |
+| otherFees        | JSONB          | Snapshot of the motel's `otherFees` at generation time |
+| totalAmount      | NUMERIC(14,0)  | NOT NULL, sum of the components                        |
+| qrCodeData       | TEXT           | VietQR payload string (see below)                      |
+| paymentStatus    | payment_status | DEFAULT `unpaid`                                       |
+| paidAt           | TIMESTAMPTZ    | nullable                                               |
+| createdAt        | TIMESTAMPTZ    | DEFAULT now()                                          |
 
 UNIQUE (`billingPeriodId`, `roomId`). Money fields are snapshots — later edits to a
 motel's prices or fees never retroactively change a sent invoice.
 
 ### help_tickets
 
-| Field | Type | Notes |
-|-------|------|-------|
-| id | UUID | PK |
-| renterId | UUID | FK → renters, NOT NULL, indexed |
-| roomId | UUID | FK → rooms, NOT NULL |
-| motelId | UUID | FK → motels, NOT NULL, indexed |
-| category | ticket_category | NOT NULL |
-| description | TEXT | NOT NULL |
-| photoUrls | JSONB | Array of R2 URLs, default `[]`, max 5 files |
-| status | ticket_status | DEFAULT `open` |
-| managerNote | TEXT | Internal only; never exposed on the renter portal |
-| createdAt | TIMESTAMPTZ | DEFAULT now() |
-| resolvedAt | TIMESTAMPTZ | nullable |
+| Field       | Type            | Notes                                             |
+| ----------- | --------------- | ------------------------------------------------- |
+| id          | UUID            | PK                                                |
+| renterId    | UUID            | FK → renters, NOT NULL, indexed                   |
+| roomId      | UUID            | FK → rooms, NOT NULL                              |
+| motelId     | UUID            | FK → motels, NOT NULL, indexed                    |
+| category    | ticket_category | NOT NULL                                          |
+| description | TEXT            | NOT NULL                                          |
+| photoUrls   | JSONB           | Array of R2 URLs, default `[]`, max 5 files       |
+| status      | ticket_status   | DEFAULT `open`                                    |
+| managerNote | TEXT            | Internal only; never exposed on the renter portal |
+| createdAt   | TIMESTAMPTZ     | DEFAULT now()                                     |
+| resolvedAt  | TIMESTAMPTZ     | nullable                                          |
 
 ### magic_links
 
-| Field | Type | Notes |
-|-------|------|-------|
-| id | UUID | PK |
-| renterId | UUID | FK → renters, NOT NULL, indexed |
-| token | TEXT | UNIQUE, NOT NULL, 32 bytes crypto-random base64url |
-| expiresAt | TIMESTAMPTZ | NOT NULL, createdAt + 24h |
-| consumedAt | TIMESTAMPTZ | nullable — set on first exchange |
-| createdAt | TIMESTAMPTZ | DEFAULT now() |
+| Field      | Type        | Notes                                              |
+| ---------- | ----------- | -------------------------------------------------- |
+| id         | UUID        | PK                                                 |
+| renterId   | UUID        | FK → renters, NOT NULL, indexed                    |
+| token      | TEXT        | UNIQUE, NOT NULL, 32 bytes crypto-random base64url |
+| expiresAt  | TIMESTAMPTZ | NOT NULL, createdAt + 24h                          |
+| consumedAt | TIMESTAMPTZ | nullable — set on first exchange                   |
+| createdAt  | TIMESTAMPTZ | DEFAULT now()                                      |
 
-### zalo_notifications
+### notification_events
 
-| Field | Type | Notes |
-|-------|------|-------|
-| id | UUID | PK |
-| renterId | UUID | FK → renters, NOT NULL, indexed |
-| motelId | UUID | FK → motels, NOT NULL, indexed |
-| channel | notification_channel | NOT NULL — `oa_message` or `zns` |
-| templateId | TEXT | ZNS template id, nullable for OA messages |
-| payload | JSONB | Rendered message content |
-| status | notification_status | DEFAULT `pending` |
-| failureReason | TEXT | nullable |
-| sentAt | TIMESTAMPTZ | nullable |
-| createdAt | TIMESTAMPTZ | DEFAULT now() |
+| Field             | Type                 | Notes                              |
+| ----------------- | -------------------- | ---------------------------------- |
+| id                | UUID                 | PK                                 |
+| eventKey          | TEXT                 | UNIQUE stable domain-event key     |
+| renterId          | UUID                 | FK → renters, NOT NULL, indexed    |
+| motelId           | UUID                 | FK → motels, NOT NULL, indexed     |
+| channel           | notification_channel | Transport only                     |
+| payload           | JSONB                | Redacted, provider-neutral payload |
+| status            | notification_status  | DEFAULT `pending`                  |
+| attemptCount      | INTEGER              | Bounded retry count                |
+| nextAttemptAt     | TIMESTAMPTZ          | nullable                           |
+| providerRequestId | TEXT                 | nullable                           |
+| failureReason     | TEXT                 | nullable, classified               |
+| sentAt            | TIMESTAMPTZ          | nullable                           |
+| createdAt         | TIMESTAMPTZ          | DEFAULT now()                      |
+
+### zalo_notifications (legacy Zalo audit)
+
+| Field               | Type                 | Notes                                              |
+| ------------------- | -------------------- | -------------------------------------------------- |
+| id                  | UUID                 | PK                                                 |
+| notificationEventId | UUID                 | FK → notification_events, nullable for legacy rows |
+| renterId            | UUID                 | FK → renters, NOT NULL, indexed                    |
+| motelId             | UUID                 | FK → motels, NOT NULL, indexed                     |
+| channel             | notification_channel | NOT NULL — `oa_message`, `zns`, or `zbs`           |
+| templateId          | TEXT                 | ZNS/ZBS template id, nullable for OA messages      |
+| payload             | JSONB                | Redacted rendered Zalo payload                     |
+| status              | notification_status  | DEFAULT `pending`                                  |
+| failureReason       | TEXT                 | nullable                                           |
+| providerRequestId   | TEXT                 | nullable                                           |
+| sentAt              | TIMESTAMPTZ          | nullable                                           |
+| createdAt           | TIMESTAMPTZ          | DEFAULT now()                                      |
+
+New generic events are authoritative for idempotency and delivery state; legacy Zalo rows remain for backward-compatible audit queries.
 
 ## Backend Architecture (Modular)
 
@@ -390,19 +478,19 @@ only by cookie.
    `currentReading < previousReading` and consumption above 500 kWh / 30 m³.
 4. On generate, for every room with an active contract, the system writes one invoice:
    - `rentAmount` = `contract.monthlyRent`
-   - `electricityCost` = (`currentReading` − `previousReading`) × `motel.electricityPrice`
-   - `waterCost` = (`currentReading` − `previousReading`) × `motel.waterPrice`
+   - `electricityCost` = (`currentReading` − `previousReading`) × `motel.electricityPrice`, rounded to whole VND half-up
+   - `waterCost` = (`currentReading` − `previousReading`) × `motel.waterPrice`, rounded to whole VND half-up
+   - Meter arithmetic uses fixed-point hundredths and never JavaScript floating-point numbers.
    - `otherFees` = snapshot of `motel.otherFees`
    - `totalAmount` = `rentAmount` + `electricityCost` + `waterCost` + Σ `otherFees.amount`
    - `qrCodeData` = VietQR payload built from `motel.bankAccount` and `totalAmount`
 5. Rooms without an active contract are skipped and reported back to the manager; they
    never produce a partial invoice.
 6. Manager reviews drafts, then confirms → period status `sent`.
-7. System sends one Zalo notification per invoice with a magic link to the invoice.
+7. Billing period mutation and generic notification outbox insert commit atomically. If outbox insertion fails, the period remains unchanged and returns `EXTERNAL_SERVICE_ERROR`. Provider delivery starts after commit; later delivery failure leaves the sent period committed, records failed notification state, and exposes **Gửi lại** without reverting billing state.
 8. Renter opens the link, sees the breakdown, scans the VietQR code, pays in their
    banking app.
-9. Manager marks the invoice `paid`, which stamps `paidAt` and triggers a confirmation
-   notification.
+9. Manager marks the invoice `paid`, which stamps `paidAt`; payment mutation and generic notification outbox insert commit atomically. Outbox failure rolls back payment mutation, while post-commit provider failure leaves `paid` committed and retryable without changing payment state.
 
 ### Contract flow
 
@@ -410,34 +498,30 @@ only by cookie.
 2. Manager creates a contract for a renter, picking a template and overriding individual
    clauses. `clauses` snapshots the result.
 3. Contract is saved as `draft` and a magic link is sent to the renter.
-4. Renter reviews the contract on the portal and taps **Ký hợp đồng**.
-5. System generates a 6-digit OTP and sends it over Zalo (channel chosen by the same
-   OA-follower rule as every other notification). `otpSentAt` is stamped.
-6. Renter enters the OTP within 5 minutes. On success `otpSignedAt` is stamped and
-   status becomes `active`; the room flips to `occupied`.
+4. Renter reviews exact contract terms on the authenticated portal, checks explicit consent, then confirms signing.
+5. Server recomputes the canonical SHA-256 terms version, validates session ownership, renter identity number and manager-uploaded private CCCD front/back, then records immutable accepted terms snapshot, `session_consent` method and server time.
+6. Consent evidence and draft-to-active transition commit in one transaction. Exact retries are idempotent; changed terms conflict and require fresh review/consent. No OTP delivery or OTP endpoint is used for new signatures.
 7. A daily job finds contracts expiring in 30 days and sends a reminder.
 
-MVP consent is OTP-based. Upgrade to a certified provider (FPT.eSign, VNPT SmartSign,
-Viettel CA) only when a use case requires chữ ký số — see
-[ADR-0006](../../../adr/0006-otp-consent-e-signature.md).
+This MVP records authenticated-session consent, not independent identity proof or certified digital signature. Legal sufficiency is not established; obtain legal assessment before relying on it as a legally enforceable electronic signature. Historical OTP fields/evidence remain unchanged.
+
+### Notification strategy
+
+A notification is an outbound event; a channel is its transport. Web Push is primary after renter activation. ZNS/ZBS is activation/fallback transport; SMS is out of MVP unless separately documented. Delivery is queued/sent/failed and never promised by a domain route.
 
 ### Zalo notification strategy
 
 Channel routing keeps Zalo costs low — see
 [ADR-0003](../../../adr/0003-zalo-oa-vs-zns-routing.md):
 
-1. On renter creation, send a paid ZNS welcome containing the magic link and the OA
-   follow prompt. Followers cannot exist before first contact.
-2. The OA follow webhook sets `isOaFollower = true` and `zaloOaId`.
-3. Every later notification checks `isOaFollower`: `true` → free OA follower message,
-   `false` → paid ZNS fallback.
+1. On activation notification request, use configured ZNS/ZBS delivery or manager-generated
+   manual link/QR fallback. Renter creation itself does not promise ZNS-only delivery.
+2. The OA follow webhook sets `isOaFollower = true` and `zaloOaId` when OA transport is configured.
+3. For configured Zalo transport, later notification delivery may use the follower state to select OA message or ZNS/ZBS fallback. This is one provider path under the notification strategy, not the only post-activation channel.
 
-Triggers: bill ready, payment confirmed, contract sent for signing, OTP delivery,
-contract expiry reminder (30 days), ticket status change, ticket created.
+Triggers: bill ready, payment confirmed, contract sent for signing, contract expiry reminder (30 days), ticket status change, ticket created.
 
-Every attempt writes a `zalo_notifications` row. On API failure the row is stored with
-`status = 'failed'` and `failureReason`, and the manager UI surfaces a **Gửi lại**
-action. There is no background retry queue in the MVP.
+Every notification creates one generic `notification_events` outbox row in the same transaction as its domain mutation. Zalo delivery may additionally write a `zalo_notifications` audit row linked to that event. Provider delivery starts only after commit; failures update delivery state and expose **Gửi lại** without reverting domain state. Retry uses bounded attempts and stable `eventKey`.
 
 ### Help ticket flow
 
@@ -494,21 +578,17 @@ the main dispute-reduction lever in the product, and it costs one column.
 - No webhook or auto-confirmation. The manager marks invoices paid manually. See
   [ADR-0002](../../../adr/0002-manual-payment-confirmation.md).
 
-## E-Signature (MVP: OTP Consent)
+## Contract Consent (MVP)
 
-1. Renter taps **Ký hợp đồng** on the portal.
-2. System generates a 6-digit OTP, sends it over Zalo, stamps `otpSentAt`.
-3. Renter enters the OTP within **5 minutes**; max **3 attempts**.
-4. On success: `otpSignedAt = now()`, `status = 'active'`, room becomes `occupied`.
-5. On expiry or exhaustion the renter requests a new OTP; the previous one is invalidated.
+Renter with valid authenticated session explicitly checks consent and separately confirms signing. Server validates renter ownership and contract terms version, then atomically stores immutable accepted-term snapshot, `session_consent` method, server acceptance time and activates the draft. Manager must upload CCCD number and private front/back images before signing; renter cannot upload or view CCCD. A changed version invalidates displayed consent. Exact successful retries return existing evidence; OTP is not used for new signing. Historical OTP columns remain for old audit records.
 
-Delivery is Zalo only. SMS is out of MVP scope.
+This records session consent, not independent identity proof or a certified digital signature. Legal sufficiency requires external legal review before commercial reliance.
 
 ## File Storage
 
 Cloudflare R2 via its S3-compatible API. Buckets: `motel-uploads`, private, served through
 short-lived signed URLs so CCCD scans and ticket photos are never publicly listable.
-Constraints: image MIME types only, 5 MB per file, 5 files per ticket.
+Default upload limit is 5 MB per file. Resource-specific limits override the default: meter photos and contract proofs allow 10 MB per file; payment proof allows one JPEG/PNG image up to 5,000,000 bytes (5 MB); help tickets allow up to five JPEG/PNG files at 10 MB each. MIME and magic-byte validation still apply.
 
 ## Error Handling
 
@@ -521,21 +601,19 @@ All API errors use one envelope:
 `details` is omitted unless it helps the caller. Codes are stable identifiers; messages
 are user-facing and may be localized later.
 
-| Code | HTTP | Meaning |
-|------|------|---------|
-| `VALIDATION_ERROR` | 400 | Request failed schema validation. Carries no `details` — see [`docs/api-contract.md`](../../api-contract.md), which owns the envelope |
-| `UNAUTHORIZED` | 401 | Missing or expired credential |
-| `MAGIC_LINK_EXPIRED` | 401 | Magic link past `expiresAt`, or already consumed |
-| `OTP_INVALID` | 401 | Wrong OTP, or the 3-attempt allowance is exhausted |
-| `OTP_EXPIRED` | 401 | OTP past its 5-minute window |
-| `FORBIDDEN` | 403 | Valid credential, wrong role |
-| `NOT_FOUND` | 404 | Row absent, or hidden from this tenant |
-| `CONFLICT` | 409 | Uniqueness or state violation (duplicate period, room already has an active contract) |
-| `READING_CONFLICT` | 409 | A reading write was based on a stale `updatedAt`; `details.server` carries the current row |
-| `PERIOD_ALREADY_SENT` | 409 | Capture or generation attempted on a period that is no longer `draft` |
-| `RATE_LIMITED` | 429 | OTP or magic-link request too frequent; `details.retryAfterSeconds` |
-| `EXTERNAL_SERVICE_ERROR` | 502 | Zalo or R2 rejected the call; `details.failureReason` carries the upstream message |
-| `INTERNAL_ERROR` | 500 | Unexpected server fault; details stay server-side |
+| Code                     | HTTP | Meaning                                                                                                                               |
+| ------------------------ | ---- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `VALIDATION_ERROR`       | 400  | Request failed schema validation. Carries no `details` — see [`docs/api-contract.md`](../../api-contract.md), which owns the envelope |
+| `UNAUTHORIZED`           | 401  | Missing or expired credential                                                                                                         |
+| `MAGIC_LINK_EXPIRED`     | 401  | Magic link past `expiresAt`, or already consumed                                                                                      |
+| `FORBIDDEN`              | 403  | Valid credential, wrong role                                                                                                          |
+| `NOT_FOUND`              | 404  | Row absent, or hidden from this tenant                                                                                                |
+| `CONFLICT`               | 409  | Uniqueness or state violation (duplicate period, room already has an active contract)                                                 |
+| `READING_CONFLICT`       | 409  | A reading write was based on a stale `updatedAt`; `details.server` carries the current row                                            |
+| `PERIOD_ALREADY_SENT`    | 409  | Capture or generation attempted on a period that is no longer `draft`                                                                 |
+| `RATE_LIMITED`           | 429  | Magic-link request too frequent; `details.retryAfterSeconds`                                                                          |
+| `EXTERNAL_SERVICE_ERROR` | 502  | Zalo or R2 rejected the call; `details.failureReason` carries the upstream message                                                    |
+| `INTERNAL_ERROR`         | 500  | Unexpected server fault; details stay server-side                                                                                     |
 
 Other rules:
 
@@ -558,8 +636,8 @@ Other rules:
   confirm that another tenant's motel exists.
 - Passwords hashed with argon2id. Manager login is rate-limited per IP and per email.
 - Magic-link tokens: 32 crypto-random bytes, 24-hour expiry, single-use.
-- OTP: 5-minute expiry, max 3 attempts, resend blocked for 5 minutes.
-- Uploads: MIME allowlist, 5 MB cap, private bucket, signed URLs.
+- Contract consent is recorded in an authenticated renter session against the exact displayed terms version; it is not independent identity proof or certified e-signature. Legal review is required before relying on this MVP as legally enforceable.
+- Uploads: MIME allowlist, 5 MB default cap with documented per-resource overrides, private bucket, signed URLs.
 - `photoUrl` columns store an R2 **object key**, never a public URL. Every response that
   exposes a photo — meter photo to a renter, ticket photo, CCCD scan — swaps the key for a
   short-lived signed URL at serialization time, so no stored value is a capability.
@@ -572,16 +650,16 @@ Other rules:
 
 Each sub-project gets its own spec → plan → implementation cycle.
 
-| # | Sub-project | Depends on |
-|---|-------------|-----------|
-| 1 | Core Backend + Database — env parsing, Drizzle schema, migrations, auth + tenant middleware, error envelope | — |
-| 2 | Room & Renter Management — motels, rooms, renters CRUD, magic-link issuing | 1 |
-| 3 | Billing System — periods, meter readings, invoice generation, VietQR payloads | 2 |
-| 4 | Contract Management — templates, contracts, OTP signing | 2 |
-| 5 | Manager Frontend — dashboard and all manager pages | 2, 3, 4 |
-| 6 | On-site Meter Capture — installable PWA, offline queue, meter photos | 1, 2, 3, 5 |
-| 7 | Renter Portal — magic-link landing, bills, contract view, ticket submission | 2, 3, 4 |
-| 8 | Zalo Integration — OA client, ZNS client, follow webhook, notification triggers | 3, 4, 7 |
+| #   | Sub-project                                                                                                 | Depends on |
+| --- | ----------------------------------------------------------------------------------------------------------- | ---------- |
+| 1   | Core Backend + Database — env parsing, Drizzle schema, migrations, auth + tenant middleware, error envelope | —          |
+| 2   | Room & Renter Management — motels, rooms, renters CRUD, magic-link issuing                                  | 1          |
+| 3   | Billing System — periods, meter readings, invoice generation, VietQR payloads                               | 2          |
+| 4   | Contract Management — templates, contracts, authenticated renter consent                                    | 2          |
+| 5   | Manager Frontend — dashboard and all manager pages                                                          | 2, 3, 4    |
+| 6   | On-site Meter Capture — installable PWA, offline queue, meter photos                                        | 1, 2, 3, 5 |
+| 7   | Renter Portal — magic-link landing, bills, contract view, ticket submission                                 | 2, 3, 4    |
+| 8   | Zalo Integration — OA client, ZNS client, follow webhook, notification triggers                             | 3, 4, 7    |
 
 Plans are written one at a time, immediately before the sub-project is built, so table
 and field names stay anchored to migrations that actually ran. Writing all eight up
@@ -596,14 +674,14 @@ artifact.
 
 Which document owns which fact, and what must be edited together:
 
-| Fact | Owner | Also update |
-|------|-------|-------------|
-| Tables, columns, constraints, flows, security rules | this spec | API contract if exposed over HTTP; `.env.example` if it adds a variable |
-| Endpoint paths, request/response bodies, error codes | `docs/api-contract.md` | this spec if a rule changed; UI spec if a screen's states changed |
-| Screens, states, badges, copy | `docs/frontend-ui-specs.md` | API contract if a status or code was added |
-| Env var names | `backend/.env.example` | this spec if a new external service appeared |
-| Argued or dependency-bearing decisions | `docs/adr/` | linked from this spec |
-| What must be tested, and at which layer | `docs/testing-strategy.md` | linked from this spec |
+| Fact                                                 | Owner                       | Also update                                                             |
+| ---------------------------------------------------- | --------------------------- | ----------------------------------------------------------------------- |
+| Tables, columns, constraints, flows, security rules  | this spec                   | API contract if exposed over HTTP; `.env.example` if it adds a variable |
+| Endpoint paths, request/response bodies, error codes | `docs/api-contract.md`      | this spec if a rule changed; UI spec if a screen's states changed       |
+| Screens, states, badges, copy                        | `docs/frontend-ui-specs.md` | API contract if a status or code was added                              |
+| Env var names                                        | `backend/.env.example`      | this spec if a new external service appeared                            |
+| Argued or dependency-bearing decisions               | `docs/adr/`                 | linked from this spec                                                   |
+| What must be tested, and at which layer              | `docs/testing-strategy.md`  | linked from this spec                                                   |
 
 Rules that make drift visible rather than silent:
 

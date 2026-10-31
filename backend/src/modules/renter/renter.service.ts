@@ -1,11 +1,13 @@
-import { and, asc, eq, ilike, or } from "drizzle-orm";
+import { and, asc, eq, ilike, or, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { resolveOwnedMotel, resolveRoomInMotel } from "@/middleware/tenancy";
 import { listRecentInvoicesForRenter } from "@/modules/billing/billing.service";
 import { getActiveContractForRenter } from "@/modules/contract/contract.service";
 import { AppError } from "@/shared/errors";
 import { normalisePhone } from "@/shared/phone";
+import { rooms } from "@/modules/room/room.schema";
 import { renters } from "./renter.schema";
+import { enqueueNotification } from "@/modules/notification/notification.service";
 import type {
   CreateRenterInput,
   ListRentersFilters,
@@ -16,13 +18,133 @@ import type {
 } from "./renter.types";
 
 export type RenterRow = typeof renters.$inferSelect;
+export type RenterCccdSide = "front" | "back";
+export type RenterCccdMetadata = {
+  objectKey: string;
+  contentType: "image/jpeg" | "image/png";
+  size: number;
+  checksum: string;
+};
+
+function cccdFields(side: RenterCccdSide) {
+  return side === "front"
+    ? {
+        objectKey: renters.idCardFrontObjectKey,
+        contentType: renters.idCardFrontContentType,
+        size: renters.idCardFrontSize,
+        checksum: renters.idCardFrontChecksum,
+      }
+    : {
+        objectKey: renters.idCardBackObjectKey,
+        contentType: renters.idCardBackContentType,
+        size: renters.idCardBackSize,
+        checksum: renters.idCardBackChecksum,
+      };
+}
+
+export async function setRenterCccdMetadata(
+  renterId: string,
+  motelId: string,
+  managerId: string,
+  side: RenterCccdSide,
+  metadata: RenterCccdMetadata,
+) {
+  await resolveOwnedMotel(motelId, managerId);
+  const current = await db.query.renters.findFirst({
+    where: and(eq(renters.id, renterId), eq(renters.motelId, motelId)),
+  });
+  if (!current) throw AppError.notFound("Không tìm thấy người thuê");
+  const oldObjectKey =
+    side === "front" ? current.idCardFrontObjectKey : current.idCardBackObjectKey;
+  const columns =
+    side === "front"
+      ? {
+          idCardFrontObjectKey: metadata.objectKey,
+          idCardFrontContentType: metadata.contentType,
+          idCardFrontSize: metadata.size,
+          idCardFrontChecksum: metadata.checksum,
+        }
+      : {
+          idCardBackObjectKey: metadata.objectKey,
+          idCardBackContentType: metadata.contentType,
+          idCardBackSize: metadata.size,
+          idCardBackChecksum: metadata.checksum,
+        };
+  const updated = await db
+    .update(renters)
+    .set(columns)
+    .where(and(eq(renters.id, renterId), eq(renters.motelId, motelId)))
+    .returning({ id: renters.id });
+  if (!updated.length) throw AppError.notFound("Không tìm thấy người thuê");
+  return { oldObjectKey };
+}
+
+export async function getRenterForConsent(
+  renterId: string,
+  motelId: string,
+): Promise<{
+  id: string;
+  idNumber: string | null;
+  cccdFrontUploaded: boolean;
+  cccdBackUploaded: boolean;
+} | null> {
+  const renter = await db.query.renters.findFirst({
+    where: and(eq(renters.id, renterId), eq(renters.motelId, motelId)),
+  });
+  if (!renter) return null;
+  return {
+    id: renter.id,
+    idNumber: renter.idNumber,
+    cccdFrontUploaded: Boolean(
+      renter.idCardFrontObjectKey &&
+      renter.idCardFrontContentType &&
+      renter.idCardFrontSize &&
+      renter.idCardFrontChecksum,
+    ),
+    cccdBackUploaded: Boolean(
+      renter.idCardBackObjectKey &&
+      renter.idCardBackContentType &&
+      renter.idCardBackSize &&
+      renter.idCardBackChecksum,
+    ),
+  };
+}
+
+export async function getRenterCccdMetadata(
+  renterId: string,
+  motelId: string,
+  managerId: string,
+  side: RenterCccdSide,
+): Promise<RenterCccdMetadata | null> {
+  await resolveOwnedMotel(motelId, managerId);
+  const renter = await db.query.renters.findFirst({
+    where: and(eq(renters.id, renterId), eq(renters.motelId, motelId)),
+  });
+  if (!renter) throw AppError.notFound("Không tìm thấy người thuê");
+  const objectKey = side === "front" ? renter.idCardFrontObjectKey : renter.idCardBackObjectKey;
+  const contentType =
+    side === "front" ? renter.idCardFrontContentType : renter.idCardBackContentType;
+  const size = side === "front" ? renter.idCardFrontSize : renter.idCardBackSize;
+  const checksum = side === "front" ? renter.idCardFrontChecksum : renter.idCardBackChecksum;
+  return objectKey && contentType && size !== null && checksum
+    ? { objectKey, contentType: contentType as "image/jpeg" | "image/png", size, checksum }
+    : null;
+}
+export type NotificationRecipient = Pick<RenterRow, "phone">;
+export async function getRenterNotificationRecipient(
+  renterId: string,
+  motelId: string,
+): Promise<NotificationRecipient | undefined> {
+  return db.query.renters.findFirst({
+    where: and(eq(renters.id, renterId), eq(renters.motelId, motelId)),
+    columns: { phone: true },
+  });
+}
 
 type RenterPatch = Partial<{
   name: string;
   phone: string;
   idNumber: string | null;
-  idCardFrontUrl: string | null;
-  idCardBackUrl: string | null;
   roomId: string | null;
   status: RenterStatus;
 }>;
@@ -41,9 +163,7 @@ export async function getRenter(renterId: string): Promise<RenterRow | undefined
 }
 
 /**
- * The insert itself. Widened from the four fields it started with to carry the CCCD and the two
- * card images, which is the whole of what a renter row is allowed to be given — nothing else
- * reaches it, and the `motelId` here is the one the tenancy check already proved.
+ * The insert accepts renter identity fields only. CCCD image bytes are uploaded through the manager-authorized storage endpoints.
  *
  * The phone is normalised before the write, so `renters_phone_normalised` can never fire: a
  * malformed number is a 400 the caller can read, not a 500 from the constraint.
@@ -54,8 +174,6 @@ export async function createRenter(input: {
   phone: string;
   roomId?: string;
   idNumber?: string | null;
-  idCardFrontUrl?: string | null;
-  idCardBackUrl?: string | null;
 }): Promise<RenterRow> {
   const phone = normalisePhone(input.phone);
   const [row] = await db
@@ -65,7 +183,77 @@ export async function createRenter(input: {
   return row!;
 }
 
-export async function getRenterByPhone(motelId: string, phone: string): Promise<RenterRow | undefined> {
+export async function getRenterForNotification(
+  renterId: string,
+  motelId: string,
+): Promise<Pick<RenterRow, "phone"> | undefined> {
+  return db.query.renters.findFirst({
+    where: and(eq(renters.id, renterId), eq(renters.motelId, motelId)),
+    columns: { phone: true },
+  });
+}
+
+export async function getRenterForTicket(
+  renterId: string,
+  motelId: string,
+): Promise<Pick<RenterRow, "roomId"> | undefined> {
+  return db.query.renters.findFirst({
+    where: and(eq(renters.id, renterId), eq(renters.motelId, motelId)),
+    columns: { roomId: true },
+  });
+}
+
+type RenterWriter = Pick<typeof db, "query" | "update">;
+
+async function syncRoomStatus(tx: any, roomId: string): Promise<void> {
+  const [room] = await tx
+    .select({ id: rooms.id, status: rooms.status })
+    .from(rooms)
+    .where(eq(rooms.id, roomId));
+  if (!room || room.status === "maintenance") return;
+  const [count] = await tx
+    .select({ count: sql<number>`count(*)` })
+    .from(renters)
+    .where(and(eq(renters.roomId, roomId), eq(renters.status, "active")));
+  await tx
+    .update(rooms)
+    .set({ status: Number(count?.count ?? 0) > 0 ? "occupied" : "available" })
+    .where(eq(rooms.id, roomId));
+}
+
+export async function mapZaloFollowerByPhone(
+  motelId: string,
+  phone: string,
+  followerId: string,
+  writer: RenterWriter = db,
+): Promise<boolean> {
+  const normalizedPhone = normalisePhone(phone);
+  const candidates = await writer.query.renters.findMany({
+    where: and(eq(renters.motelId, motelId), eq(renters.phone, normalizedPhone)),
+    columns: { id: true },
+  });
+  if (candidates.length !== 1) throw new Error("follower mapping unavailable");
+  await writer
+    .update(renters)
+    .set({ zaloOaId: followerId, isOaFollower: true })
+    .where(eq(renters.id, candidates[0]!.id));
+  return true;
+}
+
+export async function clearZaloFollower(
+  followerId: string,
+  writer: RenterWriter = db,
+): Promise<void> {
+  await writer
+    .update(renters)
+    .set({ zaloOaId: null, isOaFollower: false })
+    .where(eq(renters.zaloOaId, followerId));
+}
+
+export async function getRenterByPhone(
+  motelId: string,
+  phone: string,
+): Promise<RenterRow | undefined> {
   const normalizedPhone = normalisePhone(phone);
   return db.query.renters.findFirst({
     where: and(eq(renters.motelId, motelId), eq(renters.phone, normalizedPhone)),
@@ -123,7 +311,29 @@ function isDuplicatePhone(error: unknown): boolean {
  * that out here is what lets `RenterResponse.createdAt` be a `string`.
  */
 function toResponse(row: RenterRow): RenterResponse {
-  return { ...row, createdAt: row.createdAt.toISOString() };
+  const {
+    legacyIdCardFrontUrl,
+    legacyIdCardBackUrl,
+    idCardFrontObjectKey,
+    idCardFrontContentType,
+    idCardFrontSize,
+    idCardFrontChecksum,
+    idCardBackObjectKey,
+    idCardBackContentType,
+    idCardBackSize,
+    idCardBackChecksum,
+    ...safe
+  } = row;
+  return {
+    ...safe,
+    idCardFrontUploaded: Boolean(
+      idCardFrontObjectKey && idCardFrontContentType && idCardFrontSize && idCardFrontChecksum,
+    ),
+    idCardBackUploaded: Boolean(
+      idCardBackObjectKey && idCardBackContentType && idCardBackSize && idCardBackChecksum,
+    ),
+    createdAt: row.createdAt.toISOString(),
+  };
 }
 
 /**
@@ -199,18 +409,28 @@ export async function createRenterForMotel(
   }
 
   try {
-    const row = await createRenter({
-      motelId,
-      name: input.name,
-      phone: input.phone,
-      idNumber: input.idNumber,
-      idCardFrontUrl: input.idCardFrontUrl,
-      idCardBackUrl: input.idCardBackUrl,
-      // `roomId: null` on a create is the same request as leaving it out — the column is simply
-      // nullable — so it is dropped here rather than passed on as a `null` the parameter does not
-      // accept.
-      ...(input.roomId === undefined || input.roomId === null ? {} : { roomId: input.roomId }),
+    const row = await db.transaction(async (tx) => {
+      const [created] = await tx
+        .insert(renters)
+        .values({
+          motelId,
+          name: input.name,
+          phone: normalisePhone(input.phone),
+          idNumber: input.idNumber,
+          ...(input.roomId === undefined || input.roomId === null ? {} : { roomId: input.roomId }),
+        })
+        .returning();
+      if (!created) throw AppError.externalService();
+      if (created.roomId) await syncRoomStatus(tx, created.roomId);
+      return created;
     });
+    await enqueueNotification({
+      eventKey: `renter:${row.id}:welcome`,
+      renterId: row.id,
+      motelId,
+      templateId: "welcome",
+      payload: { name: row.name },
+    }).catch(() => undefined);
     return toResponse(row);
   } catch (error) {
     if (isDuplicatePhone(error)) {
@@ -272,8 +492,6 @@ export async function updateRenter(
   if (input.name !== undefined) patch.name = input.name;
   if (input.phone !== undefined) patch.phone = normalisePhone(input.phone);
   if (input.idNumber !== undefined) patch.idNumber = input.idNumber;
-  if (input.idCardFrontUrl !== undefined) patch.idCardFrontUrl = input.idCardFrontUrl;
-  if (input.idCardBackUrl !== undefined) patch.idCardBackUrl = input.idCardBackUrl;
   if (input.roomId !== undefined) patch.roomId = input.roomId;
   if (input.status !== undefined) patch.status = input.status;
 
@@ -281,8 +499,20 @@ export async function updateRenter(
   if (Object.keys(patch).length === 0) return toResponse(owned);
 
   try {
-    const [row] = await db.update(renters).set(patch).where(eq(renters.id, renterId)).returning();
-    return toResponse(row!);
+    const row = await db.transaction(async (tx) => {
+      const [updated] = await tx
+        .update(renters)
+        .set(patch)
+        .where(eq(renters.id, renterId))
+        .returning();
+      if (!updated) throw AppError.notFound("Không tìm thấy người thuê");
+      const roomIds = new Set(
+        [owned.roomId, updated.roomId].filter((id): id is string => id !== null),
+      );
+      for (const roomId of roomIds) await syncRoomStatus(tx, roomId);
+      return updated;
+    });
+    return toResponse(row);
   } catch (error) {
     // Re-saving a renter's own phone is not a violation: the index compares distinct rows, so
     // PostgreSQL lets it through and only a genuinely taken phone reaches here.
@@ -311,5 +541,12 @@ export async function deleteRenter(
 ): Promise<void> {
   await resolveOwnedRenter(renterId, motelId, managerId);
 
-  await db.update(renters).set({ status: "inactive" }).where(eq(renters.id, renterId));
+  await db.transaction(async (tx) => {
+    const [updated] = await tx
+      .update(renters)
+      .set({ status: "inactive" })
+      .where(eq(renters.id, renterId))
+      .returning({ roomId: renters.roomId });
+    if (updated?.roomId) await syncRoomStatus(tx, updated.roomId);
+  });
 }

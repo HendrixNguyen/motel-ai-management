@@ -1,5 +1,6 @@
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, gt, isNull } from "drizzle-orm";
 import { randomBytes } from "crypto";
+import { hashMagicLinkToken } from "./magic-link-token";
 import { env } from "@/config";
 import { db } from "@/db";
 import { magicLinks } from "@/modules/auth/auth.schema";
@@ -15,7 +16,9 @@ function generateToken(): string {
   return randomBytes(TOKEN_BYTES).toString("base64url");
 }
 
-export async function issueMagicLink(renterId: string): Promise<{ token: string; expiresAt: Date; url: string }> {
+export async function issueMagicLink(
+  renterId: string,
+): Promise<{ token: string; expiresAt: Date; url: string }> {
   const renter = await db.query.renters.findFirst({ where: eq(renters.id, renterId) });
   if (!renter) throw AppError.notFound("Không tìm thấy người thuê");
 
@@ -24,35 +27,37 @@ export async function issueMagicLink(renterId: string): Promise<{ token: string;
 
   await db.insert(magicLinks).values({
     renterId,
-    token,
+    tokenHash: hashMagicLinkToken(token),
     expiresAt,
   });
 
   // The landing route is `/r/[token]` (frontend-ui-specs.md R0) — the renter portal's only
   // token-bearing route. A link built for any other path 404s on arrival.
-  const url = `${env.frontendUrl}/r/${token}`;
-
+  const url = `${env.renterPortalUrl}/r/${token}`;
   return { token, expiresAt, url };
 }
 
 export async function consumeMagicLink(token: string): Promise<RenterRow> {
-  const link = await db.query.magicLinks.findFirst({
-    where: eq(magicLinks.token, token),
-  });
-
-  if (!link) throw new AppError("MAGIC_LINK_EXPIRED", "Liên kết không hợp lệ hoặc đã hết hạn");
-
-  if (link.consumedAt) throw new AppError("MAGIC_LINK_EXPIRED", "Liên kết không hợp lệ hoặc đã hết hạn");
-
-  if (link.expiresAt < new Date()) throw new AppError("MAGIC_LINK_EXPIRED", "Liên kết không hợp lệ hoặc đã hết hạn");
-
-  await db
+  const now = new Date();
+  const [claimed] = await db
     .update(magicLinks)
-    .set({ consumedAt: new Date() })
-    .where(eq(magicLinks.token, token));
+    .set({ consumedAt: now })
+    .where(
+      and(
+        eq(magicLinks.tokenHash, hashMagicLinkToken(token)),
+        isNull(magicLinks.consumedAt),
+        gt(magicLinks.expiresAt, now),
+      ),
+    )
+    .returning({ renterId: magicLinks.renterId });
 
-  const renter = await db.query.renters.findFirst({ where: eq(renters.id, link.renterId) });
+  if (!claimed) throw new AppError("MAGIC_LINK_EXPIRED", "Liên kết không hợp lệ hoặc đã hết hạn");
+
+  const renter = await db.query.renters.findFirst({ where: eq(renters.id, claimed.renterId) });
   if (!renter) throw AppError.notFound("Không tìm thấy người thuê");
+  if (renter.status !== "active") {
+    throw new AppError("MAGIC_LINK_EXPIRED", "Liên kết không hợp lệ hoặc đã hết hạn");
+  }
 
   return renter;
 }

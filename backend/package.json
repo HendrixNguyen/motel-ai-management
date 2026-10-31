@@ -1,30 +1,49 @@
 {
   "name": "backend",
-  "version": "1.0.50",
+  "version": "1.0.61",
   "type": "module",
   "scripts": {
     "dev": "bun run --watch src/index.ts",
-    "test": "bun test",
+    "test": "bun test --parallel=1",
+    "test:coverage": "bun test --coverage --parallel=1",
     "start": "bun run src/index.ts",
     "db:generate": "drizzle-kit generate",
+    "db:seed-contract-catalog": "bun run src/modules/contract/contract-catalog.seed.ts",
     "db:migrate": "bun run src/db/migrate.ts",
+    "db:seed-system": "bun run src/db/seed-system.ts",
+    "start:migration-job": "bun run db:migrate",
+    "start:server": "bun run src/index.ts",
     "db:studio": "drizzle-kit studio",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1147.0",
+    "@aws-sdk/s3-request-presigner": "^3.1147.0",
     "@elysiajs/cookie": "^0.8.0",
     "@elysiajs/cors": "latest",
     "@elysiajs/jwt": "latest",
-    "argon2": "latest",
+    "@sinclair/typebox": "^0.34.52",
+    "@types/web-push": "^3.6.4",
     "drizzle-orm": "latest",
     "elysia": "latest",
-    "postgres": "latest"
+    "postgres": "latest",
+    "web-push": "^3.6.7"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@types/bun": "latest",
     "bun-types": "latest",
+    "c8": "^12.0.0",
     "drizzle-kit": "latest",
-    "typescript": "^5"
+    "eslint": "^10.13.0",
+    "eslint-config-prettier": "^10.1.8",
+    "prettier": "^3.9.10",
+    "typescript": "^5",
+    "typescript-eslint": "^8.72.0"
   },
   "module": "src/index.js"
 }
