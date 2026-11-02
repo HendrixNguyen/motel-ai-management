@@ -148,8 +148,10 @@ UNIQUE (`managerId`, `requestId`). Null `motelId` represents deleted motel resul
 | motelId   | UUID          | FK → motels, NOT NULL, indexed                    |
 | name      | TEXT          | NOT NULL, room number as displayed (e.g. `P.101`) |
 | basePrice | NUMERIC(14,0) | Default monthly rent, NOT NULL DEFAULT 0          |
-| floor     | INT           | nullable                                          |
-| status    | room_status   | DEFAULT `available`                               |
+| floor                  | INT           | nullable                                          |
+| initialElectricReading | NUMERIC(12,2) | NOT NULL DEFAULT 0; baseline before prior electricity readings |
+| initialWaterReading    | NUMERIC(12,2) | NOT NULL DEFAULT 0; baseline before prior water readings       |
+| status                 | room_status   | DEFAULT `available`                               |
 | createdAt | TIMESTAMPTZ   | DEFAULT now()                                     |
 
 UNIQUE (`motelId`, `name`).
@@ -472,8 +474,8 @@ only by cookie.
 
 1. Manager creates a `billing_period` (month/year) for a motel.
 2. System seeds `meter_readings` rows for every room and meter type, copying each
-   room's latest prior `currentReading` into `previousReading`. A room with no prior
-   reading starts at `0`.
+   room's latest prior `currentReading` into `previousReading`. With no prior reading,
+   use that room's saved initial electricity/water reading (default `0`).
 3. Manager enters `currentReading` per room. The UI recalculates live and flags
    `currentReading < previousReading` and consumption above 500 kWh / 30 m³.
 4. On generate, for every room with an active contract, the system writes one invoice:

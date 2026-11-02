@@ -50,6 +50,8 @@ const rooms: RoomResponse[] = [
     name: "101",
     floor: 1,
     basePrice: "3500000",
+    initialElectricReading: "0",
+    initialWaterReading: "0",
     status: "available",
     createdAt: "2026-01-01T00:00:00Z",
   },

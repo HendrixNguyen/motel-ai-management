@@ -146,7 +146,7 @@ Contract creation validates motel ownership for renter, room, and template. Miss
 | ------ | ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | GET    | `/`                          | All motels owned by the manager                                                                                                                                                                                 |
 | POST   | `/`                          | Create; `409 MOTEL_SETUP_REQUIRED` if manager has zero motels; `400 VALIDATION_ERROR` if `electricityPrice`/`waterPrice` are missing or not strings                                                             |
-| POST   | `/setup`                     | Atomic full/quick setup; 201 created, 200 replayed idempotently. `409 MOTEL_SETUP_REQUIRED` if quick with 0 motels; `409 IDEMPOTENCY_CONFLICT` on changed payload; `410 SETUP_RESULT_DELETED` if motel deleted. |
+| POST   | `/setup`                     | Atomic full/quick setup; full-mode room inputs accept optional `initialElectricReading` and `initialWaterReading` non-negative meter strings (up to 2 decimals, default `0`). 201 created, 200 replayed idempotently. `409 MOTEL_SETUP_REQUIRED` if quick with 0 motels; `409 IDEMPOTENCY_CONFLICT` on changed payload; `410 SETUP_RESULT_DELETED` if motel deleted. |
 | GET    | `/setup-requests/:requestId` | Status of setup request; 200 with result, 404 unknown, 410 if motel was deleted.                                                                                                                                |
 | GET    | `/:motelId`                  | `404` if not owned by caller                                                                                                                                                                                    |
 | PATCH  | `/:motelId`                  | Partial update of prices, fees, bank account, address. A key absent from the body is never written; an explicit `null` clears.                                                                                  |
@@ -157,7 +157,7 @@ Contract creation validates motel ownership for renter, room, and template. Miss
 | Method | Path       | Notes                                                                               |
 | ------ | ---------- | ----------------------------------------------------------------------------------- |
 | GET    | `/`        | Supports `?floor=&status=&search=`; `basePrice` returned as VND digit string        |
-| POST   | `/`        | `409 CONFLICT` on duplicate `(motelId, name)`; `basePrice` as VND digit string      |
+| POST   | `/`        | `409 CONFLICT` on duplicate `(motelId, name)`; `basePrice` as VND digit string; optional `initialElectricReading` and `initialWaterReading` are non-negative meter strings (up to 2 decimals, default `0`) |
 | GET    | `/:roomId` | `basePrice` returned as VND digit string                                            |
 | PATCH  | `/:roomId` | Partial update of name, floor, `basePrice`, status; `basePrice` as VND digit string |
 | DELETE | `/:roomId` | `409 CONFLICT` if an active contract exists OR any renter is assigned to the room   |

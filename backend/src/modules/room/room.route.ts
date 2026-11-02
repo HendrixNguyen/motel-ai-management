@@ -56,6 +56,8 @@ const createBody = t.Object({
   name: t.String({ minLength: 1 }),
   basePrice: t.String(),
   floor: t.Optional(t.Nullable(floor)),
+  initialElectricReading: t.Optional(t.String()),
+  initialWaterReading: t.Optional(t.String()),
   status: t.Optional(statusSchema),
 });
 

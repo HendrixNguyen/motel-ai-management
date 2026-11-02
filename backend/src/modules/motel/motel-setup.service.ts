@@ -138,6 +138,8 @@ export async function setupMotel(
           name: r.name.trim(),
           basePrice: r.basePrice,
           floor: r.floor ?? null,
+          initialElectricReading: r.initialElectricReading,
+          initialWaterReading: r.initialWaterReading,
         })),
       );
       roomCount = createdRooms.length;
