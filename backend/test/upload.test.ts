@@ -6,7 +6,6 @@ import { managers } from "@/modules/auth/auth.schema";
 import { app } from "@/app";
 import { renters } from "@/modules/renter/renter.schema";
 import { billingPeriods, meterReadings } from "@/modules/billing/billing.schema";
-import { uploads } from "@/modules/billing/upload.schema";
 import { motels } from "@/modules/motel/motel.schema";
 import { rooms } from "@/modules/room/room.schema";
 import {
@@ -182,17 +181,15 @@ describe("meter photo uploads", () => {
       data.motel.id,
       data.period.id,
       data.reading.id,
-      data.manager.id,
+      { userId: data.manager.id, role: "manager" },
       jpeg(),
     );
     expect(uploaded).toMatchObject({ contentType: "image/jpeg", size: 4 });
     expect("objectKey" in uploaded).toBe(false);
-    const read = await getMeterPhoto(
-      data.motel.id,
-      data.period.id,
-      data.reading.id,
-      data.manager.id,
-    );
+    const read = await getMeterPhoto(data.motel.id, data.period.id, data.reading.id, {
+      userId: data.manager.id,
+      role: "manager",
+    });
     expect(read.url).toContain("fake://private/");
     expect("objectKey" in read).toBe(false);
   });
@@ -246,20 +243,26 @@ describe("meter photo uploads", () => {
       data.motel.id,
       data.period.id,
       data.reading.id,
-      data.manager.id,
+      { userId: data.manager.id, role: "manager" },
       jpeg(),
     );
     const second = await uploadMeterPhoto(
       data.motel.id,
       data.period.id,
       data.reading.id,
-      data.manager.id,
+      { userId: data.manager.id, role: "manager" },
       jpeg(),
     );
     expect(second.id).not.toBe(first.id);
     const sent = await seed("sent");
     await expect(
-      uploadMeterPhoto(sent.motel.id, sent.period.id, sent.reading.id, sent.manager.id, jpeg()),
+      uploadMeterPhoto(
+        sent.motel.id,
+        sent.period.id,
+        sent.reading.id,
+        { userId: sent.manager.id, role: "manager" },
+        jpeg(),
+      ),
     ).rejects.toMatchObject({ code: "PERIOD_ALREADY_SENT" });
   });
 
@@ -270,7 +273,7 @@ describe("meter photo uploads", () => {
         data.motel.id,
         data.period.id,
         data.reading.id,
-        data.manager.id,
+        { userId: data.manager.id, role: "manager" },
         new File([new Uint8Array([1, 2, 3])], "bad.jpg", { type: "image/jpeg" }),
       ),
     ).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
@@ -279,7 +282,7 @@ describe("meter photo uploads", () => {
         data.motel.id,
         data.period.id,
         data.reading.id,
-        data.manager.id,
+        { userId: data.manager.id, role: "manager" },
         new File([new Uint8Array(10 * 1024 * 1024 + 1)], "big.jpg", { type: "image/jpeg" }),
       ),
     ).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
@@ -294,7 +297,13 @@ describe("meter photo uploads", () => {
     });
     configureUploadStorage(storage);
     await expect(
-      uploadMeterPhoto(data.motel.id, data.period.id, data.reading.id, data.manager.id, jpeg()),
+      uploadMeterPhoto(
+        data.motel.id,
+        data.period.id,
+        data.reading.id,
+        { userId: data.manager.id, role: "manager" },
+        jpeg(),
+      ),
     ).rejects.toMatchObject({ code: "NOT_FOUND" });
     expect(storage.deleted).toHaveLength(1);
     expect(storedKey).toBeUndefined();
@@ -307,11 +316,23 @@ describe("meter photo uploads", () => {
     const own = await seed();
     const other = await seed();
     await expect(
-      uploadMeterPhoto(other.motel.id, own.period.id, own.reading.id, other.manager.id, jpeg()),
+      uploadMeterPhoto(
+        other.motel.id,
+        own.period.id,
+        own.reading.id,
+        { userId: other.manager.id, role: "manager" },
+        jpeg(),
+      ),
     ).rejects.toMatchObject({ code: "NOT_FOUND" });
     configureUploadStorage(new FakeStorageAdapter({ failure: new Error("secret bucket") }));
     await expect(
-      uploadMeterPhoto(own.motel.id, own.period.id, own.reading.id, own.manager.id, jpeg()),
+      uploadMeterPhoto(
+        own.motel.id,
+        own.period.id,
+        own.reading.id,
+        { userId: own.manager.id, role: "manager" },
+        jpeg(),
+      ),
     ).rejects.toMatchObject({ code: "EXTERNAL_SERVICE_ERROR" });
   });
 });

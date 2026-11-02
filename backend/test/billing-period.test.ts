@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, setDefaultTimeout, test } from "bun:test";
+import { beforeEach, expect, setDefaultTimeout, test } from "bun:test";
 import { app } from "@/app";
 import { db } from "@/db";
 import { resetDb } from "@/db/test-db";

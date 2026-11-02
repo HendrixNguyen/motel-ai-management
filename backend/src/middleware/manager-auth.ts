@@ -98,13 +98,9 @@ export const managerAuth = new Elysia({ name: "manager-auth" })
       },
     };
   })
-  .onBeforeHandle({ as: "scoped" }, ({ auth, set, path }) => {
+  .onBeforeHandle({ as: "scoped" }, ({ auth, set }) => {
     if (!auth) {
       set.status = 401;
       return { error: "Chưa đăng nhập", code: "UNAUTHORIZED" };
-    }
-    if (path.startsWith("/api/manager/") && auth.role !== "manager") {
-      set.status = 403;
-      return { error: "Không có quyền", code: "FORBIDDEN" };
     }
   });

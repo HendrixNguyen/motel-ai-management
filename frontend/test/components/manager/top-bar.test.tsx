@@ -80,10 +80,21 @@ const motels = [
 ] as never[];
 
 describe("TopBar branch behavior", () => {
+  test("keeps capture warning beside account control in header flow", () => {
+    const view = render(<TopBar manager={manager} motels={motels} />);
+    const header = view.container.querySelector("header")!;
+    const account = view.getByLabelText("Menu phụ, Tài khoản");
+    const warning = view.getByText("Queue warning");
+    expect(header).toContainElement(account);
+    expect(account.parentElement?.parentElement).toContainElement(warning);
+  });
+
   test("renders the package build version when metadata is available", () => {
     const view = render(<TopBar manager={manager} motels={motels} />);
     if (process.env.NEXT_PUBLIC_BUILD_VERSION)
-      expect(view.getByTestId("build-version").textContent).toContain(process.env.NEXT_PUBLIC_BUILD_VERSION);
+      expect(view.getByTestId("build-version").textContent).toContain(
+        process.env.NEXT_PUBLIC_BUILD_VERSION,
+      );
     else expect(view.queryByTestId("build-version")).toBeNull();
   });
 

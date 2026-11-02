@@ -24,6 +24,7 @@ import { setNotificationRecipientResolver } from "@/modules/notification/notific
 import type { RenterAuthPayload } from "@/middleware/renter-auth";
 
 let managerId: string;
+let actor: { userId: string; role: "manager" };
 let motelId: string;
 let roomId: string;
 let renterId: string;
@@ -45,6 +46,7 @@ beforeEach(async () => {
       .returning()
   )[0]!;
   managerId = manager.id;
+  actor = { userId: managerId, role: "manager" };
   const motel = (
     await db
       .insert(motels)
@@ -157,12 +159,12 @@ describe("payment proof image upload and review lifecycle", () => {
       invoiceId,
       new File([bytes], "proof.jpg", { type: "image/jpeg" }),
     );
-    const managerProof = await getManagerPaymentProof(managerId, motelId, invoiceId);
+    const managerProof = await getManagerPaymentProof(actor, motelId, invoiceId);
     expect(managerProof.signedUrl).toContain("fake");
-    await expect(rejectPaymentProof(managerId, motelId, invoiceId, "   ")).rejects.toMatchObject({
+    await expect(rejectPaymentProof(actor, motelId, invoiceId, "   ")).rejects.toMatchObject({
       status: 400,
     });
-    const rejected = await rejectPaymentProof(managerId, motelId, invoiceId, "Biên lai không rõ");
+    const rejected = await rejectPaymentProof(actor, motelId, invoiceId, "Biên lai không rõ");
     expect(rejected.status).toBe("rejected");
     expect(rejected.rejectionReason).toBe("Biên lai không rõ");
   });
@@ -174,10 +176,10 @@ describe("payment proof image upload and review lifecycle", () => {
       invoiceId,
       new File([bytes], "proof.jpg", { type: "image/jpeg" }),
     );
-    const approved = await approvePaymentProof(managerId, motelId, invoiceId);
+    const approved = await approvePaymentProof(actor, motelId, invoiceId);
     expect(approved.paymentStatus).toBe("paid");
     expect(approved.paymentMethod).toBe("bank_transfer");
-    const retry = await approvePaymentProof(managerId, motelId, invoiceId).catch((error) => error);
+    const retry = await approvePaymentProof(actor, motelId, invoiceId).catch((error) => error);
     expect(retry).toBeInstanceOf(Error);
     const invoice = (
       await db
@@ -186,24 +188,24 @@ describe("payment proof image upload and review lifecycle", () => {
         .where(eq(invoices.id, invoiceId))
         .returning()
     )[0]!;
-    const cash = await confirmCashPayment(managerId, motelId, invoice.id);
+    const cash = await confirmCashPayment(actor, motelId, invoice.id);
     expect(cash.paymentMethod).toBe("cash");
-    await expect(confirmCashPayment(managerId, motelId, invoice.id)).rejects.toBeInstanceOf(Error);
+    await expect(confirmCashPayment(actor, motelId, invoice.id)).rejects.toBeInstanceOf(Error);
   });
 
   test("manager actions reject unknown owner, invalid rejection, and duplicate proof review", async () => {
-    await expect(
-      getManagerPaymentProof(managerId, motelId, crypto.randomUUID()),
-    ).rejects.toMatchObject({ status: 404 });
-    await expect(approvePaymentProof(managerId, motelId, invoiceId)).rejects.toMatchObject({
-      status: 409,
-    });
-    await expect(
-      rejectPaymentProof(managerId, motelId, invoiceId, "No proof"),
-    ).rejects.toMatchObject({ status: 409 });
-    await expect(confirmCashPayment(managerId, motelId, crypto.randomUUID())).rejects.toMatchObject(
+    await expect(getManagerPaymentProof(actor, motelId, crypto.randomUUID())).rejects.toMatchObject(
       { status: 404 },
     );
+    await expect(approvePaymentProof(actor, motelId, invoiceId)).rejects.toMatchObject({
+      status: 409,
+    });
+    await expect(rejectPaymentProof(actor, motelId, invoiceId, "No proof")).rejects.toMatchObject({
+      status: 409,
+    });
+    await expect(confirmCashPayment(actor, motelId, crypto.randomUUID())).rejects.toMatchObject({
+      status: 404,
+    });
   });
 
   test("rejects 5,000,001 bytes with validation error before invoice lookup", async () => {

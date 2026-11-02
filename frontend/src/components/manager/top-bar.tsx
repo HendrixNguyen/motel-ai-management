@@ -33,6 +33,11 @@ export default function TopBar({
   const accountMenu = useRef<HTMLDivElement>(null);
   const search = searchParams.toString();
   useEffect(() => {
+    try {
+      sessionStorage.setItem("manager-role", manager.role);
+    } catch {}
+  }, [manager.role]);
+  useEffect(() => {
     if (!accountOpen) return;
     const closeOnOutsidePress = (event: PointerEvent) => {
       if (
@@ -86,15 +91,22 @@ export default function TopBar({
     <header className="border-b border-border bg-surface px-3 py-2 shadow-[0_1px_2px_rgba(23,43,58,0.05)] sm:px-4 sm:py-3 lg:px-8">
       <div className="flex w-full flex-wrap items-center justify-between gap-3 sm:gap-4">
         <div className="hidden min-w-0 flex-1 lg:block">
-          <p className="text-xs font-semibold uppercase tracking-wider text-text-muted">Không gian vận hành</p>
-          <p className="mt-0.5 truncate font-heading text-base font-semibold text-text">Theo dõi nhà trọ, hóa đơn và khách thuê</p>
+          <p className="text-xs font-semibold uppercase tracking-wider text-text-muted">
+            Không gian vận hành
+          </p>
+          <p className="mt-0.5 truncate font-heading text-base font-semibold text-text">
+            Theo dõi nhà trọ, hóa đơn và khách thuê
+          </p>
         </div>
         <div className="min-w-[12rem] flex-1 sm:w-64 sm:flex-none lg:flex-1 lg:max-w-sm">
-          <label htmlFor="motel-selector" className="sr-only">Nhà trọ</label>
+          <label htmlFor="motel-selector" className="sr-only">
+            Nhà trọ
+          </label>
           <MotelSwitcher
             motels={motelItems}
             selectedId={selected}
             disabled={switching}
+            showOwner={manager.role === "superadmin"}
             onChange={(id) => {
               const event = new CustomEvent("capture:motel-switch", {
                 cancelable: true,
@@ -106,58 +118,60 @@ export default function TopBar({
             }}
           />
         </div>
-        <div className="relative ml-auto shrink-0">
-          <button
-            ref={accountTrigger}
-            type="button"
-            aria-label="Menu phụ, Tài khoản"
-            aria-expanded={accountOpen}
-            aria-controls="manager-account-menu"
-            onClick={() => setAccountOpen((open) => !open)}
-            className="flex min-h-11 cursor-pointer items-center rounded-input border border-border-strong px-3 text-sm font-semibold text-text hover:bg-canvas focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-          >
-            Tài khoản
-          </button>
-          <div
-            ref={accountMenu}
-            id="manager-account-menu"
-            role="group"
-            aria-label="Tùy chọn tài khoản"
-            hidden={!accountOpen}
-            onKeyDown={(event) => {
-              if (event.key === "Escape") {
-                event.preventDefault();
-                setAccountOpen(false);
-                accountTrigger.current?.focus();
-              }
-            }}
-            className="absolute right-0 z-30 mt-2 w-64 max-w-[calc(100vw-1.5rem)] space-y-3 rounded-card border border-border bg-surface p-4 shadow-lg sm:space-y-4"
-          >
-            <p className="break-all text-sm">{manager.email}</p>
-            {buildVersion && (
-              <p className="font-mono text-xs text-text-muted" data-testid="build-version">
-                Build {buildVersion}
-              </p>
-            )}
-            <ThemeSelect />
-            {error && (
-              <p role="alert" className="text-sm text-danger">
-                {error}
-              </p>
-            )}
-            <Button
-              variant="secondary"
-              onClick={handleLogout}
-              pending={pending}
-              pendingLabel="Đang đăng xuất…"
-              className="w-full"
+        <div className="ml-auto flex shrink-0 items-center gap-2">
+          {selected && <CaptureQueueWarning managerId={manager.id} motelId={selected} />}
+          <div className="relative shrink-0">
+            <button
+              ref={accountTrigger}
+              type="button"
+              aria-label="Menu phụ, Tài khoản"
+              aria-expanded={accountOpen}
+              aria-controls="manager-account-menu"
+              onClick={() => setAccountOpen((open) => !open)}
+              className="flex min-h-11 cursor-pointer items-center rounded-input border border-border-strong px-3 text-sm font-semibold text-text hover:bg-canvas focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
             >
-              Đăng xuất
-            </Button>
+              Tài khoản
+            </button>
+            <div
+              ref={accountMenu}
+              id="manager-account-menu"
+              role="group"
+              aria-label="Tùy chọn tài khoản"
+              hidden={!accountOpen}
+              onKeyDown={(event) => {
+                if (event.key === "Escape") {
+                  event.preventDefault();
+                  setAccountOpen(false);
+                  accountTrigger.current?.focus();
+                }
+              }}
+              className="absolute right-0 z-30 mt-2 w-64 max-w-[calc(100vw-1.5rem)] space-y-3 rounded-card border border-border bg-surface p-4 shadow-lg sm:space-y-4"
+            >
+              <p className="break-all text-sm">{manager.email}</p>
+              {buildVersion && (
+                <p className="font-mono text-xs text-text-muted" data-testid="build-version">
+                  Build {buildVersion}
+                </p>
+              )}
+              <ThemeSelect />
+              {error && (
+                <p role="alert" className="text-sm text-danger">
+                  {error}
+                </p>
+              )}
+              <Button
+                variant="secondary"
+                onClick={handleLogout}
+                pending={pending}
+                pendingLabel="Đang đăng xuất…"
+                className="w-full"
+              >
+                Đăng xuất
+              </Button>
+            </div>
           </div>
         </div>
       </div>
-      {selected && <CaptureQueueWarning managerId={manager.id} motelId={selected} />}
     </header>
   );
 }

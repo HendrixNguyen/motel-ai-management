@@ -22,6 +22,15 @@ export default function MotelEditor({
 }) {
   const [currentSession, setCurrentSession] = useState<{ id: number; formKey: number }>();
   const [wizardMotels, setWizardMotels] = useState<MotelResponse[]>([]);
+  const [isSuperadmin] = useState(() => {
+    try {
+      return (
+        typeof window !== "undefined" && sessionStorage.getItem("manager-role") === "superadmin"
+      );
+    } catch {
+      return false;
+    }
+  });
   const [managerId] = useState<string>(() => {
     try {
       return typeof window !== "undefined" ? (sessionStorage.getItem("manager-id") ?? "") : "";
@@ -81,6 +90,7 @@ export default function MotelEditor({
           onClose={closeFromDialog}
           motels={wizardMotels}
           managerId={managerId}
+          isSuperadmin={isSuperadmin === true}
         />
       </>
     );

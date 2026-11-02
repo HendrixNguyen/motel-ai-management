@@ -12,16 +12,17 @@
 
 ## Auth
 
-| Prefix           | Credential                                           | Session                           |
-| ---------------- | ---------------------------------------------------- | --------------------------------- |
-| `/api/manager/*` | Manager JWT only; Superadmin returns `403 FORBIDDEN` | `manager_session` httpOnly cookie |
-| `/api/admin/*`   | Superadmin JWT only; Manager returns `403 FORBIDDEN` | `manager_session` httpOnly cookie |
-| `/api/renter/*`  | Renter session                                       | `renter_session` httpOnly cookie  |
+| Prefix           | Credential                                                        | Session                           |
+| ---------------- | ----------------------------------------------------------------- | --------------------------------- |
+| `/api/manager/*` | Manager or Superadmin JWT; Manager requests scope to owned motels | `manager_session` httpOnly cookie |
+| `/api/admin/*`   | Superadmin JWT only; Manager returns `403 FORBIDDEN`              | `manager_session` httpOnly cookie |
+| `/api/renter/*`  | Renter session                                                    | `renter_session` httpOnly cookie  |
 
-Tenant scope is always derived from the session. No endpoint accepts a `managerId` from the
-client. A motel belonging to another manager returns `404`, never `403`. Superadmin role can
-access account/catalog administration only; business endpoints reject it. Public manager
-registration remains available and always creates role `manager`; no route accepts role changes.
+Tenant access is derived from the authenticated role. Managers can access only their own motels;
+Superadmins can access all motels and their related business records. Foreign motel or mismatched
+child IDs return `404`, never `403`. `ownerManagerId` is accepted only when a Superadmin creates a
+motel and must name an enabled Manager; ordinary Managers cannot choose or change motel ownership.
+Public registration remains available and always creates role `manager`; no route accepts role changes.
 QA seed/debug HTTP routes are not available.
 
 ## Superadmin manager account endpoints
@@ -37,13 +38,15 @@ Public `/api/auth/register` remains for Manager self-registration and must alway
 
 ## Shared contract catalog endpoints
 
-| Method | Path                                                           | Access          | Body                                           | Returns                                         |
-| ------ | -------------------------------------------------------------- | --------------- | ---------------------------------------------- | ----------------------------------------------- |
-| GET    | `/api/manager/contract-template-catalog`                       | Manager session | —                                              | Active system catalog summaries                 |
-| GET    | `/api/manager/contract-template-catalog/:key/:version`         | Manager session | —                                              | Active system template and clauses              |
-| POST   | `/api/manager/motels/:motelId/contract-templates/from-catalog` | Manager session | `{catalogKey,catalogVersion,name?,isDefault?}` | New motel-owned copy; foreign motel returns 404 |
+| Method | Path                                                           | Access                        | Body                                           | Returns                                              |
+| ------ | -------------------------------------------------------------- | ----------------------------- | ---------------------------------------------- | ---------------------------------------------------- |
+| GET    | `/api/manager/contract-template-catalog`                       | Manager or Superadmin session | —                                              | Active system catalog summaries                      |
+| GET    | `/api/manager/contract-template-catalog/:key/:version`         | Manager or Superadmin session | —                                              | Active system template and clauses                   |
+| POST   | `/api/manager/motels/:motelId/contract-templates/from-catalog` | Manager or Superadmin session | `{catalogKey,catalogVersion,name?,isDefault?}` | New motel-owned copy; inaccessible motel returns 404 |
 
-Catalog rows are read-only source templates. Copy validates the active version and motel ownership, then creates independent clauses in motel scope. Contracts continue snapshotting clauses at creation.
+Catalog rows are read-only source templates. Copy validates the active version and access to the
+source and target motels, then creates independent clauses in target motel scope. Contracts
+continue snapshotting clauses at creation.
 
 ## Error envelope
 
@@ -115,7 +118,7 @@ Contract creation validates motel ownership for renter, room, and template. Miss
 
 `password` is 8–256 characters. Login/register are rate-limited per IP and normalized email. Registration ignores/rejects any client-supplied role and creates only a normal Manager; it never creates a Superadmin.
 
-`/auth/me` accepts a valid Manager or Superadmin session and returns its DB-backed role. Unchecked or omitted `rememberMe` uses existing seven-day JWT cookie. Remembered Manager sessions use an opaque HttpOnly cookie token whose SHA-256 hash is stored server-side; successful foreground authenticated activity renews its expiry to 90 days, throttled to one renewal per minute. Passive open tabs do not renew. Expired sessions cannot be renewed. Logout revokes only current remembered session; password reset and account disable/re-enable invalidate all sessions through `sessionVersion`. Superadmin and registration behavior remain unchanged. Manager JWT signing uses `MANAGER_JWT_SECRET`; Superadmin signing uses `ADMIN_JWT_SECRET`. Both must be distinct from `RENTER_SESSION_SECRET` and are never exposed to clients. Superadmin CSRF token is per login, signed into its session, available on the same-origin admin-list response header, and required as `X-CSRF-Token` on writes. The frontend reaches these routes through the same-origin `/api` proxy.
+`/auth/me` accepts a valid Manager or Superadmin session and returns its DB-backed role. Unchecked or omitted `rememberMe` uses existing seven-day JWT cookie. Remembered Manager sessions use an opaque HttpOnly cookie token whose SHA-256 hash is stored server-side; successful foreground authenticated activity renews its expiry to 90 days, throttled to one renewal per minute. Passive open tabs do not renew. Expired sessions cannot be renewed. Logout revokes only current remembered session; password reset and account disable/re-enable invalidate all sessions through `sessionVersion`. Superadmin login and public registration behavior remain unchanged. Manager JWT signing uses `MANAGER_JWT_SECRET`; Superadmin signing uses `ADMIN_JWT_SECRET`. Both must be distinct from `RENTER_SESSION_SECRET` and are never exposed to clients. Superadmin CSRF token is per login, signed into its session, available on the same-origin admin-list response header, and required as `X-CSRF-Token` on writes. The frontend reaches these routes through the same-origin `/api` proxy.
 
 ### Magic links — `/api/renter/magic-links`
 
@@ -142,15 +145,20 @@ Contract creation validates motel ownership for renter, room, and template. Miss
 
 ### Motels — `/api/manager/motels`
 
-| Method | Path                         | Notes                                                                                                                                                                                                           |
-| ------ | ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| GET    | `/`                          | All motels owned by the manager                                                                                                                                                                                 |
-| POST   | `/`                          | Create; `409 MOTEL_SETUP_REQUIRED` if manager has zero motels; `400 VALIDATION_ERROR` if `electricityPrice`/`waterPrice` are missing or not strings                                                             |
-| POST   | `/setup`                     | Atomic full/quick setup; 201 created, 200 replayed idempotently. `409 MOTEL_SETUP_REQUIRED` if quick with 0 motels; `409 IDEMPOTENCY_CONFLICT` on changed payload; `410 SETUP_RESULT_DELETED` if motel deleted. |
-| GET    | `/setup-requests/:requestId` | Status of setup request; 200 with result, 404 unknown, 410 if motel was deleted.                                                                                                                                |
-| GET    | `/:motelId`                  | `404` if not owned by caller                                                                                                                                                                                    |
-| PATCH  | `/:motelId`                  | Partial update of prices, fees, bank account, address. A key absent from the body is never written; an explicit `null` clears.                                                                                  |
-| DELETE | `/:motelId`                  | `409` while anything still points at it — occupied rooms, rooms, renters, billing periods or contract templates                                                                                                 |
+| Method | Path                         | Notes                                                                                                                                                                                                                        |
+| ------ | ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/`                          | Manager: own motels. Superadmin: all motels, including owner `managerId` and `managerName`                                                                                                                                   |
+| POST   | `/`                          | Create; Superadmin must provide enabled Manager `ownerManagerId`; Manager cannot provide it. First motel owner must use full setup.                                                                                          |
+| POST   | `/setup`                     | Atomic full/quick setup; Superadmin must select enabled Manager in `motel.ownerManagerId`. First motel per selected owner requires full setup. Replay key remains actor-scoped; changed owner is `409 IDEMPOTENCY_CONFLICT`. |
+| GET    | `/setup-requests/:requestId` | Status is scoped to authenticated actor; 200 with result, 404 unknown, 410 if motel was deleted.                                                                                                                             |
+| GET    | `/:motelId`                  | `404` when Manager does not own the motel or motel does not exist; Superadmin can access all existing motels                                                                                                                 |
+| PATCH  | `/:motelId`                  | Partial update of prices, fees, bank account, address. Ownership never changes through update. A key absent from the body is never written; explicit `null` clears.                                                          |
+| DELETE | `/:motelId`                  | `409` while anything still points at it — occupied rooms, rooms, renters, billing periods or contract templates; Superadmin can delete any accessible motel after safeguards pass                                            |
+
+For `POST /`, Superadmin sends `ownerManagerId` at the body root; `/setup` sends it in the `motel`
+object. Both require an enabled Manager account. Manager requests must omit the field; `PATCH`
+cannot change owner. Setup idempotency remains keyed by actor/request and fingerprints selected
+owner for Superadmin requests.
 
 ### Rooms — `/api/manager/motels/:motelId/rooms`
 
@@ -164,14 +172,14 @@ Contract creation validates motel ownership for renter, room, and template. Miss
 
 ### Renters — `/api/manager/motels/:motelId/renters`
 
-| Method | Path                    | Notes                                                                                                                                                 |
-| ------ | ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| GET    | `/`                     | Supports `?status=&roomId=&search=`                                                                                                                   |
-| POST   | `/`                     | `409` on duplicate `(motelId, phone)`; creates renter and manager-issued magic-link fallback remains available                                        |
-| GET    | `/:renterId`            | Includes contract summary, invoice history and CCCD upload-state booleans only; never returns image keys or URLs                                      |
-| PATCH  | `/:renterId`            | Name, phone, CCCD number, `roomId`, status; image URLs are not writable                                                                               |
-| POST   | `/:renterId/cccd/:side` | Manager session; `multipart/form-data`, one JPEG/PNG `file`, max 5,000,000 bytes; `side` is `front` or `back`; returns upload state, never object key |
-| GET    | `/:renterId/cccd/:side` | Manager session; 300-second signed URL; only motel owner may read                                                                                     |
+| Method | Path                    | Notes                                                                                                                                                                     |
+| ------ | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/`                     | Supports `?status=&roomId=&search=`                                                                                                                                       |
+| POST   | `/`                     | `409` on duplicate `(motelId, phone)`; creates renter and manager-issued magic-link fallback remains available                                                            |
+| GET    | `/:renterId`            | Includes contract summary, invoice history and CCCD upload-state booleans only; never returns image keys or URLs                                                          |
+| PATCH  | `/:renterId`            | Name, phone, CCCD number, `roomId`, status; image URLs are not writable                                                                                                   |
+| POST   | `/:renterId/cccd/:side` | Manager owner or Superadmin session; `multipart/form-data`, one JPEG/PNG `file`, max 5,000,000 bytes; `side` is `front` or `back`; returns upload state, never object key |
+| GET    | `/:renterId/cccd/:side` | Manager owner or Superadmin session; 300-second signed URL                                                                                                                |
 
 Renter sessions cannot upload or read CCCD images. Manager UI displays images from short-lived URLs only. Historical arbitrary URL fields are retained privately during migration but ignored by API and UI; re-upload is required to use images from private storage.
 
@@ -256,7 +264,7 @@ Creation validates renter, room, template, and motel tenant ownership. Missing `
 
 ### Contract template catalog — `/api/manager/contract-template-catalog`
 
-Shared read-only contract catalog for manager setup and template picker. Requires manager session.
+Shared read-only contract catalog for manager and Superadmin setup/template picker. Requires Manager or Superadmin session.
 
 | Method | Path             | Notes                                                                                     |
 | ------ | ---------------- | ----------------------------------------------------------------------------------------- |
@@ -345,11 +353,11 @@ Proof upload returns `400 VALIDATION_ERROR` for missing/multiple files, unsuppor
 | Method | Path                                                                             | Body       | Exact response / errors                                                                                                                                              |
 | ------ | -------------------------------------------------------------------------------- | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | GET    | `/api/manager/motels/:motelId/billing/invoices/:invoiceId/payment-proof`         | —          | `200 {id,invoiceId,renterId,status,contentType,size,submittedAt,reviewedAt,reviewedByManagerId,rejectionReason,signedUrl}`; foreign motel/invoice is `404 NOT_FOUND` |
-| POST   | `/api/manager/motels/:motelId/billing/invoices/:invoiceId/payment-proof/approve` | —          | `200 {invoiceId,paymentStatus:"paid",paidAt,paymentMethod:"bank_transfer"}`; retry is idempotent; only manager may call                                              |
+| POST   | `/api/manager/motels/:motelId/billing/invoices/:invoiceId/payment-proof/approve` | —          | `200 {invoiceId,paymentStatus:"paid",paidAt,paymentMethod:"bank_transfer"}`; retry is idempotent; Manager owner or Superadmin                                        |
 | POST   | `/api/manager/motels/:motelId/billing/invoices/:invoiceId/payment-proof/reject`  | `{reason}` | `200 {id,invoiceId,status:"rejected",rejectionReason}`; empty/overlong reason is `400 VALIDATION_ERROR`; invoice stays unpaid                                        |
 | POST   | `/api/manager/motels/:motelId/billing/invoices/:invoiceId/cash-confirmation`     | —          | `200 {invoiceId,paymentStatus:"paid",paidAt,paymentMethod:"cash"}`; retry is idempotent; no renter identity or payment state accepted from body                      |
 
-Manager review and cash confirmation return `401 UNAUTHORIZED` for missing/expired manager session, `404 NOT_FOUND` for foreign/missing motel or invoice, `409 CONFLICT` for invalid period/payment state or approve/reject/cash race, `429 RATE_LIMITED` when configured, and `502 EXTERNAL_SERVICE_ERROR` only for provider work after committed state. Approval, rejection, and cash confirmation are auditable; no renter endpoint can mark an invoice paid.
+Manager-owner or Superadmin review and cash confirmation return `401 UNAUTHORIZED` for missing/expired session, `404 NOT_FOUND` for inaccessible/missing motel or invoice, `409 CONFLICT` for invalid period/payment state or approve/reject/cash race, `429 RATE_LIMITED` when configured, and `502 EXTERNAL_SERVICE_ERROR` only for provider work after committed state. Approval, rejection, and cash confirmation are auditable; no renter endpoint can mark an invoice paid.
 
 Payment transition matrix:
 

@@ -174,8 +174,10 @@ Modular monolith (ADR-0004). Each domain under `backend/src/modules/<domain>/` o
 - Error envelope is `{ error, code, details? }`, `details` omitted unless it helps the caller.
   Unexpected errors are logged and reported as `INTERNAL_ERROR`; a driver message or database
   URL must never reach a client.
-- Tenant scope always comes from the session; no endpoint accepts a `managerId` from the
-  client. Cross-tenant denial is **404, never 403** — a 403 confirms the resource exists.
+- Motel access always uses authenticated session actor and role; Manager requests stay owner-scoped,
+  Superadmins may access all motels. `ownerManagerId` is accepted only on motel creation by
+  Superadmins, must resolve to an enabled Manager, and never grants role or impersonation. Cross-
+  tenant and child-resource denial is **404, never 403** — a 403 confirms the resource exists.
 - UUID primary keys, `timestamptz` with `now()` defaults, `snake_case` columns mapped by
   Drizzle. Backend also sets `noUncheckedIndexedAccess`; both packages are strict TypeScript.
 - Frontend imports use `@/*` → `frontend/src/*`.

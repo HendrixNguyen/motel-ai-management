@@ -595,8 +595,14 @@ export function createFixtureBackend(
         }
       }
       if (!managerSession) return unauthorized();
-      if (method === "GET" && path === "/api/auth/me")
-        return managerSession === "me-expired" ? unauthorized() : json(MANAGER_ME);
+      if (method === "GET" && path === "/api/auth/me") {
+        if (managerSession === "me-expired") return unauthorized();
+        return json(
+          managerSession === "superadmin"
+            ? { ...MANAGER_ME, id: "superadmin", role: "superadmin" }
+            : MANAGER_ME,
+        );
+      }
       if (method === "GET" && path.match(/^\/api\/manager\/motels\/[^/]+\/contracts$/))
         return json(
           managerSession.startsWith("contract-")

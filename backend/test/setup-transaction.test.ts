@@ -30,6 +30,7 @@ async function createManager(email = "manager@example.com") {
 describe("setup transaction seams", () => {
   test("rollback_removes_all_setup_rows", async () => {
     const manager = await createManager();
+    const actor = { userId: manager.id, role: "manager" as const };
 
     let thrown = false;
     try {
@@ -41,13 +42,13 @@ describe("setup transaction seams", () => {
           waterPrice: "20000",
         });
 
-        await createContractTemplateInTransaction(tx, motel.id, manager.id, {
+        await createContractTemplateInTransaction(tx, motel.id, actor, {
           name: "Mẫu hợp đồng chuẩn",
           clauses: [{ title: "Điều 1", content: "Nội quy" }],
           isDefault: true,
         });
 
-        await createSetupRooms(tx, motel.id, manager.id, [
+        await createSetupRooms(tx, motel.id, { userId: manager.id, role: "manager" }, [
           { name: "P.101", basePrice: "3000000", floor: 1 },
           { name: "P.102", basePrice: "3200000", floor: 1 },
         ]);
@@ -91,6 +92,7 @@ describe("setup transaction seams", () => {
 
   test("concurrent default template creates/updates yield exactly one default template", async () => {
     const manager = await createManager();
+    const actor = { userId: manager.id, role: "manager" as const };
 
     const motel = await db.transaction(async (tx: DbTransaction) => {
       return createMotelInTransaction(tx, manager.id, {
@@ -101,17 +103,17 @@ describe("setup transaction seams", () => {
     });
 
     const results = await Promise.all([
-      createContractTemplate(motel.id, manager.id, {
+      createContractTemplate(motel.id, actor, {
         name: "Mẫu 1",
         clauses: [{ title: "T1", content: "C1" }],
         isDefault: true,
       }),
-      createContractTemplate(motel.id, manager.id, {
+      createContractTemplate(motel.id, actor, {
         name: "Mẫu 2",
         clauses: [{ title: "T2", content: "C2" }],
         isDefault: true,
       }),
-      createContractTemplate(motel.id, manager.id, {
+      createContractTemplate(motel.id, actor, {
         name: "Mẫu 3",
         clauses: [{ title: "T3", content: "C3" }],
         isDefault: true,
@@ -134,8 +136,8 @@ describe("setup transaction seams", () => {
 
     const nonDefault = results.find((r) => r.id !== defaultTemplates[0]!.id)!;
     await Promise.all([
-      updateContractTemplate(motel.id, nonDefault.id, manager.id, { isDefault: true }),
-      updateContractTemplate(motel.id, defaultTemplates[0]!.id, manager.id, { isDefault: true }),
+      updateContractTemplate(motel.id, nonDefault.id, actor, { isDefault: true }),
+      updateContractTemplate(motel.id, defaultTemplates[0]!.id, actor, { isDefault: true }),
     ]);
 
     const finalDefaults = await db

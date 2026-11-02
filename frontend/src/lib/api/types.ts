@@ -97,6 +97,7 @@ export interface BankAccountInput {
 
 /** `motel.types.ts:30-37` — the `POST /api/manager/motels` body. */
 export interface CreateMotelInput {
+  ownerManagerId?: string;
   name: string;
   address?: string | null;
   electricityPrice: VndString;
@@ -132,6 +133,7 @@ export interface UpdateMotelInput {
 export interface MotelResponse {
   id: string;
   managerId: string;
+  managerName?: string;
   name: string;
   address: string | null;
   /** VND per kWh. */

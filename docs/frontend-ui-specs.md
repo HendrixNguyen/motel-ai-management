@@ -13,7 +13,7 @@
 | Renter portal     | Mobile-first, `375px–430px`, centred, max `480px` on desktop | Single column, sticky header                                                 |
 | Meter capture PWA | Mobile-only, `360px–430px`, installed to home screen         | Full-screen, one-handed, no chrome                                           |
 
-Superadmin is separate from manager business navigation and sees account administration and the read-only shared contract catalog only. Login redirects Superadmin to `/admin/managers` and Manager to `/`. Admin screen creates normal managers with email, name, password and optional phone; it can directly reset password and disable/re-enable accounts. Password fields are masked and never echoed. Superadmin UI does not show motel, renter, invoice, or ticket data. Manager contract-template management lists system catalog samples and copies a selected template into the active motel before editing; system samples are never edited directly.
+Superadmin and Manager use the same operational shell and motel workflows. Managers see only motels they own; Superadmins see and operate all motels, with owner names shown in motel choices and cards. Login still sends Superadmin to `/admin/managers` and Manager to `/`. The shared-shell **Account Managers** destination appears only for Superadmin; it creates normal managers with email, name, password and optional phone, and supports password reset and disable/re-enable. Passwords stay masked and never echoed. Superadmin-created motels require selecting an enabled Manager owner. Manager contract-template management lists system catalog samples and copies a selected template into an accessible motel before editing; system samples are never edited directly.
 
 Locale `vi-VN`. Currency VND, formatted `3.500.000 ₫` (dot thousands separator, no
 decimals). Dates `DD/MM/YYYY`. Support narrow viewports from `360px`; never require horizontal
@@ -25,7 +25,7 @@ page scrolling. Tables must reflow into readable rows or focused detail editors 
 
 Manager contract screen shows draft, active, expired, and terminated badges. Create form requires renter, room, start date, and end date; rent defaults from room base price and clause content is shown as a snapshot. Drafts allow edits until renter consent; active and terminated contracts are read-only. Send action reports notification failure without showing a sent timestamp. Terminate action is destructive and requires confirmation. Renter signing uses authenticated session plus explicit read-and-agree and final-sign confirmations; no OTP UI or delivery. Terms changes reset both confirmations. A signed contract displays server-recorded consent and accepted version. This MVP records session consent and does not claim independently verified identity or certified digital signature.
 
-CCCD upload and private preview are manager-only, on renter detail; renters never upload or view CCCD. Manager uploads front/back as separate JPEG/PNG images, max 5,000,000 bytes each. Private R2 objects are read through manager-authorized 300-second signed URLs. Renter upload control is limited to one post-transfer payment-proof image, JPEG/PNG up to 5,000,000 bytes; rejected proof can be replaced. Both upload controls show a button and desktop drop zone; file picker remains available on mobile and for keyboard users.
+CCCD upload and private preview are available to the owning Manager and Superadmin on renter detail; renters never upload or view CCCD. Both operational roles upload front/back as separate JPEG/PNG images, max 5,000,000 bytes each. Private R2 objects are read through role-authorized 300-second signed URLs. Renter upload control is limited to one post-transfer payment-proof image, JPEG/PNG up to 5,000,000 bytes; rejected proof can be replaced. Both upload controls show a button and desktop drop zone; file picker remains available on mobile and for keyboard users.
 
 ## 1. Design Tokens
 
@@ -126,16 +126,16 @@ Draft periods allow meter edits and invoice generation. Sent periods are read-on
 
 ## 2. Manager App
 
-Shell: responsive. On wide screens (`1024px` and above), left sidebar `240px`, sticky. On
-narrower screens, fixed bottom navigation has five primary destinations; **Hợp đồng** is exposed
-through the labelled **Thêm** menu. The top bar carries motel selector, capture-queue warning when
-needed, and manager account/theme controls; no unsupported notification inbox is shown. Controls
-work without hover. Mobile navigation has five primary route links and one **Thêm** menu control; Contracts appears in
-that secondary menu. Navigation preserves motel scope and current query parameters between primary
-destinations; secondary destinations preserve motel scope and drop unrelated route-specific filters.
-
-Sidebar items: **Tổng quan**, **Nhà trọ**, **Phòng trọ**, **Khách thuê**, **Tính tiền &
-Hóa đơn**, **Hợp đồng**, **Sự cố & Yêu cầu**, **Cài đặt**.
+Shell: responsive and shared by Managers and Superadmins. On wide screens (`1024px` and above),
+left sidebar `240px`, sticky; **Quản lý tài khoản** appears only for Superadmin. On narrower
+screens, fixed bottom navigation has five primary destinations: **Tổng quan**, **Nhà trọ**,
+**Phòng trọ**, **Khách thuê**, and **Tính tiền & Hóa đơn**. A labelled **Thêm** menu contains
+**Hợp đồng** and, for Superadmin, **Quản lý tài khoản**. The header keeps the motel selector,
+capture-queue warning bell when needed, and account/theme controls in normal document flow on
+desktop and mobile; no notification inbox is shown. Controls work without hover. Navigation
+preserves motel scope and current query parameters between primary destinations; secondary
+destinations preserve motel scope and drop unrelated route-specific filters. Superadmin motel
+choices and cards identify the owning Manager.
 
 The motel selector in the top bar is global state. Every screen below is scoped to the
 selected motel; switching motels reloads the current route against the new id.
@@ -273,7 +273,7 @@ An unfiltered empty motel offers `Thêm phòng`; an empty filtered result offers
 Table: Họ tên, SĐT, Số CCCD, Phòng, Trạng thái (`Đang thuê` / `Đã kết thức hợp đồng`), Ngày bắt đầu, actions. Renter status is the tenancy, not
 the room: a renter can be `Đang thuê` with no room assigned.
 
-Renter detail page: personal info with manager-only front/back CCCD controls and previews via private short-lived signed URLs (or "chưa có ảnh" status), active contract summary with end date and deposit, invoice history with
+Renter detail page: personal info with Manager-owner/Superadmin front/back CCCD controls and previews via private short-lived signed URLs (or "chưa có ảnh" status), active contract summary with end date and deposit, invoice history with
 payment status, and **Tạo magic link**.
 
 Delivered M4 behavior: list and detail reads use the selected `?motel=` and validate motel
@@ -358,7 +358,7 @@ snippet, thumbnail, relative time.
 
 Detail drawer: enlarged photos, full description, **Liên hệ qua Zalo** (copies the phone
 number / opens Zalo), the renter's phone as a copy button, an internal-note textarea, and a
-status dropdown. The note is manager-only and must never appear in renter responses. Resolving
+status dropdown. The note is visible only to operational Manager/Superadmin users and must never appear in renter responses. Resolving
 stamps `resolvedAt` and notifies the renter.
 
 There is no chat UI in this product. The drawer must not imply one exists.
@@ -528,7 +528,7 @@ opens the same detail view as R2.
 Summary (rent, deposit, term, room) then clauses as an accordion.
 
 - **Signed:** a confirmation block with server-recorded `consentAcceptedAt`, accepted terms version and consent method. Do not imply OTP or certified digital signature.
-- **Draft, unsigned:** CTA **Xác nhận & ký hợp đồng** → explicit read-and-agree checkbox, separate final confirmation, then submit exact `termsVersion`. If terms changed, reset consent and require a fresh review. Session expiry requires renewed authentication and must not auto-submit. CCCD image upload/view is manager-only; renter sees neither image nor upload control.
+- **Draft, unsigned:** CTA **Xác nhận & ký hợp đồng** → explicit read-and-agree checkbox, separate final confirmation, then submit exact `termsVersion`. If terms changed, reset consent and require a fresh review. Session expiry requires renewed authentication and must not auto-submit. CCCD image upload/view is Manager-owner/Superadmin-only; renter sees neither image nor upload control.
 - **Terminated/expired:** read-only with an explanatory banner.
 
 ### R5 — Yêu cầu hỗ trợ `/portal/tickets`

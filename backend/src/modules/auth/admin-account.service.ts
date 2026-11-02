@@ -1,8 +1,31 @@
-import { eq, sql } from "drizzle-orm";
-import { db } from "@/db";
+import { and, eq, inArray, sql } from "drizzle-orm";
+import { db, type DbExecutor } from "@/db";
 import { managerAuditEvents, managers } from "./auth.schema";
 import { AppError } from "@/shared/errors";
 import { SUPERADMIN_EMAIL } from "./superadmin-identity";
+
+export async function assertEnabledManager(executor: DbExecutor, managerId: string): Promise<void> {
+  const [manager] = await executor
+    .select({ id: managers.id, role: managers.role, disabledAt: managers.disabledAt })
+    .from(managers)
+    .where(eq(managers.id, managerId))
+    .for("update")
+    .limit(1);
+  if (!manager || manager.role !== "manager" || manager.disabledAt)
+    throw AppError.badRequest("Chọn một tài khoản quản lý đang hoạt động");
+}
+
+export async function listManagerDisplayNames(
+  managerIds: string[],
+  executor: DbExecutor = db,
+): Promise<Map<string, string>> {
+  if (managerIds.length === 0) return new Map();
+  const rows = await executor
+    .select({ id: managers.id, name: managers.name })
+    .from(managers)
+    .where(and(inArray(managers.id, managerIds), eq(managers.role, "manager")));
+  return new Map(rows.map(({ id, name }) => [id, name]));
+}
 
 export async function listAccounts(limit = 50, offset = 0) {
   if (

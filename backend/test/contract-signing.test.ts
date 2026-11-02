@@ -17,7 +17,6 @@ import {
   listContracts,
   sendContract,
   terminateContract,
-  updateContract,
 } from "@/modules/contract/contract.service";
 import { setNotificationRecipientResolver } from "@/modules/notification/notification.service";
 
@@ -26,6 +25,8 @@ beforeEach(async () => {
   await resetDb();
   setNotificationRecipientResolver(async () => ({ phone: "84901234567" }));
 });
+
+const actor = (userId: string) => ({ userId, role: "manager" as const });
 
 async function contractFixture(includeCccd = true) {
   const [manager] = await db
@@ -79,41 +80,46 @@ async function contractFixture(includeCccd = true) {
 describe("renter contract signing", () => {
   test("lists, reads and sends only manager-owned draft contracts", async () => {
     const row = await contractFixture();
-    const all = await listContracts(row.motelId, row.managerId);
+    const all = await listContracts(row.motelId, actor(row.managerId));
     expect(all.map((contract) => contract.id)).toContain(row.id);
-    expect(await listContracts(row.motelId, row.managerId, "draft")).toHaveLength(1);
-    const detail = await getContract(row.motelId, row.id, row.managerId);
+    expect(await listContracts(row.motelId, actor(row.managerId), "draft")).toHaveLength(1);
+    const detail = await getContract(row.motelId, row.id, actor(row.managerId));
     expect(detail.id).toBe(row.id);
-    const sent = await sendContract(row.motelId, row.id, row.managerId);
+    const sent = await sendContract(row.motelId, row.id, actor(row.managerId));
     expect(sent.managerSentAt).not.toBeNull();
-    const foreignList = await listContracts(row.motelId, "foreign-manager").catch(
-      (error: unknown) => error,
-    );
-    const foreignDetail = await getContract(row.motelId, row.id, "foreign-manager").catch(
-      (error: unknown) => error,
-    );
-    expect(String(foreignList)).toContain("foreign-manager");
-    expect(String(foreignDetail)).toContain("foreign-manager");
+    const foreignList = await listContracts(
+      row.motelId,
+      actor("00000000-0000-4000-8000-000000000099"),
+    ).catch((error: unknown) => error);
+    const foreignDetail = await getContract(
+      row.motelId,
+      row.id,
+      actor("00000000-0000-4000-8000-000000000099"),
+    ).catch((error: unknown) => error);
+    expect(foreignList).toMatchObject({ code: "NOT_FOUND" });
+    expect(foreignDetail).toMatchObject({ code: "NOT_FOUND" });
   });
 
   test("validates create input and contract lifecycle transitions", async () => {
     const row = await contractFixture();
     await expect(
-      createContract(row.motelId, row.managerId, {
+      createContract(row.motelId, actor(row.managerId), {
         renterId: row.renterId,
         roomId: row.roomId,
         startDate: "bad",
         endDate: "2026-01-01",
       }),
     ).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
-    await expect(terminateContract(row.motelId, row.id, row.managerId)).rejects.toMatchObject({
+    await expect(
+      terminateContract(row.motelId, row.id, actor(row.managerId)),
+    ).rejects.toMatchObject({
       code: "CONFLICT",
     });
     const template = await db
       .insert(contractTemplates)
       .values({ motelId: row.motelId, name: "Unused", clauses: [], isDefault: false })
       .returning();
-    await deleteContractTemplate(row.motelId, template[0]!.id, row.managerId);
+    await deleteContractTemplate(row.motelId, template[0]!.id, actor(row.managerId));
     const usedTemplate = await db
       .insert(contractTemplates)
       .values({ motelId: row.motelId, name: "Used", clauses: [], isDefault: false })
@@ -123,14 +129,14 @@ describe("renter contract signing", () => {
       .set({ templateId: usedTemplate[0]!.id })
       .where(eq(contracts.id, row.id));
     await expect(
-      deleteContractTemplate(row.motelId, usedTemplate[0]!.id, row.managerId),
+      deleteContractTemplate(row.motelId, usedTemplate[0]!.id, actor(row.managerId)),
     ).rejects.toMatchObject({ code: "CONFLICT" });
     const foreignDelete = await deleteContractTemplate(
       row.motelId,
       usedTemplate[0]!.id,
-      "foreign-manager",
+      actor("00000000-0000-4000-8000-000000000099"),
     ).catch((error: unknown) => error);
-    expect(String(foreignDelete)).toContain("foreign-manager");
+    expect(foreignDelete).toMatchObject({ code: "NOT_FOUND" });
   });
 
   test("rejects renter contract reads across tenant IDs", async () => {
