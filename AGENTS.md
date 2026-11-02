@@ -95,8 +95,17 @@ layer must test.
 browser that can start, which on a minimal Linux image needs a one-time
 `sudo bunx playwright install-deps chromium`; see the "Known state" section below.
 
-Verify in this order: backend `typecheck` → `test`; frontend `typecheck` → `lint` → `build` →
-`test` → `test:e2e`.
+Before creating or updating a PR, run `typecheck`, `lint`, and formatting checks for every changed
+package. In `backend/` and `frontend/`, run `bun run typecheck`, `bun run lint`, and
+`bun run format:check`; in `landing/`, run `bun run typecheck`, `bun run check`, and the repository
+Prettier check described above. If a package-wide format check fails on unchanged files, run
+Prettier `--check` on every PR-changed formattable file; format only changed files that fail, review
+the diff, and rerun checks. Do not create or update a PR when changed files fail checks. Report
+pre-existing baseline failures or blocked checks in PR notes.
+
+Full verification order: backend `typecheck` → `lint` → `format:check` → `test`; frontend
+`typecheck` → `lint` → `format:check` → `build` → `test` → `test:e2e`. For landing changes, run
+`typecheck` → `check` → repository Prettier check → `test` → `build`.
 
 ## The local database (this is where the time goes)
 
