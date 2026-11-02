@@ -105,13 +105,13 @@ Contract creation validates motel ownership for renter, room, and template. Miss
 
 ### Auth — `/api/auth`
 
-| Method | Path        | Body                              | Returns                                                                                                                |
-| ------ | ----------- | --------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| POST   | `/register` | `{email, password, name, phone?}` | `201 {id, email, name, role}` + sets cookie; always role `manager`                                                     |
-| POST   | `/login`    | `{email, password, rememberMe?}`  | `200 {id, email, name, role, csrfToken?}` + sets role-bound cookie; Manager `rememberMe:true` creates 90-day rolling session; Superadmin ignores it and receives 43-character random CSRF token |
-| POST   | `/session/refresh` | —                          | `200 {success:true}`; extends valid remembered Manager session by 90 days; ordinary sessions unchanged                 |
-| POST   | `/logout`   | —                                 | `204` + clears cookie and revokes current remembered Manager session                                                   |
-| GET    | `/me`       | —                                 | `200 {id, email, role}`                                                                                                |
+| Method | Path               | Body                              | Returns                                                                                                                                                                                         |
+| ------ | ------------------ | --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| POST   | `/register`        | `{email, password, name, phone?}` | `201 {id, email, name, role}` + sets cookie; always role `manager`                                                                                                                              |
+| POST   | `/login`           | `{email, password, rememberMe?}`  | `200 {id, email, name, role, csrfToken?}` + sets role-bound cookie; Manager `rememberMe:true` creates 90-day rolling session; Superadmin ignores it and receives 43-character random CSRF token |
+| POST   | `/session/refresh` | —                                 | `200 {success:true}`; extends valid remembered Manager session by 90 days; ordinary sessions unchanged                                                                                          |
+| POST   | `/logout`          | —                                 | `204` + clears cookie and revokes current remembered Manager session                                                                                                                            |
+| GET    | `/me`              | —                                 | `200 {id, email, role}`                                                                                                                                                                         |
 
 `password` is 8–256 characters. Login/register are rate-limited per IP and normalized email. Registration ignores/rejects any client-supplied role and creates only a normal Manager; it never creates a Superadmin.
 
@@ -142,25 +142,25 @@ Contract creation validates motel ownership for renter, room, and template. Miss
 
 ### Motels — `/api/manager/motels`
 
-| Method | Path                         | Notes                                                                                                                                                                                                           |
-| ------ | ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| GET    | `/`                          | All motels owned by the manager                                                                                                                                                                                 |
-| POST   | `/`                          | Create; `409 MOTEL_SETUP_REQUIRED` if manager has zero motels; `400 VALIDATION_ERROR` if `electricityPrice`/`waterPrice` are missing or not strings                                                             |
+| Method | Path                         | Notes                                                                                                                                                                                                                                                                                                                                                                |
+| ------ | ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/`                          | All motels owned by the manager                                                                                                                                                                                                                                                                                                                                      |
+| POST   | `/`                          | Create; `409 MOTEL_SETUP_REQUIRED` if manager has zero motels; `400 VALIDATION_ERROR` if `electricityPrice`/`waterPrice` are missing or not strings                                                                                                                                                                                                                  |
 | POST   | `/setup`                     | Atomic full/quick setup; full-mode room inputs accept optional `initialElectricReading` and `initialWaterReading` non-negative meter strings (up to 2 decimals, default `0`). 201 created, 200 replayed idempotently. `409 MOTEL_SETUP_REQUIRED` if quick with 0 motels; `409 IDEMPOTENCY_CONFLICT` on changed payload; `410 SETUP_RESULT_DELETED` if motel deleted. |
-| GET    | `/setup-requests/:requestId` | Status of setup request; 200 with result, 404 unknown, 410 if motel was deleted.                                                                                                                                |
-| GET    | `/:motelId`                  | `404` if not owned by caller                                                                                                                                                                                    |
-| PATCH  | `/:motelId`                  | Partial update of prices, fees, bank account, address. A key absent from the body is never written; an explicit `null` clears.                                                                                  |
-| DELETE | `/:motelId`                  | `409` while anything still points at it — occupied rooms, rooms, renters, billing periods or contract templates                                                                                                 |
+| GET    | `/setup-requests/:requestId` | Status of setup request; 200 with result, 404 unknown, 410 if motel was deleted.                                                                                                                                                                                                                                                                                     |
+| GET    | `/:motelId`                  | `404` if not owned by caller                                                                                                                                                                                                                                                                                                                                         |
+| PATCH  | `/:motelId`                  | Partial update of prices, fees, bank account, address. A key absent from the body is never written; an explicit `null` clears.                                                                                                                                                                                                                                       |
+| DELETE | `/:motelId`                  | `409` while anything still points at it — occupied rooms, rooms, renters, billing periods or contract templates                                                                                                                                                                                                                                                      |
 
 ### Rooms — `/api/manager/motels/:motelId/rooms`
 
-| Method | Path       | Notes                                                                               |
-| ------ | ---------- | ----------------------------------------------------------------------------------- |
-| GET    | `/`        | Supports `?floor=&status=&search=`; `basePrice` returned as VND digit string        |
+| Method | Path       | Notes                                                                                                                                                                                                      |
+| ------ | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/`        | Supports `?floor=&status=&search=`; `basePrice` returned as VND digit string                                                                                                                               |
 | POST   | `/`        | `409 CONFLICT` on duplicate `(motelId, name)`; `basePrice` as VND digit string; optional `initialElectricReading` and `initialWaterReading` are non-negative meter strings (up to 2 decimals, default `0`) |
-| GET    | `/:roomId` | `basePrice` returned as VND digit string                                            |
-| PATCH  | `/:roomId` | Partial update of name, floor, `basePrice`, status; `basePrice` as VND digit string |
-| DELETE | `/:roomId` | `409 CONFLICT` if an active contract exists OR any renter is assigned to the room   |
+| GET    | `/:roomId` | `basePrice` returned as VND digit string                                                                                                                                                                   |
+| PATCH  | `/:roomId` | Partial update of name, floor, `basePrice`, status; `basePrice` as VND digit string                                                                                                                        |
+| DELETE | `/:roomId` | `409 CONFLICT` if an active contract exists OR any renter is assigned to the room                                                                                                                          |
 
 ### Renters — `/api/manager/motels/:motelId/renters`
 

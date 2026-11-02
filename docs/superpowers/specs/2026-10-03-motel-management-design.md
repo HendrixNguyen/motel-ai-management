@@ -46,10 +46,10 @@ Explicitly out of scope. Do not build these without a new spec:
 
 ## Authentication
 
-| Role    | Mechanism                                                                                           |
-| ------- | --------------------------------------------------------------------------------------------------- |
+| Role    | Mechanism                                                                                                                                                                                                         |
+| ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Manager | Email + password login. JWT in httpOnly cookie; optional remembered session is server-revocable and expires after 90 days without foreground activity. Password reset, account disable, and logout revoke access. |
-| Renter  | No account, no password. Identity is `phone` + `motelId`. Access via emailed/sent magic-link token. |
+| Renter  | No account, no password. Identity is `phone` + `motelId`. Access via emailed/sent magic-link token.                                                                                                               |
 
 ### Renter session lifecycle
 
@@ -90,17 +90,17 @@ Money is `NUMERIC(14,0)` (VND has no practical subunit). Meter values are `NUMER
 
 ### managers
 
-| Field          | Type        | Notes                                                       |
-| -------------- | ----------- | ----------------------------------------------------------- |
-| id             | UUID        | PK                                                          |
-| email          | TEXT        | UNIQUE, NOT NULL, lowercased                                |
-| passwordHash   | TEXT        | NOT NULL, Argon2id                                          |
-| name           | TEXT        | NOT NULL                                                    |
-| phone          | TEXT        | nullable                                                    |
-| role           | ENUM        | `manager` (default) or `superadmin`; one superadmin maximum |
-| disabledAt     | TIMESTAMPTZ | nullable; disables manager login                            |
+| Field          | Type        | Notes                                                                     |
+| -------------- | ----------- | ------------------------------------------------------------------------- |
+| id             | UUID        | PK                                                                        |
+| email          | TEXT        | UNIQUE, NOT NULL, lowercased                                              |
+| passwordHash   | TEXT        | NOT NULL, Argon2id                                                        |
+| name           | TEXT        | NOT NULL                                                                  |
+| phone          | TEXT        | nullable                                                                  |
+| role           | ENUM        | `manager` (default) or `superadmin`; one superadmin maximum               |
+| disabledAt     | TIMESTAMPTZ | nullable; disables manager login                                          |
 | sessionVersion | INTEGER     | DEFAULT 0; increment revokes all ordinary and remembered manager sessions |
-| createdAt      | TIMESTAMPTZ | DEFAULT now()                                               |
+| createdAt      | TIMESTAMPTZ | DEFAULT now()                                                             |
 
 Superadmin manages manager accounts only; it cannot access tenant business endpoints or renter
 records. Manager creation is restricted to authenticated superadmins. Managers receive passwords directly from Superadmins; password reset and disable increment
@@ -142,17 +142,17 @@ UNIQUE (`managerId`, `requestId`). Null `motelId` represents deleted motel resul
 
 ### rooms
 
-| Field     | Type          | Notes                                             |
-| --------- | ------------- | ------------------------------------------------- |
-| id        | UUID          | PK                                                |
-| motelId   | UUID          | FK → motels, NOT NULL, indexed                    |
-| name      | TEXT          | NOT NULL, room number as displayed (e.g. `P.101`) |
-| basePrice | NUMERIC(14,0) | Default monthly rent, NOT NULL DEFAULT 0          |
-| floor                  | INT           | nullable                                          |
+| Field                  | Type          | Notes                                                          |
+| ---------------------- | ------------- | -------------------------------------------------------------- |
+| id                     | UUID          | PK                                                             |
+| motelId                | UUID          | FK → motels, NOT NULL, indexed                                 |
+| name                   | TEXT          | NOT NULL, room number as displayed (e.g. `P.101`)              |
+| basePrice              | NUMERIC(14,0) | Default monthly rent, NOT NULL DEFAULT 0                       |
+| floor                  | INT           | nullable                                                       |
 | initialElectricReading | NUMERIC(12,2) | NOT NULL DEFAULT 0; baseline before prior electricity readings |
 | initialWaterReading    | NUMERIC(12,2) | NOT NULL DEFAULT 0; baseline before prior water readings       |
-| status                 | room_status   | DEFAULT `available`                               |
-| createdAt | TIMESTAMPTZ   | DEFAULT now()                                     |
+| status                 | room_status   | DEFAULT `available`                                            |
+| createdAt              | TIMESTAMPTZ   | DEFAULT now()                                                  |
 
 UNIQUE (`motelId`, `name`).
 
