@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, setDefaultTimeout, test } from "bun:test";
-import { and, eq, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { app } from "@/app";
 import { db } from "@/db";
 import { resetDb } from "@/db/test-db";
@@ -10,7 +10,7 @@ import { rooms } from "@/modules/room/room.schema";
 import { contractTemplates } from "@/modules/contract/contract.schema";
 import { contractTemplateCatalog } from "@/modules/contract/contract-catalog.schema";
 import { computeTemplateFingerprint } from "@/modules/contract/contract-catalog.service";
-import { createMotelInTransaction, lockMotelSetup } from "@/modules/motel/motel.service";
+import { createMotelInTransaction } from "@/modules/motel/motel.service";
 
 setDefaultTimeout(20_000);
 beforeEach(resetDb);
@@ -322,7 +322,6 @@ describe("POST /api/manager/motels/setup and GET /api/manager/motels/setup-reque
     expect(statusResult.roomCount).toBe(1);
     expect(statusResult.templateId).toBe(setupResult.templateId);
 
-    const delRoomRes = await api("DELETE", `/manager/motels/${setupResult.motelId}/rooms`, cookie);
     await db.delete(rooms).where(eq(rooms.motelId, setupResult.motelId));
     await db.delete(contractTemplates).where(eq(contractTemplates.motelId, setupResult.motelId));
     const delRes = await api("DELETE", `/manager/motels/${setupResult.motelId}`, cookie);
