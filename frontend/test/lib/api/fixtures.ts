@@ -116,6 +116,8 @@ export const ROOM: RoomResponse = {
   name: "P.101",
   basePrice: "3500000",
   floor: 1,
+  initialElectricReading: "0",
+  initialWaterReading: "0",
   status: "occupied",
   createdAt: "2026-09-01T02:00:00.000Z",
 };
@@ -127,6 +129,8 @@ export const ROOM_WITHOUT_FLOOR: RoomResponse = {
   name: "P.001",
   basePrice: "3000000",
   floor: null,
+  initialElectricReading: "0",
+  initialWaterReading: "0",
   status: "available",
   createdAt: "2026-09-01T02:05:00.000Z",
 };

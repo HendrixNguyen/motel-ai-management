@@ -1,0 +1,2 @@
+ALTER TABLE "rooms" ADD COLUMN "initial_electric_reading" numeric(12, 2) DEFAULT '0' NOT NULL;--> statement-breakpoint
+ALTER TABLE "rooms" ADD COLUMN "initial_water_reading" numeric(12, 2) DEFAULT '0' NOT NULL;

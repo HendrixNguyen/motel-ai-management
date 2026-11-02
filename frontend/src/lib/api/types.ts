@@ -157,6 +157,8 @@ export interface CreateRoomInput {
   basePrice: VndString;
   /** Nullable: a ground-floor room may have no floor recorded. */
   floor?: number | null;
+  initialElectricReading?: string;
+  initialWaterReading?: string;
   status?: RoomStatus;
 }
 
@@ -191,8 +193,10 @@ export interface RoomResponse {
   /** VND, whole units, per month. */
   basePrice: VndString;
   floor: number | null;
+  initialElectricReading: string;
+  initialWaterReading: string;
   status: RoomStatus;
-  /** ISO-8601 UTC string on the wire, from `toISOString()` (`room.service.ts:89`). */
+  /** ISO-8601 UTC string on the wire, from `toISOString()` (`room.service.ts:125`). */
   createdAt: string;
 }
 
@@ -663,6 +667,8 @@ export interface SetupRoomInput {
   name: string;
   basePrice: VndString;
   floor?: number | null;
+  initialElectricReading?: string;
+  initialWaterReading?: string;
 }
 
 export type SetupMotelInput =

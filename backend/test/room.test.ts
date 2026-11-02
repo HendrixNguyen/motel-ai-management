@@ -32,6 +32,8 @@ interface RoomPayload {
   name: string;
   basePrice: string;
   floor: number | null;
+  initialElectricReading: string;
+  initialWaterReading: string;
   status: string;
   createdAt: string;
 }
@@ -191,12 +193,18 @@ describe("GET /api/manager/motels/:motelId/rooms", () => {
   test("serialises basePrice as a VND digit string and createdAt as ISO-8601", async () => {
     const a = await login("a@example.com");
     const motel = await createMotel(a.cookie);
-    await createRoom(a.cookie, motel.id, { basePrice: "3850000" });
+    await createRoom(a.cookie, motel.id, {
+      basePrice: "3850000",
+      initialElectricReading: "1234.5",
+      initialWaterReading: "67.25",
+    });
 
     const res = await api("GET", `/manager/motels/${motel.id}/rooms`, { cookie: a.cookie });
     const body = (await res.json()) as RoomPayload[];
     expect(typeof body[0]!.basePrice).toBe("string");
     expect(body[0]!.basePrice).toBe("3850000");
+    expect(body[0]!.initialElectricReading).toBe("1234.50");
+    expect(body[0]!.initialWaterReading).toBe("67.25");
     expect(body[0]!.createdAt).toMatch(ISO_8601);
   });
 
@@ -382,6 +390,8 @@ describe("POST /api/manager/motels/:motelId/rooms", () => {
     expect(body.basePrice).toBe("3500000");
     expect(body.floor).toBe(3);
     expect(body.status).toBe("maintenance");
+    expect(body.initialElectricReading).toBe("0.00");
+    expect(body.initialWaterReading).toBe("0.00");
     expect(body.createdAt).toMatch(ISO_8601);
   });
 
@@ -392,6 +402,8 @@ describe("POST /api/manager/motels/:motelId/rooms", () => {
     const body = await createRoom(a.cookie, motel.id, { name: "P.101" });
     expect(body.floor).toBeNull();
     expect(body.status).toBe("available");
+    expect(body.initialElectricReading).toBe("0.00");
+    expect(body.initialWaterReading).toBe("0.00");
   });
 
   test("409 CONFLICT on a duplicate name in the same motel", async () => {
@@ -422,6 +434,22 @@ describe("POST /api/manager/motels/:motelId/rooms", () => {
     });
     expect(res.status).toBe(201);
     expect(await db.$count(rooms)).toBe(2);
+  });
+
+  test("rejects malformed initial meter readings with 400 and stores nothing", async () => {
+    const a = await login("invalid-initial-meter@example.com");
+    const motel = await createMotel(a.cookie);
+    const res = await api("POST", `/manager/motels/${motel.id}/rooms`, {
+      cookie: a.cookie,
+      body: {
+        name: "P.101",
+        basePrice: "3500000",
+        initialElectricReading: "-1",
+      },
+    });
+    expect(res.status).toBe(400);
+    expect(((await res.json()) as ErrorPayload).code).toBe("VALIDATION_ERROR");
+    expect(await db.$count(rooms)).toBe(0);
   });
 
   test("rejects a missing basePrice with 400 VALIDATION_ERROR", async () => {

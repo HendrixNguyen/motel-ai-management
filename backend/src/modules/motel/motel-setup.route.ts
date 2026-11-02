@@ -44,6 +44,8 @@ const setupRoomInputSchema = t.Object({
   name: t.String({ minLength: 1 }),
   basePrice: t.String(),
   floor: t.Optional(t.Nullable(t.Integer())),
+  initialElectricReading: t.Optional(t.String()),
+  initialWaterReading: t.Optional(t.String()),
 });
 
 const setupMotelInputSchema = t.Union([

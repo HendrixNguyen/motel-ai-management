@@ -343,7 +343,15 @@ describe("POST /api/manager/motels/setup and GET /api/manager/motels/setup-reque
         waterPrice: "20000",
       },
       template: { kind: "catalog", key: "vn-residential-standard", version: 1 },
-      rooms: [{ name: "P.101", basePrice: "3000000", floor: 1 }],
+      rooms: [
+        {
+          name: "P.101",
+          basePrice: "3000000",
+          floor: 1,
+          initialElectricReading: "123.45",
+          initialWaterReading: "67.8",
+        },
+      ],
     });
     expect(full1Res.status).toBe(201);
     const full1 = (await full1Res.json()) as {
@@ -352,6 +360,11 @@ describe("POST /api/manager/motels/setup and GET /api/manager/motels/setup-reque
       roomCount: number;
       templateId: string;
     };
+    const setupRoom = await db.query.rooms.findFirst({
+      where: eq(rooms.motelId, full1.motelId),
+    });
+    expect(setupRoom?.initialElectricReading).toBe("123.45");
+    expect(setupRoom?.initialWaterReading).toBe("67.80");
     expect(full1.mode).toBe("full");
     expect(full1.roomCount).toBe(1);
     expect(full1.templateId).toBeTruthy();
@@ -510,7 +523,6 @@ describe("POST /api/manager/motels/setup and GET /api/manager/motels/setup-reque
     expect(statusResult.roomCount).toBe(1);
     expect(statusResult.templateId).toBe(setupResult.templateId);
 
-    await api("DELETE", `/manager/motels/${setupResult.motelId}/rooms`, cookie);
     await db.delete(rooms).where(eq(rooms.motelId, setupResult.motelId));
     await db.delete(contractTemplates).where(eq(contractTemplates.motelId, setupResult.motelId));
     const delRes = await api("DELETE", `/manager/motels/${setupResult.motelId}`, cookie);

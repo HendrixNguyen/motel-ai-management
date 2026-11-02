@@ -44,6 +44,12 @@ export const rooms = pgTable(
       .notNull()
       .default("0"),
     floor: integer("floor"),
+    initialElectricReading: numeric("initial_electric_reading", { precision: 12, scale: 2 })
+      .notNull()
+      .default("0"),
+    initialWaterReading: numeric("initial_water_reading", { precision: 12, scale: 2 })
+      .notNull()
+      .default("0"),
     status: roomStatus("status").notNull().default("available"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },

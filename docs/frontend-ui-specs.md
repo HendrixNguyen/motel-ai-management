@@ -216,16 +216,18 @@ zero rooms. Missing addresses and bank accounts show `Chưa có địa chỉ` an
 
 **Tạo nhà trọ** delegates creation to a 4-step wizard (`MotelSetupWizard`):
 
-- **Bước 1 (Thông tin cơ bản):** Tên, địa chỉ, đơn giá điện/nước, tài khoản nhận tiền. Khi manager đã có ít nhất một nhà trọ, phần "Sao chép từ nhà trọ đang có" cho phép chọn nguồn và checkbox từng nhóm: Ngân hàng, Dịch vụ/phí, Mẫu hợp đồng (checkbox ban đầu không chọn, bấm "Áp dụng" mới sao chép). Thay đổi nguồn không ghi đè tài khoản đã nhập nếu chưa xác nhận. Nút "Tạo nhanh (bỏ qua thiết lập)" chỉ xuất hiện khi đã có ít nhất một nhà trọ.
+- **Bước 1 (Thông tin cơ bản):** Tên, địa chỉ, đơn giá điện/nước, tài khoản nhận tiền. Tìm ngân hàng VietQR theo tên để xác nhận logo, tên và BIN; sau khi chọn ngân hàng mới nhập số tài khoản và tên chủ tài khoản. Khi manager đã có ít nhất một nhà trọ, phần "Sao chép từ nhà trọ đang có" cho phép chọn nguồn và checkbox từng nhóm: Ngân hàng, Dịch vụ/phí, Mẫu hợp đồng (checkbox ban đầu không chọn, bấm "Áp dụng" mới sao chép). Thay đổi nguồn không ghi đè tài khoản đã nhập nếu chưa xác nhận. Nút "Tạo nhanh (bỏ qua thiết lập)" chỉ xuất hiện khi đã có ít nhất một nhà trọ.
 - **Bước 2 (Mẫu hợp đồng):** Chọn từ thư viện mẫu chuẩn (`ContractTemplatePicker`) hoặc mẫu sở hữu từ nhà trọ nguồn. Hiển thị xem trước các điều khoản.
-- **Bước 3 (Danh sách phòng):** Sinh nhanh danh sách phòng (tiền tố, số bắt đầu, số lượng 1–100, tầng, giá thuê mặc định) và sửa từng phòng. Chế độ tạo nhanh bỏ qua bước này.
+- **Bước 3 (Danh sách phòng):** Sinh nhanh danh sách phòng (tiền tố, số bắt đầu, số lượng 1–100, tầng, giá thuê mặc định) và sửa từng phòng. Mỗi phòng nhập chỉ số điện/nước hiện tại, mặc định `0`; hệ thống dùng làm chỉ số đầu kỳ trước lần ghi điện/nước đầu tiên. Chế độ tạo nhanh bỏ qua bước này.
 - **Bước 4 (Xác nhận & Hoàn tất):** Xem lại toàn bộ thông tin (full hiển thị N phòng, quick hiển thị 0 phòng kèm nhãn Tạo nhanh), gửi atomic payload lên backend. Trong lúc xử lý disable các nút điều khiển; lỗi cho phép thử lại với cùng requestId; lỗi 410 cấp phát requestId mới; thành công hiển thị toast, phát sự kiện `motel-updated` và refresh trang.
 
 **Quản lý mẫu hợp đồng (`/contracts`):** Thêm nút "Chọn mẫu có sẵn" mở `ContractTemplatePicker` để sao chép mẫu từ catalog vào nhà trọ hiện tại với tùy chọn "Đặt làm mẫu mặc định cho nhà trọ này".
 
 **Chỉnh sửa** on each card opens the existing edit dialog with settings supported today:
-editable `otherFees` rows (name and VND amount) and bank code, account number, account owner.
-Unchecking **Thiết lập tài khoản nhận tiền** clears the bank account on save; removing all
+editable `otherFees` rows (name and VND amount) and bank account. Managers search Vietnamese
+VietQR banks by full or short name; selecting one confirms its logo, name, and BIN before account
+number and account holder fields appear. Existing BINs absent from the catalog remain unchanged
+unless a replacement bank is selected. Unchecking **Thiết lập tài khoản nhận tiền** clears the bank account on save; removing all
 fees sends an empty list. Edits send only changed fields, with an explicit `null` to clear an
 address or bank account. Each opened form keeps its original snapshot for change detection,
 so a background refresh cannot turn untouched draft values into updates. Account numbers
@@ -256,7 +258,7 @@ read), and `Chưa có khách thuê` when none are assigned. A missing floor show
 `/renters?motel=<id>&roomId=<id>`. The overdue indicator and meter history remain deferred
 under the phase 1 scope above.
 
-Add/edit modal: Tên phòng, Tầng, Giá thuê cơ bản. No amenities field — deliberately out
+Add-room modal: Tên phòng, Tầng, Giá thuê cơ bản, chỉ số điện/nước hiện tại (mặc định `0`; dùng làm baseline hóa đơn trước khi có kỳ ghi điện/nước). Edit-room modal không sửa baseline. No amenities field — deliberately out
 of scope (see spec non-goals). Floor is optional; clearing it sends `null`. Rent accepts
 digits or correctly grouped Vietnamese amounts and previews the amount with `₫`.
 Editing patches only changed fields; the separate status dialog patches status alone.

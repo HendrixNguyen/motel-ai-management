@@ -8,6 +8,7 @@ import Field from "@/components/ui/field";
 import Modal from "@/components/ui/modal";
 import { useToast } from "@/components/ui/toast";
 import ContractTemplatePicker from "./contract-template-picker";
+import BankPicker from "./bank-picker";
 import {
   getMotelSetupResult,
   previewOwnedTemplate,
@@ -31,6 +32,12 @@ import {
   type StoredSetupDraft,
 } from "@/lib/motel-setup";
 import { createMotelDraft, prepareMotelInput, type MotelDraft } from "@/lib/motel-form";
+
+function validMeterReading(value: string | undefined): boolean {
+  if (!value || !/^\d+(?:\.\d{1,2})?$/.test(value)) return false;
+  const [whole = "", fraction = ""] = value.split(".");
+  return BigInt(whole) * 100n + BigInt(fraction.padEnd(2, "0") || "0") <= 999999999999n;
+}
 
 export interface MotelSetupWizardProps {
   open: boolean;
@@ -331,6 +338,8 @@ export default function MotelSetupWizard({
         name: `${genPrefix}${startNum + i}`,
         basePrice: priceDigits,
         ...(floor !== null ? { floor } : {}),
+        initialElectricReading: "0",
+        initialWaterReading: "0",
       });
     }
     setRooms(generated);
@@ -355,6 +364,23 @@ export default function MotelSetupWizard({
       ...parsed.input,
       ...(isSuperadmin ? { ownerManagerId } : {}),
     };
+    if (
+      mode === "full" &&
+      rooms.some(
+        (room) =>
+          !validMeterReading(room.initialElectricReading) ||
+          !validMeterReading(room.initialWaterReading),
+      )
+    ) {
+      const room = rooms.find(
+        (candidate) =>
+          !validMeterReading(candidate.initialElectricReading) ||
+          !validMeterReading(candidate.initialWaterReading),
+      );
+      setStep(3);
+      setError(`Nhập chỉ số điện và nước hợp lệ cho phòng ${room?.name ?? "đã chọn"}`);
+      return;
+    }
     let input;
     try {
       input = buildSetupInput(
@@ -684,61 +710,74 @@ export default function MotelSetupWizard({
                 <div className="space-y-3">
                   <Field
                     id={id("bankCode")}
-                    label="Mã ngân hàng (BIN)"
+                    label="Ngân hàng"
                     error={fields["bankAccount.bankCode"]}
                   >
                     {(props) => (
-                      <input
+                      <BankPicker
                         {...props}
                         value={draft.bankAccount.bankCode}
-                        required
-                        onChange={(e) =>
+                        onChange={(bankCode) =>
                           setDraft((prev) => ({
                             ...prev,
-                            bankAccount: { ...prev.bankAccount, bankCode: e.target.value },
+                            bankAccount: { ...prev.bankAccount, bankCode },
                           }))
                         }
                       />
                     )}
                   </Field>
-                  <Field
-                    id={id("accountNumber")}
-                    label="Số tài khoản"
-                    error={fields["bankAccount.accountNumber"]}
-                  >
-                    {(props) => (
-                      <input
-                        {...props}
-                        value={draft.bankAccount.accountNumber}
-                        required
-                        onChange={(e) =>
-                          setDraft((prev) => ({
-                            ...prev,
-                            bankAccount: { ...prev.bankAccount, accountNumber: e.target.value },
-                          }))
-                        }
-                      />
-                    )}
-                  </Field>
-                  <Field
-                    id={id("accountName")}
-                    label="Tên chủ tài khoản"
-                    error={fields["bankAccount.accountName"]}
-                  >
-                    {(props) => (
-                      <input
-                        {...props}
-                        value={draft.bankAccount.accountName}
-                        required
-                        onChange={(e) =>
-                          setDraft((prev) => ({
-                            ...prev,
-                            bankAccount: { ...prev.bankAccount, accountName: e.target.value },
-                          }))
-                        }
-                      />
-                    )}
-                  </Field>
+                  {draft.bankAccount.bankCode ? (
+                    <>
+                      <Field
+                        id={id("accountNumber")}
+                        label="Số tài khoản"
+                        error={fields["bankAccount.accountNumber"]}
+                      >
+                        {(props) => (
+                          <input
+                            {...props}
+                            value={draft.bankAccount.accountNumber}
+                            required
+                            onChange={(e) =>
+                              setDraft((prev) => ({
+                                ...prev,
+                                bankAccount: {
+                                  ...prev.bankAccount,
+                                  accountNumber: e.target.value,
+                                },
+                              }))
+                            }
+                          />
+                        )}
+                      </Field>
+                      <Field
+                        id={id("accountName")}
+                        label="Tên chủ tài khoản"
+                        error={fields["bankAccount.accountName"]}
+                      >
+                        {(props) => (
+                          <input
+                            {...props}
+                            value={draft.bankAccount.accountName}
+                            required
+                            onChange={(e) =>
+                              setDraft((prev) => ({
+                                ...prev,
+                                bankAccount: {
+                                  ...prev.bankAccount,
+                                  accountName: e.target.value,
+                                },
+                              }))
+                            }
+                          />
+                        )}
+                      </Field>
+                    </>
+                  ) : (
+                    <p className="text-sm text-text-muted">
+                      Chọn ngân hàng để nhập thông tin tài khoản.
+                    </p>
+                  )}
                 </div>
               )}
             </fieldset>
@@ -915,10 +954,11 @@ export default function MotelSetupWizard({
                   {rooms.map((room, idx) => (
                     <div
                       key={idx}
-                      className="flex items-center gap-2 rounded-input border border-border p-2 bg-surface text-sm"
+                      className="grid grid-cols-2 gap-2 rounded-input border border-border p-2 bg-surface text-sm sm:grid-cols-5"
                     >
                       <input
-                        className="w-24 rounded-input border border-border-strong px-2 py-1"
+                        aria-label={`Tên phòng ${idx + 1}`}
+                        className="min-w-0 rounded-input border border-border-strong px-2 py-1"
                         value={room.name}
                         onChange={(e) =>
                           setRooms((prev) =>
@@ -927,7 +967,9 @@ export default function MotelSetupWizard({
                         }
                       />
                       <input
-                        className="w-32 rounded-input border border-border-strong px-2 py-1"
+                        aria-label={`Giá thuê phòng ${idx + 1}`}
+                        placeholder="Giá (₫)"
+                        className="min-w-0 rounded-input border border-border-strong px-2 py-1"
                         value={room.basePrice}
                         onChange={(e) =>
                           setRooms((prev) =>
@@ -937,7 +979,34 @@ export default function MotelSetupWizard({
                           )
                         }
                       />
-                      <span className="text-text-muted">₫</span>
+                      <input
+                        aria-label={`Chỉ số điện phòng ${idx + 1}`}
+                        placeholder="Điện (kWh)"
+                        inputMode="decimal"
+                        className="min-w-0 rounded-input border border-border-strong px-2 py-1"
+                        value={room.initialElectricReading ?? "0"}
+                        onChange={(e) =>
+                          setRooms((prev) =>
+                            prev.map((r, i) =>
+                              i === idx ? { ...r, initialElectricReading: e.target.value } : r,
+                            ),
+                          )
+                        }
+                      />
+                      <input
+                        aria-label={`Chỉ số nước phòng ${idx + 1}`}
+                        placeholder="Nước (m³)"
+                        inputMode="decimal"
+                        className="min-w-0 rounded-input border border-border-strong px-2 py-1"
+                        value={room.initialWaterReading ?? "0"}
+                        onChange={(e) =>
+                          setRooms((prev) =>
+                            prev.map((r, i) =>
+                              i === idx ? { ...r, initialWaterReading: e.target.value } : r,
+                            ),
+                          )
+                        }
+                      />
                       <Button
                         variant="ghost"
                         size="sm"

@@ -1052,6 +1052,8 @@ export function createFixtureBackend(
               name: r.name,
               basePrice: r.basePrice,
               floor: r.floor ?? null,
+              initialElectricReading: r.initialElectricReading ?? "0",
+              initialWaterReading: r.initialWaterReading ?? "0",
               status: "available",
               createdAt: new Date().toISOString(),
             });
@@ -1151,6 +1153,8 @@ export function createFixtureBackend(
               name: body.name,
               basePrice: body.basePrice,
               floor: body.floor ?? null,
+              initialElectricReading: body.initialElectricReading ?? "0",
+              initialWaterReading: body.initialWaterReading ?? "0",
               status: body.status ?? "available",
               createdAt: new Date().toISOString(),
             };

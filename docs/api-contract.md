@@ -145,30 +145,29 @@ Contract creation validates motel ownership for renter, room, and template. Miss
 
 ### Motels — `/api/manager/motels`
 
-| Method | Path                         | Notes                                                                                                                                                                                                                        |
-| ------ | ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| GET    | `/`                          | Manager: own motels. Superadmin: all motels, including owner `managerId` and `managerName`                                                                                                                                   |
-| POST   | `/`                          | Create; Superadmin must provide enabled Manager `ownerManagerId`; Manager cannot provide it. First motel owner must use full setup.                                                                                          |
-| POST   | `/setup`                     | Atomic full/quick setup; Superadmin must select enabled Manager in `motel.ownerManagerId`. First motel per selected owner requires full setup. Replay key remains actor-scoped; changed owner is `409 IDEMPOTENCY_CONFLICT`. |
-| GET    | `/setup-requests/:requestId` | Status is scoped to authenticated actor; 200 with result, 404 unknown, 410 if motel was deleted.                                                                                                                             |
-| GET    | `/:motelId`                  | `404` when Manager does not own the motel or motel does not exist; Superadmin can access all existing motels                                                                                                                 |
-| PATCH  | `/:motelId`                  | Partial update of prices, fees, bank account, address. Ownership never changes through update. A key absent from the body is never written; explicit `null` clears.                                                          |
-| DELETE | `/:motelId`                  | `409` while anything still points at it — occupied rooms, rooms, renters, billing periods or contract templates; Superadmin can delete any accessible motel after safeguards pass                                            |
+| Method | Path                         | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| ------ | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/`                          | Manager: own motels. Superadmin: all motels, including owner `managerId` and `managerName`                                                                                                                                                                                                                                                                                                                                                  |
+| POST   | `/`                          | Create; Superadmin must provide enabled Manager `ownerManagerId`; Manager cannot provide it. First motel owner must use full setup. Prices must be strings or return `400 VALIDATION_ERROR`.                                                                                                                                                                                                                                                |
+| POST   | `/setup`                     | Atomic full/quick setup; Superadmin selects enabled Manager in `motel.ownerManagerId`. First motel per owner requires full setup. Full-mode rooms accept optional non-negative `initialElectricReading`/`initialWaterReading` strings, up to 2 decimals, default `0`. 201 created, 200 replayed; quick first motel `409 MOTEL_SETUP_REQUIRED`; changed payload/owner `409 IDEMPOTENCY_CONFLICT`; deleted result `410 SETUP_RESULT_DELETED`. |
+| GET    | `/setup-requests/:requestId` | Actor-scoped status; 200 with result, 404 unknown, 410 if motel was deleted.                                                                                                                                                                                                                                                                                                                                                                |
+| GET    | `/:motelId`                  | Manager gets owned motel only; Superadmin can access all existing motels. Inaccessible or missing motel returns `404`.                                                                                                                                                                                                                                                                                                                      |
+| PATCH  | `/:motelId`                  | Partial update of prices, fees, bank account, address. Ownership cannot change. Missing keys stay unchanged; explicit `null` clears.                                                                                                                                                                                                                                                                                                        |
+| DELETE | `/:motelId`                  | `409` while rooms, renters, periods or contract templates still point at it. Superadmin can delete any accessible motel after safeguards pass.                                                                                                                                                                                                                                                                                              |
 
-For `POST /`, Superadmin sends `ownerManagerId` at the body root; `/setup` sends it in the `motel`
-object. Both require an enabled Manager account. Manager requests must omit the field; `PATCH`
-cannot change owner. Setup idempotency remains keyed by actor/request and fingerprints selected
-owner for Superadmin requests.
+For `POST /`, Superadmin sends `ownerManagerId` at body root; `/setup` sends it inside `motel`.
+Both require an enabled Manager. Manager requests must omit the field. Setup idempotency is
+actor-scoped and fingerprints selected owner for Superadmin requests.
 
 ### Rooms — `/api/manager/motels/:motelId/rooms`
 
-| Method | Path       | Notes                                                                               |
-| ------ | ---------- | ----------------------------------------------------------------------------------- |
-| GET    | `/`        | Supports `?floor=&status=&search=`; `basePrice` returned as VND digit string        |
-| POST   | `/`        | `409 CONFLICT` on duplicate `(motelId, name)`; `basePrice` as VND digit string      |
-| GET    | `/:roomId` | `basePrice` returned as VND digit string                                            |
-| PATCH  | `/:roomId` | Partial update of name, floor, `basePrice`, status; `basePrice` as VND digit string |
-| DELETE | `/:roomId` | `409 CONFLICT` if an active contract exists OR any renter is assigned to the room   |
+| Method | Path       | Notes                                                                                                                                                                                                      |
+| ------ | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/`        | Supports `?floor=&status=&search=`; `basePrice` returned as VND digit string                                                                                                                               |
+| POST   | `/`        | `409 CONFLICT` on duplicate `(motelId, name)`; `basePrice` as VND digit string; optional `initialElectricReading` and `initialWaterReading` are non-negative meter strings (up to 2 decimals, default `0`) |
+| GET    | `/:roomId` | `basePrice` returned as VND digit string                                                                                                                                                                   |
+| PATCH  | `/:roomId` | Partial update of name, floor, `basePrice`, status; `basePrice` as VND digit string                                                                                                                        |
+| DELETE | `/:roomId` | `409 CONFLICT` if an active contract exists OR any renter is assigned to the room                                                                                                                          |
 
 ### Renters — `/api/manager/motels/:motelId/renters`
 

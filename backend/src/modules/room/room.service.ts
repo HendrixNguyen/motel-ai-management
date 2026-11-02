@@ -40,6 +40,8 @@ export interface RenterRoomProjection {
 export interface BillingRoomProjection {
   id: string;
   name: string;
+  initialElectricReading: string;
+  initialWaterReading: string;
 }
 
 export async function getRoomForRenter(
@@ -60,7 +62,12 @@ export async function listRoomsForBilling(
   reader: RoomReader = db,
 ): Promise<BillingRoomProjection[]> {
   return reader
-    .select({ id: rooms.id, name: rooms.name })
+    .select({
+      id: rooms.id,
+      name: rooms.name,
+      initialElectricReading: rooms.initialElectricReading,
+      initialWaterReading: rooms.initialWaterReading,
+    })
     .from(rooms)
     .where(eq(rooms.motelId, motelId))
     .orderBy(asc(rooms.name), asc(rooms.id));
@@ -122,6 +129,17 @@ function isForeignKeyViolation(error: unknown): boolean {
  * that out here is what lets `RoomResponse.createdAt` be a `string`: `numeric` handing back a
  * JS number for `basePrice` would fail this function's return type instead of slipping through.
  */
+function parseInitialMeterReading(value: string | undefined): string {
+  const reading = value ?? "0";
+  if (!/^\d+(?:\.\d{1,2})?$/.test(reading))
+    throw AppError.badRequest("Chỉ số công tơ không hợp lệ");
+  const [whole = "", fraction = ""] = reading.split(".");
+  if (BigInt(whole) * 100n + BigInt(fraction.padEnd(2, "0") || "0") > 999999999999n) {
+    throw AppError.badRequest("Chỉ số công tơ vượt giới hạn");
+  }
+  return reading;
+}
+
 function toResponse(row: RoomRow): RoomResponse {
   return { ...row, createdAt: row.createdAt.toISOString() };
 }
@@ -171,7 +189,12 @@ export async function createSetupRooms(
   tx: DbExecutor,
   motelId: string,
   actor: MotelActor,
-  inputs: Array<Pick<CreateRoomInput, "name" | "basePrice" | "floor">>,
+  inputs: Array<
+    Pick<
+      CreateRoomInput,
+      "name" | "basePrice" | "floor" | "initialElectricReading" | "initialWaterReading"
+    >
+  >,
 ): Promise<RoomResponse[]> {
   if (inputs.length === 0) return [];
   await resolveAccessibleMotel(motelId, actor, tx);
@@ -193,6 +216,8 @@ export async function createSetupRooms(
           name: input.name,
           basePrice: parseAmount(input.basePrice),
           floor: input.floor ?? null,
+          initialElectricReading: parseInitialMeterReading(input.initialElectricReading),
+          initialWaterReading: parseInitialMeterReading(input.initialWaterReading),
           status: "available" as const,
         })),
       )
@@ -221,6 +246,8 @@ export async function createRoom(
         name: input.name,
         basePrice: parseAmount(input.basePrice),
         floor: input.floor ?? null,
+        initialElectricReading: parseInitialMeterReading(input.initialElectricReading),
+        initialWaterReading: parseInitialMeterReading(input.initialWaterReading),
         status: input.status ?? "available",
       })
       .returning();

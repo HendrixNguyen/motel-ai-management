@@ -97,6 +97,8 @@ export function serializeSetupDraft(draft: StoredSetupDraft): string {
       name: r.name,
       basePrice: r.basePrice,
       ...(r.floor !== undefined ? { floor: r.floor } : {}),
+      initialElectricReading: r.initialElectricReading ?? "0",
+      initialWaterReading: r.initialWaterReading ?? "0",
     })),
     pendingRequestId: draft.pendingRequestId,
   };
@@ -129,7 +131,11 @@ export function parseSetupDraft(raw: string): StoredSetupDraft | null {
         otherFees: data.motel.otherFees,
       },
       template: data.template ?? null,
-      rooms: data.rooms,
+      rooms: data.rooms.map((room: SetupRoomInput) => ({
+        ...room,
+        initialElectricReading: room.initialElectricReading ?? "0",
+        initialWaterReading: room.initialWaterReading ?? "0",
+      })),
       pendingRequestId: typeof data.pendingRequestId === "string" ? data.pendingRequestId : null,
     };
   } catch {
