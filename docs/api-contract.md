@@ -105,13 +105,13 @@ Contract creation validates motel ownership for renter, room, and template. Miss
 
 ### Auth — `/api/auth`
 
-| Method | Path        | Body                              | Returns                                                                                                                |
-| ------ | ----------- | --------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| POST   | `/register` | `{email, password, name, phone?}` | `201 {id, email, name, role}` + sets cookie; always role `manager`                                                     |
-| POST   | `/login`    | `{email, password, rememberMe?}`  | `200 {id, email, name, role, csrfToken?}` + sets role-bound cookie; Manager `rememberMe:true` creates 90-day rolling session; Superadmin ignores it and receives 43-character random CSRF token |
-| POST   | `/session/refresh` | —                          | `200 {success:true}`; extends valid remembered Manager session by 90 days; ordinary sessions unchanged                 |
-| POST   | `/logout`   | —                                 | `204` + clears cookie and revokes current remembered Manager session                                                   |
-| GET    | `/me`       | —                                 | `200 {id, email, role}`                                                                                                |
+| Method | Path               | Body                              | Returns                                                                                                                                                                                         |
+| ------ | ------------------ | --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| POST   | `/register`        | `{email, password, name, phone?}` | `201 {id, email, name, role}` + sets cookie; always role `manager`                                                                                                                              |
+| POST   | `/login`           | `{email, password, rememberMe?}`  | `200 {id, email, name, role, csrfToken?}` + sets role-bound cookie; Manager `rememberMe:true` creates 90-day rolling session; Superadmin ignores it and receives 43-character random CSRF token |
+| POST   | `/session/refresh` | —                                 | `200 {success:true}`; extends valid remembered Manager session by 90 days; ordinary sessions unchanged                                                                                          |
+| POST   | `/logout`          | —                                 | `204` + clears cookie and revokes current remembered Manager session                                                                                                                            |
+| GET    | `/me`              | —                                 | `200 {id, email, role}`                                                                                                                                                                         |
 
 `password` is 8–256 characters. Login/register are rate-limited per IP and normalized email. Registration ignores/rejects any client-supplied role and creates only a normal Manager; it never creates a Superadmin.
 

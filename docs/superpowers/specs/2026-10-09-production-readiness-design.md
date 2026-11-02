@@ -78,16 +78,16 @@ The first production release uses one backend replica because the current proces
 
 ### Minimum launch limits
 
-| Operation | Limit | Key |
-|---|---:|---|
-| Manager login | 5 failures / 15 min, exponential backoff | IP + normalized email |
-| Manager register | 3 / hour | IP |
-| Magic-link issue/exchange | 5 / hour; 1 active issue cooldown | manager/renter + IP |
-| OTP request | 1 / 5 min; 5 / hour | contract + renter + IP |
-| OTP verify | 3 attempts / challenge | challenge + renter |
-| Payment-proof upload | 5 / hour; 5,000,000-byte body ceiling | renter + invoice + IP |
-| Push subscribe/revoke | 20 / hour | renter + IP |
-| Webhook | provider-appropriate burst limit | IP/provider signature |
+| Operation                 |                                    Limit | Key                    |
+| ------------------------- | ---------------------------------------: | ---------------------- |
+| Manager login             | 5 failures / 15 min, exponential backoff | IP + normalized email  |
+| Manager register          |                                 3 / hour | IP                     |
+| Magic-link issue/exchange |        5 / hour; 1 active issue cooldown | manager/renter + IP    |
+| OTP request               |                      1 / 5 min; 5 / hour | contract + renter + IP |
+| OTP verify                |                   3 attempts / challenge | challenge + renter     |
+| Payment-proof upload      |    5 / hour; 5,000,000-byte body ceiling | renter + invoice + IP  |
+| Push subscribe/revoke     |                                20 / hour | renter + IP            |
+| Webhook                   |         provider-appropriate burst limit | IP/provider signature  |
 
 Limits are enforced before expensive storage/provider work and emit metrics without credential values.
 

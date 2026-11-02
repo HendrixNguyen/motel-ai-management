@@ -183,7 +183,10 @@ export const authRoutes = new Elysia({ name: "auth-routes" })
       await enforceRateLimit(`login:email:${body.email.trim().toLowerCase()}`, 5);
       const managerRow = await verifyManager(body.email, body.password);
       const previousToken = cookie[COOKIE_NAME]?.value;
-      if (typeof previousToken === "string" && previousToken.startsWith(REMEMBERED_SESSION_PREFIX)) {
+      if (
+        typeof previousToken === "string" &&
+        previousToken.startsWith(REMEMBERED_SESSION_PREFIX)
+      ) {
         await db
           .delete(managerSessions)
           .where(
