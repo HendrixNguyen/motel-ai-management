@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { resetDb } from "@/db/test-db";
 import { registerManager } from "@/modules/auth/auth.service";
 import { motels } from "@/modules/motel/motel.schema";
+import { managers } from "@/modules/auth/auth.schema";
 import { rooms } from "@/modules/room/room.schema";
 import { renters } from "@/modules/renter/renter.schema";
 import { contracts } from "@/modules/contract/contract.schema";
@@ -79,6 +80,20 @@ async function api(
   );
 }
 
+async function loginSuperadmin(): Promise<string> {
+  const email = "root@example.com";
+  const password = "root password 123";
+  await db.insert(managers).values({
+    email,
+    name: "Root",
+    role: "superadmin",
+    passwordHash: await Bun.password.hash(password, { algorithm: "argon2id" }),
+  });
+  const res = await api("POST", "/auth/login", { body: { email, password } });
+  expect(res.status).toBe(200);
+  return res.headers.get("set-cookie") ?? "";
+}
+
 async function createMotel(cookie: string, name = "Nhà trọ"): Promise<MotelPayload> {
   const meRes = await api("GET", "/auth/me", { cookie });
   const manager = (await meRes.json()) as { id: string };
@@ -141,6 +156,38 @@ describe("GET /api/manager/motels/:motelId/rooms", () => {
     const res = await api("GET", `/manager/motels/${foreign.id}/rooms`, { cookie: a.cookie });
     expect(res.status).toBe(404);
     expect(((await res.json()) as ErrorPayload).code).toBe("NOT_FOUND");
+  });
+
+  test("superadmin can list rooms from motels owned by different managers", async () => {
+    const a = await login("a@example.com");
+    const b = await login("b@example.com");
+    const first = await createMotel(a.cookie, "Nhà trọ một");
+    const second = await createMotel(b.cookie, "Nhà trọ hai");
+    await createRoom(a.cookie, first.id, { name: "P.101" });
+    await createRoom(b.cookie, second.id, { name: "P.201" });
+    const rootCookie = await loginSuperadmin();
+
+    for (const [motel, expected] of [
+      [first, "P.101"],
+      [second, "P.201"],
+    ] as const) {
+      const res = await api("GET", `/manager/motels/${motel.id}/rooms`, { cookie: rootCookie });
+      expect(res.status).toBe(200);
+      expect(names((await res.json()) as RoomPayload[])).toEqual([expected]);
+    }
+  });
+
+  test("superadmin still gets 404 when room belongs to different motel", async () => {
+    const a = await login("a@example.com");
+    const first = await createMotel(a.cookie, "Nhà trọ một");
+    const second = await createMotel(a.cookie, "Nhà trọ hai");
+    const room = await createRoom(a.cookie, second.id, { name: "P.201" });
+    const rootCookie = await loginSuperadmin();
+
+    const res = await api("GET", `/manager/motels/${first.id}/rooms/${room.id}`, {
+      cookie: rootCookie,
+    });
+    expect(res.status).toBe(404);
   });
 
   test("serialises basePrice as a VND digit string and createdAt as ISO-8601", async () => {

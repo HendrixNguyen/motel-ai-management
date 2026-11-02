@@ -43,7 +43,9 @@ test("full_setup_creates_first_motel", async ({ page, context }) => {
   await dialog.getByLabel("Giá nước (₫/m³)").fill("25000");
 
   await dialog.getByLabel("Thiết lập tài khoản nhận tiền").check();
-  await dialog.getByLabel("Mã ngân hàng (BIN)").fill("970422");
+  const bank = dialog.getByRole("combobox", { name: "Ngân hàng" });
+  await bank.fill("970422");
+  await dialog.getByRole("option", { name: /MBBank/ }).click();
   await dialog.getByLabel("Số tài khoản").fill("19036789101112");
   await dialog.getByLabel("Tên chủ tài khoản").fill("NGUYEN VAN MINH");
 

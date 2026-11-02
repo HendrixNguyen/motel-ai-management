@@ -12,7 +12,7 @@ import SessionRefresh from "@/components/manager/session-refresh";
 export default async function ManagerLayout({ children }: { children: React.ReactNode }) {
   if (!(await cookies()).get("manager_session")?.value) redirect("/login");
   const manager = await getMe();
-  if (manager.role !== "manager") redirect("/admin/managers");
+  if (manager.role !== "manager" && manager.role !== "superadmin") redirect("/login");
   const motels = await listMotels();
   return (
     <ToastProvider>
@@ -25,7 +25,7 @@ export default async function ManagerLayout({ children }: { children: React.Reac
           Đến nội dung chính
         </a>
         <ManagerShell
-          sidebar={<Sidebar />}
+          sidebar={<Sidebar role={manager.role} />}
           header={
             <Suspense
               fallback={

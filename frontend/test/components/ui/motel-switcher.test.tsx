@@ -46,6 +46,18 @@ describe("MotelSwitcher", () => {
     const view = render(<MotelSwitcher motels={[]} onChange={vi.fn()} />);
     expect(view.getByRole("combobox", { name: "Nhà trọ" })).toBeDisabled();
   });
+  test("shows manager name in choices when caller enables owner labels", () => {
+    const view = render(
+      <MotelSwitcher
+        motels={[{ id: "m1", name: "Nhà Một", managerName: "Nguyễn An" }] as never[]}
+        selectedId="m1"
+        showOwner
+        onChange={vi.fn()}
+      />,
+    );
+    fireEvent.click(view.getByRole("combobox", { name: "Nhà trọ" }));
+    expect(view.getByRole("option", { name: "Nhà Một — Nguyễn An" })).toBeInTheDocument();
+  });
   test("respects caller disabled state", () => {
     const view = render(
       <MotelSwitcher motels={motels} selectedId="m1" disabled onChange={vi.fn()} />,

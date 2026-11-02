@@ -45,12 +45,20 @@ describe("billing payments", () => {
         totalAmount: "1",
       })
       .returning();
-    const paid = await markInvoicePaid(invoice!.id, motel!.id, manager!.id);
-    const repeated = await markInvoicePaid(invoice!.id, motel!.id, manager!.id);
+    const paid = await markInvoicePaid(invoice!.id, motel!.id, {
+      userId: manager!.id,
+      role: "manager",
+    });
+    const repeated = await markInvoicePaid(invoice!.id, motel!.id, {
+      userId: manager!.id,
+      role: "manager",
+    });
     expect(paid.paymentStatus).toBe("paid");
     expect(repeated.id).toBe(paid.id);
     expect(repeated.paidAt).toBe(paid.paidAt);
-    await expect(markInvoiceOverdue(invoice!.id, motel!.id, manager!.id)).rejects.toMatchObject({
+    await expect(
+      markInvoiceOverdue(invoice!.id, motel!.id, { userId: manager!.id, role: "manager" }),
+    ).rejects.toMatchObject({
       status: 409,
     });
   });
@@ -88,12 +96,16 @@ describe("billing payments", () => {
         totalAmount: "1",
       })
       .returning();
-    const overdue = await markInvoiceOverdue(invoice!.id, motel!.id, manager!.id);
+    const overdue = await markInvoiceOverdue(invoice!.id, motel!.id, {
+      userId: manager!.id,
+      role: "manager",
+    });
     expect(overdue.paymentStatus).toBe("overdue");
     expect(overdue.paidAt).toBeNull();
-    expect((await markInvoiceOverdue(invoice!.id, motel!.id, manager!.id)).paymentStatus).toBe(
-      "overdue",
-    );
+    expect(
+      (await markInvoiceOverdue(invoice!.id, motel!.id, { userId: manager!.id, role: "manager" }))
+        .paymentStatus,
+    ).toBe("overdue");
   });
 
   test("payment state conflicts are represented", () => {

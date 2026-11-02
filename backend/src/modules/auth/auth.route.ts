@@ -7,7 +7,7 @@ import { db } from "@/db";
 import { managerSessions } from "./auth.schema";
 import { and, eq, gt } from "drizzle-orm";
 import { managerAuth } from "@/middleware/manager-auth";
-import { resolveOwnedMotel } from "@/middleware/tenancy";
+import { resolveAccessibleMotel } from "@/middleware/tenancy";
 import { verifyManager, registerManager } from "./auth.service";
 import { issueMagicLink } from "@/shared/magic-link";
 import { AppError } from "@/shared/errors";
@@ -306,14 +306,13 @@ export const authRoutes = new Elysia({ name: "auth-routes" })
       .use(managerAuth)
       .group("/motels/:motelId/login-requests", (app) =>
         app
-          .get("/", ({ params, auth }) => listLoginRequests(params.motelId, auth!.userId), {
+          .get("/", ({ params, auth }) => listLoginRequests(params.motelId, auth!), {
             params: t.Object({ motelId: t.String({ format: "uuid" }) }),
             detail: { security: [{ managerAuth: [] }] },
           })
           .post(
             "/:requestId/link",
-            ({ params, auth }) =>
-              issueLoginRequestLink(params.requestId, params.motelId, auth!.userId),
+            ({ params, auth }) => issueLoginRequestLink(params.requestId, params.motelId, auth!),
             {
               params: t.Object({
                 motelId: t.String({ format: "uuid" }),
@@ -325,7 +324,7 @@ export const authRoutes = new Elysia({ name: "auth-routes" })
           .post(
             "/:requestId/handled",
             ({ params, auth }) =>
-              markLoginRequestHandled(params.requestId, params.motelId, auth!.userId, "handled"),
+              markLoginRequestHandled(params.requestId, params.motelId, auth!, "handled"),
             {
               params: t.Object({
                 motelId: t.String({ format: "uuid" }),
@@ -337,7 +336,7 @@ export const authRoutes = new Elysia({ name: "auth-routes" })
           .post(
             "/:requestId/dismiss",
             ({ params, auth }) =>
-              markLoginRequestHandled(params.requestId, params.motelId, auth!.userId, "dismissed"),
+              markLoginRequestHandled(params.requestId, params.motelId, auth!, "dismissed"),
             {
               params: t.Object({
                 motelId: t.String({ format: "uuid" }),
@@ -348,21 +347,17 @@ export const authRoutes = new Elysia({ name: "auth-routes" })
           ),
       )
       .group("/motels/:motelId/renter-recovery", (app) =>
-        app.get(
-          "/code",
-          ({ params, auth }) => getMotelPublicAccessCode(params.motelId, auth!.userId),
-          {
-            params: t.Object({ motelId: t.String({ format: "uuid" }) }),
-            detail: { security: [{ managerAuth: [] }] },
-          },
-        ),
+        app.get("/code", ({ params, auth }) => getMotelPublicAccessCode(params.motelId, auth!), {
+          params: t.Object({ motelId: t.String({ format: "uuid" }) }),
+          detail: { security: [{ managerAuth: [] }] },
+        }),
       ),
   )
   .group("/manager/motels/:motelId/renters/:renterId", (app) =>
     app.use(managerAuth).post(
       "/magic-link",
       async ({ params, auth, set }) => {
-        const motel = await resolveOwnedMotel(params.motelId, auth!.userId);
+        const motel = await resolveAccessibleMotel(params.motelId, auth!);
         const renter = await getRenter(params.renterId);
         if (!renter || renter.motelId !== motel.id) {
           throw AppError.notFound("Không tìm thấy người thuê");

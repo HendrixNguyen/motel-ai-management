@@ -1,4 +1,4 @@
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import {
   findInvoiceForManagerPayment,
@@ -10,7 +10,6 @@ import { enforceRateLimit } from "@/shared/rate-limit";
 import {
   enqueueNotification,
   findPushSubscriptionsForRenter,
-  getRenterNotificationRecipient,
   sendPushToRenter,
 } from "@/modules/notification/notification.service";
 import { paymentProofs } from "./payment.schema";
@@ -18,6 +17,7 @@ import { AppError } from "@/shared/errors";
 import { StorageError, type StorageAdapter, validateStorageInput } from "@/shared/storage";
 import type { PaymentProofResponse } from "./payment.types";
 import type { RenterAuthPayload } from "@/middleware/renter-auth";
+import { resolveAccessibleMotel, type MotelActor } from "@/middleware/tenancy";
 
 let paymentStorage: StorageAdapter | undefined;
 export function configurePaymentStorage(storage: StorageAdapter): void {
@@ -158,22 +158,19 @@ function ownedKey(objectKey: string, motelId: string, renterId: string): boolean
   return objectKey.startsWith(`motels/${motelId}/renters/${renterId}/payment-proofs/`);
 }
 
-async function managerInvoice(managerId: string, motelId: string, invoiceId: string) {
+async function managerInvoice(actor: MotelActor, motelId: string, invoiceId: string) {
+  await resolveAccessibleMotel(motelId, actor);
   const row = await findInvoiceForManagerPayment(db, motelId, invoiceId);
   if (!row) throw AppError.notFound("Không tìm thấy hóa đơn");
-  const motel = await db.query.motels.findFirst({
-    where: (m, { and, eq }) => and(eq(m.id, motelId), eq(m.managerId, managerId)),
-  });
-  if (!motel) throw AppError.notFound("Không tìm thấy hóa đơn");
   return row;
 }
 
 export async function getManagerPaymentProof(
-  managerId: string,
+  actor: MotelActor,
   motelId: string,
   invoiceId: string,
 ) {
-  await managerInvoice(managerId, motelId, invoiceId);
+  await managerInvoice(actor, motelId, invoiceId);
   const row = await db.query.paymentProofs.findFirst({
     where: and(eq(paymentProofs.invoiceId, invoiceId), eq(paymentProofs.motelId, motelId)),
     orderBy: (p, { desc }) => [desc(p.submittedAt)],
@@ -193,9 +190,9 @@ export async function getManagerPaymentProof(
   }
 }
 
-export async function approvePaymentProof(managerId: string, motelId: string, invoiceId: string) {
-  await enforceRateLimit(`review:${managerId}`, 30);
-  await managerInvoice(managerId, motelId, invoiceId);
+export async function approvePaymentProof(actor: MotelActor, motelId: string, invoiceId: string) {
+  await enforceRateLimit(`review:${actor.userId}`, 30);
+  await managerInvoice(actor, motelId, invoiceId);
   const result = await db.transaction(async (tx) => {
     const invoice = await lockInvoiceForPayment(tx, motelId, invoiceId);
     if (!invoice) throw AppError.notFound("Không tìm thấy hóa đơn");
@@ -210,7 +207,7 @@ export async function approvePaymentProof(managerId: string, motelId: string, in
       : (
           await tx
             .update(paymentProofs)
-            .set({ status: "approved", reviewedAt: new Date(), reviewedByManagerId: managerId })
+            .set({ status: "approved", reviewedAt: new Date(), reviewedByManagerId: actor.userId })
             .where(
               and(
                 eq(paymentProofs.id, proof.id),
@@ -266,13 +263,13 @@ export async function approvePaymentProof(managerId: string, motelId: string, in
 }
 
 export async function rejectPaymentProof(
-  managerId: string,
+  actor: MotelActor,
   motelId: string,
   invoiceId: string,
   reason: string,
 ) {
-  await enforceRateLimit(`review:${managerId}`, 30);
-  await managerInvoice(managerId, motelId, invoiceId);
+  await enforceRateLimit(`review:${actor.userId}`, 30);
+  await managerInvoice(actor, motelId, invoiceId);
   const clean = reason.trim();
   if (!clean || clean.length > 500)
     throw AppError.badRequest("Lý do từ chối phải dài từ 1 đến 500 ký tự");
@@ -294,7 +291,7 @@ export async function rejectPaymentProof(
       .set({
         status: "rejected",
         reviewedAt: new Date(),
-        reviewedByManagerId: managerId,
+        reviewedByManagerId: actor.userId,
         rejectionReason: clean,
       })
       .where(and(eq(paymentProofs.id, proof.id), eq(paymentProofs.status, "pending")))
@@ -322,9 +319,9 @@ export async function rejectPaymentProof(
   return response(updated);
 }
 
-export async function confirmCashPayment(managerId: string, motelId: string, invoiceId: string) {
-  await enforceRateLimit(`review:${managerId}`, 30);
-  await managerInvoice(managerId, motelId, invoiceId);
+export async function confirmCashPayment(actor: MotelActor, motelId: string, invoiceId: string) {
+  await enforceRateLimit(`review:${actor.userId}`, 30);
+  await managerInvoice(actor, motelId, invoiceId);
   const result = await db.transaction(async (tx) => {
     const invoice = await lockInvoiceForPayment(tx, motelId, invoiceId);
     if (!invoice) throw AppError.notFound("Không tìm thấy hóa đơn");

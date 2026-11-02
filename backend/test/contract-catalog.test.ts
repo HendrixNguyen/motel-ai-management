@@ -12,14 +12,13 @@ import {
   previewCatalogTemplate,
   computeTemplateFingerprint,
   getActiveContractTemplateCatalog,
-  listActiveContractTemplateCatalog,
-  copyContractTemplateCatalogToMotel,
 } from "@/modules/contract/contract-catalog.service";
 
 setDefaultTimeout(30_000);
 beforeEach(resetDb);
 
 const PASSWORD = "aaaaaaaaaa";
+const actor = (userId: string) => ({ userId, role: "manager" as const });
 
 async function login(email: string) {
   await registerManager({ email, password: PASSWORD, name: email });
@@ -108,7 +107,7 @@ describe("contract catalog and template preview/copy", () => {
     const meA = await api("GET", "/auth/me", cookieA);
     const managerA = (await meA.json()) as { id: string };
 
-    await expect(previewOwnedTemplate(managerA.id, motelB.id, tplB!.id)).rejects.toThrow();
+    await expect(previewOwnedTemplate(actor(managerA.id), motelB.id, tplB!.id)).rejects.toThrow();
   });
 
   test("catalog list returns newest active version per key; inactive versions excluded", async () => {
@@ -255,7 +254,7 @@ describe("contract catalog and template preview/copy", () => {
       })
       .returning();
 
-    const preview = await previewOwnedTemplate(manager.id, sourceMotel.id, srcTpl!.id);
+    const preview = await previewOwnedTemplate(actor(manager.id), sourceMotel.id, srcTpl!.id);
     expect(preview.selection.kind).toBe("motel");
     const originalFp = (preview.selection as { fingerprint: string }).fingerprint;
 
@@ -270,7 +269,7 @@ describe("contract catalog and template preview/copy", () => {
       db.transaction(async (tx) => {
         return copySetupTemplate(
           tx,
-          manager.id,
+          actor(manager.id),
           targetMotel.id,
           {
             kind: "motel",
@@ -315,10 +314,10 @@ describe("contract catalog and template preview/copy", () => {
       })
       .returning();
 
-    const preview = await previewOwnedTemplate(manager.id, sourceMotel.id, srcTpl!.id);
+    const preview = await previewOwnedTemplate(actor(manager.id), sourceMotel.id, srcTpl!.id);
 
     const copied = await db.transaction(async (tx) => {
-      return copySetupTemplate(tx, manager.id, targetMotel.id, preview.selection, false);
+      return copySetupTemplate(tx, actor(manager.id), targetMotel.id, preview.selection, false);
     });
 
     expect(copied.isDefault).toBe(false);

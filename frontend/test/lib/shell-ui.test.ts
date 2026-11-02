@@ -111,15 +111,15 @@ describe("accessible shell controls", () => {
     ).toContain("Trang chủ");
   });
   it("keeps compact billing navigation scoped and fully labelled while desktop keeps full text", () => {
-    const html = renderToStaticMarkup(createElement(Sidebar));
+    const html = renderToStaticMarkup(createElement(Sidebar, { role: "manager" }));
     const compactNav = html.match(
-      /<nav aria-label="Điều hướng gọn trên điện thoại"[^>]*>([\s\S]*?)<\/nav>/,
+      /<nav aria-label="Điều hướng chính trên điện thoại"[^>]*>([\s\S]*?)<\/nav>/,
     )?.[1];
     expect(compactNav).toBeDefined();
     expect(compactNav).toContain(`href="/billing?motel=${MOTEL_WITHOUT_EXTRAS.id}"`);
-    expect(compactNav).toContain(`href="/contracts?motel=${MOTEL_WITHOUT_EXTRAS.id}"`);
+    expect(compactNav).not.toContain(`href="/contracts?motel=${MOTEL_WITHOUT_EXTRAS.id}"`);
     expect(compactNav).toContain('aria-label="Tính tiền &amp; Hóa đơn"');
-    expect(compactNav).toContain(">Hóa đơn<");
+    expect(compactNav).toContain("Thêm</span>");
     expect(html).toMatch(
       /<nav aria-label="Điều hướng chính"[\s\S]*?Tính tiền &amp; Hóa đơn[\s\S]*?<\/nav>/,
     );
@@ -128,24 +128,24 @@ describe("accessible shell controls", () => {
     expect(html).toContain("Nhà Số Gọn");
   });
   it("shows six labelled destinations on desktop and mobile", () => {
-    const html = renderToStaticMarkup(createElement(Sidebar));
+    const html = renderToStaticMarkup(createElement(Sidebar, { role: "manager" }));
     for (const path of ["/", "/motels", "/rooms", "/renters", "/billing", "/contracts"]) {
       expect(html).toContain(`href="${path}?motel=${MOTEL_WITHOUT_EXTRAS.id}"`);
     }
-    expect(html.match(/href="[^\"]+\?motel=/g) ?? []).toHaveLength(12);
+    expect(html.match(/href="[^\"]+\?motel=/g) ?? []).toHaveLength(11);
     expect(html).toContain('src="/brand/logo-mark.svg"');
     expect(html).toContain('aria-current="page"');
     expect(html).toContain('aria-label="Điều hướng chính trên điện thoại"');
-    expect(html).toContain('aria-label="Điều hướng gọn trên điện thoại"');
-    expect(html).not.toContain('aria-label="Thêm, các mục khác"');
-    expect(html).toContain('grid-cols-6');
+    expect(html).toContain('aria-label="Điều hướng chính"');
+    expect(html).toContain('aria-label="Thêm điều hướng"');
+    expect(html).toContain("grid-cols-6");
   });
   it("uses the URL motel selection and renders labelled account controls", () => {
     const html = renderToStaticMarkup(
       createElement(TopBar, { manager: MANAGER_ME, motels: [MOTEL, MOTEL_WITHOUT_EXTRAS] }),
     );
     expect(html).toContain('for="motel-selector"');
-    expect(html).toContain('min-w-[12rem] flex-1');
+    expect(html).toContain("min-w-[12rem] flex-1");
     expect(html).toContain('for="motel-selector-button"');
     expect(html).toContain(MOTEL_WITHOUT_EXTRAS.name);
     expect(html).toContain(MANAGER_ME.email);

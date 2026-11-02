@@ -1,14 +1,17 @@
 import { asc, eq, sql } from "drizzle-orm";
 import { randomBytes } from "node:crypto";
 import { db, type DbExecutor, type DbTransaction } from "@/db";
-import { resolveOwnedMotel, type MotelRow } from "@/middleware/tenancy";
+import { resolveAccessibleMotel, type MotelActor, type MotelRow } from "@/middleware/tenancy";
 import { AppError } from "@/shared/errors";
 import { parseAmount } from "@/shared/money";
 import { countBillingPeriodsForMotel } from "@/modules/billing/billing.service";
 import { countContractTemplatesForMotel } from "@/modules/contract/contract.service";
 import { countRentersForMotel } from "@/modules/renter/renter.service";
 import { countOccupiedRoomsForMotel, countRoomsForMotel } from "@/modules/room/room.service";
-import { managers } from "@/modules/auth/auth.schema";
+import {
+  assertEnabledManager,
+  listManagerDisplayNames,
+} from "@/modules/auth/admin-account.service";
 import { motels, type BankAccount, type MotelFee } from "./motel.schema";
 import type {
   CreateMotelInput,
@@ -35,8 +38,12 @@ function toFees(fees: MotelFeeInput[]): MotelFee[] {
  * it here is what makes `MotelResponse.createdAt: string` a compile-time fact rather than a claim
  * that happens to be true because `JSON.stringify` formats a `Date` the same way.
  */
-function toResponse(row: MotelRow): MotelResponse {
-  return { ...row, createdAt: row.createdAt.toISOString() };
+function toResponse(row: MotelRow, managerName?: string): MotelResponse {
+  return {
+    ...row,
+    ...(managerName ? { managerName } : {}),
+    createdAt: row.createdAt.toISOString(),
+  };
 }
 
 export interface RenterMotelProjection {
@@ -63,9 +70,9 @@ export async function findMotelByPublicAccessCode(
 
 export async function getMotelPublicAccessCode(
   motelId: string,
-  managerId: string,
+  actor: MotelActor,
 ): Promise<string> {
-  const motel = await resolveOwnedMotel(motelId, managerId);
+  const motel = await resolveAccessibleMotel(motelId, actor);
   return motel.publicAccessCode;
 }
 
@@ -77,12 +84,13 @@ export async function getMotelForRenter(motelId: string): Promise<RenterMotelPro
   return row ?? null;
 }
 
-export async function listMotels(managerId: string): Promise<MotelResponse[]> {
+export async function listMotels(actor: MotelActor): Promise<MotelResponse[]> {
   const rows = await db.query.motels.findMany({
-    where: eq(motels.managerId, managerId),
+    where: actor.role === "manager" ? eq(motels.managerId, actor.userId) : undefined,
     orderBy: [asc(motels.createdAt), asc(motels.id)],
   });
-  return rows.map(toResponse);
+  const names = await listManagerDisplayNames([...new Set(rows.map((row) => row.managerId))]);
+  return rows.map((row) => toResponse(row, names.get(row.managerId)));
 }
 
 export async function lockMotelForUpdate(tx: DbTransaction, motelId: string): Promise<void> {
@@ -95,19 +103,15 @@ export async function lockMotelSetup(tx: DbTransaction, managerId: string): Prom
 
 export async function createMotelInTransaction(
   tx: DbExecutor,
-  managerId: string,
+  ownerManagerId: string,
   input: CreateMotelInput,
 ): Promise<MotelResponse> {
-  const [manager] = await tx
-    .select({ id: managers.id })
-    .from(managers)
-    .where(eq(managers.id, managerId))
-    .limit(1);
-  if (!manager) throw AppError.conflict("Phiên quản lý không còn hợp lệ. Vui lòng đăng nhập lại.");
+  await assertEnabledManager(tx, ownerManagerId);
+  const managerName = (await listManagerDisplayNames([ownerManagerId], tx)).get(ownerManagerId);
   const [row] = await tx
     .insert(motels)
     .values({
-      managerId,
+      managerId: ownerManagerId,
       publicAccessCode: randomBytes(24).toString("base64url"),
       name: input.name,
       address: input.address ?? null,
@@ -117,28 +121,43 @@ export async function createMotelInTransaction(
       bankAccount: input.bankAccount ?? null,
     })
     .returning();
-  return toResponse(row!);
+  return toResponse(row!, managerName);
+}
+
+export function resolveOwnerManagerId(actor: MotelActor, requestedOwnerId?: string): string {
+  if (actor.role === "manager") {
+    if (requestedOwnerId !== undefined)
+      throw AppError.badRequest("Quản lý không được chỉ định chủ sở hữu nhà trọ");
+    return actor.userId;
+  }
+  if (!requestedOwnerId)
+    throw AppError.badRequest("Vui lòng chọn tài khoản quản lý sở hữu nhà trọ");
+  return requestedOwnerId;
 }
 
 export async function createMotel(
-  managerId: string,
+  actor: MotelActor,
   input: CreateMotelInput,
 ): Promise<MotelResponse> {
   return db.transaction(async (tx) => {
-    await lockMotelSetup(tx, managerId);
-    const motelCount = await tx.$count(motels, eq(motels.managerId, managerId));
+    const ownerManagerId = resolveOwnerManagerId(actor, input.ownerManagerId);
+    await lockMotelSetup(tx, ownerManagerId);
+    await assertEnabledManager(tx, ownerManagerId);
+    const motelCount = await tx.$count(motels, eq(motels.managerId, ownerManagerId));
     if (motelCount === 0) {
       throw new AppError(
         "MOTEL_SETUP_REQUIRED",
         "Chưa có nhà trọ nào. Vui lòng thiết lập đầy đủ thông tin nhà trọ đầu tiên.",
       );
     }
-    return createMotelInTransaction(tx, managerId, input);
+    return createMotelInTransaction(tx, ownerManagerId, input);
   });
 }
 
-export async function getMotel(motelId: string, managerId: string): Promise<MotelResponse> {
-  return toResponse(await resolveOwnedMotel(motelId, managerId));
+export async function getMotel(motelId: string, actor: MotelActor): Promise<MotelResponse> {
+  const motel = await resolveAccessibleMotel(motelId, actor);
+  const managerName = (await listManagerDisplayNames([motel.managerId])).get(motel.managerId);
+  return toResponse(motel, managerName);
 }
 
 /**
@@ -148,10 +167,10 @@ export async function getMotel(motelId: string, managerId: string): Promise<Mote
  */
 export async function updateMotel(
   motelId: string,
-  managerId: string,
+  actor: MotelActor,
   input: UpdateMotelInput,
 ): Promise<MotelResponse> {
-  const owned = await resolveOwnedMotel(motelId, managerId);
+  const owned = await resolveAccessibleMotel(motelId, actor);
 
   const patch: MotelPatch = {};
   if (input.name !== undefined) patch.name = input.name;
@@ -163,10 +182,11 @@ export async function updateMotel(
   if (input.bankAccount !== undefined) patch.bankAccount = input.bankAccount;
 
   // `update ... set` with no columns is a syntax error, and `{}` is a legal request.
-  if (Object.keys(patch).length === 0) return toResponse(owned);
+  const managerName = (await listManagerDisplayNames([owned.managerId])).get(owned.managerId);
+  if (Object.keys(patch).length === 0) return toResponse(owned, managerName);
 
   const [row] = await db.update(motels).set(patch).where(eq(motels.id, motelId)).returning();
-  return toResponse(row!);
+  return toResponse(row!, managerName);
 }
 
 /**
@@ -179,10 +199,11 @@ export async function updateMotel(
  *
  * The counts come from the owning modules' services, never from their tables (ADR-0004).
  */
-export async function deleteMotel(motelId: string, managerId: string): Promise<void> {
+export async function deleteMotel(motelId: string, actor: MotelActor): Promise<void> {
   await db.transaction(async (tx) => {
-    await lockMotelSetup(tx, managerId);
-    await resolveOwnedMotel(motelId, managerId, tx);
+    const motel = await resolveAccessibleMotel(motelId, actor, tx);
+    await lockMotelSetup(tx, motel.managerId);
+    await resolveAccessibleMotel(motelId, actor, tx);
 
     const occupiedRooms = await countOccupiedRoomsForMotel(motelId);
     if (occupiedRooms > 0) {

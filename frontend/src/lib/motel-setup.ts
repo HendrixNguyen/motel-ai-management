@@ -72,6 +72,7 @@ export function buildSetupInput(
 
 export type StoredSetupDraft = {
   version: 1;
+  ownerManagerId?: string;
   mode: "full" | "quick";
   motel: Omit<MotelDraft, "bankAccount" | "bankEnabled">;
   template: TemplateSelection | null;
@@ -82,6 +83,7 @@ export type StoredSetupDraft = {
 export function serializeSetupDraft(draft: StoredSetupDraft): string {
   const safeDraft: StoredSetupDraft = {
     version: 1,
+    ...(draft.ownerManagerId ? { ownerManagerId: draft.ownerManagerId } : {}),
     mode: draft.mode,
     motel: {
       name: draft.motel.name,
@@ -119,6 +121,7 @@ export function parseSetupDraft(raw: string): StoredSetupDraft | null {
 
     return {
       version: 1,
+      ...(typeof data.ownerManagerId === "string" ? { ownerManagerId: data.ownerManagerId } : {}),
       mode: data.mode,
       motel: {
         name: data.motel.name,

@@ -18,6 +18,7 @@ beforeAll(() => {
 
 const mocks = vi.hoisted(() => ({
   notify: vi.fn(),
+  listManagerAccounts: vi.fn(),
   refresh: vi.fn(),
   replace: vi.fn(),
   submitMotelSetup: vi.fn(),
@@ -35,6 +36,10 @@ vi.mock("next/navigation", () => ({
 
 vi.mock("@/components/ui/toast", () => ({
   useToast: () => mocks.notify,
+}));
+
+vi.mock("@/lib/api/auth.client", () => ({
+  listManagerAccounts: mocks.listManagerAccounts,
 }));
 
 vi.mock("@/lib/api/motel-setup.client", () => ({
@@ -76,6 +81,7 @@ afterEach(() => {
 
 describe("MotelSetupWizard", () => {
   beforeEach(() => {
+    mocks.listManagerAccounts.mockReset().mockResolvedValue([]);
     mocks.submitMotelSetup.mockReset();
     mocks.getMotelSetupResult.mockReset();
     mocks.listContractCatalog.mockReset();
@@ -99,7 +105,13 @@ describe("MotelSetupWizard", () => {
   test("first_motel_has_no_skip: empty motels disables/hides skip, cancel closes without submit", () => {
     const onClose = vi.fn();
     const view = render(
-      <MotelSetupWizard open={true} onClose={onClose} motels={[]} managerId="mgr-1" />,
+      <MotelSetupWizard
+        open={true}
+        onClose={onClose}
+        motels={[]}
+        managerId="mgr-1"
+        isSuperadmin={false}
+      />,
     );
 
     expect(view.queryByRole("button", { name: /Tạo nhanh/ })).toBeNull();
@@ -113,7 +125,13 @@ describe("MotelSetupWizard", () => {
   test("existing motel shows skip button in Step 1", () => {
     const onClose = vi.fn();
     const view = render(
-      <MotelSetupWizard open={true} onClose={onClose} motels={[sampleMotel]} managerId="mgr-1" />,
+      <MotelSetupWizard
+        open={true}
+        onClose={onClose}
+        motels={[sampleMotel]}
+        managerId="mgr-1"
+        isSuperadmin={false}
+      />,
     );
 
     expect(view.getByRole("button", { name: /Tạo nhanh/ })).toBeInTheDocument();
@@ -141,7 +159,13 @@ describe("MotelSetupWizard", () => {
     mocks.getMotelSetupResult.mockRejectedValue({ status: 404 });
     const randomUUID = vi.spyOn(crypto, "randomUUID");
     const view = render(
-      <MotelSetupWizard open={true} onClose={vi.fn()} motels={[sampleMotel]} managerId="mgr-1" />,
+      <MotelSetupWizard
+        open={true}
+        onClose={vi.fn()}
+        motels={[sampleMotel]}
+        managerId="mgr-1"
+        isSuperadmin={false}
+      />,
     );
     await waitFor(() => expect(mocks.getMotelSetupResult).toHaveBeenCalledWith(savedId));
     expect(view.getByLabelText("Tên nhà trọ")).toHaveValue("Frozen Motel");
@@ -153,7 +177,13 @@ describe("MotelSetupWizard", () => {
   test("copy from existing motel applies selected groups without overwriting name/address", async () => {
     const onClose = vi.fn();
     const view = render(
-      <MotelSetupWizard open={true} onClose={onClose} motels={[sampleMotel]} managerId="mgr-1" />,
+      <MotelSetupWizard
+        open={true}
+        onClose={onClose}
+        motels={[sampleMotel]}
+        managerId="mgr-1"
+        isSuperadmin={false}
+      />,
     );
 
     fireEvent.change(view.getByLabelText("Tên nhà trọ"), { target: { value: "Nhà Mới Test" } });
@@ -185,7 +215,13 @@ describe("MotelSetupWizard", () => {
   test("template selection in Step 2 preview clauses", async () => {
     const onClose = vi.fn();
     const view = render(
-      <MotelSetupWizard open={true} onClose={onClose} motels={[sampleMotel]} managerId="mgr-1" />,
+      <MotelSetupWizard
+        open={true}
+        onClose={onClose}
+        motels={[sampleMotel]}
+        managerId="mgr-1"
+        isSuperadmin={false}
+      />,
     );
 
     fireEvent.change(view.getByLabelText("Tên nhà trọ"), { target: { value: "Nhà Bước 2" } });
@@ -207,7 +243,13 @@ describe("MotelSetupWizard", () => {
   test("room generation in Step 3 generates rooms and allows editing", async () => {
     const onClose = vi.fn();
     const view = render(
-      <MotelSetupWizard open={true} onClose={onClose} motels={[sampleMotel]} managerId="mgr-1" />,
+      <MotelSetupWizard
+        open={true}
+        onClose={onClose}
+        motels={[sampleMotel]}
+        managerId="mgr-1"
+        isSuperadmin={false}
+      />,
     );
 
     fireEvent.change(view.getByLabelText("Tên nhà trọ"), { target: { value: "Nhà Bước 3" } });
@@ -247,7 +289,13 @@ describe("MotelSetupWizard", () => {
     });
 
     const view = render(
-      <MotelSetupWizard open={true} onClose={onClose} motels={[sampleMotel]} managerId="mgr-1" />,
+      <MotelSetupWizard
+        open={true}
+        onClose={onClose}
+        motels={[sampleMotel]}
+        managerId="mgr-1"
+        isSuperadmin={false}
+      />,
     );
 
     fireEvent.change(view.getByLabelText("Tên nhà trọ"), { target: { value: "Nhà Full" } });
@@ -285,6 +333,109 @@ describe("MotelSetupWizard", () => {
     });
   });
 
+  test("shows manager creation link when no enabled owners exist", async () => {
+    mocks.listManagerAccounts.mockResolvedValue([
+      {
+        id: "disabled-owner",
+        email: "disabled@example.com",
+        name: "Disabled Owner",
+        phone: null,
+        role: "manager",
+        disabledAt: "2026-01-01T00:00:00.000Z",
+        passwordReady: true,
+        createdAt: "2026-01-01T00:00:00.000Z",
+      },
+    ]);
+    const view = render(
+      <MotelSetupWizard
+        open={true}
+        onClose={vi.fn()}
+        motels={[]}
+        managerId="root-1"
+        isSuperadmin={true}
+      />,
+    );
+
+    await waitFor(() => expect(mocks.listManagerAccounts).toHaveBeenCalled());
+    expect(view.getByRole("link", { name: "Tạo tài khoản quản lý" })).toHaveAttribute(
+      "href",
+      "/admin/managers",
+    );
+    expect(view.getByLabelText("Chủ sở hữu nhà trọ")).toBeDisabled();
+    fireEvent.click(view.getByRole("button", { name: "Tiếp tục" }));
+    expect(view.getByText("Vui lòng chọn tài khoản quản lý sở hữu nhà trọ")).toBeInTheDocument();
+    expect(view.queryByText("Bước 2: Mẫu hợp đồng")).not.toBeInTheDocument();
+  });
+
+  test("superadmin selects an enabled owner for full setup", async () => {
+    const onClose = vi.fn();
+    mocks.listManagerAccounts.mockResolvedValue([
+      {
+        id: "owner-1",
+        email: "owner@example.com",
+        name: "Owner One",
+        phone: null,
+        role: "manager",
+        disabledAt: null,
+        passwordReady: true,
+        createdAt: "2026-01-01T00:00:00.000Z",
+      },
+      {
+        id: "disabled-owner",
+        email: "disabled@example.com",
+        name: "Disabled Owner",
+        phone: null,
+        role: "manager",
+        disabledAt: "2026-01-01T00:00:00.000Z",
+        passwordReady: true,
+        createdAt: "2026-01-01T00:00:00.000Z",
+      },
+    ]);
+    mocks.submitMotelSetup.mockResolvedValue({
+      motelId: "m-superadmin-1",
+      mode: "full",
+      roomCount: 1,
+      templateId: null,
+    });
+    const view = render(
+      <MotelSetupWizard
+        open={true}
+        onClose={onClose}
+        motels={[]}
+        managerId="root-1"
+        isSuperadmin={true}
+      />,
+    );
+
+    await waitFor(() => expect(mocks.listManagerAccounts).toHaveBeenCalled());
+    fireEvent.change(view.getByLabelText("Chủ sở hữu nhà trọ"), {
+      target: { value: "owner-1" },
+    });
+    expect(view.getByText(/chưa có nhà trọ/)).toBeInTheDocument();
+    expect(view.queryByText("Disabled Owner · disabled@example.com")).not.toBeInTheDocument();
+    fireEvent.change(view.getByLabelText("Tên nhà trọ"), { target: { value: "Nhà của Owner" } });
+    fireEvent.change(view.getByLabelText("Giá điện (₫/kWh)"), { target: { value: "3500" } });
+    fireEvent.change(view.getByLabelText("Giá nước (₫/m³)"), { target: { value: "25000" } });
+    fireEvent.click(view.getByRole("button", { name: "Tiếp tục" }));
+    await waitFor(() => expect(view.getByText("Bước 2: Mẫu hợp đồng")).toBeInTheDocument());
+    fireEvent.click(view.getByRole("button", { name: "Tiếp tục" }));
+    await waitFor(() => expect(view.getByText("Bước 3: Danh sách phòng")).toBeInTheDocument());
+    fireEvent.change(view.getByLabelText("Số lượng phòng"), { target: { value: "1" } });
+    fireEvent.click(view.getByRole("button", { name: "Sinh danh sách phòng" }));
+    fireEvent.click(view.getByRole("button", { name: "Tiếp tục" }));
+    await waitFor(() => expect(view.getByText("Bước 4: Xác nhận và hoàn tất")).toBeInTheDocument());
+    fireEvent.click(view.getByRole("button", { name: "Hoàn tất thiết lập" }));
+
+    await waitFor(() =>
+      expect(mocks.submitMotelSetup).toHaveBeenCalledWith(
+        expect.objectContaining({
+          motel: expect.objectContaining({ ownerManagerId: "owner-1" }),
+        }),
+      ),
+    );
+    expect(onClose).toHaveBeenCalled();
+  });
+
   test("quick setup skips to Step 4 with 0 rooms and preserves template", async () => {
     const onClose = vi.fn();
     mocks.submitMotelSetup.mockResolvedValue({
@@ -295,7 +446,13 @@ describe("MotelSetupWizard", () => {
     });
 
     const view = render(
-      <MotelSetupWizard open={true} onClose={onClose} motels={[sampleMotel]} managerId="mgr-1" />,
+      <MotelSetupWizard
+        open={true}
+        onClose={onClose}
+        motels={[sampleMotel]}
+        managerId="mgr-1"
+        isSuperadmin={false}
+      />,
     );
 
     fireEvent.change(view.getByLabelText("Tên nhà trọ"), { target: { value: "Nhà Nhanh" } });
@@ -320,6 +477,55 @@ describe("MotelSetupWizard", () => {
     });
   });
 
+  test("setup saves the selected bank BIN and keeps account details", async () => {
+    mocks.submitMotelSetup.mockResolvedValue({
+      motelId: "m-bank-1",
+      mode: "quick",
+      roomCount: 0,
+      templateId: null,
+    });
+    const view = render(
+      <MotelSetupWizard
+        open={true}
+        onClose={vi.fn()}
+        motels={[sampleMotel]}
+        managerId="mgr-1"
+        isSuperadmin={false}
+      />,
+    );
+
+    fireEvent.change(view.getByLabelText("Tên nhà trọ"), { target: { value: "Nhà Có Bank" } });
+    fireEvent.change(view.getByLabelText("Giá điện (₫/kWh)"), { target: { value: "3500" } });
+    fireEvent.change(view.getByLabelText("Giá nước (₫/m³)"), { target: { value: "25000" } });
+    fireEvent.click(view.getByLabelText("Thiết lập tài khoản nhận tiền"));
+    expect(view.queryByLabelText("Số tài khoản")).toBeNull();
+    fireEvent.change(view.getByRole("combobox", { name: "Ngân hàng" }), {
+      target: { value: "VietinBank" },
+    });
+    fireEvent.click(view.getByRole("option", { name: /VietinBank/ }));
+    fireEvent.change(view.getByLabelText("Số tài khoản"), { target: { value: "001234" } });
+    fireEvent.change(view.getByLabelText("Tên chủ tài khoản"), {
+      target: { value: "NGUYEN VAN A" },
+    });
+    fireEvent.click(view.getByRole("button", { name: /Tạo nhanh/ }));
+    await waitFor(() => expect(view.getByText("Bước 4: Xác nhận và hoàn tất")).toBeInTheDocument());
+    fireEvent.click(view.getByRole("button", { name: "Hoàn tất thiết lập" }));
+
+    await waitFor(() =>
+      expect(mocks.submitMotelSetup).toHaveBeenCalledWith(
+        expect.objectContaining({
+          motel: expect.objectContaining({
+            bankAccount: {
+              bankCode: "970415",
+              accountNumber: "001234",
+              accountName: "NGUYEN VAN A",
+            },
+          }),
+        }),
+      ),
+    );
+  });
+
   test("on submit error, allows retry with same requestId and 410 blocks resubmission", async () => {
     const onClose = vi.fn();
     mocks.submitMotelSetup
@@ -333,7 +539,13 @@ describe("MotelSetupWizard", () => {
       });
 
     const view = render(
-      <MotelSetupWizard open={true} onClose={onClose} motels={[sampleMotel]} managerId="mgr-1" />,
+      <MotelSetupWizard
+        open={true}
+        onClose={onClose}
+        motels={[sampleMotel]}
+        managerId="mgr-1"
+        isSuperadmin={false}
+      />,
     );
 
     fireEvent.change(view.getByLabelText("Tên nhà trọ"), { target: { value: "Nhà Retry" } });
@@ -401,6 +613,7 @@ describe("MotelSetupWizard", () => {
         onClose={vi.fn()}
         motels={[sampleMotel, second]}
         managerId="mgr-1"
+        isSuperadmin={false}
       />,
     );
     fireEvent.change(view.getByLabelText("Tên nhà trọ"), { target: { value: "Nhà mới" } });
@@ -442,7 +655,13 @@ describe("MotelSetupWizard", () => {
 
   test("canceling services copy preserves edited prices and fees, confirming applies", async () => {
     const view = render(
-      <MotelSetupWizard open={true} onClose={vi.fn()} motels={[sampleMotel]} managerId="mgr-1" />,
+      <MotelSetupWizard
+        open={true}
+        onClose={vi.fn()}
+        motels={[sampleMotel]}
+        managerId="mgr-1"
+        isSuperadmin={false}
+      />,
     );
     const electricity = view.getByLabelText("Giá điện (₫/kWh)");
     fireEvent.change(electricity, { target: { value: "9999" } });
@@ -478,10 +697,15 @@ describe("MotelSetupWizard", () => {
         onClose={onClose}
         motels={[sampleMotel, secondMotel]}
         managerId="mgr-1"
+        isSuperadmin={false}
       />,
     );
 
     fireEvent.click(view.getByLabelText("Thiết lập tài khoản nhận tiền"));
+    fireEvent.change(view.getByRole("combobox", { name: "Ngân hàng" }), {
+      target: { value: "Vietcombank" },
+    });
+    fireEvent.click(view.getByRole("option", { name: /Vietcombank/ }));
     fireEvent.change(view.getByLabelText("Số tài khoản"), { target: { value: "MANUAL_BANK" } });
 
     fireEvent.change(view.getByLabelText("Chọn nhà trọ nguồn"), {

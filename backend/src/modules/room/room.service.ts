@@ -1,6 +1,6 @@
 import { and, asc, eq, ilike } from "drizzle-orm";
 import { db, type DbExecutor } from "@/db";
-import { resolveOwnedMotel, resolveRoomInMotel } from "@/middleware/tenancy";
+import { resolveAccessibleMotel, resolveRoomInMotel, type MotelActor } from "@/middleware/tenancy";
 import { hasActiveContractForRoom } from "@/modules/contract/contract.service";
 import { countRentersInRoom } from "@/modules/renter/renter.service";
 import { AppError } from "@/shared/errors";
@@ -149,21 +149,21 @@ function toResponse(row: RoomRow): RoomResponse {
  * about the tenant, so looking the row up first and checking ownership afterwards would mean
  * answering questions about another manager's data before deciding the caller may not have it.
  */
-async function resolveOwnedRoom(
+async function resolveAccessibleRoom(
   roomId: string,
   motelId: string,
-  managerId: string,
+  actor: MotelActor,
 ): Promise<RoomRow> {
-  await resolveOwnedMotel(motelId, managerId);
+  await resolveAccessibleMotel(motelId, actor);
   return resolveRoomInMotel(roomId, motelId);
 }
 
 export async function listRooms(
   motelId: string,
-  managerId: string,
+  actor: MotelActor,
   filters: ListRoomsFilters = {},
 ): Promise<RoomResponse[]> {
-  await resolveOwnedMotel(motelId, managerId);
+  await resolveAccessibleMotel(motelId, actor);
 
   const conditions = [eq(rooms.motelId, motelId)];
   if (filters.floor !== undefined) conditions.push(eq(rooms.floor, filters.floor));
@@ -188,7 +188,7 @@ export async function listRooms(
 export async function createSetupRooms(
   tx: DbExecutor,
   motelId: string,
-  managerId: string,
+  actor: MotelActor,
   inputs: Array<
     Pick<
       CreateRoomInput,
@@ -197,7 +197,7 @@ export async function createSetupRooms(
   >,
 ): Promise<RoomResponse[]> {
   if (inputs.length === 0) return [];
-  await resolveOwnedMotel(motelId, managerId, tx);
+  await resolveAccessibleMotel(motelId, actor, tx);
 
   const seen = new Set<string>();
   for (const input of inputs) {
@@ -233,10 +233,10 @@ export async function createSetupRooms(
 
 export async function createRoom(
   motelId: string,
-  managerId: string,
+  actor: MotelActor,
   input: CreateRoomInput,
 ): Promise<RoomResponse> {
-  await resolveOwnedMotel(motelId, managerId);
+  await resolveAccessibleMotel(motelId, actor);
 
   try {
     const [row] = await db
@@ -271,9 +271,9 @@ export async function getRoomName(roomId: string): Promise<string | null> {
 export async function getRoom(
   roomId: string,
   motelId: string,
-  managerId: string,
+  actor: MotelActor,
 ): Promise<RoomResponse> {
-  return toResponse(await resolveOwnedRoom(roomId, motelId, managerId));
+  return toResponse(await resolveAccessibleRoom(roomId, motelId, actor));
 }
 
 /**
@@ -283,10 +283,10 @@ export async function getRoom(
 export async function updateRoom(
   roomId: string,
   motelId: string,
-  managerId: string,
+  actor: MotelActor,
   input: UpdateRoomInput,
 ): Promise<RoomResponse> {
-  const owned = await resolveOwnedRoom(roomId, motelId, managerId);
+  const owned = await resolveAccessibleRoom(roomId, motelId, actor);
 
   const patch: RoomPatch = {};
   if (input.name !== undefined) patch.name = input.name;
@@ -327,9 +327,9 @@ export async function updateRoom(
 export async function deleteRoom(
   roomId: string,
   motelId: string,
-  managerId: string,
+  actor: MotelActor,
 ): Promise<void> {
-  await resolveOwnedRoom(roomId, motelId, managerId);
+  await resolveAccessibleRoom(roomId, motelId, actor);
 
   if (await hasActiveContractForRoom(roomId)) {
     throw AppError.conflict(

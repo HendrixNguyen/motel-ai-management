@@ -7,14 +7,21 @@ import { AppError } from "@/shared/errors";
 
 export type MotelRow = typeof motels.$inferSelect;
 export type RoomRow = typeof rooms.$inferSelect;
+export interface MotelActor {
+  userId: string;
+  role: "manager" | "superadmin";
+}
 
-export async function resolveOwnedMotel(
+export async function resolveAccessibleMotel(
   motelId: string,
-  managerId: string,
+  actor: MotelActor,
   executor: DbExecutor = db,
 ): Promise<MotelRow> {
   const row = await executor.query.motels.findFirst({
-    where: and(eq(motels.id, motelId), eq(motels.managerId, managerId)),
+    where:
+      actor.role === "manager"
+        ? and(eq(motels.id, motelId), eq(motels.managerId, actor.userId))
+        : eq(motels.id, motelId),
   });
   if (!row) {
     throw AppError.notFound("Không tìm thấy nhà trọ");
@@ -22,8 +29,16 @@ export async function resolveOwnedMotel(
   return row;
 }
 
+export async function resolveOwnedMotel(
+  motelId: string,
+  managerId: string,
+  executor: DbExecutor = db,
+): Promise<MotelRow> {
+  return resolveAccessibleMotel(motelId, { userId: managerId, role: "manager" }, executor);
+}
+
 /**
- * Proves a room sits inside a motel the caller already owns.
+ * Proves a room sits inside a motel the caller can access.
  *
  * The renter module needs this and cannot get it from the room module: `room.service` already
  * imports `renter.service`, so importing a room lookup back out of it would close an import

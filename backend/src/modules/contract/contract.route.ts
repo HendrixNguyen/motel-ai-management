@@ -80,7 +80,11 @@ const contractCatalogRoutes = new Elysia({ name: "contract-catalog-routes" })
   .post(
     "/manager/motels/:motelId/contract-templates/from-catalog",
     ({ params, body, auth }) =>
-      copyContractTemplateCatalogToMotel(params.motelId, auth!.userId, body),
+      copyContractTemplateCatalogToMotel(
+        params.motelId,
+        { userId: auth!.userId, role: auth!.role },
+        body,
+      ),
     {
       params: t.Object({ motelId: t.String({ format: "uuid" }) }),
       body: t.Object({
@@ -97,14 +101,19 @@ const managerContractRoutes = new Elysia({ name: "manager-contract-routes" })
   .use(managerAuth)
   .get(
     "/manager/motels/:motelId/contract-templates",
-    ({ params, auth }) => listContractTemplates(params.motelId, auth!.userId),
+    ({ params, auth }) =>
+      listContractTemplates(params.motelId, { userId: auth!.userId, role: auth!.role }),
     { params },
   )
   .post(
     "/manager/motels/:motelId/contract-templates",
     async ({ params, auth, body, set }) => {
       set.status = 201;
-      return createContractTemplate(params.motelId, auth!.userId, body);
+      return createContractTemplate(
+        params.motelId,
+        { userId: auth!.userId, role: auth!.role },
+        body,
+      );
     },
     { params, body: templateBody },
   )
@@ -112,7 +121,11 @@ const managerContractRoutes = new Elysia({ name: "manager-contract-routes" })
     "/manager/motels/:motelId/contract-templates/from-catalog",
     async ({ params, auth, body, set }) => {
       set.status = 201;
-      return copyContractTemplateFromCatalog(params.motelId, auth!.userId, body);
+      return copyContractTemplateFromCatalog(
+        params.motelId,
+        { userId: auth!.userId, role: auth!.role },
+        body,
+      );
     },
     {
       params,
@@ -125,24 +138,41 @@ const managerContractRoutes = new Elysia({ name: "manager-contract-routes" })
   )
   .get(
     "/manager/motels/:motelId/contract-templates/:templateId/setup-preview",
-    ({ params, auth }) => previewOwnedTemplate(auth!.userId, params.motelId, params.templateId),
+    ({ params, auth }) =>
+      previewOwnedTemplate(
+        { userId: auth!.userId, role: auth!.role },
+        params.motelId,
+        params.templateId,
+      ),
     { params: templateParams },
   )
   .get(
     "/manager/motels/:motelId/contract-templates/:templateId",
-    ({ params, auth }) => getContractTemplate(params.motelId, params.templateId, auth!.userId),
+    ({ params, auth }) =>
+      getContractTemplate(params.motelId, params.templateId, {
+        userId: auth!.userId,
+        role: auth!.role,
+      }),
     { params: templateParams },
   )
   .patch(
     "/manager/motels/:motelId/contract-templates/:templateId",
     ({ params, auth, body }) =>
-      updateContractTemplate(params.motelId, params.templateId, auth!.userId, body),
+      updateContractTemplate(
+        params.motelId,
+        params.templateId,
+        { userId: auth!.userId, role: auth!.role },
+        body,
+      ),
     { params: templateParams, body: t.Partial(templateBody) },
   )
   .delete(
     "/manager/motels/:motelId/contract-templates/:templateId",
     async ({ params, auth, set }) => {
-      await deleteContractTemplate(params.motelId, params.templateId, auth!.userId);
+      await deleteContractTemplate(params.motelId, params.templateId, {
+        userId: auth!.userId,
+        role: auth!.role,
+      });
       set.status = 204;
       return "";
     },
@@ -150,7 +180,8 @@ const managerContractRoutes = new Elysia({ name: "manager-contract-routes" })
   )
   .get(
     "/manager/motels/:motelId/contracts",
-    ({ params, query, auth }) => listContracts(params.motelId, auth!.userId, query.status),
+    ({ params, query, auth }) =>
+      listContracts(params.motelId, { userId: auth!.userId, role: auth!.role }, query.status),
     {
       params,
       query: t.Object({
@@ -169,29 +200,40 @@ const managerContractRoutes = new Elysia({ name: "manager-contract-routes" })
     "/manager/motels/:motelId/contracts",
     async ({ params, auth, body, set }) => {
       set.status = 201;
-      return createContract(params.motelId, auth!.userId, body);
+      return createContract(params.motelId, { userId: auth!.userId, role: auth!.role }, body);
     },
     { params, body: contractBody },
   )
   .get(
     "/manager/motels/:motelId/contracts/:contractId",
-    ({ params, auth }) => getContract(params.motelId, params.contractId, auth!.userId),
+    ({ params, auth }) =>
+      getContract(params.motelId, params.contractId, { userId: auth!.userId, role: auth!.role }),
     { params: contractParams },
   )
   .patch(
     "/manager/motels/:motelId/contracts/:contractId",
     ({ params, auth, body }) =>
-      updateContract(params.motelId, params.contractId, auth!.userId, body),
+      updateContract(
+        params.motelId,
+        params.contractId,
+        { userId: auth!.userId, role: auth!.role },
+        body,
+      ),
     { params: contractParams, body: contractPatch },
   )
   .post(
     "/manager/motels/:motelId/contracts/:contractId/send",
-    ({ params, auth }) => sendContract(params.motelId, params.contractId, auth!.userId),
+    ({ params, auth }) =>
+      sendContract(params.motelId, params.contractId, { userId: auth!.userId, role: auth!.role }),
     { params: contractParams },
   )
   .post(
     "/manager/motels/:motelId/contracts/:contractId/terminate",
-    ({ params, auth }) => terminateContract(params.motelId, params.contractId, auth!.userId),
+    ({ params, auth }) =>
+      terminateContract(params.motelId, params.contractId, {
+        userId: auth!.userId,
+        role: auth!.role,
+      }),
     { params: contractParams },
   );
 

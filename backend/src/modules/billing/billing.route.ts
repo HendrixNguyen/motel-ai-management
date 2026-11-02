@@ -38,13 +38,18 @@ export const billingRoutes = new Elysia({ name: "billing-routes" })
   .use(managerAuth)
   .get(
     "/manager/motels/:motelId/billing/periods",
-    ({ params, auth }) => listBillingPeriods(params.motelId, auth!.userId),
+    ({ params, auth }) =>
+      listBillingPeriods(params.motelId, { userId: auth!.userId, role: auth!.role }),
     { params },
   )
   .post(
     "/manager/motels/:motelId/billing/periods",
     async ({ params, body, auth, set }) => {
-      const result = await createBillingPeriod(params.motelId, auth!.userId, body);
+      const result = await createBillingPeriod(
+        params.motelId,
+        { userId: auth!.userId, role: auth!.role },
+        body,
+      );
       set.status = 201;
       return result;
     },
@@ -52,13 +57,19 @@ export const billingRoutes = new Elysia({ name: "billing-routes" })
   )
   .get(
     "/manager/motels/:motelId/billing/periods/:periodId",
-    ({ params, auth }) => getBillingPeriod(params.periodId, params.motelId, auth!.userId),
+    ({ params, auth }) =>
+      getBillingPeriod(params.periodId, params.motelId, { userId: auth!.userId, role: auth!.role }),
     { params: detailParams },
   )
   .put(
     "/manager/motels/:motelId/billing/periods/:periodId/readings",
     ({ params, body, auth }) =>
-      updateMeterReadings(params.periodId, params.motelId, auth!.userId, body),
+      updateMeterReadings(
+        params.periodId,
+        params.motelId,
+        { userId: auth!.userId, role: auth!.role },
+        body,
+      ),
     { params: detailParams, body: readingBody },
   )
   .post(
@@ -69,7 +80,7 @@ export const billingRoutes = new Elysia({ name: "billing-routes" })
         params.motelId,
         params.periodId,
         params.readingId,
-        auth!.userId,
+        { userId: auth!.userId, role: auth!.role },
         file,
       );
       set.status = 201;
@@ -87,7 +98,10 @@ export const billingRoutes = new Elysia({ name: "billing-routes" })
   .get(
     "/manager/motels/:motelId/billing/periods/:periodId/readings/:readingId/photo",
     ({ params, auth }) =>
-      getMeterPhoto(params.motelId, params.periodId, params.readingId, auth!.userId),
+      getMeterPhoto(params.motelId, params.periodId, params.readingId, {
+        userId: auth!.userId,
+        role: auth!.role,
+      }),
     {
       params: t.Object({
         motelId: t.String({ format: "uuid" }),
@@ -98,17 +112,23 @@ export const billingRoutes = new Elysia({ name: "billing-routes" })
   )
   .post(
     "/manager/motels/:motelId/billing/periods/:periodId/invoices",
-    ({ params, auth }) => generateInvoices(params.periodId, params.motelId, auth!.userId),
+    ({ params, auth }) =>
+      generateInvoices(params.periodId, params.motelId, { userId: auth!.userId, role: auth!.role }),
     { params: detailParams },
   )
   .get(
     "/manager/motels/:motelId/billing/periods/:periodId/invoices",
-    ({ params, auth }) => listInvoices(params.periodId, params.motelId, auth!.userId),
+    ({ params, auth }) =>
+      listInvoices(params.periodId, params.motelId, { userId: auth!.userId, role: auth!.role }),
     { params: detailParams },
   )
   .post(
     "/manager/motels/:motelId/billing/periods/:periodId/send",
-    ({ params, auth }) => sendBillingPeriod(params.periodId, params.motelId, auth!.userId),
+    ({ params, auth }) =>
+      sendBillingPeriod(params.periodId, params.motelId, {
+        userId: auth!.userId,
+        role: auth!.role,
+      }),
     { params: detailParams },
   )
   .patch(
@@ -126,7 +146,11 @@ export const billingRoutes = new Elysia({ name: "billing-routes" })
   )
   .patch(
     "/manager/motels/:motelId/billing/invoices/:invoiceId/overdue",
-    ({ params, auth }) => markInvoiceOverdue(params.invoiceId, params.motelId, auth!.userId),
+    ({ params, auth }) =>
+      markInvoiceOverdue(params.invoiceId, params.motelId, {
+        userId: auth!.userId,
+        role: auth!.role,
+      }),
     {
       params: t.Object({
         motelId: t.String({ format: "uuid" }),
