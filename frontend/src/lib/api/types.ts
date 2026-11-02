@@ -621,6 +621,7 @@ export interface ManagerMeResponse {
 export interface LoginInput {
   email: string;
   password: string;
+  rememberMe?: boolean;
 }
 
 /**

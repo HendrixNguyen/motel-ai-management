@@ -21,15 +21,15 @@ browser considers the request in-bounds. `backend/src/modules/auth/auth.route.ts
 - `sameSite: "lax"` — sent on same-site requests, withheld from cross-site ones
 - **no `domain` attribute** — host-only, so the browser scopes it to the exact host that set it
 - `secure` in production
-- `maxAge` 7 days
+- `maxAge` 7 days for ordinary sessions; remembered Manager sessions renew to 90 days after foreground activity
 
 Three transports were considered.
 
-| Option | Mechanism | Verdict |
-|--------|-----------|---------|
-| **Rewrite proxy** (chosen) | `next.config.ts` rewrites `/api/:path*` → `${BACKEND_URL}/api/:path*`. The browser's request never leaves the page's own origin; Next forwards it server-side. | Same-origin, so the cookie is in-bounds and no `Set-Cookie` rewriting is needed. |
-| Cross-origin + CORS allowlist | Browser calls `http://api.<host>` directly. | Fails three ways — below. |
-| BFF / Next route handlers | Hand-written `app/api/*` handlers that call the backend and copy headers onto the response. | Same cookie outcome as the proxy, but every `Set-Cookie`, status and header becomes code this project has to get right. The proxy already does it. |
+| Option                        | Mechanism                                                                                                                                                      | Verdict                                                                                                                                            |
+| ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Rewrite proxy** (chosen)    | `next.config.ts` rewrites `/api/:path*` → `${BACKEND_URL}/api/:path*`. The browser's request never leaves the page's own origin; Next forwards it server-side. | Same-origin, so the cookie is in-bounds and no `Set-Cookie` rewriting is needed.                                                                   |
+| Cross-origin + CORS allowlist | Browser calls `http://api.<host>` directly.                                                                                                                    | Fails three ways — below.                                                                                                                          |
+| BFF / Next route handlers     | Hand-written `app/api/*` handlers that call the backend and copy headers onto the response.                                                                    | Same cookie outcome as the proxy, but every `Set-Cookie`, status and header becomes code this project has to get right. The proxy already does it. |
 
 The cross-origin option fails on the cookie first, and on CORS only after that has been
 overridden:
@@ -41,7 +41,7 @@ overridden:
    project does not control, to buy a convenience the proxy already provides for free.
 2. **`sameSite: "lax"` survives that, but not a second site.** `app.<domain>` and
    `api.<domain>` are cross-origin yet same-site, so the cookie would travel. Host the app
-   anywhere else — a CDN, a platform subdomain, a staging host — and it becomes cross-*site*,
+   anywhere else — a CDN, a platform subdomain, a staging host — and it becomes cross-_site_,
    at which point `lax` withholds the cookie on every subresource request. Recovering means
    `SameSite=None; Secure`, which drops the CSRF protection the current attribute was chosen
    for.
@@ -75,7 +75,7 @@ have to be respected:
    browser is never given a base URL to construct; it is given a path.
 
 No origin allowlist is added, and `backend/src/app.ts` keeps `origin: false` in production.
-CORS is not an authorisation control: it constrains what a browser will let a page *read*, and
+CORS is not an authorisation control: it constrains what a browser will let a page _read_, and
 it does nothing about a server-to-server caller. The tenant boundary stays where it belongs —
 the session cookie plus `motel-scope`, with cross-tenant denial returning `404`.
 
@@ -103,7 +103,7 @@ the session cookie plus `motel-scope`, with cross-tenant denial returning `404`.
   unauthenticated. The failure is a `401` and a redirect to `/login`, not a wrong answer, so it
   is loud.
 - **`RENTER_PORTAL_URL` on the backend is now named for what it is.** It builds the renter's
-  magic-link URL, so it is the *renter frontend's* origin. `FRONTEND_URL` remains the manager
+  magic-link URL, so it is the _renter frontend's_ origin. `FRONTEND_URL` remains the manager
   frontend origin and must not be used to build renter portal links. It was previously undeclared and defaulted
   to the backend's own port, which happened to be right in development and wrong everywhere
   else.

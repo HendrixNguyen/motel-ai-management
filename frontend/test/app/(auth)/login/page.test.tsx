@@ -36,6 +36,19 @@ afterEach(() => {
 });
 
 describe("Manager login branches", () => {
+  test("shows remembered-login details in a dismissible tooltip without toggling checkbox", () => {
+    const view = render(<LoginPage />);
+    const checkbox = view.getByRole("checkbox", { name: "Giữ đăng nhập" });
+    const info = view.getByRole("button", { name: "Thông tin giữ đăng nhập" });
+    expect(checkbox).not.toBeChecked();
+    fireEvent.click(info);
+    expect(view.getByRole("tooltip")).toHaveTextContent(
+      "Dành cho thiết bị cá nhân. Tự đăng xuất sau 90 ngày không sử dụng.",
+    );
+    expect(checkbox).not.toBeChecked();
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(view.queryByRole("tooltip")).not.toBeInTheDocument();
+  });
   test("normalizes email and redirects/refetches after success", async () => {
     mocks.authenticate.mockResolvedValue({ ok: true });
     const view = render(<LoginPage />);

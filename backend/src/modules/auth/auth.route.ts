@@ -1,8 +1,11 @@
-import { randomBytes, timingSafeEqual } from "node:crypto";
+import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { Elysia, t } from "elysia";
 import { cookie } from "@elysiajs/cookie";
 import { jwt } from "@elysiajs/jwt";
 import { env } from "@/config";
+import { db } from "@/db";
+import { managerSessions } from "./auth.schema";
+import { and, eq, gt } from "drizzle-orm";
 import { managerAuth } from "@/middleware/manager-auth";
 import { resolveOwnedMotel } from "@/middleware/tenancy";
 import { verifyManager, registerManager } from "./auth.service";
@@ -25,6 +28,9 @@ import {
 } from "./admin-account.service";
 
 const COOKIE_NAME = "manager_session";
+const REMEMBERED_SESSION_PREFIX = "remembered.";
+const REMEMBERED_SESSION_SECONDS = 90 * 24 * 60 * 60;
+const hashSession = (token: string) => createHash("sha256").update(token).digest("hex");
 
 export const adminAccountRoutes = new Elysia({ name: "admin-account-routes" })
   .use(cookie())
@@ -176,6 +182,20 @@ export const authRoutes = new Elysia({ name: "auth-routes" })
       await enforceRateLimit(`login:ip:${ip}`, 10);
       await enforceRateLimit(`login:email:${body.email.trim().toLowerCase()}`, 5);
       const managerRow = await verifyManager(body.email, body.password);
+      const previousToken = cookie[COOKIE_NAME]?.value;
+      if (
+        typeof previousToken === "string" &&
+        previousToken.startsWith(REMEMBERED_SESSION_PREFIX)
+      ) {
+        await db
+          .delete(managerSessions)
+          .where(
+            eq(
+              managerSessions.tokenHash,
+              hashSession(previousToken.slice(REMEMBERED_SESSION_PREFIX.length)),
+            ),
+          );
+      }
       const csrfToken = managerRow.role === "superadmin" ? createCsrfToken() : undefined;
       const payload = {
         userId: managerRow.id,
@@ -183,15 +203,31 @@ export const authRoutes = new Elysia({ name: "auth-routes" })
         sessionVersion: managerRow.sessionVersion,
         ...(csrfToken ? { csrfToken } : {}),
       };
-      const token =
-        managerRow.role === "superadmin" ? await admin.sign(payload) : await manager.sign(payload);
+      let token: string;
+      let maxAge = 60 * 60 * 24 * 7;
+      if (body.rememberMe && managerRow.role === "manager") {
+        const rawToken = randomBytes(32).toString("base64url");
+        token = `${REMEMBERED_SESSION_PREFIX}${rawToken}`;
+        maxAge = REMEMBERED_SESSION_SECONDS;
+        await db.insert(managerSessions).values({
+          managerId: managerRow.id,
+          tokenHash: hashSession(rawToken),
+          sessionVersion: managerRow.sessionVersion,
+          expiresAt: new Date(Date.now() + maxAge * 1000),
+        });
+      } else {
+        token =
+          managerRow.role === "superadmin"
+            ? await admin.sign(payload)
+            : await manager.sign(payload);
+      }
       set.headers["cache-control"] = "no-store";
       cookie[COOKIE_NAME]?.set({
         value: token,
         httpOnly: true,
         secure: env.nodeEnv === "production",
         sameSite: "lax",
-        maxAge: 60 * 60 * 24 * 7,
+        maxAge,
         path: "/",
       });
       return {
@@ -206,13 +242,51 @@ export const authRoutes = new Elysia({ name: "auth-routes" })
       body: t.Object({
         email: t.String({ format: "email" }),
         password: t.String({ minLength: 1 }),
+        rememberMe: t.Optional(t.Boolean()),
       }),
     },
   )
   .group("/auth", (app) =>
     app
       .use(managerAuth)
-      .post("/logout", async ({ cookie, set }) => {
+      .post("/session/refresh", async ({ auth, cookie, set }) => {
+        set.headers["cache-control"] = "no-store";
+        if (!auth!.rememberedSessionHash) return { success: true };
+        const now = new Date();
+        const expiresAt = new Date(now.getTime() + REMEMBERED_SESSION_SECONDS * 1000);
+        const [session] = await db
+          .update(managerSessions)
+          .set({ expiresAt })
+          .where(
+            and(
+              eq(managerSessions.tokenHash, auth!.rememberedSessionHash),
+              eq(managerSessions.managerId, auth!.userId),
+              eq(managerSessions.sessionVersion, auth!.sessionVersion),
+              gt(managerSessions.expiresAt, now),
+            ),
+          )
+          .returning({ tokenHash: managerSessions.tokenHash });
+        if (!session) {
+          set.status = 401;
+          return { error: "Chưa đăng nhập", code: "UNAUTHORIZED" };
+        }
+        const value = cookie[COOKIE_NAME]?.value ?? "";
+        cookie[COOKIE_NAME]?.set({
+          value,
+          httpOnly: true,
+          secure: env.nodeEnv === "production",
+          sameSite: "lax",
+          maxAge: REMEMBERED_SESSION_SECONDS,
+          path: "/",
+        });
+        return { success: true };
+      })
+      .post("/logout", async ({ auth, cookie, set }) => {
+        if (auth!.rememberedSessionHash) {
+          await db
+            .delete(managerSessions)
+            .where(eq(managerSessions.tokenHash, auth!.rememberedSessionHash));
+        }
         cookie[COOKIE_NAME]?.remove();
         set.status = 204;
         return "";

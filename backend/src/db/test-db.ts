@@ -18,6 +18,7 @@ const TABLES = [
   "push_subscriptions",
   "zalo_notifications",
   "contract_template_catalog",
+  "manager_sessions",
   "manager_audit_events",
   "magic_links",
   "ticket_photo_uploads",
