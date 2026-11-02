@@ -6,6 +6,8 @@ export interface SetupRoomInput {
   name: string;
   basePrice: VndString;
   floor?: number | null;
+  initialElectricReading?: string;
+  initialWaterReading?: string;
 }
 
 export type SetupMotelInput =

@@ -411,7 +411,9 @@ export async function createBillingPeriod(
             billingPeriodId: created.id,
             roomId: room.id,
             type,
-            previousReading: latest?.reading.currentReading ?? "0.00",
+            previousReading:
+              latest?.reading.currentReading ??
+              (type === "electric" ? room.initialElectricReading : room.initialWaterReading),
           };
         }),
       );

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, setDefaultTimeout, test } from "bun:test";
-import { and, eq, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { app } from "@/app";
 import { db } from "@/db";
 import { resetDb } from "@/db/test-db";
@@ -10,7 +10,7 @@ import { rooms } from "@/modules/room/room.schema";
 import { contractTemplates } from "@/modules/contract/contract.schema";
 import { contractTemplateCatalog } from "@/modules/contract/contract-catalog.schema";
 import { computeTemplateFingerprint } from "@/modules/contract/contract-catalog.service";
-import { createMotelInTransaction, lockMotelSetup } from "@/modules/motel/motel.service";
+import { createMotelInTransaction } from "@/modules/motel/motel.service";
 
 setDefaultTimeout(20_000);
 beforeEach(resetDb);
@@ -142,7 +142,15 @@ describe("POST /api/manager/motels/setup and GET /api/manager/motels/setup-reque
         waterPrice: "20000",
       },
       template: { kind: "catalog", key: "vn-residential-standard", version: 1 },
-      rooms: [{ name: "P.101", basePrice: "3000000", floor: 1 }],
+      rooms: [
+        {
+          name: "P.101",
+          basePrice: "3000000",
+          floor: 1,
+          initialElectricReading: "123.45",
+          initialWaterReading: "67.8",
+        },
+      ],
     });
     expect(full1Res.status).toBe(201);
     const full1 = (await full1Res.json()) as {
@@ -151,6 +159,11 @@ describe("POST /api/manager/motels/setup and GET /api/manager/motels/setup-reque
       roomCount: number;
       templateId: string;
     };
+    const setupRoom = await db.query.rooms.findFirst({
+      where: eq(rooms.motelId, full1.motelId),
+    });
+    expect(setupRoom?.initialElectricReading).toBe("123.45");
+    expect(setupRoom?.initialWaterReading).toBe("67.80");
     expect(full1.mode).toBe("full");
     expect(full1.roomCount).toBe(1);
     expect(full1.templateId).toBeTruthy();
@@ -309,7 +322,6 @@ describe("POST /api/manager/motels/setup and GET /api/manager/motels/setup-reque
     expect(statusResult.roomCount).toBe(1);
     expect(statusResult.templateId).toBe(setupResult.templateId);
 
-    const delRoomRes = await api("DELETE", `/manager/motels/${setupResult.motelId}/rooms`, cookie);
     await db.delete(rooms).where(eq(rooms.motelId, setupResult.motelId));
     await db.delete(contractTemplates).where(eq(contractTemplates.motelId, setupResult.motelId));
     const delRes = await api("DELETE", `/manager/motels/${setupResult.motelId}`, cookie);

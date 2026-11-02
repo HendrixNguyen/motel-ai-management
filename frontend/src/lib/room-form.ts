@@ -4,7 +4,13 @@ import { createRoom, updateRoom } from "@/lib/api/rooms.client";
 import { formatVndPlain, parseVndDigits } from "@/lib/format/vnd";
 import { parseRoomFloor } from "@/lib/room-query";
 
-export type RoomDraft = { name: string; floor: string; basePrice: string };
+export type RoomDraft = {
+  name: string;
+  floor: string;
+  basePrice: string;
+  initialElectricReading: string;
+  initialWaterReading: string;
+};
 export type RoomFieldErrors = Record<string, string>;
 export type RoomSubmitResult =
   { ok: true } | { ok: false; fields?: RoomFieldErrors; error?: string; status?: number };
@@ -15,6 +21,8 @@ export function createRoomDraft(room?: RoomResponse): RoomDraft {
     name: room?.name ?? "",
     floor: room?.floor == null ? "" : String(room.floor),
     basePrice: room ? formatVndPlain(room.basePrice) : "",
+    initialElectricReading: "0",
+    initialWaterReading: "0",
   };
 }
 
@@ -36,8 +44,23 @@ export function prepareRoomInput(
   const floor = draft.floor.trim() === "" ? null : parseRoomFloor(draft.floor);
   if (floor === undefined)
     fields.floor = "Nhập tầng bằng số nguyên từ -2.147.483.648 đến 2.147.483.647";
+  for (const field of ["initialElectricReading", "initialWaterReading"] as const) {
+    const value = draft[field];
+    if (!/^\d+(?:\.\d{1,2})?$/.test(value)) fields[field] = "Nhập chỉ số công tơ hợp lệ";
+    else {
+      const [whole = "", fraction = ""] = value.split(".");
+      if (BigInt(whole) * 100n + BigInt(fraction.padEnd(2, "0") || "0") > 999999999999n)
+        fields[field] = "Chỉ số công tơ tối đa là 9.999.999.999,99";
+    }
+  }
   if (Object.keys(fields).length) return { ok: false, fields };
-  const input: CreateRoomInput = { name, basePrice: basePrice!, floor };
+  const input: CreateRoomInput = {
+    name,
+    basePrice: basePrice!,
+    floor,
+    initialElectricReading: draft.initialElectricReading,
+    initialWaterReading: draft.initialWaterReading,
+  };
   if (!room) return { ok: true, input };
   const patch: UpdateRoomInput = {};
   if (name !== room.name) patch.name = name;

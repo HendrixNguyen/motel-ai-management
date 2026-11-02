@@ -29,6 +29,12 @@ import {
 } from "@/lib/motel-setup";
 import { createMotelDraft, prepareMotelInput, type MotelDraft } from "@/lib/motel-form";
 
+function validMeterReading(value: string | undefined): boolean {
+  if (!value || !/^\d+(?:\.\d{1,2})?$/.test(value)) return false;
+  const [whole = "", fraction = ""] = value.split(".");
+  return BigInt(whole) * 100n + BigInt(fraction.padEnd(2, "0") || "0") <= 999999999999n;
+}
+
 export interface MotelSetupWizardProps {
   open: boolean;
   onClose: () => void;
@@ -263,6 +269,8 @@ export default function MotelSetupWizard({
         name: `${genPrefix}${startNum + i}`,
         basePrice: priceDigits,
         ...(floor !== null ? { floor } : {}),
+        initialElectricReading: "0",
+        initialWaterReading: "0",
       });
     }
     setRooms(generated);
@@ -275,6 +283,24 @@ export default function MotelSetupWizard({
     if (!parsed.ok) {
       setError("Thông tin nhà trọ không hợp lệ");
       setStep(1);
+      return;
+    }
+
+    if (
+      mode === "full" &&
+      rooms.some(
+        (room) =>
+          !validMeterReading(room.initialElectricReading) ||
+          !validMeterReading(room.initialWaterReading),
+      )
+    ) {
+      const room = rooms.find(
+        (candidate) =>
+          !validMeterReading(candidate.initialElectricReading) ||
+          !validMeterReading(candidate.initialWaterReading),
+      );
+      setStep(3);
+      setError(`Nhập chỉ số điện và nước hợp lệ cho phòng ${room?.name ?? "đã chọn"}`);
       return;
     }
 
@@ -772,10 +798,11 @@ export default function MotelSetupWizard({
                   {rooms.map((room, idx) => (
                     <div
                       key={idx}
-                      className="flex items-center gap-2 rounded-input border border-border p-2 bg-surface text-sm"
+                      className="grid grid-cols-2 gap-2 rounded-input border border-border p-2 bg-surface text-sm sm:grid-cols-5"
                     >
                       <input
-                        className="w-24 rounded-input border border-border-strong px-2 py-1"
+                        aria-label={`Tên phòng ${idx + 1}`}
+                        className="min-w-0 rounded-input border border-border-strong px-2 py-1"
                         value={room.name}
                         onChange={(e) =>
                           setRooms((prev) =>
@@ -784,7 +811,9 @@ export default function MotelSetupWizard({
                         }
                       />
                       <input
-                        className="w-32 rounded-input border border-border-strong px-2 py-1"
+                        aria-label={`Giá thuê phòng ${idx + 1}`}
+                        placeholder="Giá (₫)"
+                        className="min-w-0 rounded-input border border-border-strong px-2 py-1"
                         value={room.basePrice}
                         onChange={(e) =>
                           setRooms((prev) =>
@@ -794,7 +823,34 @@ export default function MotelSetupWizard({
                           )
                         }
                       />
-                      <span className="text-text-muted">₫</span>
+                      <input
+                        aria-label={`Chỉ số điện phòng ${idx + 1}`}
+                        placeholder="Điện (kWh)"
+                        inputMode="decimal"
+                        className="min-w-0 rounded-input border border-border-strong px-2 py-1"
+                        value={room.initialElectricReading ?? "0"}
+                        onChange={(e) =>
+                          setRooms((prev) =>
+                            prev.map((r, i) =>
+                              i === idx ? { ...r, initialElectricReading: e.target.value } : r,
+                            ),
+                          )
+                        }
+                      />
+                      <input
+                        aria-label={`Chỉ số nước phòng ${idx + 1}`}
+                        placeholder="Nước (m³)"
+                        inputMode="decimal"
+                        className="min-w-0 rounded-input border border-border-strong px-2 py-1"
+                        value={room.initialWaterReading ?? "0"}
+                        onChange={(e) =>
+                          setRooms((prev) =>
+                            prev.map((r, i) =>
+                              i === idx ? { ...r, initialWaterReading: e.target.value } : r,
+                            ),
+                          )
+                        }
+                      />
                       <Button
                         variant="ghost"
                         size="sm"
