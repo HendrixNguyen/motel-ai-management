@@ -447,6 +447,10 @@ There is no submit-at-the-end step — each room is committed the moment it is s
 
 ---
 
+## Manager Login
+
+Login shows an unchecked `Giữ đăng nhập` checkbox. Separate info button opens helper tooltip on hover, keyboard focus, or tap: `Dành cho thiết bị cá nhân. Tự đăng xuất sau 90 ngày không sử dụng.` Tooltip supports Escape/outside dismissal and does not toggle checkbox or submit form. Remembered manager sessions renew on foreground use and expire after 90 days inactive; logout, password reset, or account disable ends access. Superadmin sessions ignore this option.
+
 ## Core UI v2 delivery
 
 Shared UI primitives live under `frontend/src/components/ui/` and preserve existing public props. New renter surfaces compose `PortalShell`, `Field`, `Button`, and semantic tokens. Portal billing uses period selectors and explicit empty states; ticket lists link to scoped detail routes and never expose manager notes or storage keys. Brand assets and metadata use Nhà Số Gọn (`frontend/public/brand/`).

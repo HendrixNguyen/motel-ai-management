@@ -42,6 +42,26 @@ export const managers = pgTable(
  * Single-use login links for the renter portal. `consumedAt` is what makes a replay
  * detectable: a second exchange of the same token finds it already consumed.
  */
+export const managerSessions = pgTable(
+  "manager_sessions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    managerId: uuid("manager_id")
+      .notNull()
+      .references(() => managers.id, { onDelete: "cascade" }),
+    tokenHash: text("token_hash").notNull().unique(),
+    sessionVersion: integer("session_version").notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("manager_sessions_manager_id_idx").on(t.managerId),
+    index("manager_sessions_expires_at_idx").on(t.expiresAt),
+    check("manager_sessions_token_hash_format", sql`${t.tokenHash} ~ '^[a-f0-9]{64}$'`),
+    check("manager_sessions_version_nonnegative", sql`${t.sessionVersion} >= 0`),
+  ],
+);
+
 export const managerAuditEvents = pgTable("manager_audit_events", {
   id: uuid("id").primaryKey().defaultRandom(),
   actorId: uuid("actor_id")

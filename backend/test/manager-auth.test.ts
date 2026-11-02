@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, setDefaultTimeout, test } from "bun:test"
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { resetRateLimits } from "@/shared/rate-limit";
-import { managers } from "@/modules/auth/auth.schema";
+import { managerSessions, managers } from "@/modules/auth/auth.schema";
 import { SUPERADMIN_EMAIL } from "@/modules/auth/superadmin-identity";
 import { adminAccountRoutes } from "@/modules/auth/auth.route";
 import { verifyManager } from "@/modules/auth/auth.service";
@@ -20,12 +20,12 @@ beforeEach(async () => {
 
 const valid = { email: "a@example.com", password: "correct horse battery", name: "A" };
 
-async function loginSession(email: string, password: string) {
+async function loginSession(email: string, password: string, rememberMe = false) {
   const response = await createApp().handle(
     new Request("http://localhost/api/auth/login", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ email, password, ...(rememberMe ? { rememberMe } : {}) }),
     }),
   );
   const body = (await response.json()) as { csrfToken?: string };
@@ -42,6 +42,43 @@ async function testSessionCookie(email: string, password: string) {
 }
 
 describe("manager auth", () => {
+  test("remembered manager session renews and logout revokes current device", async () => {
+    await db.insert(managers).values({
+      email: valid.email,
+      passwordHash: await Bun.password.hash(valid.password, { algorithm: "argon2id" }),
+      name: valid.name,
+    });
+    const { cookie } = await loginSession(valid.email, valid.password, true);
+    const token = cookie.match(/manager_session=([^;]+)/)![1]!;
+    expect(token.startsWith("remembered.")).toBe(true);
+    const [session] = await db.select().from(managerSessions);
+    expect(session!.tokenHash).toMatch(/^[a-f0-9]{64}$/);
+    expect(session!.expiresAt.getTime()).toBeGreaterThan(Date.now() + 89 * 24 * 60 * 60 * 1000);
+    const otherDeviceCookie = (await loginSession(valid.email, valid.password, true)).cookie;
+
+    const refresh = await createApp().handle(
+      new Request("http://localhost/api/auth/session/refresh", {
+        method: "POST",
+        headers: { cookie },
+      }),
+    );
+    expect(refresh.status).toBe(200);
+    expect(refresh.headers.get("set-cookie")).toContain("Max-Age=7776000");
+
+    const logout = await createApp().handle(
+      new Request("http://localhost/api/auth/logout", { method: "POST", headers: { cookie } }),
+    );
+    expect(logout.status).toBe(204);
+    const stale = await createApp().handle(
+      new Request("http://localhost/api/auth/me", { headers: { cookie } }),
+    );
+    expect(stale.status).toBe(401);
+    const otherDevice = await createApp().handle(
+      new Request("http://localhost/api/auth/me", { headers: { cookie: otherDeviceCookie } }),
+    );
+    expect(otherDevice.status).toBe(200);
+  });
+
   test("public manager registration remains available and only creates manager role", async () => {
     const response = await createApp().handle(
       new Request("http://localhost/api/auth/register", {
@@ -116,7 +153,8 @@ describe("manager auth", () => {
         role: "superadmin",
       })
       .returning();
-    const { cookie, csrfToken } = await loginSession(root!.email, "root password 123");
+    const { cookie, csrfToken } = await loginSession(root!.email, "root password 123", true);
+    expect(cookie).not.toContain("remembered.");
     const me = await createApp().handle(
       new Request("http://localhost/api/auth/me", { headers: { cookie } }),
     );

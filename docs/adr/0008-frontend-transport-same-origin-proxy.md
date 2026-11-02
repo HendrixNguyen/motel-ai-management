@@ -21,7 +21,7 @@ browser considers the request in-bounds. `backend/src/modules/auth/auth.route.ts
 - `sameSite: "lax"` — sent on same-site requests, withheld from cross-site ones
 - **no `domain` attribute** — host-only, so the browser scopes it to the exact host that set it
 - `secure` in production
-- `maxAge` 7 days
+- `maxAge` 7 days for ordinary sessions; remembered Manager sessions renew to 90 days after foreground activity
 
 Three transports were considered.
 

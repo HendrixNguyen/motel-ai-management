@@ -1,4 +1,4 @@
-import { apiSend } from "./client";
+import { apiSend, setRememberedManagerSession } from "./client";
 import type { LoginInput, ManagerAuthResponse } from "./types";
 import { clearCaptureQueue } from "@/lib/capture/queue";
 
@@ -25,6 +25,7 @@ import { clearCaptureQueue } from "@/lib/capture/queue";
  */
 export async function login(input: LoginInput): Promise<ManagerAuthResponse> {
   const manager = await apiSend<ManagerAuthResponse>("/api/auth/login", "POST", input);
+  setRememberedManagerSession(manager.role === "manager" && input.rememberMe === true);
   try {
     sessionStorage.setItem("manager-id", manager.id);
   } catch {
@@ -47,6 +48,7 @@ export async function logout(): Promise<void> {
   try {
     await apiSend<void>("/api/auth/logout", "POST");
   } finally {
+    setRememberedManagerSession(false);
     if (managerId) await clearCaptureQueue(managerId);
     try {
       window.sessionStorage.removeItem("manager-id");
