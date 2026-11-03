@@ -20,7 +20,10 @@ export default async function CapturePage({
     if (!motels.length)
       return (
         <section className="min-w-0 space-y-6">
-          <PageHeader title="Nhập chỉ số" description="Chụp và nhập số điện nước trên điện thoại." />
+          <PageHeader
+            title="Nhập chỉ số"
+            description="Chụp và nhập số điện nước trên điện thoại."
+          />
           <p className="rounded-card border border-border bg-surface p-6 text-text-muted">
             Chưa có nhà trọ.
           </p>

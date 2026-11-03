@@ -1214,6 +1214,7 @@ export function createFixtureBackend(
               motelId: motel.id,
               name: create.name,
               phone: create.phone,
+              zaloPhone: create.zaloPhone ?? null,
               idNumber: create.idNumber ?? null,
               roomId: create.roomId ?? null,
               idCardFrontUploaded: false,

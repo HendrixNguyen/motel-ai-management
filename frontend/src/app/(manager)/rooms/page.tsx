@@ -15,6 +15,7 @@ import { parseRoomFilters, roomFiltersHref } from "@/lib/room-query";
 import { resolveMotelId, type MotelSearchParams } from "@/lib/motel-selection";
 import PageHeader from "@/components/ui/page-header";
 import Card from "@/components/ui/card";
+import { Button } from "@/components/ui/shadcn/button";
 
 const statusTone: Record<RoomStatus, BadgeTone> = {
   available: "neutral",
@@ -52,11 +53,7 @@ export default async function Rooms({
         />
         <div className="grid min-w-0 gap-4 md:grid-cols-2 xl:grid-cols-3">
           {motels.map((motel) => (
-            <Card
-              as="article"
-              key={motel.id}
-              className="flex min-w-0 flex-col p-4 sm:p-6"
-            >
+            <Card as="article" key={motel.id} className="flex min-w-0 flex-col p-4 sm:p-6">
               <h2 className="font-heading text-lg font-semibold text-text [overflow-wrap:anywhere]">
                 {motel.name}
               </h2>
@@ -64,12 +61,9 @@ export default async function Rooms({
                 {motel.address || "Chưa có địa chỉ"}
               </p>
               <div className="mt-auto pt-4">
-                <Link
-                  href={motelHref("/rooms", "", motel.id)}
-                  className="inline-flex min-h-11 items-center justify-center rounded-input bg-primary px-4 font-semibold text-surface hover:bg-primary-strong focus-visible:outline-2 focus-visible:outline-primary"
-                >
-                  Xem phòng trọ
-                </Link>
+                <Button asChild size="sm">
+                  <Link href={motelHref("/rooms", "", motel.id)}>Xem phòng trọ</Link>
+                </Button>
               </div>
             </Card>
           ))}
@@ -105,12 +99,9 @@ export default async function Rooms({
             <p className="mt-2 text-base text-text-body">
               Thay đổi hoặc xóa bộ lọc để xem các phòng khác.
             </p>
-            <Link
-              href={roomFiltersHref(motelId, {})}
-              className="mt-4 inline-flex min-h-11 items-center rounded-input px-3 font-semibold text-primary underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-            >
-              Xóa bộ lọc
-            </Link>
+            <Button asChild variant="link" size="sm" className="mt-4">
+              <Link href={roomFiltersHref(motelId, {})}>Xóa bộ lọc</Link>
+            </Button>
           </Card>
         ) : (
           <RoomEditor key={motelId} motelId={motelId} empty />
@@ -168,12 +159,13 @@ export default async function Rooms({
               </dl>
               <div className="mt-auto flex min-w-0 flex-wrap items-center gap-2 border-t border-border bg-canvas/60 px-4 py-3 sm:px-5">
                 <RoomEditor motelId={motelId} room={room} />
-                <Link
-                  href={`/renters?${new URLSearchParams({ motel: motelId, roomId: room.id })}`}
-                  className="inline-flex min-h-11 items-center rounded-input px-3 font-semibold text-primary underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-                >
-                  Xem khách thuê
-                </Link>
+                <Button asChild variant="link" size="sm">
+                  <Link
+                    href={`/renters?${new URLSearchParams({ motel: motelId, roomId: room.id })}`}
+                  >
+                    Xem khách thuê
+                  </Link>
+                </Button>
               </div>
             </Card>
           ))}

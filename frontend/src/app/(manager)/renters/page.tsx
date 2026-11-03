@@ -9,6 +9,7 @@ import { resolveMotelId, type MotelSearchParams } from "@/lib/motel-selection";
 import { motelHref } from "@/lib/motel-navigation";
 import PageHeader from "@/components/ui/page-header";
 import Card from "@/components/ui/card";
+import { Button } from "@/components/ui/shadcn/button";
 import LoginRequestQueue from "@/components/manager/login-request-queue";
 
 export default async function Renters({
@@ -41,11 +42,7 @@ export default async function Renters({
         />
         <div className="grid min-w-0 gap-4 md:grid-cols-2 xl:grid-cols-3">
           {motels.map((motel) => (
-            <Card
-              as="article"
-              key={motel.id}
-              className="flex min-w-0 flex-col p-4 sm:p-6"
-            >
+            <Card as="article" key={motel.id} className="flex min-w-0 flex-col p-4 sm:p-6">
               <h2 className="font-heading text-lg font-semibold text-text [overflow-wrap:anywhere]">
                 {motel.name}
               </h2>
@@ -53,12 +50,9 @@ export default async function Renters({
                 {motel.address || "Chưa có địa chỉ"}
               </p>
               <div className="mt-auto pt-4">
-                <Link
-                  href={motelHref("/renters", "", motel.id)}
-                  className="inline-flex min-h-11 items-center justify-center rounded-input bg-primary px-4 font-semibold text-surface hover:bg-primary-strong focus-visible:outline-2 focus-visible:outline-primary"
-                >
-                  Xem khách thuê
-                </Link>
+                <Button asChild size="sm">
+                  <Link href={motelHref("/renters", "", motel.id)}>Xem khách thuê</Link>
+                </Button>
               </div>
             </Card>
           ))}
@@ -93,12 +87,11 @@ export default async function Renters({
       {roomId && (
         <div className="flex min-w-0 flex-wrap items-center gap-3 text-base text-text-body">
           <p className="[overflow-wrap:anywhere]">Phòng: {roomNames[roomId] ?? "Chưa cập nhật"}</p>
-          <Link
-            href={`/renters?${new URLSearchParams({ motel: motelId })}`}
-            className="inline-flex min-h-11 items-center rounded-input px-2 font-semibold text-primary underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-          >
-            Xem tất cả khách thuê
-          </Link>
+          <Button asChild variant="link" size="sm">
+            <Link href={`/renters?${new URLSearchParams({ motel: motelId })}`}>
+              Xem tất cả khách thuê
+            </Link>
+          </Button>
         </div>
       )}
       {renters.length ? (

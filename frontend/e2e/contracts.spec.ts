@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { MOTEL, RENTERS, ROOMS } from "../test/lib/api/fixtures";
+import { MOTEL, RENTER, ROOM } from "../test/lib/api/fixtures";
 
 async function manager(page: import("@playwright/test").Page) {
   await page.context().addCookies([
@@ -61,8 +61,10 @@ test("manager can create a motel-scoped draft contract from active renter and ro
   await page.getByRole("button", { name: "Tạo hợp đồng", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Tạo hợp đồng nháp" });
   await expect(dialog).toBeVisible();
-  await dialog.getByLabel("Khách thuê").selectOption(RENTERS[0]!.id);
-  await dialog.getByLabel("Phòng").selectOption(ROOMS[0]!.id);
+  await dialog.getByRole("combobox", { name: "Khách thuê" }).click();
+  await page.getByRole("option", { name: `${RENTER.name} · 84901234567` }).click();
+  await dialog.getByRole("combobox", { name: "Phòng" }).click();
+  await page.getByRole("option", { name: ROOM.name }).click();
   await dialog.getByLabel("Ngày bắt đầu").fill("2026-11-01");
   await dialog.getByLabel("Ngày kết thúc").fill("2027-10-31");
   await dialog.getByLabel("Tiền thuê/tháng").fill("3.500.000");
@@ -73,7 +75,7 @@ test("manager can create a motel-scoped draft contract from active renter and ro
   await expect(
     page.getByRole("button", { name: "Sửa bản nháp", exact: true }).first(),
   ).toBeVisible();
-  await expect(page.getByText("Đã tạo hợp đồng nháp", { exact: true })).toBeVisible();
+  await expect(page.getByRole("status").filter({ hasText: "Đã tạo hợp đồng nháp" })).toBeVisible();
 });
 
 test("active contract detail shows clause snapshot and confirms termination", async ({ page }) => {
@@ -136,7 +138,9 @@ test("manager can request to send a draft contract and see pending state", async
     );
   });
   await page.getByRole("button", { name: "Yêu cầu gửi", exact: true }).click();
-  await expect(page.getByText("Đã ghi nhận yêu cầu gửi hợp đồng", { exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("status").filter({ hasText: "Đã ghi nhận yêu cầu gửi hợp đồng" }),
+  ).toBeVisible();
   await expect(page.getByText("Đã gửi liên kết · chờ xác nhận", { exact: true })).toBeVisible();
   await expect(await sendResponse.then((r) => r.status())).toBe(200);
 });

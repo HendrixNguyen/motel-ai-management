@@ -114,20 +114,22 @@ export async function getRenterCccdMetadata(
     ? { objectKey, contentType: contentType as "image/jpeg" | "image/png", size, checksum }
     : null;
 }
-export type NotificationRecipient = Pick<RenterRow, "phone">;
+export type NotificationRecipient = Pick<RenterRow, "zaloPhone">;
 export async function getRenterNotificationRecipient(
   renterId: string,
   motelId: string,
 ): Promise<NotificationRecipient | undefined> {
-  return db.query.renters.findFirst({
+  const renter = await db.query.renters.findFirst({
     where: and(eq(renters.id, renterId), eq(renters.motelId, motelId)),
-    columns: { phone: true },
+    columns: { id: true, zaloPhone: true },
   });
+  return renter ? { zaloPhone: renter.zaloPhone } : undefined;
 }
 
 type RenterPatch = Partial<{
   name: string;
   phone: string;
+  zaloPhone: string | null;
   idNumber: string | null;
   roomId: string | null;
   status: RenterStatus;
@@ -158,11 +160,13 @@ export async function createRenter(input: {
   phone: string;
   roomId?: string;
   idNumber?: string | null;
+  zaloPhone?: string | null;
 }): Promise<RenterRow> {
   const phone = normalisePhone(input.phone);
+  const zaloPhone = input.zaloPhone ? normalisePhone(input.zaloPhone) : null;
   const [row] = await db
     .insert(renters)
-    .values({ ...input, phone })
+    .values({ ...input, phone, zaloPhone })
     .returning();
   return row!;
 }
@@ -189,7 +193,10 @@ export async function getRenterForTicket(
 
 type RenterWriter = Pick<typeof db, "query" | "update">;
 
-async function syncRoomStatus(tx: any, roomId: string): Promise<void> {
+async function syncRoomStatus(
+  tx: Pick<typeof db, "select" | "update">,
+  roomId: string,
+): Promise<void> {
   const [room] = await tx
     .select({ id: rooms.id, status: rooms.status })
     .from(rooms)
@@ -296,8 +303,6 @@ function isDuplicatePhone(error: unknown): boolean {
  */
 function toResponse(row: RenterRow): RenterResponse {
   const {
-    legacyIdCardFrontUrl,
-    legacyIdCardBackUrl,
     idCardFrontObjectKey,
     idCardFrontContentType,
     idCardFrontSize,
@@ -400,6 +405,7 @@ export async function createRenterForMotel(
           motelId,
           name: input.name,
           phone: normalisePhone(input.phone),
+          zaloPhone: input.zaloPhone ? normalisePhone(input.zaloPhone) : null,
           idNumber: input.idNumber,
           ...(input.roomId === undefined || input.roomId === null ? {} : { roomId: input.roomId }),
         })
@@ -475,6 +481,8 @@ export async function updateRenter(
   const patch: RenterPatch = {};
   if (input.name !== undefined) patch.name = input.name;
   if (input.phone !== undefined) patch.phone = normalisePhone(input.phone);
+  if (input.zaloPhone !== undefined)
+    patch.zaloPhone = input.zaloPhone === null ? null : normalisePhone(input.zaloPhone);
   if (input.idNumber !== undefined) patch.idNumber = input.idNumber;
   if (input.roomId !== undefined) patch.roomId = input.roomId;
   if (input.status !== undefined) patch.status = input.status;

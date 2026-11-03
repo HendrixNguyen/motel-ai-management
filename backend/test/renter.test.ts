@@ -36,6 +36,7 @@ interface RenterPayload {
   motelId: string;
   name: string;
   phone: string;
+  zaloPhone: string | null;
   idNumber: string | null;
   legacyIdCardFrontUrl: string | null;
   legacyIdCardBackUrl: string | null;
@@ -447,20 +448,36 @@ describe("GET /api/manager/motels/:motelId/renters", () => {
 });
 
 describe("POST /api/manager/motels/:motelId/renters", () => {
-  test("creates a renter and returns 201 with the phone normalised", async () => {
+  test("stores a separately confirmed Zalo destination normalized separately from contact phone", async () => {
     const a = await login("a@example.com");
     const motel = await createMotel(a.cookie);
 
     const res = await api("POST", `/manager/motels/${motel.id}/renters`, {
       cookie: a.cookie,
-      body: { name: "Nguyễn Văn A", phone: "0901234567" },
+      body: {
+        name: "Nguyễn Văn A",
+        phone: "0901234567",
+        zaloPhone: "0912345678",
+        zaloPhoneConfirmed: true,
+      },
     });
     expect(res.status).toBe(201);
     const body = (await res.json()) as RenterPayload;
+    expect(body.phone).toBe("84901234567");
+    expect(body.zaloPhone).toBe("84912345678");
     expect(body.name).toBe("Nguyễn Văn A");
     expect(body.motelId).toBe(motel.id);
-    expect(body.phone).toBe("84901234567");
     expect(body.createdAt).toMatch(ISO_8601);
+  });
+
+  test("rejects a Zalo number without manager confirmation", async () => {
+    const a = await login("a@example.com");
+    const motel = await createMotel(a.cookie);
+    const res = await api("POST", `/manager/motels/${motel.id}/renters`, {
+      cookie: a.cookie,
+      body: { name: "Nguyễn Văn A", phone: "0901234567", zaloPhone: "0912345678" },
+    });
+    expect(res.status).toBe(400);
   });
 
   test("manager JSON cannot inject CCCD image URLs", async () => {
@@ -493,6 +510,7 @@ describe("POST /api/manager/motels/:motelId/renters", () => {
     const body = await createRenter(a.cookie, motel.id);
     expect(body.roomId).toBeNull();
     expect(body.status).toBe("active");
+    expect(body.zaloPhone).toBeNull();
     expect(body.idNumber).toBeNull();
     expect(body.isOaFollower).toBe(false);
   });

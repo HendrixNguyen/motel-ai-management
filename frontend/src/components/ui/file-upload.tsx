@@ -9,6 +9,7 @@ import {
 } from "react";
 import Field from "./field";
 import ImagePreview from "./image-preview";
+import { Button } from "@/components/ui/shadcn/button";
 
 const DEFAULT_ACCEPTED = ["image/jpeg", "image/png"];
 type Props = Omit<
@@ -136,23 +137,24 @@ function FileUpload({
           />
           {previewUrl && <ImagePreview src={previewUrl} alt={label} onRemove={onRemovePreview} />}
           <p className="text-sm text-text-muted">Kéo thả ảnh vào đây</p>
-          <button
+          <Button
             type="button"
+            variant="secondary"
             disabled={pending}
             onClick={() => inputRef.current?.click()}
-            className="mt-2 min-h-11 rounded-input border border-border-strong bg-surface px-4 font-semibold text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:opacity-60"
+            className="mt-2"
           >
             {previewUrl ? "Thay ảnh" : "Chọn ảnh"}
-          </button>
+          </Button>
           {pending && (
             <p aria-live="polite" className="mt-2 text-sm">
               Đang tải lên…
             </p>
           )}
           {retry && (
-            <button type="button" onClick={onRetry} className="mt-2 min-h-11 px-3 underline">
+            <Button type="button" variant="ghost" onClick={onRetry} className="mt-2">
               Thử lại
-            </button>
+            </Button>
           )}
         </div>
       )}

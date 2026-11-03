@@ -1,4 +1,4 @@
-import Button from "./button";
+import { Button } from "@/components/ui/shadcn/button";
 import Modal, { type ModalProps } from "./modal";
 
 export default function ConfirmDialog({
@@ -24,18 +24,22 @@ export default function ConfirmDialog({
       onClose={onClose}
       title={title}
       description={description}
+      data-destructive={destructive || undefined}
+      data-autofocus="preserve"
+      data-block-outside-dismiss="true"
+      onCloseAutoFocus={(event) => event.preventDefault()}
       footer={
         <>
           <Button variant="secondary" onClick={onClose} disabled={pending}>
             {cancelLabel}
           </Button>
           <Button
-            variant={destructive ? "danger" : "primary"}
+            variant={destructive ? "destructive" : "default"}
             onClick={onConfirm}
-            pending={pending}
-            data-destructive={destructive || undefined}
+            disabled={pending}
+            aria-busy={pending}
           >
-            {confirmLabel}
+            {pending ? "Đang xử lý…" : confirmLabel}
           </Button>
         </>
       }

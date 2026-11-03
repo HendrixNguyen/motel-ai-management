@@ -218,6 +218,13 @@
       "when": 1793590531243,
       "tag": "0031_initial_room_meter_readings",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1793590531244,
+      "tag": "0032_abnormal_gargoyle",
+      "breakpoints": true
     }
   ]
 }

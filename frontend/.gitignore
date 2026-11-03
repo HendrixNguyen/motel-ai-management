@@ -16,6 +16,7 @@
 # playwright output (test-results/ is written on every run, playwright-report/ on failure)
 /test-results/
 /playwright-report/
+/playwright.local.config.ts
 /blob-report/
 
 # next.js

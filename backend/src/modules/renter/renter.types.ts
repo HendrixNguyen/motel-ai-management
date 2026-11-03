@@ -8,6 +8,8 @@ export interface CreateRenterInput {
   name: string;
   /** Local or `+84` form; normalised to `84XXXXXXXXX` before it is stored. */
   phone: string;
+  zaloPhone?: string | null;
+  zaloPhoneConfirmed?: boolean;
   idNumber?: string | null;
   /** Must be a room of *this* motel, or the request is 404. */
   roomId?: string | null;
@@ -23,6 +25,8 @@ export interface CreateRenterInput {
 export interface UpdateRenterInput {
   name?: string;
   phone?: string;
+  zaloPhone?: string | null;
+  zaloPhoneConfirmed?: boolean;
   idNumber?: string | null;
   /** Must be a room of *this* motel, or the request is 404. An explicit `null` unassigns. */
   roomId?: string | null;
@@ -41,6 +45,7 @@ export interface RenterResponse {
   name: string;
   /** Always the normalised `84XXXXXXXXX` form, whatever the client sent. */
   phone: string;
+  zaloPhone: string | null;
   idNumber: string | null;
   idCardFrontUploaded: boolean;
   idCardBackUploaded: boolean;

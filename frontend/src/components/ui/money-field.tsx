@@ -1,4 +1,5 @@
 import type { InputHTMLAttributes } from "react";
+import { Input } from "@/components/ui/shadcn/input";
 import Field from "./field";
 import { formatVndPlain, parseVndDigits } from "@/lib/format/vnd";
 
@@ -19,7 +20,7 @@ export default function MoneyField({ value, onChange, ...props }: Props) {
   return (
     <Field {...props}>
       {(control) => (
-        <input
+        <Input
           {...control}
           {...props}
           value={value ? formatVndPlain(value) : ""}

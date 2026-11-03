@@ -31,8 +31,8 @@ describe("frontend version stamp", () => {
   });
 
   it("builds from package version and selected channel rather than Git SHA", () => {
-    expect(buildStage).toContain('node -p "require(\'./package.json\').version"');
-    expect(buildStage).toContain('ARG APP_CHANNEL=production');
+    expect(buildStage).toContain("node -p \"require('./package.json').version\"");
+    expect(buildStage).toContain("ARG APP_CHANNEL=production");
     expect(buildStage).toContain('NEXT_PUBLIC_BUILD_VERSION="$BUILD_VERSION"');
     expect(buildStage).not.toContain("BUILD_SHA=");
     expect(buildStage).not.toContain("git -C /app rev-parse HEAD");

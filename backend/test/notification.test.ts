@@ -66,7 +66,7 @@ function pushRuntime(
   const subscriptions: Array<{ endpoint: string; keys: { p256dh: string; auth: string } }> = [];
   const deletions: string[] = [];
   const sendNotification = overrides.sendNotification ?? (async () => ({ ok: true }));
-  setNotificationRecipientResolver(async () => ({ phone: "84901234567" }));
+  setNotificationRecipientResolver(async () => ({ zaloPhone: "84901234567" }));
   return {
     subscriptions,
     deletions,
@@ -232,7 +232,7 @@ describe("notification security and delivery", () => {
     await removePushSubscription(renter.id, motel.id, input.endpoint);
     expect(await getPushSubscriptionForOwner(renter.id, motel.id)).toBeNull();
   });
-  test("recipient resolver absence and missing recipient fail without creating notification", async () => {
+  test("recipient resolver absence and unconfirmed Zalo destination fail without creating notification", async () => {
     const { motel, renter } = await fixture();
     await expect(
       enqueueNotification({
@@ -242,20 +242,21 @@ describe("notification security and delivery", () => {
         payload: {},
       }),
     ).rejects.toMatchObject({ code: "EXTERNAL_SERVICE_ERROR" });
-    setNotificationRecipientResolver(async () => undefined);
+    setNotificationRecipientResolver(async () => ({ zaloPhone: null }));
     await expect(
       enqueueNotification({
-        eventKey: "missing-renter",
+        eventKey: "unconfirmed-zalo",
         renterId: renter.id,
         motelId: motel.id,
         payload: {},
       }),
-    ).rejects.toMatchObject({ code: "NOT_FOUND" });
+    ).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
+    expect(await db.query.notificationEvents.findMany()).toHaveLength(0);
   });
 
   test("duplicate notification key returns the existing event without replacing secret", async () => {
     const { motel, renter } = await fixture();
-    setNotificationRecipientResolver(async () => ({ phone: renter.phone }));
+    setNotificationRecipientResolver(async () => ({ zaloPhone: renter.phone }));
     const first = await enqueueNotification({
       eventKey: "duplicate",
       renterId: renter.id,
@@ -276,7 +277,7 @@ describe("notification security and delivery", () => {
 
   test("returns existing non-pending event and rejects unknown event delivery", async () => {
     const { motel, renter } = await fixture();
-    setNotificationRecipientResolver(async () => ({ phone: renter.phone }));
+    setNotificationRecipientResolver(async () => ({ zaloPhone: renter.phone }));
     const event = await enqueueNotification({
       eventKey: "sent-once",
       renterId: renter.id,
@@ -294,7 +295,7 @@ describe("notification security and delivery", () => {
   test("notification redacts transient OTP payload, delivers using ZNS, and does not select OA based on follower state", async () => {
     const { motel, renter } = await fixture();
     let sent: Record<string, unknown> | undefined;
-    setNotificationRecipientResolver(async () => ({ phone: renter.phone }));
+    setNotificationRecipientResolver(async () => ({ zaloPhone: renter.phone }));
     setZaloProvider(
       provider({
         sendZns: async ({ payload }) => {
@@ -326,7 +327,7 @@ describe("notification security and delivery", () => {
 
   test("does not retry legacy OTP events after transient secret is lost", async () => {
     const { motel, renter } = await fixture();
-    setNotificationRecipientResolver(async () => ({ phone: renter.phone }));
+    setNotificationRecipientResolver(async () => ({ zaloPhone: renter.phone }));
     setZaloProvider(provider({ sendZns: async () => ({ providerId: "id" }) }));
     const event = await enqueueNotification({
       eventKey: "otp:restart",
@@ -349,7 +350,7 @@ describe("notification security and delivery", () => {
 
   test("clears lease before retry window so retry waits on nextRetryAt", async () => {
     const { motel, renter } = await fixture();
-    setNotificationRecipientResolver(async () => ({ phone: renter.phone }));
+    setNotificationRecipientResolver(async () => ({ zaloPhone: renter.phone }));
     setZaloProvider(
       provider({
         sendZns: async () => {
@@ -378,7 +379,7 @@ describe("notification security and delivery", () => {
 
   test("classifies provider errors without persisting provider text", async () => {
     const { motel, renter } = await fixture();
-    setNotificationRecipientResolver(async () => ({ phone: renter.phone }));
+    setNotificationRecipientResolver(async () => ({ zaloPhone: renter.phone }));
     setZaloProvider(
       provider({
         sendZns: async () => {

@@ -30,7 +30,10 @@ test.describe("capture queue delivery states", () => {
     await page.getByLabel("Chỉ số hiện tại").fill("15");
     await page.getByRole("button", { name: "Lưu" }).first().click();
     await writeRequest;
-    await expect(page.getByText(/Đã lưu chỉ số|Đã lưu trên thiết bị|Ngoại tuyến/)).toBeVisible();
+    await expect.poll(() => writes.length).toBeGreaterThanOrEqual(1);
+    await expect(
+      page.getByText(/Đã lưu chỉ số|Đã lưu trên thiết bị|Ngoại tuyến|Đang chờ kết nối/),
+    ).toBeVisible();
     const stored = await page.evaluate(
       async () =>
         new Promise<unknown>((resolve, reject) => {

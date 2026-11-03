@@ -1,6 +1,7 @@
 import Link from "next/link";
 import Badge from "@/components/ui/badge";
 import Card from "@/components/ui/card";
+import { Button } from "@/components/ui/shadcn/button";
 import LedgerRow from "@/components/ui/ledger-row";
 import PageHeader from "@/components/ui/page-header";
 import StatCard from "@/components/ui/stat-card";
@@ -98,12 +99,11 @@ function InvoiceLedger({
             {overdueCount} quá hạn
           </p>
         </div>
-        <Link
-          className="inline-flex min-h-11 items-center font-semibold text-primary underline"
-          href={motelHref(`/billing/${periodId}/invoices`, "", motelId)}
-        >
-          Xem tất cả hóa đơn
-        </Link>
+        <Button asChild variant="link" size="sm">
+          <Link href={motelHref(`/billing/${periodId}/invoices`, "", motelId)}>
+            Xem tất cả hóa đơn
+          </Link>
+        </Button>
       </div>
       <Card className="divide-y divide-border p-4">
         {invoices.length ? (
@@ -177,21 +177,19 @@ export default async function Overview({
         <div className="grid min-w-0 gap-4 md:grid-cols-2 xl:grid-cols-3">
           {motels.map((item) => (
             <Card key={item.id} className="flex min-w-0 flex-col p-4 sm:p-6">
-              <h2 className="font-heading text-lg font-semibold text-text [overflow-wrap:anywhere]">{item.name}</h2>
-              <p className="mt-1 text-sm text-text-muted [overflow-wrap:anywhere]">{item.address || "Chưa có địa chỉ"}</p>
+              <h2 className="font-heading text-lg font-semibold text-text [overflow-wrap:anywhere]">
+                {item.name}
+              </h2>
+              <p className="mt-1 text-sm text-text-muted [overflow-wrap:anywhere]">
+                {item.address || "Chưa có địa chỉ"}
+              </p>
               <div className="mt-auto flex flex-wrap gap-2 pt-4">
-                <Link
-                  href={motelHref("/rooms", "", item.id)}
-                  className="inline-flex min-h-11 items-center rounded-input bg-primary px-4 font-semibold text-surface hover:bg-primary-strong focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-                >
-                  Xem phòng
-                </Link>
-                <Link
-                  href={motelHref("/renters", "", item.id)}
-                  className="inline-flex min-h-11 items-center rounded-input border border-border-strong bg-surface px-4 font-semibold text-text hover:bg-canvas focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-                >
-                  Khách thuê
-                </Link>
+                <Button asChild size="sm">
+                  <Link href={motelHref("/rooms", "", item.id)}>Xem phòng</Link>
+                </Button>
+                <Button asChild variant="outline" size="sm">
+                  <Link href={motelHref("/renters", "", item.id)}>Khách thuê</Link>
+                </Button>
               </div>
             </Card>
           ))}
@@ -245,12 +243,9 @@ export default async function Overview({
         title="Tổng quan"
         description={`Tình hình tại ${motel.name} · ${currentPeriodLabel}.`}
         actions={
-          <Link
-            href={motelHref("/renters", "create=1", motelId)}
-            className="inline-flex min-h-11 items-center rounded-input bg-primary px-4 py-2 font-semibold text-surface hover:bg-primary-strong focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-          >
-            Thêm khách thuê
-          </Link>
+          <Button asChild size="sm">
+            <Link href={motelHref("/renters", "create=1", motelId)}>Thêm khách thuê</Link>
+          </Button>
         }
       />
       <section aria-labelledby="dashboard-metrics" className="space-y-3">
@@ -336,12 +331,9 @@ export default async function Overview({
         <Card>
           <h2 className="font-heading text-lg font-semibold text-text">Chưa có phòng trọ</h2>
           <p className="mt-1 text-text-muted">Thêm phòng để bắt đầu theo dõi tình hình nhà trọ.</p>
-          <Link
-            className="mt-3 inline-flex min-h-11 items-center font-semibold text-primary underline"
-            href={motelHref("/rooms", "", motelId)}
-          >
-            Xem phòng trọ
-          </Link>
+          <Button asChild variant="link" size="sm" className="mt-3">
+            <Link href={motelHref("/rooms", "", motelId)}>Xem phòng trọ</Link>
+          </Button>
         </Card>
       )}
     </section>

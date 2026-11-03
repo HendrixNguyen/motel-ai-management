@@ -8,7 +8,5 @@
   "display": "standalone",
   "background_color": "#F3F6F8",
   "theme_color": "#172B3A",
-  "icons": [
-    { "src": "/brand/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
-  ]
+  "icons": [{ "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
 }

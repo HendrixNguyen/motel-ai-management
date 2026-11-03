@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import Button from "@/components/ui/button";
+import { Button } from "@/components/ui/shadcn/button";
 import { generateInvoices, saveMeterReadings } from "@/lib/api/billing.client";
 import { ApiError } from "@/lib/api/client";
 import { calculateMeterPreview } from "@/lib/billing-calculation";

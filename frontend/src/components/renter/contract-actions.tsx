@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ApiError } from "@/lib/api/client";
 import { acceptRenterContractConsent } from "@/lib/api/renter";
-import Button from "@/components/ui/button";
+import { Button } from "@/components/ui/shadcn/button";
 import type { RenterContract } from "@/lib/api/types";
 
 export default function ContractActions({ contract }: { contract: RenterContract }) {
@@ -94,8 +94,12 @@ export default function ContractActions({ contract }: { contract: RenterContract
           {error}
         </p>
       )}
-      <Button pending={pending} onClick={sign} disabled={!consent || !confirmed || signed}>
-        Xác nhận ký hợp đồng
+      <Button
+        aria-busy={pending}
+        onClick={sign}
+        disabled={pending || !consent || !confirmed || signed}
+      >
+        {pending ? "Đang xác nhận…" : "Xác nhận ký hợp đồng"}
       </Button>
     </div>
   );
