@@ -274,9 +274,95 @@ describe("MotelSetupWizard", () => {
     expect(view.getByDisplayValue("P.101")).toBeInTheDocument();
     expect(view.getByDisplayValue("P.102")).toBeInTheDocument();
     expect(view.getByDisplayValue("P.103")).toBeInTheDocument();
+    expect(
+      view.getAllByLabelText("Chỉ số điện hiện tại (kWh)", { selector: "input" }),
+    ).toHaveLength(3);
+    expect(view.getAllByLabelText("Chỉ số nước hiện tại (m³)", { selector: "input" })).toHaveLength(
+      3,
+    );
+    expect(view.getAllByText("Dùng làm chỉ số đầu kỳ khi lập hóa đơn đầu tiên.")).toHaveLength(6);
+    expect(
+      view.getAllByLabelText("Chỉ số điện hiện tại (kWh)", { selector: "input" })[0],
+    ).toHaveValue("0");
+    expect(
+      view.getAllByLabelText("Chỉ số nước hiện tại (m³)", { selector: "input" })[0],
+    ).toHaveValue("0");
 
     fireEvent.change(view.getByDisplayValue("P.101"), { target: { value: "P.VIP-1" } });
     expect(view.getByDisplayValue("P.VIP-1")).toBeInTheDocument();
+    fireEvent.change(
+      view.getAllByLabelText("Chỉ số điện hiện tại (kWh)", { selector: "input" })[0]!,
+      {
+        target: { value: "123.45" },
+      },
+    );
+    fireEvent.change(
+      view.getAllByLabelText("Chỉ số nước hiện tại (m³)", { selector: "input" })[0]!,
+      {
+        target: { value: "67.89" },
+      },
+    );
+    expect(
+      view.getAllByLabelText("Chỉ số điện hiện tại (kWh)", { selector: "input" })[0],
+    ).toHaveAttribute("aria-describedby", expect.stringContaining("hint"));
+    expect(
+      view.getAllByLabelText("Chỉ số nước hiện tại (m³)", { selector: "input" })[0],
+    ).toHaveAttribute("aria-describedby", expect.stringContaining("hint"));
+    expect(view.container.querySelectorAll(".max-h-60 fieldset")).toHaveLength(3);
+    const roomGroups = view.container.querySelectorAll<HTMLFieldSetElement>(".max-h-60 fieldset");
+    expect([...roomGroups].map((group) => group.getAttribute("aria-labelledby"))).toEqual(
+      [...roomGroups].map((group) => group.querySelector("legend")?.id),
+    );
+    expect(
+      new Set([...view.container.querySelectorAll(".max-h-60 [id]")].map((node) => node.id)).size,
+    ).toBe(view.container.querySelectorAll(".max-h-60 [id]").length);
+    expect(view.getByRole("button", { name: "Xóa phòng P.VIP-1" })).toBeInTheDocument();
+    expect(view.container.querySelector(".max-h-60")?.className).toContain("overflow-y-auto");
+    expect(view.container.querySelector(".max-h-60")?.className).not.toContain("overflow-x-auto");
+    fireEvent.click(view.getByRole("button", { name: "Xóa phòng P.102" }));
+    expect(
+      view.getAllByLabelText("Chỉ số điện hiện tại (kWh)", { selector: "input" }),
+    ).toHaveLength(2);
+    expect(view.getAllByLabelText("Chỉ số nước hiện tại (m³)", { selector: "input" })).toHaveLength(
+      2,
+    );
+    expect(
+      view.getAllByLabelText("Chỉ số điện hiện tại (kWh)", { selector: "input" })[0],
+    ).toHaveValue("123.45");
+    expect(
+      view.getAllByLabelText("Chỉ số nước hiện tại (m³)", { selector: "input" })[0],
+    ).toHaveValue("67.89");
+    expect(view.queryByRole("button", { name: "Xóa phòng P.102" })).not.toBeInTheDocument();
+    expect(view.getByRole("button", { name: "Xóa phòng P.VIP-1" })).toBeInTheDocument();
+    expect(view.container.querySelectorAll(".max-h-60 fieldset")).toHaveLength(2);
+    fireEvent.change(
+      view.getAllByLabelText("Chỉ số điện hiện tại (kWh)", { selector: "input" })[1]!,
+      {
+        target: { value: "321" },
+      },
+    );
+    fireEvent.change(
+      view.getAllByLabelText("Chỉ số nước hiện tại (m³)", { selector: "input" })[1]!,
+      {
+        target: { value: "654" },
+      },
+    );
+    fireEvent.click(view.getByRole("button", { name: "Tiếp tục" }));
+    fireEvent.click(view.getByRole("button", { name: "Hoàn tất thiết lập" }));
+    await waitFor(() => expect(mocks.submitMotelSetup).toHaveBeenCalled());
+    expect(mocks.submitMotelSetup.mock.calls.at(-1)?.[0].rooms).toEqual([
+      expect.objectContaining({
+        name: "P.VIP-1",
+        initialElectricReading: "123.45",
+        initialWaterReading: "67.89",
+      }),
+      expect.objectContaining({
+        name: "P.103",
+        initialElectricReading: "321",
+        initialWaterReading: "654",
+      }),
+    ]);
+    expect(view.getByText("Bước 4: Xác nhận và hoàn tất")).toBeInTheDocument();
   });
 
   test("full setup reviews and submits N rooms with selected template", async () => {
