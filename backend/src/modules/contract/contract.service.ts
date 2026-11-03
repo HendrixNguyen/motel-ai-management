@@ -1,7 +1,12 @@
 import { and, asc, desc, eq, sql } from "drizzle-orm";
 import { createHash } from "node:crypto";
 import { db, type Db, type DbExecutor, type DbTransaction } from "@/db";
-import { resolveOwnedMotel, resolveRoomInMotel, resolveRenterInMotel } from "@/middleware/tenancy";
+import {
+  resolveAccessibleMotel,
+  resolveRoomInMotel,
+  resolveRenterInMotel,
+  type MotelActor,
+} from "@/middleware/tenancy";
 import { lockMotelForUpdate } from "@/modules/motel/motel.service";
 import { getRoomName } from "@/modules/room/room.service";
 import { getRenterForConsent } from "@/modules/renter/renter.service";
@@ -94,10 +99,10 @@ async function clearDefault(
 export async function createContractTemplateInTransaction(
   tx: DbTransaction,
   motelId: string,
-  managerId: string,
+  actor: MotelActor,
   input: ContractTemplateInput,
 ): Promise<ContractTemplateResponse> {
-  await resolveOwnedMotel(motelId, managerId, tx);
+  await resolveAccessibleMotel(motelId, actor, tx);
   validateTemplate(input);
   if (input.isDefault) await clearDefault(tx, motelId);
   const [row] = await tx
@@ -113,12 +118,12 @@ export async function createContractTemplateInTransaction(
 }
 
 export async function previewOwnedTemplate(
-  managerId: string,
+  actor: MotelActor,
   motelId: string,
   templateId: string,
   executor: DbExecutor = db,
 ): Promise<TemplatePreview> {
-  await resolveOwnedMotel(motelId, managerId, executor);
+  await resolveAccessibleMotel(motelId, actor, executor);
   const [row] = await executor
     .select()
     .from(contractTemplates)
@@ -144,12 +149,12 @@ export async function previewOwnedTemplate(
 
 export async function copySetupTemplate(
   tx: DbTransaction,
-  managerId: string,
+  actor: MotelActor,
   targetMotelId: string,
   selection: TemplateSelection,
   isDefault: boolean,
 ): Promise<ContractTemplateResponse> {
-  await resolveOwnedMotel(targetMotelId, managerId, tx);
+  await resolveAccessibleMotel(targetMotelId, actor, tx);
 
   let templateName: string;
   let templateClauses: typeof contractTemplates.$inferSelect.clauses;
@@ -159,7 +164,7 @@ export async function copySetupTemplate(
     templateName = catalogPreview.name;
     templateClauses = catalogPreview.clauses;
   } else {
-    await resolveOwnedMotel(selection.motelId, managerId, tx);
+    await resolveAccessibleMotel(selection.motelId, actor, tx);
     const rows = await tx.execute(
       sql`SELECT id, motel_id, name, clauses, is_default, created_at FROM contract_templates WHERE id = ${selection.templateId} AND motel_id = ${selection.motelId} FOR UPDATE`,
     );
@@ -180,7 +185,7 @@ export async function copySetupTemplate(
     templateClauses = source.clauses;
   }
 
-  return createContractTemplateInTransaction(tx, targetMotelId, managerId, {
+  return createContractTemplateInTransaction(tx, targetMotelId, actor, {
     name: templateName,
     clauses: templateClauses,
     isDefault,
@@ -189,13 +194,13 @@ export async function copySetupTemplate(
 
 export async function copyContractTemplateFromCatalog(
   motelId: string,
-  managerId: string,
+  actor: MotelActor,
   input: { catalogKey: string; catalogVersion: number; isDefault: boolean },
 ): Promise<ContractTemplateResponse> {
   return db.transaction(async (tx) => {
     return copySetupTemplate(
       tx,
-      managerId,
+      actor,
       motelId,
       {
         kind: "catalog",
@@ -207,8 +212,8 @@ export async function copyContractTemplateFromCatalog(
   });
 }
 
-export async function listContractTemplates(motelId: string, managerId: string) {
-  await resolveOwnedMotel(motelId, managerId);
+export async function listContractTemplates(motelId: string, actor: MotelActor) {
+  await resolveAccessibleMotel(motelId, actor);
   return (
     await db
       .select()
@@ -219,15 +224,15 @@ export async function listContractTemplates(motelId: string, managerId: string) 
 }
 export async function createContractTemplate(
   motelId: string,
-  managerId: string,
+  actor: MotelActor,
   input: ContractTemplateInput,
 ) {
   return db.transaction(async (tx) => {
-    return createContractTemplateInTransaction(tx, motelId, managerId, input);
+    return createContractTemplateInTransaction(tx, motelId, actor, input);
   });
 }
-export async function getContractTemplate(motelId: string, templateId: string, managerId: string) {
-  await resolveOwnedMotel(motelId, managerId);
+export async function getContractTemplate(motelId: string, templateId: string, actor: MotelActor) {
+  await resolveAccessibleMotel(motelId, actor);
   const row = await db.query.contractTemplates.findFirst({
     where: and(eq(contractTemplates.id, templateId), eq(contractTemplates.motelId, motelId)),
   });
@@ -237,7 +242,7 @@ export async function getContractTemplate(motelId: string, templateId: string, m
 export async function updateContractTemplate(
   motelId: string,
   templateId: string,
-  managerId: string,
+  actor: MotelActor,
   input: UpdateContractTemplateInput,
 ) {
   validateTemplate(input);
@@ -246,7 +251,7 @@ export async function updateContractTemplate(
   if (input.clauses !== undefined) patch.clauses = input.clauses;
   if (input.isDefault !== undefined) patch.isDefault = input.isDefault;
   return db.transaction(async (tx) => {
-    await resolveOwnedMotel(motelId, managerId, tx);
+    await resolveAccessibleMotel(motelId, actor, tx);
     await lockMotelForUpdate(tx, motelId);
     const [current] = await tx
       .select()
@@ -273,16 +278,16 @@ export async function updateContractTemplate(
 export async function deleteContractTemplate(
   motelId: string,
   templateId: string,
-  managerId: string,
+  actor: MotelActor,
 ) {
-  await getContractTemplate(motelId, templateId, managerId);
+  await getContractTemplate(motelId, templateId, actor);
   if (await db.$count(contracts, eq(contracts.templateId, templateId)))
     throw AppError.conflict("Không thể xóa mẫu hợp đồng đang được sử dụng");
   await db.delete(contractTemplates).where(eq(contractTemplates.id, templateId));
 }
 
-async function ownedContract(motelId: string, contractId: string, managerId: string) {
-  await resolveOwnedMotel(motelId, managerId);
+async function ownedContract(motelId: string, contractId: string, actor: MotelActor) {
+  await resolveAccessibleMotel(motelId, actor);
   const row = await db.query.contracts.findFirst({
     where: and(eq(contracts.id, contractId), eq(contracts.motelId, motelId)),
   });
@@ -291,10 +296,10 @@ async function ownedContract(motelId: string, contractId: string, managerId: str
 }
 export async function createContract(
   motelId: string,
-  managerId: string,
+  actor: MotelActor,
   input: CreateContractInput,
 ) {
-  await resolveOwnedMotel(motelId, managerId);
+  await resolveAccessibleMotel(motelId, actor);
   validateContractDates(input.startDate, input.endDate);
   const room = await resolveRoomInMotel(input.roomId, motelId);
   if (await hasActiveContractForRoom(room.id))
@@ -329,10 +334,10 @@ export async function createContract(
 }
 export async function listContracts(
   motelId: string,
-  managerId: string,
+  actor: MotelActor,
   status?: "draft" | "active" | "expired" | "terminated",
 ) {
-  await resolveOwnedMotel(motelId, managerId);
+  await resolveAccessibleMotel(motelId, actor);
   const where = status
     ? and(eq(contracts.motelId, motelId), eq(contracts.status, status))
     : eq(contracts.motelId, motelId);
@@ -344,16 +349,16 @@ export async function listContracts(
       .orderBy(desc(contracts.createdAt), desc(contracts.id))
   ).map(contractResponse);
 }
-export async function getContract(motelId: string, contractId: string, managerId: string) {
-  return contractResponse(await ownedContract(motelId, contractId, managerId));
+export async function getContract(motelId: string, contractId: string, actor: MotelActor) {
+  return contractResponse(await ownedContract(motelId, contractId, actor));
 }
 export async function updateContract(
   motelId: string,
   contractId: string,
-  managerId: string,
+  actor: MotelActor,
   input: UpdateContractInput,
 ) {
-  const current = await ownedContract(motelId, contractId, managerId);
+  const current = await ownedContract(motelId, contractId, actor);
   if (current.status !== "draft") throw AppError.conflict("Chỉ có thể chỉnh sửa hợp đồng nháp");
   if (current.consentAcceptedAt)
     throw AppError.conflict("Hợp đồng đã được người thuê xác nhận; không thể sửa điều khoản");
@@ -379,8 +384,8 @@ export async function updateContract(
     .returning();
   return contractResponse(row!);
 }
-export async function terminateContract(motelId: string, contractId: string, managerId: string) {
-  const current = await ownedContract(motelId, contractId, managerId);
+export async function terminateContract(motelId: string, contractId: string, actor: MotelActor) {
+  const current = await ownedContract(motelId, contractId, actor);
   if (current.status !== "active")
     throw AppError.conflict("Chỉ có thể chấm dứt hợp đồng đang hoạt động");
   const [row] = await db
@@ -491,8 +496,8 @@ export async function getLatestRenterContract(renterId: string, motelId: string)
   return contractResponse(row);
 }
 
-export async function sendContract(motelId: string, contractId: string, managerId: string) {
-  const current = await ownedContract(motelId, contractId, managerId);
+export async function sendContract(motelId: string, contractId: string, actor: MotelActor) {
+  const current = await ownedContract(motelId, contractId, actor);
   if (current.status !== "draft") throw AppError.conflict("Chỉ có thể gửi hợp đồng nháp");
   await enqueueNotification({
     eventKey: `contract:${contractId}:sent`,

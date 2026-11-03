@@ -32,6 +32,26 @@ async function keyboardActivate(page: Page, target: Locator) {
   throw new Error(`Action was not reachable by Tab: ${await target.innerText()}`);
 }
 
+test("remember-me help opens accessibly without toggling or submitting login", async ({ page }) => {
+  await page.goto("/login");
+  const checkbox = page.getByRole("checkbox", { name: "Giữ đăng nhập" });
+  const help = page.getByRole("button", { name: "Thông tin giữ đăng nhập" });
+  await expect(checkbox).not.toBeChecked();
+  await help.click();
+  await expect(page.getByRole("tooltip")).toContainText(
+    "Dành cho thiết bị cá nhân. Tự đăng xuất sau 90 ngày không sử dụng.",
+  );
+  await expect(checkbox).not.toBeChecked();
+  await expect(page.getByRole("button", { name: "Đăng nhập", exact: true })).toBeEnabled();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("tooltip")).toHaveCount(0);
+  await page.mouse.move(0, 0);
+  await help.hover();
+  await expect(page.getByRole("tooltip")).toBeVisible();
+  await page.getByRole("heading", { name: "Đăng nhập" }).click();
+  await expect(page.getByRole("tooltip")).toHaveCount(0);
+});
+
 test("login through the proxy opens M1–M4 at 375px and logout protects the shell again", async ({
   page,
   context,

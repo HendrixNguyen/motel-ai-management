@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, setDefaultTimeout, test } from "bun:test";
+import { beforeEach, expect, setDefaultTimeout, test } from "bun:test";
 import { app } from "@/app";
 import { db } from "@/db";
 import { resetDb } from "@/db/test-db";
@@ -73,6 +73,40 @@ test("creates period and seeds electric/water readings for every room", async ()
         ),
     ),
   ).toBe(true);
+});
+
+test("uses configured initial meter readings as first-period baselines", async () => {
+  const cookie = await login("initial-meter@example.com");
+  const manager = await db.query.managers.findFirst();
+  const [motel] = await db
+    .insert(motels)
+    .values({
+      managerId: manager!.id,
+      name: "Motel",
+      electricityPrice: "2000",
+      waterPrice: "15000",
+    })
+    .returning();
+  await db.insert(rooms).values({
+    motelId: motel!.id,
+    name: "P.101",
+    initialElectricReading: "123.45",
+    initialWaterReading: "67.8",
+  });
+  const response = await app.handle(
+    new Request(`http://localhost/api/manager/motels/${motel!.id}/billing/periods`, {
+      method: "POST",
+      headers: { Cookie: cookie, "Content-Type": "application/json" },
+      body: JSON.stringify({ month: 10, year: 2026 }),
+    }),
+  );
+  expect(response.status).toBe(201);
+  const body = (await response.json()) as {
+    rooms: Array<{ readings: Array<{ type: string; previousReading: string }> }>;
+  };
+  const readings = body.rooms[0]!.readings;
+  expect(readings.find((reading) => reading.type === "electric")?.previousReading).toBe("123.45");
+  expect(readings.find((reading) => reading.type === "water")?.previousReading).toBe("67.80");
 });
 
 test("seeds next period baselines from latest prior electric and water readings", async () => {

@@ -52,6 +52,11 @@ export default async function Motels({
                   <p className="mt-1 text-sm text-text-muted [overflow-wrap:anywhere]">
                     {motel.address || "Chưa có địa chỉ"}
                   </p>
+                  {motel.managerName && (
+                    <p className="mt-1 text-sm text-text-muted [overflow-wrap:anywhere]">
+                      Quản lý sở hữu: {motel.managerName}
+                    </p>
+                  )}
                 </div>
                 <p className="shrink-0 rounded-full bg-primary-fixed px-3 py-1 text-sm font-semibold text-on-primary-fixed tabular-nums">
                   {roomCount} phòng
@@ -80,9 +85,24 @@ export default async function Motels({
               <div className="mt-auto flex min-w-0 flex-wrap items-center justify-between gap-3 border-t border-border bg-canvas/60 px-4 py-3 sm:px-5">
                 <span className="text-sm text-text-muted">Cấu hình vận hành</span>
                 <div className="flex min-w-0 flex-wrap gap-2">
-                  <Link href={motelHref("/rooms", "", motel.id)} className="inline-flex min-h-11 items-center rounded-input border border-border-strong bg-surface px-3 font-semibold text-text hover:bg-canvas">Phòng</Link>
-                  <Link href={motelHref("/billing", "", motel.id)} className="inline-flex min-h-11 items-center rounded-input border border-border-strong bg-surface px-3 font-semibold text-text hover:bg-canvas">Hóa đơn</Link>
-                  <Link href={motelHref("/renters", "", motel.id)} className="inline-flex min-h-11 items-center rounded-input border border-border-strong bg-surface px-3 font-semibold text-text hover:bg-canvas">Khách thuê</Link>
+                  <Link
+                    href={motelHref("/rooms", "", motel.id)}
+                    className="inline-flex min-h-11 items-center rounded-input border border-border-strong bg-surface px-3 font-semibold text-text hover:bg-canvas"
+                  >
+                    Phòng
+                  </Link>
+                  <Link
+                    href={motelHref("/billing", "", motel.id)}
+                    className="inline-flex min-h-11 items-center rounded-input border border-border-strong bg-surface px-3 font-semibold text-text hover:bg-canvas"
+                  >
+                    Hóa đơn
+                  </Link>
+                  <Link
+                    href={motelHref("/renters", "", motel.id)}
+                    className="inline-flex min-h-11 items-center rounded-input border border-border-strong bg-surface px-3 font-semibold text-text hover:bg-canvas"
+                  >
+                    Khách thuê
+                  </Link>
                   <MotelEditor motel={motel} />
                 </div>
               </div>

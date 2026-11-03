@@ -326,6 +326,44 @@ export function RoomForm({
                 />
               )}
             </Field>
+            {!original && (
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field
+                  id={id("initialElectricReading")}
+                  label="Chỉ số điện hiện tại (kWh)"
+                  error={fields.initialElectricReading}
+                  hint="Dùng làm chỉ số đầu kỳ khi lập hóa đơn đầu tiên."
+                >
+                  {(props) => (
+                    <input
+                      {...props}
+                      inputMode="decimal"
+                      value={draft.initialElectricReading}
+                      onChange={(event) =>
+                        setDraft({ ...draft, initialElectricReading: event.target.value })
+                      }
+                    />
+                  )}
+                </Field>
+                <Field
+                  id={id("initialWaterReading")}
+                  label="Chỉ số nước hiện tại (m³)"
+                  error={fields.initialWaterReading}
+                  hint="Dùng làm chỉ số đầu kỳ khi lập hóa đơn đầu tiên."
+                >
+                  {(props) => (
+                    <input
+                      {...props}
+                      inputMode="decimal"
+                      value={draft.initialWaterReading}
+                      onChange={(event) =>
+                        setDraft({ ...draft, initialWaterReading: event.target.value })
+                      }
+                    />
+                  )}
+                </Field>
+              </div>
+            )}
             {preview !== null && (
               <p
                 id={id("preview")}

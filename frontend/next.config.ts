@@ -12,6 +12,9 @@ const BUILD_VERSION = process.env.NEXT_PUBLIC_BUILD_VERSION ?? "";
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  images: {
+    remotePatterns: [{ protocol: "https", hostname: "cdn.vietqr.io", pathname: "/img/**" }],
+  },
   env: {
     NEXT_PUBLIC_BUILD_VERSION: BUILD_VERSION,
   },

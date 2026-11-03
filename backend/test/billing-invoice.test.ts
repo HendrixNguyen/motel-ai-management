@@ -58,7 +58,9 @@ describe("billing invoices", () => {
       monthlyRent: "5000000",
       status: "active",
     });
-    await expect(generateInvoices(period!.id, motel!.id, manager!.id)).rejects.toMatchObject({
+    await expect(
+      generateInvoices(period!.id, motel!.id, { userId: manager!.id, role: "manager" }),
+    ).rejects.toMatchObject({
       status: 409,
     });
     expect(await db.select().from(invoices)).toHaveLength(0);
@@ -87,7 +89,10 @@ describe("billing invoices", () => {
       .insert(billingPeriods)
       .values({ motelId: motel!.id, month: 1, year: 2026 })
       .returning();
-    const result = await generateInvoices(period!.id, motel!.id, manager!.id);
+    const result = await generateInvoices(period!.id, motel!.id, {
+      userId: manager!.id,
+      role: "manager",
+    });
     expect(result.invoices).toHaveLength(0);
     expect(result.details.skippedRooms).toHaveLength(1);
     expect(result.details.skippedRooms[0]!.name).toBe("101");
@@ -148,7 +153,10 @@ describe("billing invoices", () => {
       monthlyRent: "5000000",
       status: "active",
     });
-    const first = await generateInvoices(period!.id, motel!.id, manager!.id);
+    const first = await generateInvoices(period!.id, motel!.id, {
+      userId: manager!.id,
+      role: "manager",
+    });
     const invoice = first.invoices[0]!;
     expect(invoice.electricityUsage).toBe("10.00");
     expect(invoice.electricityCost).toBe("20000");
@@ -187,7 +195,10 @@ describe("billing invoices", () => {
     expect(stored.otherFees).toEqual([]);
     expect(stored.rentAmount).toBe("5000000");
     expect(stored.totalAmount).toBe("5065000");
-    const regeneratedDraft = await generateInvoices(period!.id, motel!.id, manager!.id);
+    const regeneratedDraft = await generateInvoices(period!.id, motel!.id, {
+      userId: manager!.id,
+      role: "manager",
+    });
     expect(regeneratedDraft.invoices[0]!.id).toBe(invoice.id);
     expect(regeneratedDraft.invoices[0]!.electricityUsage).toBe("10.00");
     expect(regeneratedDraft.invoices[0]!.electricityCost).toBe("30000");
@@ -200,7 +211,10 @@ describe("billing invoices", () => {
       .update(invoices)
       .set({ paymentStatus: "paid", paidAt: new Date() })
       .where(eq(invoices.id, invoice.id));
-    const paidRerun = await generateInvoices(period!.id, motel!.id, manager!.id);
+    const paidRerun = await generateInvoices(period!.id, motel!.id, {
+      userId: manager!.id,
+      role: "manager",
+    });
     expect(paidRerun.invoices[0]!.id).toBe(invoice.id);
     expect(paidRerun.invoices[0]!.paymentStatus).toBe("paid");
     expect(readings).toHaveLength(2);

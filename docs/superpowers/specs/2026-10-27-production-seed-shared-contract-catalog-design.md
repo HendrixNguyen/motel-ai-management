@@ -2,14 +2,14 @@
 
 **Status:** Approved direction; implementation spec.  
 **Date:** 2026-10-27  
-**Scope:** One hidden Superadmin bootstrap, direct manager account/password administration, and shared Vietnamese contract-template catalog. No motel wizard; bootstrap creates no motel or manager account.
+**Scope:** One hidden Superadmin bootstrap, direct Manager account/password administration, and shared Vietnamese contract-template catalog. Bootstrap creates no business data. Superadmin motel operations and selected-owner setup use the shared Manager shell.
 
 ## 1. Goal and decisions
 
-- Seed canonical operator account `superadmin@motel.huyndg.io.vn` with role `superadmin` through explicit one-shot `bun run db:seed-system` after migrations. `SUPERADMIN_PASSWORD` comes from protected Dokploy runtime secret injection. Superadmin manages accounts and catalog only; cannot access motel/business APIs.
+- Seed canonical operator account `superadmin@motel.huyndg.io.vn` with role `superadmin` through explicit one-shot `bun run db:seed-system` after migrations. `SUPERADMIN_PASSWORD` comes from protected Dokploy runtime secret injection. Superadmin uses the shared operational shell and can access every motel; manager-account APIs remain superadmin-only.
 - Superadmin creates normal manager accounts directly with email, name, password (8–256 chars), and optional phone. Hash immediately with Argon2id. Manager signs in directly via `/login` without email/token setup flow.
 - Superadmin can reset manager passwords directly. Reset, disable, and re-enable increment `sessionVersion`, invalidating existing JWTs. Re-enable allows login with the last set password.
-- Managers retain all business permissions inside their own tenant. Cross-tenant access continues returning 404.
+- Managers retain business access only to motels they own. Superadmins can operate across motel owners, while mismatched child records still return 404. Superadmin motel creation requires a selected enabled Manager owner; Managers cannot choose or change ownership.
 - Existing public `/api/auth/register` remains available for normal-manager self-registration. Server always assigns `role=manager` and rejects/ignores role input; Superadmin creation remains operator-only and separate.
 - Seed three centrally managed, versioned Vietnamese contract templates. Managers may view and copy a version into a motel they own. Each copy is a distinct motel-owned template; contracts continue snapshotting clauses.
 - Bootstrap does not create a normal manager, motel, room, renter, invoice, payment, meter reading, ticket, or setup wizard.
@@ -18,7 +18,7 @@
 
 - `contract_templates.motel_id` is required and FK-owned by a motel; existing contract creation checks that template and motel belong to the same tenant.
 - Current `main` has a public `/api/auth/register`; preserve it for ordinary manager onboarding and add tests confirming it can create only role `manager`, never Superadmin.
-- Existing project decisions require tenant scope from session, 404 for foreign tenant resources, strict TypeScript, Argon2id, and module-owned tables/services.
+- Motel access derives from authenticated role and actor. Managers are owner-scoped; Superadmins can access all motels. Child-to-motel relationships and 404 for inaccessible resources remain mandatory. Strict TypeScript, Argon2id, and module-owned tables/services remain.
 - Backend tests use real PostgreSQL; run serially against a verified disposable local test database. Never reset QA or Prod.
 - Production migration stage was run earlier, followed by restoring `dockerBuildStage=""` (`runner`). Recheck schema/API health before any bootstrap. Do not change migration mode or rerun one-shot migrations blindly.
 - Dokploy earlier showed completed DB records unavailable through generic describe/get calls and existing database logs fail `Missing postgresId`; only use engine-specific IDs discovered from fresh `list/search` results. No schema assumptions based only on deploy status.
@@ -61,9 +61,8 @@ Add `contract_template_catalog` to contract module:
 
 ### Manager catalog endpoints
 
-- `GET /api/manager/contract-template-catalog`: list active summary entries. Normal managers use manager auth. Superadmin may use an explicit catalog-read route or this route only if authorization is added deliberately; never grant Superadmin business access.
-- `GET /api/manager/contract-template-catalog/:key/:version`: active template and clauses.
-- `POST /api/manager/motels/:motelId/contract-templates/from-catalog`: `{ catalogKey, catalogVersion, name?, isDefault? }`. Manager auth, resolve owned motel first, load active catalog row, copy clauses into motel-owned table in one transaction. No arbitrary clause payload. Setting default affects only that motel.
+- `GET /api/manager/contract-template-catalog` and `GET /api/manager/contract-template-catalog/:key/:version`: Manager and Superadmin sessions may read active summary/detail entries.
+- `POST /api/manager/motels/:motelId/contract-templates/from-catalog`: `{ catalogKey, catalogVersion, name?, isDefault? }`. Manager or Superadmin auth; authorize both accessible source and target motels, load active catalog row, and copy clauses into motel-owned table in one transaction. No arbitrary clause payload. Setting default affects only that motel.
 - Catalog deactivation/updates do not modify copied rows or existing contracts. Unknown/inactive catalog and foreign motel return 404.
 
 ## 5. One-shot system seed
@@ -80,14 +79,14 @@ Command: `bun run db:seed-system`, explicitly invoked after database migrations 
 
 ## 6. UI
 
-- Login returns role; Superadmin redirects to `/admin/managers`, Manager to standard dashboard.
-- Admin manager UI lists/creates/resets/disables/re-enables normal Managers only. Password fields use type=password and values never echoed. No role editing, second Superadmin controls, tenant data, or renter/billing navigation.
-- Manager contract UI exposes system catalog templates to preview/copy into owned motel; no motel-creation wizard in this scope.
+- Login returns role; Superadmin redirects to `/admin/managers` within the shared operational shell, Manager to standard dashboard.
+- Shared shell exposes Account Managers only to Superadmins. Account UI lists/creates/resets/disables/re-enables normal Managers only; password fields use type=password and values are never echoed. No role editing or second Superadmin controls.
+- Both roles can use contract-template catalog; Managers copy into owned motels, Superadmins into any accessible motel. Superadmin-created motel flow requires an enabled Manager owner.
 
 ## 7. Validation and test requirements
 
 - DB tests: session version nonnegative, catalog key/version uniqueness and checks enforced by PostgreSQL. This design adds no global uniqueness constraint on Superadmin role.
-- Auth HTTP tests: Superadmin can access admin operations and is denied motel/business; Manager is denied admin; public `/api/auth/register` remains available but always creates role `manager`; reset/disable invalidate existing session cookies; CSRF failures reject writes.
+- Auth HTTP tests: Superadmin has cross-owner motel access and admin operations; Managers remain isolated and denied admin; child mismatches return 404; owner selection accepts only enabled Managers and never permits Manager spoofing; public `/api/auth/register` always creates role `manager`; reset/disable invalidate sessions; CSRF failures reject account writes.
 - Account tests: direct manager creation/login, duplicate normalized email, min/max password, disable/re-enable, reset audit/session version, safe responses and output.
 - Catalog tests: active list/detail, inactive 404, owned motel copy, foreign motel 404, copy independence after source change, per-motel default only.
 - System-seed tests: invalid/missing password refusal; canonical Superadmin creation and matching rerun idempotency; mismatch/role conflict abort without writes; concurrent invocation safe; catalog seeded once; zero manager/motel/business inserts; rollback on failure; secret sentinel absent from output/audit.

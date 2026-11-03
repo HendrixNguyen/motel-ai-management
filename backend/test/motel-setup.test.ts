@@ -1,24 +1,24 @@
 import { beforeEach, describe, expect, setDefaultTimeout, test } from "bun:test";
-import { and, eq, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { app } from "@/app";
 import { db } from "@/db";
 import { resetDb } from "@/db/test-db";
 import { managers } from "@/modules/auth/auth.schema";
 import { registerManager } from "@/modules/auth/auth.service";
+import { setManagerEnabled } from "@/modules/auth/admin-account.service";
 import { motels } from "@/modules/motel/motel.schema";
 import { rooms } from "@/modules/room/room.schema";
 import { contractTemplates } from "@/modules/contract/contract.schema";
 import { contractTemplateCatalog } from "@/modules/contract/contract-catalog.schema";
 import { computeTemplateFingerprint } from "@/modules/contract/contract-catalog.service";
-import { createMotelInTransaction, lockMotelSetup } from "@/modules/motel/motel.service";
+import { createMotelInTransaction } from "@/modules/motel/motel.service";
 
 setDefaultTimeout(20_000);
 beforeEach(resetDb);
 
 const PASSWORD = "aaaaaaaaaa";
 
-async function login(email: string) {
-  await registerManager({ email, password: PASSWORD, name: email });
+async function loginExisting(email: string) {
   const res = await app.handle(
     new Request("http://localhost/api/auth/login", {
       method: "POST",
@@ -27,6 +27,33 @@ async function login(email: string) {
     }),
   );
   return res.headers.get("set-cookie") ?? "";
+}
+
+async function login(email: string) {
+  await registerManager({ email, password: PASSWORD, name: email });
+  return loginExisting(email);
+}
+
+async function loginSuperadmin(email = "root@example.com") {
+  await db.insert(managers).values({
+    email,
+    passwordHash: await Bun.password.hash(PASSWORD, { algorithm: "argon2id" }),
+    name: email,
+    role: "superadmin",
+  });
+  const res = await app.handle(
+    new Request("http://localhost/api/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password: PASSWORD }),
+    }),
+  );
+  return res.headers.get("set-cookie") ?? "";
+}
+
+async function currentManagerId(cookie: string) {
+  const res = await api("GET", "/auth/me", cookie);
+  return ((await res.json()) as { id: string }).id;
 }
 
 async function api(method: string, path: string, cookie?: string, body?: unknown) {
@@ -58,6 +85,180 @@ async function seedCatalog(key = "vn-residential-standard", version = 1) {
 }
 
 describe("POST /api/manager/motels/setup and GET /api/manager/motels/setup-requests/:requestId", () => {
+  test("superadmin assigns motel to enabled manager and remains actor-scoped for replay", async () => {
+    await seedCatalog();
+    const ownerA = await registerManager({
+      email: "owner-a@example.com",
+      password: PASSWORD,
+      name: "Owner A",
+    });
+    const ownerB = await registerManager({
+      email: "owner-b@example.com",
+      password: PASSWORD,
+      name: "Owner B",
+    });
+    const ownerAId = ownerA.id;
+    const ownerBId = ownerB.id;
+    const rootCookie = await loginSuperadmin();
+    const payload = {
+      requestId: "00000000-0000-0000-0000-000000000090",
+      mode: "full",
+      motel: {
+        ownerManagerId: ownerAId,
+        name: "Nhà trọ của quản lý A",
+        electricityPrice: "3500",
+        waterPrice: "20000",
+      },
+      template: { kind: "catalog", key: "vn-residential-standard", version: 1 },
+      rooms: [{ name: "A.01", basePrice: "3000000", floor: 1 }],
+    };
+
+    const created = await api("POST", "/manager/motels/setup", rootCookie, payload);
+    expect(created.status).toBe(201);
+    const result = (await created.json()) as { motelId: string };
+    expect(await db.query.motels.findFirst({ where: eq(motels.id, result.motelId) })).toMatchObject(
+      {
+        managerId: ownerAId,
+      },
+    );
+
+    const allMotels = await api("GET", "/manager/motels", rootCookie);
+    const allMotelList = (await allMotels.json()) as {
+      id: string;
+      managerId: string;
+      managerName: string;
+    }[];
+    expect(allMotelList).toContainEqual(
+      expect.objectContaining({
+        id: result.motelId,
+        managerId: ownerAId,
+        managerName: "Owner A",
+      }),
+    );
+
+    const changedOwnerReplay = await api("POST", "/manager/motels/setup", rootCookie, {
+      ...payload,
+      motel: { ...payload.motel, ownerManagerId: ownerBId },
+    });
+    expect(changedOwnerReplay.status).toBe(409);
+    expect(((await changedOwnerReplay.json()) as { code: string }).code).toBe(
+      "IDEMPOTENCY_CONFLICT",
+    );
+
+    await db.update(managers).set({ disabledAt: new Date() }).where(eq(managers.id, ownerAId));
+    const disabledOwnerMotel = await api("PATCH", `/manager/motels/${result.motelId}`, rootCookie, {
+      address: "Superadmin vẫn truy cập được",
+    });
+    expect(disabledOwnerMotel.status).toBe(200);
+
+    const quickForFirstMotel = await api("POST", "/manager/motels/setup", rootCookie, {
+      ...payload,
+      requestId: "00000000-0000-0000-0000-000000000091",
+      mode: "quick",
+      motel: { ...payload.motel, ownerManagerId: ownerBId },
+      rooms: undefined,
+    });
+    expect(quickForFirstMotel.status).toBe(409);
+    expect(((await quickForFirstMotel.json()) as { code: string }).code).toBe(
+      "MOTEL_SETUP_REQUIRED",
+    );
+  });
+
+  test("concurrent owner disable and setup serialize to a valid owner state", async () => {
+    await seedCatalog();
+    const owner = await registerManager({
+      email: "owner-race@example.com",
+      password: PASSWORD,
+      name: "Owner Race",
+    });
+    const rootCookie = await loginSuperadmin();
+    const rootId = await currentManagerId(rootCookie);
+    const setup = api("POST", "/manager/motels/setup", rootCookie, {
+      requestId: "00000000-0000-0000-0000-000000000096",
+      mode: "full",
+      motel: {
+        ownerManagerId: owner.id,
+        name: "Thiết lập đồng thời",
+        electricityPrice: "3500",
+        waterPrice: "20000",
+      },
+      template: { kind: "catalog", key: "vn-residential-standard", version: 1 },
+      rooms: [{ name: "R.01", basePrice: "3000000" }],
+    });
+
+    const [setupResponse] = await Promise.all([setup, setManagerEnabled(owner.id, false, rootId)]);
+    const disabledOwner = await db.query.managers.findFirst({
+      where: eq(managers.id, owner.id),
+    });
+    expect(disabledOwner).toBeDefined();
+    expect(disabledOwner?.disabledAt).toBeInstanceOf(Date);
+
+    if (setupResponse!.status === 201) {
+      const result = (await setupResponse!.json()) as { motelId: string };
+      expect(
+        await db.query.motels.findFirst({ where: eq(motels.id, result.motelId) }),
+      ).toMatchObject({
+        managerId: owner.id,
+      });
+    } else {
+      expect(setupResponse!.status).toBe(400);
+      expect(((await setupResponse!.json()) as { code: string }).code).toBe("VALIDATION_ERROR");
+      expect(await db.$count(motels)).toBe(0);
+    }
+  });
+
+  test("superadmin owner selection rejects missing, disabled, or non-manager owners; managers cannot spoof owner", async () => {
+    await seedCatalog();
+    const owner = await registerManager({
+      email: "selected-owner@example.com",
+      password: PASSWORD,
+      name: "Selected Owner",
+    });
+    const ownerCookie = await loginExisting("selected-owner@example.com");
+    const ownerId = owner.id;
+    const rootCookie = await loginSuperadmin();
+    const rootId = await currentManagerId(rootCookie);
+    const admin = await api("GET", "/auth/me", rootCookie);
+    expect(admin.status).toBe(200);
+    const base = {
+      requestId: "00000000-0000-0000-0000-000000000092",
+      mode: "full",
+      motel: {
+        name: "Nhà trọ có chủ sở hữu hợp lệ",
+        electricityPrice: "3500",
+        waterPrice: "20000",
+      },
+      template: { kind: "catalog", key: "vn-residential-standard", version: 1 },
+      rooms: [{ name: "S.01", basePrice: "3000000" }],
+    };
+
+    const noOwner = await api("POST", "/manager/motels/setup", rootCookie, base);
+    expect(noOwner.status).toBe(400);
+
+    const nonManager = await api("POST", "/manager/motels/setup", rootCookie, {
+      ...base,
+      requestId: "00000000-0000-0000-0000-000000000093",
+      motel: { ...base.motel, ownerManagerId: rootId },
+    });
+    expect(nonManager.status).toBe(400);
+
+    const spoofedOwner = await api("POST", "/manager/motels/setup", ownerCookie, {
+      ...base,
+      requestId: "00000000-0000-0000-0000-000000000095",
+      motel: { ...base.motel, ownerManagerId: rootId },
+    });
+    expect(spoofedOwner.status).toBe(400);
+
+    await db.update(managers).set({ disabledAt: new Date() }).where(eq(managers.id, ownerId));
+    const disabledOwner = await api("POST", "/manager/motels/setup", rootCookie, {
+      ...base,
+      requestId: "00000000-0000-0000-0000-000000000094",
+      motel: { ...base.motel, ownerManagerId: ownerId },
+    });
+    expect(disabledOwner.status).toBe(400);
+    expect(await db.$count(motels)).toBe(0);
+  });
+
   test("does not insert motel when manager row no longer exists", async () => {
     const cookie = await login("orphaned@example.com");
     const me = await api("GET", "/auth/me", cookie);
@@ -72,7 +273,7 @@ describe("POST /api/manager/motels/setup and GET /api/manager/motels/setup-reque
           waterPrice: "7000",
         }),
       ),
-    ).rejects.toMatchObject({ code: "CONFLICT" });
+    ).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
     expect(await db.$count(motels)).toBe(before);
   });
 
@@ -142,7 +343,15 @@ describe("POST /api/manager/motels/setup and GET /api/manager/motels/setup-reque
         waterPrice: "20000",
       },
       template: { kind: "catalog", key: "vn-residential-standard", version: 1 },
-      rooms: [{ name: "P.101", basePrice: "3000000", floor: 1 }],
+      rooms: [
+        {
+          name: "P.101",
+          basePrice: "3000000",
+          floor: 1,
+          initialElectricReading: "123.45",
+          initialWaterReading: "67.8",
+        },
+      ],
     });
     expect(full1Res.status).toBe(201);
     const full1 = (await full1Res.json()) as {
@@ -151,6 +360,11 @@ describe("POST /api/manager/motels/setup and GET /api/manager/motels/setup-reque
       roomCount: number;
       templateId: string;
     };
+    const setupRoom = await db.query.rooms.findFirst({
+      where: eq(rooms.motelId, full1.motelId),
+    });
+    expect(setupRoom?.initialElectricReading).toBe("123.45");
+    expect(setupRoom?.initialWaterReading).toBe("67.80");
     expect(full1.mode).toBe("full");
     expect(full1.roomCount).toBe(1);
     expect(full1.templateId).toBeTruthy();
@@ -309,7 +523,6 @@ describe("POST /api/manager/motels/setup and GET /api/manager/motels/setup-reque
     expect(statusResult.roomCount).toBe(1);
     expect(statusResult.templateId).toBe(setupResult.templateId);
 
-    const delRoomRes = await api("DELETE", `/manager/motels/${setupResult.motelId}/rooms`, cookie);
     await db.delete(rooms).where(eq(rooms.motelId, setupResult.motelId));
     await db.delete(contractTemplates).where(eq(contractTemplates.motelId, setupResult.motelId));
     const delRes = await api("DELETE", `/manager/motels/${setupResult.motelId}`, cookie);

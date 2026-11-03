@@ -3,6 +3,7 @@ import { app } from "@/app";
 import { db } from "@/db";
 import { resetDb } from "@/db/test-db";
 import { registerManager } from "@/modules/auth/auth.service";
+import { managers } from "@/modules/auth/auth.schema";
 import { motels } from "@/modules/motel/motel.schema";
 import { rooms } from "@/modules/room/room.schema";
 import { renters } from "@/modules/renter/renter.schema";
@@ -12,13 +13,17 @@ import { eq } from "drizzle-orm";
 setDefaultTimeout(20_000);
 beforeEach(resetDb);
 const PASSWORD = "aaaaaaaaaa";
-async function login(email: string) {
-  await registerManager({ email, password: PASSWORD, name: email });
+async function login(email: string, password = PASSWORD) {
+  const existing = await db.query.managers.findFirst({
+    where: eq(managers.email, email),
+    columns: { id: true },
+  });
+  if (!existing) await registerManager({ email, password: PASSWORD, name: email });
   const res = await app.handle(
     new Request("http://localhost/api/auth/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password: PASSWORD }),
+      body: JSON.stringify({ email, password }),
     }),
   );
   return res.headers.get("set-cookie") ?? "";
@@ -133,6 +138,58 @@ describe("manager contracts", () => {
         .status,
     ).toBe(200);
   });
+  test("manager isolation, superadmin cross-owner access, and child motel mismatch return 404", async () => {
+    const first = await setup("first@example.com");
+    const second = await setup("second@example.com");
+    expect(
+      (await api("GET", `/manager/motels/${second.motel.id}/contracts`, first.cookie)).status,
+    ).toBe(404);
+    expect(
+      (
+        await api(
+          "GET",
+          `/manager/motels/${first.motel.id}/contract-templates/${second.template.id}`,
+          first.cookie,
+        )
+      ).status,
+    ).toBe(404);
+
+    const password = "root password 123";
+    await db.insert(managers).values({
+      email: "root@example.com",
+      passwordHash: await Bun.password.hash(password, { algorithm: "argon2id" }),
+      name: "Root",
+      role: "superadmin",
+    });
+    const rootCookie = await login("root@example.com", password);
+    expect(
+      (await api("GET", `/manager/motels/${first.motel.id}/contracts`, rootCookie)).status,
+    ).toBe(200);
+    expect(
+      (await api("GET", `/manager/motels/${second.motel.id}/contracts`, rootCookie)).status,
+    ).toBe(200);
+
+    const mismatch = await api("POST", `/manager/motels/${first.motel.id}/contracts`, rootCookie, {
+      renterId: second.renter.id,
+      roomId: second.room.id,
+      startDate: "2026-01-01",
+      endDate: "2026-12-31",
+    });
+    expect(mismatch.status).toBe(404);
+    const childMismatch = await api(
+      "POST",
+      `/manager/motels/${first.motel.id}/contracts`,
+      rootCookie,
+      {
+        renterId: first.renter.id,
+        roomId: second.room.id,
+        startDate: "2026-01-01",
+        endDate: "2026-12-31",
+      },
+    );
+    expect(childMismatch.status).toBe(404);
+  });
+
   test("manager send records delivery time only after notification enqueue succeeds", async () => {
     const s = await setup();
     const created = await api("POST", `/manager/motels/${s.motel.id}/contracts`, s.cookie, {

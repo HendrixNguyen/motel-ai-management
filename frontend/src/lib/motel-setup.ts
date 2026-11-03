@@ -72,6 +72,7 @@ export function buildSetupInput(
 
 export type StoredSetupDraft = {
   version: 1;
+  ownerManagerId?: string;
   mode: "full" | "quick";
   motel: Omit<MotelDraft, "bankAccount" | "bankEnabled">;
   template: TemplateSelection | null;
@@ -82,6 +83,7 @@ export type StoredSetupDraft = {
 export function serializeSetupDraft(draft: StoredSetupDraft): string {
   const safeDraft: StoredSetupDraft = {
     version: 1,
+    ...(draft.ownerManagerId ? { ownerManagerId: draft.ownerManagerId } : {}),
     mode: draft.mode,
     motel: {
       name: draft.motel.name,
@@ -95,6 +97,8 @@ export function serializeSetupDraft(draft: StoredSetupDraft): string {
       name: r.name,
       basePrice: r.basePrice,
       ...(r.floor !== undefined ? { floor: r.floor } : {}),
+      initialElectricReading: r.initialElectricReading ?? "0",
+      initialWaterReading: r.initialWaterReading ?? "0",
     })),
     pendingRequestId: draft.pendingRequestId,
   };
@@ -117,6 +121,7 @@ export function parseSetupDraft(raw: string): StoredSetupDraft | null {
 
     return {
       version: 1,
+      ...(typeof data.ownerManagerId === "string" ? { ownerManagerId: data.ownerManagerId } : {}),
       mode: data.mode,
       motel: {
         name: data.motel.name,
@@ -126,7 +131,11 @@ export function parseSetupDraft(raw: string): StoredSetupDraft | null {
         otherFees: data.motel.otherFees,
       },
       template: data.template ?? null,
-      rooms: data.rooms,
+      rooms: data.rooms.map((room: SetupRoomInput) => ({
+        ...room,
+        initialElectricReading: room.initialElectricReading ?? "0",
+        initialWaterReading: room.initialWaterReading ?? "0",
+      })),
       pendingRequestId: typeof data.pendingRequestId === "string" ? data.pendingRequestId : null,
     };
   } catch {

@@ -1,6 +1,6 @@
 import { and, asc, eq, ilike, or, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { resolveOwnedMotel, resolveRoomInMotel } from "@/middleware/tenancy";
+import { resolveAccessibleMotel, resolveRoomInMotel, type MotelActor } from "@/middleware/tenancy";
 import { listRecentInvoicesForRenter } from "@/modules/billing/billing.service";
 import { getActiveContractForRenter } from "@/modules/contract/contract.service";
 import { AppError } from "@/shared/errors";
@@ -26,30 +26,14 @@ export type RenterCccdMetadata = {
   checksum: string;
 };
 
-function cccdFields(side: RenterCccdSide) {
-  return side === "front"
-    ? {
-        objectKey: renters.idCardFrontObjectKey,
-        contentType: renters.idCardFrontContentType,
-        size: renters.idCardFrontSize,
-        checksum: renters.idCardFrontChecksum,
-      }
-    : {
-        objectKey: renters.idCardBackObjectKey,
-        contentType: renters.idCardBackContentType,
-        size: renters.idCardBackSize,
-        checksum: renters.idCardBackChecksum,
-      };
-}
-
 export async function setRenterCccdMetadata(
   renterId: string,
   motelId: string,
-  managerId: string,
+  actor: MotelActor,
   side: RenterCccdSide,
   metadata: RenterCccdMetadata,
 ) {
-  await resolveOwnedMotel(motelId, managerId);
+  await resolveAccessibleMotel(motelId, actor);
   const current = await db.query.renters.findFirst({
     where: and(eq(renters.id, renterId), eq(renters.motelId, motelId)),
   });
@@ -113,10 +97,10 @@ export async function getRenterForConsent(
 export async function getRenterCccdMetadata(
   renterId: string,
   motelId: string,
-  managerId: string,
+  actor: MotelActor,
   side: RenterCccdSide,
 ): Promise<RenterCccdMetadata | null> {
-  await resolveOwnedMotel(motelId, managerId);
+  await resolveAccessibleMotel(motelId, actor);
   const renter = await db.query.renters.findFirst({
     where: and(eq(renters.id, renterId), eq(renters.motelId, motelId)),
   });
@@ -344,9 +328,9 @@ function toResponse(row: RenterRow): RenterResponse {
 async function resolveOwnedRenter(
   renterId: string,
   motelId: string,
-  managerId: string,
+  actor: MotelActor,
 ): Promise<RenterRow> {
-  await resolveOwnedMotel(motelId, managerId);
+  await resolveAccessibleMotel(motelId, actor);
 
   const row = await db.query.renters.findFirst({
     where: and(eq(renters.id, renterId), eq(renters.motelId, motelId)),
@@ -359,10 +343,10 @@ async function resolveOwnedRenter(
 
 export async function listRenters(
   motelId: string,
-  managerId: string,
+  actor: MotelActor,
   filters: ListRentersFilters = {},
 ): Promise<RenterResponse[]> {
-  await resolveOwnedMotel(motelId, managerId);
+  await resolveAccessibleMotel(motelId, actor);
 
   const conditions = [eq(renters.motelId, motelId)];
   if (filters.roomId !== undefined) conditions.push(eq(renters.roomId, filters.roomId));
@@ -400,10 +384,10 @@ export async function listRenters(
  */
 export async function createRenterForMotel(
   motelId: string,
-  managerId: string,
+  actor: MotelActor,
   input: CreateRenterInput,
 ): Promise<RenterResponse> {
-  await resolveOwnedMotel(motelId, managerId);
+  await resolveAccessibleMotel(motelId, actor);
   if (input.roomId !== undefined && input.roomId !== null) {
     await resolveRoomInMotel(input.roomId, motelId);
   }
@@ -451,9 +435,9 @@ export async function createRenterForMotel(
 export async function getRenterById(
   renterId: string,
   motelId: string,
-  managerId: string,
+  actor: MotelActor,
 ): Promise<RenterDetailResponse> {
-  const row = await resolveOwnedRenter(renterId, motelId, managerId);
+  const row = await resolveOwnedRenter(renterId, motelId, actor);
 
   // Sequentially, not `Promise.all`. Two queries in flight make postgres.js open a second pooled
   // connection, and `resetDb()` recreates the `public` schema under a new OID — so that second
@@ -477,10 +461,10 @@ export async function getRenterById(
 export async function updateRenter(
   renterId: string,
   motelId: string,
-  managerId: string,
+  actor: MotelActor,
   input: UpdateRenterInput,
 ): Promise<RenterResponse> {
-  const owned = await resolveOwnedRenter(renterId, motelId, managerId);
+  const owned = await resolveOwnedRenter(renterId, motelId, actor);
 
   // Ownership first, then the room: a caller who may not read the renter learns nothing about
   // which rooms exist, in this motel or any other.
@@ -537,9 +521,9 @@ export async function updateRenter(
 export async function deleteRenter(
   renterId: string,
   motelId: string,
-  managerId: string,
+  actor: MotelActor,
 ): Promise<void> {
-  await resolveOwnedRenter(renterId, motelId, managerId);
+  await resolveOwnedRenter(renterId, motelId, actor);
 
   await db.transaction(async (tx) => {
     const [updated] = await tx

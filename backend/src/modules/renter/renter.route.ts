@@ -125,7 +125,7 @@ export const renterRoutes = new Elysia({ name: "renter-routes" })
       // The annotation is the guarantee that route validation and the service input agree; it
       // stops compiling the moment they drift apart.
       const filters: ListRentersFilters = query;
-      return listRenters(params.motelId, auth!.userId, filters);
+      return listRenters(params.motelId, auth!, filters);
     },
     {
       params: motelParams,
@@ -137,7 +137,7 @@ export const renterRoutes = new Elysia({ name: "renter-routes" })
     "/manager/motels/:motelId/renters",
     async ({ params, body, auth, set }) => {
       const input: CreateRenterInput = body;
-      const renter = await createRenterForMotel(params.motelId, auth!.userId, input);
+      const renter = await createRenterForMotel(params.motelId, auth!, input);
       set.status = 201;
       return renter;
     },
@@ -149,7 +149,7 @@ export const renterRoutes = new Elysia({ name: "renter-routes" })
   )
   .get(
     "/manager/motels/:motelId/renters/:renterId",
-    async ({ params, auth }) => getRenterById(params.renterId, params.motelId, auth!.userId),
+    async ({ params, auth }) => getRenterById(params.renterId, params.motelId, auth!),
     {
       params: renterParams,
       detail: { security: [{ managerAuth: [] }] },
@@ -159,7 +159,7 @@ export const renterRoutes = new Elysia({ name: "renter-routes" })
     "/manager/motels/:motelId/renters/:renterId",
     async ({ params, body, auth }) => {
       const input: UpdateRenterInput = body;
-      return updateRenter(params.renterId, params.motelId, auth!.userId, input);
+      return updateRenter(params.renterId, params.motelId, auth!, input);
     },
     {
       params: renterParams,
@@ -197,7 +197,7 @@ export const renterRoutes = new Elysia({ name: "renter-routes" })
         const { oldObjectKey } = await setRenterCccdMetadata(
           params.renterId,
           params.motelId,
-          auth!.userId,
+          auth!,
           side,
           { ...stored, contentType: stored.contentType as "image/jpeg" | "image/png" },
         );
@@ -215,12 +215,7 @@ export const renterRoutes = new Elysia({ name: "renter-routes" })
     "/manager/motels/:motelId/renters/:renterId/cccd/:side",
     async ({ params, auth }) => {
       const side = params.side as RenterCccdSide;
-      const metadata = await getRenterCccdMetadata(
-        params.renterId,
-        params.motelId,
-        auth!.userId,
-        side,
-      );
+      const metadata = await getRenterCccdMetadata(params.renterId, params.motelId, auth!, side);
       if (!metadata) throw AppError.notFound("Không tìm thấy ảnh CCCD");
       try {
         return {
@@ -238,7 +233,7 @@ export const renterRoutes = new Elysia({ name: "renter-routes" })
   .delete(
     "/manager/motels/:motelId/renters/:renterId",
     async ({ params, auth, set }) => {
-      await deleteRenter(params.renterId, params.motelId, auth!.userId);
+      await deleteRenter(params.renterId, params.motelId, auth!);
       set.status = 204;
       return "";
     },

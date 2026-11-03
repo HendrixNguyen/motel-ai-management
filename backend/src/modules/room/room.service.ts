@@ -1,6 +1,6 @@
 import { and, asc, eq, ilike } from "drizzle-orm";
-import { db, type DbExecutor, type DbTransaction } from "@/db";
-import { resolveOwnedMotel, resolveRoomInMotel } from "@/middleware/tenancy";
+import { db, type DbExecutor } from "@/db";
+import { resolveAccessibleMotel, resolveRoomInMotel, type MotelActor } from "@/middleware/tenancy";
 import { hasActiveContractForRoom } from "@/modules/contract/contract.service";
 import { countRentersInRoom } from "@/modules/renter/renter.service";
 import { AppError } from "@/shared/errors";
@@ -40,6 +40,8 @@ export interface RenterRoomProjection {
 export interface BillingRoomProjection {
   id: string;
   name: string;
+  initialElectricReading: string;
+  initialWaterReading: string;
 }
 
 export async function getRoomForRenter(
@@ -60,7 +62,12 @@ export async function listRoomsForBilling(
   reader: RoomReader = db,
 ): Promise<BillingRoomProjection[]> {
   return reader
-    .select({ id: rooms.id, name: rooms.name })
+    .select({
+      id: rooms.id,
+      name: rooms.name,
+      initialElectricReading: rooms.initialElectricReading,
+      initialWaterReading: rooms.initialWaterReading,
+    })
     .from(rooms)
     .where(eq(rooms.motelId, motelId))
     .orderBy(asc(rooms.name), asc(rooms.id));
@@ -122,6 +129,17 @@ function isForeignKeyViolation(error: unknown): boolean {
  * that out here is what lets `RoomResponse.createdAt` be a `string`: `numeric` handing back a
  * JS number for `basePrice` would fail this function's return type instead of slipping through.
  */
+function parseInitialMeterReading(value: string | undefined): string {
+  const reading = value ?? "0";
+  if (!/^\d+(?:\.\d{1,2})?$/.test(reading))
+    throw AppError.badRequest("Chỉ số công tơ không hợp lệ");
+  const [whole = "", fraction = ""] = reading.split(".");
+  if (BigInt(whole) * 100n + BigInt(fraction.padEnd(2, "0") || "0") > 999999999999n) {
+    throw AppError.badRequest("Chỉ số công tơ vượt giới hạn");
+  }
+  return reading;
+}
+
 function toResponse(row: RoomRow): RoomResponse {
   return { ...row, createdAt: row.createdAt.toISOString() };
 }
@@ -131,21 +149,21 @@ function toResponse(row: RoomRow): RoomResponse {
  * about the tenant, so looking the row up first and checking ownership afterwards would mean
  * answering questions about another manager's data before deciding the caller may not have it.
  */
-async function resolveOwnedRoom(
+async function resolveAccessibleRoom(
   roomId: string,
   motelId: string,
-  managerId: string,
+  actor: MotelActor,
 ): Promise<RoomRow> {
-  await resolveOwnedMotel(motelId, managerId);
+  await resolveAccessibleMotel(motelId, actor);
   return resolveRoomInMotel(roomId, motelId);
 }
 
 export async function listRooms(
   motelId: string,
-  managerId: string,
+  actor: MotelActor,
   filters: ListRoomsFilters = {},
 ): Promise<RoomResponse[]> {
-  await resolveOwnedMotel(motelId, managerId);
+  await resolveAccessibleMotel(motelId, actor);
 
   const conditions = [eq(rooms.motelId, motelId)];
   if (filters.floor !== undefined) conditions.push(eq(rooms.floor, filters.floor));
@@ -170,11 +188,16 @@ export async function listRooms(
 export async function createSetupRooms(
   tx: DbExecutor,
   motelId: string,
-  managerId: string,
-  inputs: Array<Pick<CreateRoomInput, "name" | "basePrice" | "floor">>,
+  actor: MotelActor,
+  inputs: Array<
+    Pick<
+      CreateRoomInput,
+      "name" | "basePrice" | "floor" | "initialElectricReading" | "initialWaterReading"
+    >
+  >,
 ): Promise<RoomResponse[]> {
   if (inputs.length === 0) return [];
-  await resolveOwnedMotel(motelId, managerId, tx);
+  await resolveAccessibleMotel(motelId, actor, tx);
 
   const seen = new Set<string>();
   for (const input of inputs) {
@@ -193,6 +216,8 @@ export async function createSetupRooms(
           name: input.name,
           basePrice: parseAmount(input.basePrice),
           floor: input.floor ?? null,
+          initialElectricReading: parseInitialMeterReading(input.initialElectricReading),
+          initialWaterReading: parseInitialMeterReading(input.initialWaterReading),
           status: "available" as const,
         })),
       )
@@ -208,10 +233,10 @@ export async function createSetupRooms(
 
 export async function createRoom(
   motelId: string,
-  managerId: string,
+  actor: MotelActor,
   input: CreateRoomInput,
 ): Promise<RoomResponse> {
-  await resolveOwnedMotel(motelId, managerId);
+  await resolveAccessibleMotel(motelId, actor);
 
   try {
     const [row] = await db
@@ -221,6 +246,8 @@ export async function createRoom(
         name: input.name,
         basePrice: parseAmount(input.basePrice),
         floor: input.floor ?? null,
+        initialElectricReading: parseInitialMeterReading(input.initialElectricReading),
+        initialWaterReading: parseInitialMeterReading(input.initialWaterReading),
         status: input.status ?? "available",
       })
       .returning();
@@ -244,9 +271,9 @@ export async function getRoomName(roomId: string): Promise<string | null> {
 export async function getRoom(
   roomId: string,
   motelId: string,
-  managerId: string,
+  actor: MotelActor,
 ): Promise<RoomResponse> {
-  return toResponse(await resolveOwnedRoom(roomId, motelId, managerId));
+  return toResponse(await resolveAccessibleRoom(roomId, motelId, actor));
 }
 
 /**
@@ -256,10 +283,10 @@ export async function getRoom(
 export async function updateRoom(
   roomId: string,
   motelId: string,
-  managerId: string,
+  actor: MotelActor,
   input: UpdateRoomInput,
 ): Promise<RoomResponse> {
-  const owned = await resolveOwnedRoom(roomId, motelId, managerId);
+  const owned = await resolveAccessibleRoom(roomId, motelId, actor);
 
   const patch: RoomPatch = {};
   if (input.name !== undefined) patch.name = input.name;
@@ -300,9 +327,9 @@ export async function updateRoom(
 export async function deleteRoom(
   roomId: string,
   motelId: string,
-  managerId: string,
+  actor: MotelActor,
 ): Promise<void> {
-  await resolveOwnedRoom(roomId, motelId, managerId);
+  await resolveAccessibleRoom(roomId, motelId, actor);
 
   if (await hasActiveContractForRoom(roomId)) {
     throw AppError.conflict(

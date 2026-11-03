@@ -56,6 +56,8 @@ const createBody = t.Object({
   name: t.String({ minLength: 1 }),
   basePrice: t.String(),
   floor: t.Optional(t.Nullable(floor)),
+  initialElectricReading: t.Optional(t.String()),
+  initialWaterReading: t.Optional(t.String()),
   status: t.Optional(statusSchema),
 });
 
@@ -75,7 +77,7 @@ export const roomRoutes = new Elysia({ name: "room-routes" })
       // The annotation is the guarantee that route validation and the service input agree; it
       // stops compiling the moment they drift apart.
       const filters: ListRoomsFilters = query;
-      return listRooms(params.motelId, auth!.userId, filters);
+      return listRooms(params.motelId, auth!, filters);
     },
     {
       params: motelParams,
@@ -87,7 +89,7 @@ export const roomRoutes = new Elysia({ name: "room-routes" })
     "/manager/motels/:motelId/rooms",
     async ({ params, body, auth, set }) => {
       const input: CreateRoomInput = body;
-      const room = await createRoom(params.motelId, auth!.userId, input);
+      const room = await createRoom(params.motelId, auth!, input);
       set.status = 201;
       return room;
     },
@@ -99,7 +101,7 @@ export const roomRoutes = new Elysia({ name: "room-routes" })
   )
   .get(
     "/manager/motels/:motelId/rooms/:roomId",
-    async ({ params, auth }) => getRoom(params.roomId, params.motelId, auth!.userId),
+    async ({ params, auth }) => getRoom(params.roomId, params.motelId, auth!),
     {
       params: roomParams,
       detail: { security: [{ managerAuth: [] }] },
@@ -109,7 +111,7 @@ export const roomRoutes = new Elysia({ name: "room-routes" })
     "/manager/motels/:motelId/rooms/:roomId",
     async ({ params, body, auth }) => {
       const input: UpdateRoomInput = body;
-      return updateRoom(params.roomId, params.motelId, auth!.userId, input);
+      return updateRoom(params.roomId, params.motelId, auth!, input);
     },
     {
       params: roomParams,
@@ -120,7 +122,7 @@ export const roomRoutes = new Elysia({ name: "room-routes" })
   .delete(
     "/manager/motels/:motelId/rooms/:roomId",
     async ({ params, auth, set }) => {
-      await deleteRoom(params.roomId, params.motelId, auth!.userId);
+      await deleteRoom(params.roomId, params.motelId, auth!);
       set.status = 204;
       return "";
     },

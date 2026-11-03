@@ -16,7 +16,7 @@ Provide `SUPERADMIN_PASSWORD` through protected Dokploy runtime secret injection
 
 ## Roles and manager setup
 
-Superadmin sessions administer Manager accounts and read the shared contract catalog only; tenant business endpoints reject Superadmin role. Manager sessions remain tenant-scoped with full access to their own motel business features. Superadmin manager creation and password reset accept direct passwords and store only Argon2id hashes. Reset/disable revokes sessions by incrementing `sessionVersion`; disabled manager accounts do not alter renter portal access or tenant data. Public `/api/auth/register` remains available for normal manager onboarding and can only create role `manager`.
+Managers remain tenant-scoped to motels they own. Superadmins use the shared Manager operational shell and can access business records for every motel, including motels owned by disabled managers. A Superadmin-created motel requires selecting an enabled Manager owner; ordinary Managers cannot select or change owners. Superadmins also retain manager-account administration and read access to the shared contract catalog. Manager creation and password reset accept direct passwords and store only Argon2id hashes. Reset/disable revokes sessions by incrementing `sessionVersion`; disabling a Manager does not alter renter portal access or tenant data. Public `/api/auth/register` remains available for normal Manager onboarding and can only create role `manager`.
 
 ## Future Prod ship checklist — separate approval required
 

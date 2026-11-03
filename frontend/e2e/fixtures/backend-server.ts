@@ -595,8 +595,14 @@ export function createFixtureBackend(
         }
       }
       if (!managerSession) return unauthorized();
-      if (method === "GET" && path === "/api/auth/me")
-        return managerSession === "me-expired" ? unauthorized() : json(MANAGER_ME);
+      if (method === "GET" && path === "/api/auth/me") {
+        if (managerSession === "me-expired") return unauthorized();
+        return json(
+          managerSession === "superadmin"
+            ? { ...MANAGER_ME, id: "superadmin", role: "superadmin" }
+            : MANAGER_ME,
+        );
+      }
       if (method === "GET" && path.match(/^\/api\/manager\/motels\/[^/]+\/contracts$/))
         return json(
           managerSession.startsWith("contract-")
@@ -1046,6 +1052,8 @@ export function createFixtureBackend(
               name: r.name,
               basePrice: r.basePrice,
               floor: r.floor ?? null,
+              initialElectricReading: r.initialElectricReading ?? "0",
+              initialWaterReading: r.initialWaterReading ?? "0",
               status: "available",
               createdAt: new Date().toISOString(),
             });
@@ -1145,6 +1153,8 @@ export function createFixtureBackend(
               name: body.name,
               basePrice: body.basePrice,
               floor: body.floor ?? null,
+              initialElectricReading: body.initialElectricReading ?? "0",
+              initialWaterReading: body.initialWaterReading ?? "0",
               status: body.status ?? "available",
               createdAt: new Date().toISOString(),
             };

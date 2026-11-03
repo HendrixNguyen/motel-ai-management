@@ -3,6 +3,7 @@ import { app } from "@/app";
 import { db } from "@/db";
 import { resetDb } from "@/db/test-db";
 import { registerManager } from "@/modules/auth/auth.service";
+import { managers } from "@/modules/auth/auth.schema";
 import { resetRateLimits } from "@/shared/rate-limit";
 import { billingPeriods, invoices } from "@/modules/billing/billing.schema";
 import { contracts } from "@/modules/contract/contract.schema";
@@ -109,6 +110,20 @@ async function api(
       ...(options.body === undefined ? {} : { body: JSON.stringify(options.body) }),
     }),
   );
+}
+
+async function loginSuperadmin(): Promise<string> {
+  const email = "root@example.com";
+  const password = "root password 123";
+  await db.insert(managers).values({
+    email,
+    name: "Root",
+    role: "superadmin",
+    passwordHash: await Bun.password.hash(password, { algorithm: "argon2id" }),
+  });
+  const res = await api("POST", "/auth/login", { body: { email, password } });
+  expect(res.status).toBe(200);
+  return res.headers.get("set-cookie") ?? "";
 }
 
 async function createMotel(cookie: string, name = "Nhà trọ"): Promise<MotelPayload> {
@@ -234,6 +249,40 @@ describe("GET /api/manager/motels/:motelId/renters", () => {
     expect(names(body)).toEqual(["Nguyễn Văn A", "Nguyễn Văn B"]);
     expect(body.every((renter) => renter.motelId === first.id)).toBe(true);
     expect(body.map((renter) => renter.id).sort()).toEqual([inFirst.id, alsoInFirst.id].sort());
+  });
+
+  test("superadmin can list renters from motels owned by different managers", async () => {
+    const a = await login("a@example.com");
+    const b = await login("b@example.com");
+    const first = await createMotel(a.cookie, "Nhà trọ một");
+    const second = await createMotel(b.cookie, "Nhà trọ hai");
+    await createRenter(a.cookie, first.id, { name: "Nguyễn A", phone: "0901234567" });
+    await createRenter(b.cookie, second.id, { name: "Nguyễn B", phone: "0901234568" });
+    const rootCookie = await loginSuperadmin();
+
+    for (const [motel, expected] of [
+      [first, "Nguyễn A"],
+      [second, "Nguyễn B"],
+    ] as const) {
+      const res = await api("GET", `/manager/motels/${motel.id}/renters`, { cookie: rootCookie });
+      expect(res.status).toBe(200);
+      expect(((await res.json()) as RenterPayload[]).map((renter) => renter.name)).toEqual([
+        expected,
+      ]);
+    }
+  });
+
+  test("superadmin still gets 404 when renter belongs to different motel", async () => {
+    const a = await login("a@example.com");
+    const first = await createMotel(a.cookie, "Nhà trọ một");
+    const second = await createMotel(a.cookie, "Nhà trọ hai");
+    const renter = await createRenter(a.cookie, second.id, { phone: "0901234568" });
+    const rootCookie = await loginSuperadmin();
+
+    const res = await api("GET", `/manager/motels/${first.id}/renters/${renter.id}`, {
+      cookie: rootCookie,
+    });
+    expect(res.status).toBe(404);
   });
 
   test("another manager's motel is 404, never 403", async () => {

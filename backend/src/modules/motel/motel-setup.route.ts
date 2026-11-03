@@ -16,6 +16,7 @@ const bankAccount = t.Object({
 });
 
 const createMotelInputSchema = t.Object({
+  ownerManagerId: t.Optional(t.String({ format: "uuid" })),
   name: t.String({ minLength: 1 }),
   address: t.Optional(t.Nullable(t.String())),
   electricityPrice: t.String(),
@@ -43,6 +44,8 @@ const setupRoomInputSchema = t.Object({
   name: t.String({ minLength: 1 }),
   basePrice: t.String(),
   floor: t.Optional(t.Nullable(t.Integer())),
+  initialElectricReading: t.Optional(t.String()),
+  initialWaterReading: t.Optional(t.String()),
 });
 
 const setupMotelInputSchema = t.Union([
@@ -68,7 +71,7 @@ export const motelSetupRoutes = new Elysia({ name: "motel-setup-routes" })
     "/manager/motels/setup",
     async ({ body, auth, set }) => {
       const input = body as SetupMotelInput;
-      const { result, replayed } = await setupMotel(auth!.userId, input);
+      const { result, replayed } = await setupMotel(auth!, input);
       set.status = replayed ? 200 : 201;
       return result;
     },

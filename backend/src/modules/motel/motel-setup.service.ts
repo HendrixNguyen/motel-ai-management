@@ -7,11 +7,14 @@ import { copySetupTemplate } from "@/modules/contract/contract.service";
 import { createSetupRooms } from "@/modules/room/room.service";
 import { motelSetupRequests } from "./motel-setup.schema";
 import { motels } from "./motel.schema";
-import { createMotelInTransaction, lockMotelSetup } from "./motel.service";
+import { createMotelInTransaction, lockMotelSetup, resolveOwnerManagerId } from "./motel.service";
+import { assertEnabledManager } from "@/modules/auth/admin-account.service";
+import type { MotelActor } from "@/middleware/tenancy";
 import type { SetupMotelInput, SetupMotelResult } from "./motel-setup.types";
 
-function computeSetupFingerprint(input: SetupMotelInput): string {
+function computeSetupFingerprint(input: SetupMotelInput, ownerManagerId?: string): string {
   const normalized = {
+    ...(ownerManagerId ? { ownerManagerId } : {}),
     mode: input.mode,
     motel: {
       name: input.motel.name.trim(),
@@ -58,7 +61,7 @@ function computeSetupFingerprint(input: SetupMotelInput): string {
 }
 
 export async function setupMotel(
-  managerId: string,
+  actor: MotelActor,
   input: SetupMotelInput,
 ): Promise<{ result: SetupMotelResult; replayed: boolean }> {
   if (input.mode === "full") {
@@ -67,17 +70,21 @@ export async function setupMotel(
     }
   }
 
-  const fingerprint = computeSetupFingerprint(input);
+  const ownerManagerId = resolveOwnerManagerId(actor, input.motel.ownerManagerId);
+  const fingerprint = computeSetupFingerprint(
+    input,
+    actor.role === "superadmin" ? ownerManagerId : undefined,
+  );
 
   return db.transaction(async (tx: DbTransaction) => {
-    await lockMotelSetup(tx, managerId);
+    await lockMotelSetup(tx, actor.userId);
 
     const [existingReq] = await tx
       .select()
       .from(motelSetupRequests)
       .where(
         and(
-          eq(motelSetupRequests.managerId, managerId),
+          eq(motelSetupRequests.managerId, actor.userId),
           eq(motelSetupRequests.requestId, input.requestId),
         ),
       )
@@ -106,7 +113,9 @@ export async function setupMotel(
       };
     }
 
-    const motelCount = await tx.$count(motels, eq(motels.managerId, managerId));
+    if (ownerManagerId !== actor.userId) await lockMotelSetup(tx, ownerManagerId);
+    await assertEnabledManager(tx, ownerManagerId);
+    const motelCount = await tx.$count(motels, eq(motels.managerId, ownerManagerId));
     if (motelCount === 0 && input.mode === "quick") {
       throw new AppError(
         "MOTEL_SETUP_REQUIRED",
@@ -114,13 +123,13 @@ export async function setupMotel(
       );
     }
 
-    const createdMotel = await createMotelInTransaction(tx, managerId, input.motel);
+    const createdMotel = await createMotelInTransaction(tx, ownerManagerId, input.motel);
 
     let templateId: string | null = null;
     if (input.template) {
       const createdTemplate = await copySetupTemplate(
         tx,
-        managerId,
+        actor,
         createdMotel.id,
         input.template,
         true,
@@ -133,18 +142,20 @@ export async function setupMotel(
       const createdRooms = await createSetupRooms(
         tx,
         createdMotel.id,
-        managerId,
+        actor,
         input.rooms.map((r) => ({
           name: r.name.trim(),
           basePrice: r.basePrice,
           floor: r.floor ?? null,
+          initialElectricReading: r.initialElectricReading,
+          initialWaterReading: r.initialWaterReading,
         })),
       );
       roomCount = createdRooms.length;
     }
 
     await tx.insert(motelSetupRequests).values({
-      managerId,
+      managerId: actor.userId,
       requestId: input.requestId,
       fingerprint,
       motelId: createdMotel.id,

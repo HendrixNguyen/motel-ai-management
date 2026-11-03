@@ -1,5 +1,11 @@
 import { expect, test, type BrowserContext } from "@playwright/test";
-import { BILLING_PERIOD_ID, MANAGER_ME, MOTEL, MOTEL_WITHOUT_EXTRAS, ROOM_ID } from "../test/lib/api/fixtures";
+import {
+  BILLING_PERIOD_ID,
+  MANAGER_ME,
+  MOTEL,
+  MOTEL_WITHOUT_EXTRAS,
+  ROOM_ID,
+} from "../test/lib/api/fixtures";
 
 async function signIn(context: BrowserContext, session = "valid") {
   await context.addCookies([
@@ -164,7 +170,7 @@ test("account menu closes on Escape and restores focus to its button", async ({
   await expect(trigger).toBeFocused();
 });
 
-test("mobile navigation contains six reachable destinations", async ({
+test("mobile More menu exposes Contracts and hides Account Managers from Managers", async ({
   page,
   context,
 }) => {
@@ -172,8 +178,10 @@ test("mobile navigation contains six reachable destinations", async ({
   await page.goto(`/?motel=${MOTEL.id}`);
   await expect(page.getByRole("heading", { name: "Tổng quan", exact: true })).toBeVisible();
   const nav = page.getByRole("navigation", { name: "Điều hướng chính trên điện thoại" });
-  await expect(nav.getByRole("link")).toHaveCount(6);
-  const contracts = nav.getByRole("link", { name: "Hợp đồng", exact: true });
+  await expect(nav.getByRole("link")).toHaveCount(5);
+  await nav.getByRole("button", { name: "Thêm điều hướng" }).click();
+  await expect(page.getByRole("link", { name: "Quản lý tài khoản", exact: true })).toHaveCount(0);
+  const contracts = page.getByRole("link", { name: "Hợp đồng", exact: true });
   await expect(contracts).toHaveAttribute("href", `/contracts?motel=${MOTEL.id}`);
   await expect(contracts).not.toHaveAttribute("href", `/contracts?motel=${MOTEL.id}&status=active`);
   await contracts.focus();
@@ -190,7 +198,10 @@ test("mobile navigation contains six reachable destinations", async ({
     ).toBe(true);
     if (width < 1024) {
       const mobileNav = page.getByRole("navigation", { name: "Điều hướng chính trên điện thoại" });
-      const controls = await mobileNav.getByRole("link").all();
+      const controls = [
+        ...(await mobileNav.getByRole("link").all()),
+        ...(await mobileNav.getByRole("button").all()),
+      ];
       const boxes = await Promise.all(controls.map((control) => control.boundingBox()));
       expect(
         boxes.every((box) => box && box.width >= 44 && box.height >= 44),
@@ -199,8 +210,8 @@ test("mobile navigation contains six reachable destinations", async ({
     }
     if (width < 1024) {
       const mobileNav = page.getByRole("navigation", { name: "Điều hướng chính trên điện thoại" });
-      await expect(mobileNav.getByRole("link")).toHaveCount(6);
-      await expect(page.getByRole("button", { name: "Thêm, các mục khác" })).toHaveCount(0);
+      await expect(mobileNav.getByRole("link")).toHaveCount(5);
+      await expect(mobileNav.getByRole("button", { name: "Thêm điều hướng" })).toBeVisible();
       const navBox = await mobileNav.boundingBox();
       expect(navBox).not.toBeNull();
       expect(navBox!.x).toBeGreaterThanOrEqual(0);
@@ -222,7 +233,6 @@ test("mobile navigation contains six reachable destinations", async ({
     ["Phòng trọ", "/rooms"],
     ["Khách thuê", "/renters"],
     ["Tính tiền & Hóa đơn", "/billing"],
-    ["Hợp đồng", "/contracts"],
   ]) {
     const link = nav.getByRole("link", { name, exact: true });
     await link.focus();
@@ -234,6 +244,21 @@ test("mobile navigation contains six reachable destinations", async ({
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
     true,
   );
+});
+
+test("superadmin sees Account Managers in mobile More and desktop sidebar", async ({
+  page,
+  context,
+}) => {
+  await signIn(context, "superadmin");
+  await page.goto(`/?motel=${MOTEL.id}`);
+  const mobileNav = page.getByRole("navigation", { name: "Điều hướng chính trên điện thoại" });
+  await mobileNav.getByRole("button", { name: "Thêm điều hướng" }).click();
+  await expect(page.getByRole("link", { name: "Quản lý tài khoản", exact: true })).toBeVisible();
+
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const sidebar = page.getByRole("complementary", { name: "Thanh điều hướng" });
+  await expect(sidebar.getByRole("link", { name: "Quản lý tài khoản", exact: true })).toBeVisible();
 });
 
 test("capture queue message opens on demand in shared modal and closes with Escape", async ({
@@ -248,8 +273,10 @@ test("capture queue message opens on demand in shared modal and closes with Esca
         const request = indexedDB.open("motel-capture", 2);
         request.onupgradeneeded = () => {
           const db = request.result;
-          if (!db.objectStoreNames.contains("readings")) db.createObjectStore("readings", { keyPath: "id" });
-          if (!db.objectStoreNames.contains("photos")) db.createObjectStore("photos", { keyPath: "id" });
+          if (!db.objectStoreNames.contains("readings"))
+            db.createObjectStore("readings", { keyPath: "id" });
+          if (!db.objectStoreNames.contains("photos"))
+            db.createObjectStore("photos", { keyPath: "id" });
         };
         request.onsuccess = () => {
           const tx = request.result.transaction("readings", "readwrite");
@@ -269,6 +296,19 @@ test("capture queue message opens on demand in shared modal and closes with Esca
   await page.goto(`/capture/${BILLING_PERIOD_ID}/room/${ROOM_ID}?motel=${MOTEL.id}`);
   const notification = page.getByRole("button", { name: /Thông báo dữ liệu ngoại tuyến/ });
   await expect(notification).toBeVisible();
+  const header = page.getByRole("banner");
+  for (const width of [375, 1440]) {
+    await page.setViewportSize({ width, height: 800 });
+    const headerBox = await header.boundingBox();
+    const alertBox = await notification.boundingBox();
+    expect(headerBox).not.toBeNull();
+    expect(alertBox).not.toBeNull();
+    expect(alertBox!.x).toBeGreaterThanOrEqual(headerBox!.x);
+    expect(alertBox!.x + alertBox!.width).toBeLessThanOrEqual(headerBox!.x + headerBox!.width);
+    expect(await notification.evaluate((node) => getComputedStyle(node).position)).not.toBe(
+      "fixed",
+    );
+  }
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await notification.click();
   await expect(page.getByRole("status", { name: "Thông báo dữ liệu ngoại tuyến" })).toBeVisible();
@@ -300,21 +340,32 @@ test("desktop sidebar is sticky, 240px wide, and main content clears it", async 
     })),
   ).toEqual({ width: 240, position: "sticky" });
   await expect(sidebar.getByRole("link")).toHaveCount(6);
-  await expect(sidebar.getByRole("img", { name: "Nhà Số Gọn" })).toHaveAttribute("src", /logo-mark\.svg/);
+  await expect(sidebar.getByRole("img", { name: "Nhà Số Gọn" })).toHaveAttribute(
+    "src",
+    /logo-mark\.svg/,
+  );
   await expect(sidebar.getByText("Nhà Số Gọn", { exact: true })).toBeVisible();
   const sidebarRight = await sidebar.evaluate((element) => element.getBoundingClientRect().right);
   const topbar = page.getByRole("banner");
   const switcher = topbar.getByRole("combobox", { name: "Nhà trọ", exact: true });
   await expect(switcher).toHaveCSS("flex-direction", "row");
-  expect(await switcher.evaluate((el) => el.getBoundingClientRect().height)).toBeLessThanOrEqual(64);
-  expect(await switcher.evaluate((el) => el.getBoundingClientRect().width)).toBeGreaterThanOrEqual(180);
+  expect(await switcher.evaluate((el) => el.getBoundingClientRect().height)).toBeLessThanOrEqual(
+    64,
+  );
+  expect(await switcher.evaluate((el) => el.getBoundingClientRect().width)).toBeGreaterThanOrEqual(
+    180,
+  );
   const title = topbar.getByText("Theo dõi nhà trọ, hóa đơn và khách thuê");
   await expect(title).toBeVisible();
   for (const width of [1280, 1440, 1920]) {
     await page.setViewportSize({ width, height: 900 });
     await expect(switcher).toHaveCSS("flex-direction", "row");
-    expect(await switcher.evaluate((el) => el.getBoundingClientRect().height)).toBeLessThanOrEqual(64);
-    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    expect(await switcher.evaluate((el) => el.getBoundingClientRect().height)).toBeLessThanOrEqual(
+      64,
+    );
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+    ).toBe(true);
   }
   await page.setViewportSize({ width: 1280, height: 800 });
   const main = page.getByRole("main");

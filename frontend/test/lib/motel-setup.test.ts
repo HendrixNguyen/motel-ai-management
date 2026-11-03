@@ -30,8 +30,20 @@ const mockTemplate: TemplateSelection = {
 };
 
 const mockRooms: SetupRoomInput[] = [
-  { name: "P.101", basePrice: "2500000", floor: 1 },
-  { name: "P.102", basePrice: "2600000", floor: 1 },
+  {
+    name: "P.101",
+    basePrice: "2500000",
+    floor: 1,
+    initialElectricReading: "123.5",
+    initialWaterReading: "42",
+  },
+  {
+    name: "P.102",
+    basePrice: "2600000",
+    floor: 1,
+    initialElectricReading: "0",
+    initialWaterReading: "0",
+  },
 ];
 
 describe("motel-setup draft and copy state", () => {
@@ -170,6 +182,13 @@ describe("motel-setup draft and copy state", () => {
     const parsed = parseSetupDraft(serialized);
     expect(parsed).toEqual(draft);
     expect(parsed?.pendingRequestId).toBe("req-abc-123");
+    const oldDraft = parseSetupDraft(
+      JSON.stringify({ ...draft, rooms: [{ name: "P.101", basePrice: "2500000" }] }),
+    );
+    expect(oldDraft?.rooms[0]).toMatchObject({
+      initialElectricReading: "0",
+      initialWaterReading: "0",
+    });
 
     expect(parseSetupDraft("not json")).toBeNull();
     expect(parseSetupDraft(JSON.stringify({ version: 2 }))).toBeNull();

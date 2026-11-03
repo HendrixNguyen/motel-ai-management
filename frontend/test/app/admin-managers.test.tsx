@@ -3,12 +3,7 @@ import { act } from "react";
 import { cleanup, configure, fireEvent, render, waitFor } from "@testing-library/react";
 import { JSDOM } from "jsdom";
 import "@testing-library/jest-dom/vitest";
-const mocks = vi.hoisted(() => ({ replace: vi.fn(), refresh: vi.fn() }));
-vi.mock("next/navigation", () => ({
-  useRouter: () => ({ replace: mocks.replace, refresh: mocks.refresh }),
-}));
-
-import Page from "../../src/app/(auth)/admin/managers/page";
+import Page from "../../src/app/(manager)/admin/managers/client";
 
 const dom = new JSDOM("<!doctype html><html><body></body></html>", { url: "http://localhost" });
 Object.defineProperty(globalThis, "window", { configurable: true, value: dom.window });
@@ -127,25 +122,5 @@ describe("admin manager account actions", () => {
       password: "another-secure-password-123",
     });
     expect(new Headers((options as RequestInit).headers).get("x-csrf-token")).toBe("A".repeat(43));
-  });
-
-  it("logs out and redirects to login when logout button is clicked", async () => {
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValueOnce(
-        new Response(JSON.stringify([account]), { headers: { "x-csrf-token": "A".repeat(43) } }),
-      )
-      .mockResolvedValueOnce(new Response(null, { status: 204 }));
-    vi.stubGlobal("fetch", fetchMock);
-    const view = render(<Page />);
-    await act(async () => {
-      await new Promise((resolve) => setTimeout(resolve, 0));
-    });
-    await waitFor(() => expect(view.getAllByText("owner@example.vn").length).toBeGreaterThan(0));
-    fireEvent.click(view.getByRole("button", { name: "Đăng xuất" }));
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
-    expect(fetchMock.mock.calls[1]![0]).toBe("/api/auth/logout");
-    expect(mocks.replace).toHaveBeenCalledWith("/login");
-    expect(mocks.refresh).toHaveBeenCalled();
   });
 });

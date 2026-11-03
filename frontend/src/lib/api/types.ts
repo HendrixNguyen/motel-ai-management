@@ -97,6 +97,7 @@ export interface BankAccountInput {
 
 /** `motel.types.ts:30-37` — the `POST /api/manager/motels` body. */
 export interface CreateMotelInput {
+  ownerManagerId?: string;
   name: string;
   address?: string | null;
   electricityPrice: VndString;
@@ -132,6 +133,7 @@ export interface UpdateMotelInput {
 export interface MotelResponse {
   id: string;
   managerId: string;
+  managerName?: string;
   name: string;
   address: string | null;
   /** VND per kWh. */
@@ -155,6 +157,8 @@ export interface CreateRoomInput {
   basePrice: VndString;
   /** Nullable: a ground-floor room may have no floor recorded. */
   floor?: number | null;
+  initialElectricReading?: string;
+  initialWaterReading?: string;
   status?: RoomStatus;
 }
 
@@ -189,8 +193,10 @@ export interface RoomResponse {
   /** VND, whole units, per month. */
   basePrice: VndString;
   floor: number | null;
+  initialElectricReading: string;
+  initialWaterReading: string;
   status: RoomStatus;
-  /** ISO-8601 UTC string on the wire, from `toISOString()` (`room.service.ts:89`). */
+  /** ISO-8601 UTC string on the wire, from `toISOString()` (`room.service.ts:125`). */
   createdAt: string;
 }
 
@@ -621,6 +627,7 @@ export interface ManagerMeResponse {
 export interface LoginInput {
   email: string;
   password: string;
+  rememberMe?: boolean;
 }
 
 /**
@@ -660,6 +667,8 @@ export interface SetupRoomInput {
   name: string;
   basePrice: VndString;
   floor?: number | null;
+  initialElectricReading?: string;
+  initialWaterReading?: string;
 }
 
 export type SetupMotelInput =

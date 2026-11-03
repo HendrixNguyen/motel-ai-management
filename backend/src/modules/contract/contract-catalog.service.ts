@@ -2,7 +2,7 @@ import { and, asc, desc, eq } from "drizzle-orm";
 import { createHash } from "node:crypto";
 import { db, type DbExecutor, type DbTransaction } from "@/db";
 import { seedContractTemplateCatalog } from "./contract-catalog.seed";
-import { resolveOwnedMotel } from "@/middleware/tenancy";
+import { resolveAccessibleMotel, type MotelActor } from "@/middleware/tenancy";
 import { AppError } from "@/shared/errors";
 import { contractTemplateCatalog } from "./contract-catalog.schema";
 import { contractTemplates, type ContractTemplateClause } from "./contract.schema";
@@ -144,10 +144,10 @@ export async function getActiveContractTemplateCatalog(
 
 export async function copyContractTemplateCatalogToMotel(
   motelId: string,
-  managerId: string,
+  actor: MotelActor,
   input: { catalogKey: string; catalogVersion: number; name?: string; isDefault?: boolean },
 ) {
-  await resolveOwnedMotel(motelId, managerId);
+  await resolveAccessibleMotel(motelId, actor);
   if (input.name !== undefined && (!input.name.trim() || input.name.trim().length > 160))
     throw AppError.badRequest("Tên mẫu hợp đồng không hợp lệ");
   return db.transaction(async (tx) => {

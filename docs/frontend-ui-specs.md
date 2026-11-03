@@ -13,7 +13,7 @@
 | Renter portal     | Mobile-first, `375px–430px`, centred, max `480px` on desktop | Single column, sticky header                                                 |
 | Meter capture PWA | Mobile-only, `360px–430px`, installed to home screen         | Full-screen, one-handed, no chrome                                           |
 
-Superadmin is separate from manager business navigation and sees account administration and the read-only shared contract catalog only. Login redirects Superadmin to `/admin/managers` and Manager to `/`. Admin screen creates normal managers with email, name, password and optional phone; it can directly reset password and disable/re-enable accounts. Password fields are masked and never echoed. Superadmin UI does not show motel, renter, invoice, or ticket data. Manager contract-template management lists system catalog samples and copies a selected template into the active motel before editing; system samples are never edited directly.
+Superadmin and Manager use the same operational shell and motel workflows. Managers see only motels they own; Superadmins see and operate all motels, with owner names shown in motel choices and cards. Login still sends Superadmin to `/admin/managers` and Manager to `/`. The shared-shell **Account Managers** destination appears only for Superadmin; it creates normal managers with email, name, password and optional phone, and supports password reset and disable/re-enable. Passwords stay masked and never echoed. Superadmin-created motels require selecting an enabled Manager owner. Manager contract-template management lists system catalog samples and copies a selected template into an accessible motel before editing; system samples are never edited directly.
 
 Locale `vi-VN`. Currency VND, formatted `3.500.000 ₫` (dot thousands separator, no
 decimals). Dates `DD/MM/YYYY`. Support narrow viewports from `360px`; never require horizontal
@@ -25,7 +25,7 @@ page scrolling. Tables must reflow into readable rows or focused detail editors 
 
 Manager contract screen shows draft, active, expired, and terminated badges. Create form requires renter, room, start date, and end date; rent defaults from room base price and clause content is shown as a snapshot. Drafts allow edits until renter consent; active and terminated contracts are read-only. Send action reports notification failure without showing a sent timestamp. Terminate action is destructive and requires confirmation. Renter signing uses authenticated session plus explicit read-and-agree and final-sign confirmations; no OTP UI or delivery. Terms changes reset both confirmations. A signed contract displays server-recorded consent and accepted version. This MVP records session consent and does not claim independently verified identity or certified digital signature.
 
-CCCD upload and private preview are manager-only, on renter detail; renters never upload or view CCCD. Manager uploads front/back as separate JPEG/PNG images, max 5,000,000 bytes each. Private R2 objects are read through manager-authorized 300-second signed URLs. Renter upload control is limited to one post-transfer payment-proof image, JPEG/PNG up to 5,000,000 bytes; rejected proof can be replaced. Both upload controls show a button and desktop drop zone; file picker remains available on mobile and for keyboard users.
+CCCD upload and private preview are available to the owning Manager and Superadmin on renter detail; renters never upload or view CCCD. Both operational roles upload front/back as separate JPEG/PNG images, max 5,000,000 bytes each. Private R2 objects are read through role-authorized 300-second signed URLs. Renter upload control is limited to one post-transfer payment-proof image, JPEG/PNG up to 5,000,000 bytes; rejected proof can be replaced. Both upload controls show a button and desktop drop zone; file picker remains available on mobile and for keyboard users.
 
 ## 1. Design Tokens
 
@@ -126,16 +126,16 @@ Draft periods allow meter edits and invoice generation. Sent periods are read-on
 
 ## 2. Manager App
 
-Shell: responsive. On wide screens (`1024px` and above), left sidebar `240px`, sticky. On
-narrower screens, fixed bottom navigation has five primary destinations; **Hợp đồng** is exposed
-through the labelled **Thêm** menu. The top bar carries motel selector, capture-queue warning when
-needed, and manager account/theme controls; no unsupported notification inbox is shown. Controls
-work without hover. Mobile navigation has five primary route links and one **Thêm** menu control; Contracts appears in
-that secondary menu. Navigation preserves motel scope and current query parameters between primary
-destinations; secondary destinations preserve motel scope and drop unrelated route-specific filters.
-
-Sidebar items: **Tổng quan**, **Nhà trọ**, **Phòng trọ**, **Khách thuê**, **Tính tiền &
-Hóa đơn**, **Hợp đồng**, **Sự cố & Yêu cầu**, **Cài đặt**.
+Shell: responsive and shared by Managers and Superadmins. On wide screens (`1024px` and above),
+left sidebar `240px`, sticky; **Quản lý tài khoản** appears only for Superadmin. On narrower
+screens, fixed bottom navigation has five primary destinations: **Tổng quan**, **Nhà trọ**,
+**Phòng trọ**, **Khách thuê**, and **Tính tiền & Hóa đơn**. A labelled **Thêm** menu contains
+**Hợp đồng** and, for Superadmin, **Quản lý tài khoản**. The header keeps the motel selector,
+capture-queue warning bell when needed, and account/theme controls in normal document flow on
+desktop and mobile; no notification inbox is shown. Controls work without hover. Navigation
+preserves motel scope and current query parameters between primary destinations; secondary
+destinations preserve motel scope and drop unrelated route-specific filters. Superadmin motel
+choices and cards identify the owning Manager.
 
 The motel selector in the top bar is global state. Every screen below is scoped to the
 selected motel; switching motels reloads the current route against the new id.
@@ -216,16 +216,20 @@ zero rooms. Missing addresses and bank accounts show `Chưa có địa chỉ` an
 
 **Tạo nhà trọ** delegates creation to a 4-step wizard (`MotelSetupWizard`):
 
-- **Bước 1 (Thông tin cơ bản):** Tên, địa chỉ, đơn giá điện/nước, tài khoản nhận tiền. Khi manager đã có ít nhất một nhà trọ, phần "Sao chép từ nhà trọ đang có" cho phép chọn nguồn và checkbox từng nhóm: Ngân hàng, Dịch vụ/phí, Mẫu hợp đồng (checkbox ban đầu không chọn, bấm "Áp dụng" mới sao chép). Thay đổi nguồn không ghi đè tài khoản đã nhập nếu chưa xác nhận. Nút "Tạo nhanh (bỏ qua thiết lập)" chỉ xuất hiện khi đã có ít nhất một nhà trọ.
+- **Bước 1 (Thông tin cơ bản):** Tên, địa chỉ, đơn giá điện/nước, tài khoản nhận tiền. Tìm ngân hàng VietQR theo tên để xác nhận logo, tên và BIN; sau khi chọn ngân hàng mới nhập số tài khoản và tên chủ tài khoản. Khi manager đã có ít nhất một nhà trọ, phần "Sao chép từ nhà trọ đang có" cho phép chọn nguồn và checkbox từng nhóm: Ngân hàng, Dịch vụ/phí, Mẫu hợp đồng (checkbox ban đầu không chọn, bấm "Áp dụng" mới sao chép). Thay đổi nguồn không ghi đè tài khoản đã nhập nếu chưa xác nhận. Nút "Tạo nhanh (bỏ qua thiết lập)" chỉ xuất hiện khi đã có ít nhất một nhà trọ.
 - **Bước 2 (Mẫu hợp đồng):** Chọn từ thư viện mẫu chuẩn (`ContractTemplatePicker`) hoặc mẫu sở hữu từ nhà trọ nguồn. Hiển thị xem trước các điều khoản.
-- **Bước 3 (Danh sách phòng):** Sinh nhanh danh sách phòng (tiền tố, số bắt đầu, số lượng 1–100, tầng, giá thuê mặc định) và sửa từng phòng. Chế độ tạo nhanh bỏ qua bước này.
+- **Bước 3 (Danh sách phòng):** Sinh nhanh danh sách phòng (tiền tố, số bắt đầu, số lượng 1–100, tầng, giá thuê mặc định) và sửa từng phòng. Mỗi phòng nhập chỉ số điện/nước hiện tại, mặc định `0`; hệ thống dùng làm chỉ số đầu kỳ trước lần ghi điện/nước đầu tiên. Chế độ tạo nhanh bỏ qua bước này.
 - **Bước 4 (Xác nhận & Hoàn tất):** Xem lại toàn bộ thông tin (full hiển thị N phòng, quick hiển thị 0 phòng kèm nhãn Tạo nhanh), gửi atomic payload lên backend. Trong lúc xử lý disable các nút điều khiển; lỗi cho phép thử lại với cùng requestId; lỗi 410 cấp phát requestId mới; thành công hiển thị toast, phát sự kiện `motel-updated` và refresh trang.
 
 **Quản lý mẫu hợp đồng (`/contracts`):** Thêm nút "Chọn mẫu có sẵn" mở `ContractTemplatePicker` để sao chép mẫu từ catalog vào nhà trọ hiện tại với tùy chọn "Đặt làm mẫu mặc định cho nhà trọ này".
 
+Danh sách ngân hàng là snapshot đóng gói từ VietQR `/v2/banks`, chỉ gồm ngân hàng có `transferSupported: 1`; không tải danh sách khi chạy ứng dụng.
+
 **Chỉnh sửa** on each card opens the existing edit dialog with settings supported today:
-editable `otherFees` rows (name and VND amount) and bank code, account number, account owner.
-Unchecking **Thiết lập tài khoản nhận tiền** clears the bank account on save; removing all
+editable `otherFees` rows (name and VND amount) and bank account. Managers search Vietnamese
+VietQR banks by full or short name; selecting one confirms its logo, name, and BIN before account
+number and account holder fields appear. Existing BINs absent from the catalog remain unchanged
+unless a replacement bank is selected. Unchecking **Thiết lập tài khoản nhận tiền** clears the bank account on save; removing all
 fees sends an empty list. Edits send only changed fields, with an explicit `null` to clear an
 address or bank account. Each opened form keeps its original snapshot for change detection,
 so a background refresh cannot turn untouched draft values into updates. Account numbers
@@ -256,7 +260,7 @@ read), and `Chưa có khách thuê` when none are assigned. A missing floor show
 `/renters?motel=<id>&roomId=<id>`. The overdue indicator and meter history remain deferred
 under the phase 1 scope above.
 
-Add/edit modal: Tên phòng, Tầng, Giá thuê cơ bản. No amenities field — deliberately out
+Add-room modal: Tên phòng, Tầng, Giá thuê cơ bản, chỉ số điện/nước hiện tại (mặc định `0`; dùng làm baseline hóa đơn trước khi có kỳ ghi điện/nước). Edit-room modal không sửa baseline. No amenities field — deliberately out
 of scope (see spec non-goals). Floor is optional; clearing it sends `null`. Rent accepts
 digits or correctly grouped Vietnamese amounts and previews the amount with `₫`.
 Editing patches only changed fields; the separate status dialog patches status alone.
@@ -273,7 +277,7 @@ An unfiltered empty motel offers `Thêm phòng`; an empty filtered result offers
 Table: Họ tên, SĐT, Số CCCD, Phòng, Trạng thái (`Đang thuê` / `Đã kết thức hợp đồng`), Ngày bắt đầu, actions. Renter status is the tenancy, not
 the room: a renter can be `Đang thuê` with no room assigned.
 
-Renter detail page: personal info with manager-only front/back CCCD controls and previews via private short-lived signed URLs (or "chưa có ảnh" status), active contract summary with end date and deposit, invoice history with
+Renter detail page: personal info with Manager-owner/Superadmin front/back CCCD controls and previews via private short-lived signed URLs (or "chưa có ảnh" status), active contract summary with end date and deposit, invoice history with
 payment status, and **Tạo magic link**.
 
 Delivered M4 behavior: list and detail reads use the selected `?motel=` and validate motel
@@ -358,7 +362,7 @@ snippet, thumbnail, relative time.
 
 Detail drawer: enlarged photos, full description, **Liên hệ qua Zalo** (copies the phone
 number / opens Zalo), the renter's phone as a copy button, an internal-note textarea, and a
-status dropdown. The note is manager-only and must never appear in renter responses. Resolving
+status dropdown. The note is visible only to operational Manager/Superadmin users and must never appear in renter responses. Resolving
 stamps `resolvedAt` and notifies the renter.
 
 There is no chat UI in this product. The drawer must not imply one exists.
@@ -447,6 +451,10 @@ There is no submit-at-the-end step — each room is committed the moment it is s
 
 ---
 
+## Manager Login
+
+Login shows an unchecked `Giữ đăng nhập` checkbox. Separate info button opens helper tooltip on hover, keyboard focus, or tap: `Dành cho thiết bị cá nhân. Tự đăng xuất sau 90 ngày không sử dụng.` Tooltip supports Escape/outside dismissal and does not toggle checkbox or submit form. Remembered manager sessions renew on foreground use and expire after 90 days inactive; logout, password reset, or account disable ends access. Superadmin sessions ignore this option.
+
 ## Core UI v2 delivery
 
 Shared UI primitives live under `frontend/src/components/ui/` and preserve existing public props. New renter surfaces compose `PortalShell`, `Field`, `Button`, and semantic tokens. Portal billing uses period selectors and explicit empty states; ticket lists link to scoped detail routes and never expose manager notes or storage keys. Brand assets and metadata use Nhà Số Gọn (`frontend/public/brand/`).
@@ -524,7 +532,7 @@ opens the same detail view as R2.
 Summary (rent, deposit, term, room) then clauses as an accordion.
 
 - **Signed:** a confirmation block with server-recorded `consentAcceptedAt`, accepted terms version and consent method. Do not imply OTP or certified digital signature.
-- **Draft, unsigned:** CTA **Xác nhận & ký hợp đồng** → explicit read-and-agree checkbox, separate final confirmation, then submit exact `termsVersion`. If terms changed, reset consent and require a fresh review. Session expiry requires renewed authentication and must not auto-submit. CCCD image upload/view is manager-only; renter sees neither image nor upload control.
+- **Draft, unsigned:** CTA **Xác nhận & ký hợp đồng** → explicit read-and-agree checkbox, separate final confirmation, then submit exact `termsVersion`. If terms changed, reset consent and require a fresh review. Session expiry requires renewed authentication and must not auto-submit. CCCD image upload/view is Manager-owner/Superadmin-only; renter sees neither image nor upload control.
 - **Terminated/expired:** read-only with an explanatory banner.
 
 ### R5 — Yêu cầu hỗ trợ `/portal/tickets`

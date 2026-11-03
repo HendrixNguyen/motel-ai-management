@@ -155,11 +155,15 @@ describe("Core UI v2 compatibility contracts", () => {
 
   test("mobile billing label stays scoped to compact navigation subtree", async () => {
     const { default: Sidebar } = await import("@/components/manager/sidebar");
-    const html = markup(<Sidebar />);
-    expect(html).toContain('aria-label="Điều hướng chính"');
-    expect(html).toContain('aria-label="Điều hướng gọn trên điện thoại"');
-    expect(html).toContain('aria-label="Tính tiền &amp; Hóa đơn"');
-    expect(html).toContain(">Hóa đơn</span>");
+    const managerHtml = markup(<Sidebar role="manager" />);
+    const adminHtml = markup(<Sidebar role="superadmin" />);
+    expect(managerHtml).toContain('aria-label="Điều hướng chính"');
+    expect(managerHtml).toContain('aria-label="Điều hướng chính trên điện thoại"');
+    expect(managerHtml).toContain('aria-label="Tính tiền &amp; Hóa đơn"');
+    expect(managerHtml).toContain(">Hóa đơn</span>");
+    expect(managerHtml).not.toContain('href="/admin/managers"');
+    expect(adminHtml).toContain('href="/admin/managers"');
+    expect(adminHtml).toContain('aria-label="Thêm điều hướng"');
   });
 
   test("Dropdown keeps long values readable, bounds the option list, and exposes selection state", () => {
