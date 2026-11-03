@@ -172,7 +172,10 @@ test("account menu closes on Escape and restores focus to its button", async ({
   await expect(trigger).toBeFocused();
 });
 
-test("mobile More menu exposes Contracts and hides Account Managers from Managers", async ({ page, context }) => {
+test("mobile More menu exposes Contracts and hides Account Managers from Managers", async ({
+  page,
+  context,
+}) => {
   await signIn(context);
   await page.goto(`/?motel=${MOTEL.id}`);
   await expect(page.getByRole("heading", { name: "Tổng quan", exact: true })).toBeVisible();

@@ -48,8 +48,7 @@ export async function runLiveQaMutationPreflight(
   const expectedMotelId = env.E2E_QA_MOTEL_ID;
 
   if (expectedManagerId) {
-    if (!ownership.managerId)
-      errors.push("Authenticated QA manager must match E2E_QA_MANAGER_ID");
+    if (!ownership.managerId) errors.push("Authenticated QA manager must match E2E_QA_MANAGER_ID");
     else if (ownership.managerId !== expectedManagerId)
       errors.push("Authenticated QA manager must match E2E_QA_MANAGER_ID");
   }

@@ -4,9 +4,9 @@ import type { InvoiceResponse } from "../src/lib/api/types";
 
 async function useManagerSession(page: import("@playwright/test").Page, session: string) {
   await page.context().clearCookies();
-  await page.context().addCookies([
-    { name: "manager_session", value: session, domain: "localhost", path: "/" },
-  ]);
+  await page
+    .context()
+    .addCookies([{ name: "manager_session", value: session, domain: "localhost", path: "/" }]);
 }
 
 test.describe("manager billing capture and invoices", () => {
@@ -15,9 +15,7 @@ test.describe("manager billing capture and invoices", () => {
 
     await page.goto(`/billing?motel=${MOTEL_ID}`);
 
-    await page
-      .getByRole("link", { name: /Tháng 10\/2026/, exact: false })
-      .click();
+    await page.getByRole("link", { name: /Tháng 10\/2026/, exact: false }).click();
 
     await expect(page.getByRole("heading", { name: /Tháng 10\/2026/, exact: false })).toBeVisible();
 
@@ -26,9 +24,7 @@ test.describe("manager billing capture and invoices", () => {
     await page.getByRole("button", { name: "Lưu nháp", exact: true }).click();
 
     await expect(
-      page
-        .getByRole("alert")
-        .filter({ hasText: "Chỉ số mới phải lớn hơn hoặc bằng chỉ số cũ." }),
+      page.getByRole("alert").filter({ hasText: "Chỉ số mới phải lớn hơn hoặc bằng chỉ số cũ." }),
     ).toBeVisible();
   });
 
@@ -36,9 +32,7 @@ test.describe("manager billing capture and invoices", () => {
     await useManagerSession(page, "capture-session-billing-arithmetic");
     await page.goto(`/billing?motel=${MOTEL_ID}`);
 
-    await page
-      .getByRole("link", { name: /Tháng 10\/2026/, exact: false })
-      .click();
+    await page.getByRole("link", { name: /Tháng 10\/2026/, exact: false }).click();
 
     await expect(page.getByRole("heading", { name: /Tháng 10\/2026/, exact: false })).toBeVisible();
 
@@ -63,9 +57,7 @@ test.describe("manager billing capture and invoices", () => {
     await expect(invoiceCard.getByText("Gửi xe")).toBeVisible();
     await expect(invoiceCard.getByText("100.000 ₫")).toBeVisible();
     await expect(
-      invoiceCard
-        .locator("p.whitespace-nowrap.font-heading")
-        .filter({ hasText: "3.765.000 ₫" }),
+      invoiceCard.locator("p.whitespace-nowrap.font-heading").filter({ hasText: "3.765.000 ₫" }),
     ).toBeVisible();
 
     const response = await page.request.get(
@@ -91,9 +83,7 @@ test.describe("manager billing capture and invoices", () => {
     await useManagerSession(page, "capture-session-billing-a");
 
     await page.goto(`/billing?motel=${MOTEL_ID}`);
-    await page
-      .getByRole("link", { name: /Tháng 10\/2026/, exact: false })
-      .click();
+    await page.getByRole("link", { name: /Tháng 10\/2026/, exact: false }).click();
     await expect(page.getByRole("heading", { name: /Tháng 10\/2026/, exact: false })).toBeVisible();
 
     await page.getByLabel("Điện (kWh)").fill("120");
@@ -139,9 +129,7 @@ test.describe("manager billing capture and invoices", () => {
     expect(invoices).toHaveLength(0);
 
     await page.goto(`/billing?motel=${MOTEL_ID}`);
-    await page
-      .getByRole("link", { name: /Tháng 10\/2026/, exact: false })
-      .click();
+    await page.getByRole("link", { name: /Tháng 10\/2026/, exact: false }).click();
     await expect(page.getByRole("heading", { name: /Tháng 10\/2026/, exact: false })).toBeVisible();
 
     await page.getByLabel("Điện (kWh)").fill("130");

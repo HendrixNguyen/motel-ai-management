@@ -87,22 +87,13 @@ export default async function Motels({
                 <span className="text-sm text-text-muted">Cấu hình vận hành</span>
                 <div className="flex min-w-0 flex-wrap gap-2">
                   <Button asChild variant="outline" size="sm">
-                    <Link
-                      href={motelHref("/rooms", "", motel.id)}>
-                      Phòng
-                    </Link>
+                    <Link href={motelHref("/rooms", "", motel.id)}>Phòng</Link>
                   </Button>
                   <Button asChild variant="outline" size="sm">
-                    <Link
-                      href={motelHref("/billing", "", motel.id)}>
-                      Hóa đơn
-                    </Link>
+                    <Link href={motelHref("/billing", "", motel.id)}>Hóa đơn</Link>
                   </Button>
                   <Button asChild variant="outline" size="sm">
-                    <Link
-                      href={motelHref("/renters", "", motel.id)}>
-                      Khách thuê
-                    </Link>
+                    <Link href={motelHref("/renters", "", motel.id)}>Khách thuê</Link>
                   </Button>
                   <MotelEditor motel={motel} />
                 </div>

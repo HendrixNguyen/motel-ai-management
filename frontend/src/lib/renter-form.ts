@@ -85,7 +85,10 @@ export async function submitRenter(
 }
 
 /** The draft and partial PATCH baseline belong to this opening, even across RSC refreshes. */
-export function createRenterFormSession(motelId: string, renter?: RenterResponse): RenterFormSession {
+export function createRenterFormSession(
+  motelId: string,
+  renter?: RenterResponse,
+): RenterFormSession {
   const original = renter ? structuredClone(renter) : undefined;
   return {
     initialDraft: createRenterDraft(original),

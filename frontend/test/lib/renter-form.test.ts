@@ -32,7 +32,9 @@ describe("renter create/edit", () => {
     expect(
       prepareRenterInput({ ...createRenterDraft(RENTER), phone: "+84 901 234 567" }, RENTER),
     ).toEqual({ ok: true, input: {} });
-    expect(prepareRenterInput({ ...createRenterDraft(RENTER), status: "inactive" }, RENTER)).toEqual({
+    expect(
+      prepareRenterInput({ ...createRenterDraft(RENTER), status: "inactive" }, RENTER),
+    ).toEqual({
       ok: true,
       input: { status: "inactive" },
     });
