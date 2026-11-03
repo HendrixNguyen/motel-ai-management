@@ -165,24 +165,24 @@ invoice. See [ADR-0005](../../../adr/0005-room-base-price.md).
 
 ### renters
 
-| Field                  | Type    | Notes                                                       |
-| ---------------------- | ------- | ----------------------------------------------------------- |
-| id                     | UUID    | PK                                                          |
-| motelId                | UUID    | FK → motels, NOT NULL, indexed                              |
-| name                   | TEXT    | NOT NULL                                                    |
-| phone                  | TEXT    | NOT NULL, contact and renter identity/login key; normalized to `84XXXXXXXXX` |
+| Field                  | Type    | Notes                                                                                                                                        |
+| ---------------------- | ------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| id                     | UUID    | PK                                                                                                                                           |
+| motelId                | UUID    | FK → motels, NOT NULL, indexed                                                                                                               |
+| name                   | TEXT    | NOT NULL                                                                                                                                     |
+| phone                  | TEXT    | NOT NULL, contact and renter identity/login key; normalized to `84XXXXXXXXX`                                                                 |
 | zaloPhone              | TEXT    | nullable, manager-confirmed Zalo notification destination; normalized to `84XXXXXXXXX`; null until confirmed; not proof of account ownership |
-| idNumber               | TEXT    | CCCD number, nullable                                       |
-| legacyIdCardFrontUrl   | TEXT    | historical arbitrary URL, nullable, never served or trusted |
-| legacyIdCardBackUrl    | TEXT    | historical arbitrary URL, nullable, never served or trusted |
-| idCardFrontObjectKey   | TEXT    | private R2 object key, nullable                             |
-| idCardFrontContentType | TEXT    | JPEG/PNG metadata, nullable                                 |
-| idCardFrontSize        | INTEGER | bytes, 1–5,000,000, nullable                                |
-| idCardFrontChecksum    | TEXT    | content checksum, nullable                                  |
-| idCardBackObjectKey    | TEXT    | private R2 object key, nullable                             |
-| idCardBackContentType  | TEXT    | JPEG/PNG metadata, nullable                                 |
-| idCardBackSize         | INTEGER | bytes, 1–5,000,000, nullable                                |
-| idCardBackChecksum     | TEXT    | content checksum, nullable                                  |
+| idNumber               | TEXT    | CCCD number, nullable                                                                                                                        |
+| legacyIdCardFrontUrl   | TEXT    | historical arbitrary URL, nullable, never served or trusted                                                                                  |
+| legacyIdCardBackUrl    | TEXT    | historical arbitrary URL, nullable, never served or trusted                                                                                  |
+| idCardFrontObjectKey   | TEXT    | private R2 object key, nullable                                                                                                              |
+| idCardFrontContentType | TEXT    | JPEG/PNG metadata, nullable                                                                                                                  |
+| idCardFrontSize        | INTEGER | bytes, 1–5,000,000, nullable                                                                                                                 |
+| idCardFrontChecksum    | TEXT    | content checksum, nullable                                                                                                                   |
+| idCardBackObjectKey    | TEXT    | private R2 object key, nullable                                                                                                              |
+| idCardBackContentType  | TEXT    | JPEG/PNG metadata, nullable                                                                                                                  |
+| idCardBackSize         | INTEGER | bytes, 1–5,000,000, nullable                                                                                                                 |
+| idCardBackChecksum     | TEXT    | content checksum, nullable                                                                                                                   |
 
 Only manager motel-owner sessions may upload or read CCCD images. Renter sessions cannot access CCCD images. Manager previews use signed URLs expiring after 300 seconds. No automatic retention period is set; deletion/retention policy requires legal/operational approval.
 | roomId | UUID | FK → rooms, nullable (unassigned) |

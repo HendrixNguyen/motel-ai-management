@@ -134,14 +134,14 @@ Contract creation validates motel ownership for renter, room, and template. Miss
 
 ### Manager-issued magic links and recovery — `/api/manager/motels/:motelId`
 
-| Method | Path                                 | Body | Returns                                                                                          |
-| ------ | ------------------------------------ | ---- | ------------------------------------------------------------------------------------------------ |
-| GET    | `/renter-recovery/code`              | —    | `200 string` — motel's public recovery code                                                      |
+| Method | Path                                 | Body | Returns                                                                                                                                                         |
+| ------ | ------------------------------------ | ---- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/renter-recovery/code`              | —    | `200 string` — motel's public recovery code                                                                                                                     |
 | GET    | `/login-requests`                    | —    | `200 Array<{id,renterId,requestedAt,renterName,renterPhone,renterZaloPhone,status}>` — pending recovery requests; contact and Zalo destinations remain distinct |
-| POST   | `/login-requests/:requestId/link`    | —    | `200 {token,url}` — issues link for requested renter                                             |
-| POST   | `/login-requests/:requestId/handled` | —    | `200 {updated:true}` — marks request handled after manual Zalo dispatch                          |
-| POST   | `/login-requests/:requestId/dismiss` | —    | `200 {updated:true}` — dismisses request                                                         |
-| POST   | `/renters/:renterId/magic-link`      | —    | `200 {token, url}` — manager-issued link for the renter                                          |
+| POST   | `/login-requests/:requestId/link`    | —    | `200 {token,url}` — issues link for requested renter                                                                                                            |
+| POST   | `/login-requests/:requestId/handled` | —    | `200 {updated:true}` — marks request handled after manual Zalo dispatch                                                                                         |
+| POST   | `/login-requests/:requestId/dismiss` | —    | `200 {updated:true}` — dismisses request                                                                                                                        |
+| POST   | `/renters/:renterId/magic-link`      | —    | `200 {token, url}` — manager-issued link for the renter                                                                                                         |
 
 ### Motels — `/api/manager/motels`
 
@@ -171,14 +171,14 @@ actor-scoped and fingerprints selected owner for Superadmin requests.
 
 ### Renters — `/api/manager/motels/:motelId/renters`
 
-| Method | Path                    | Notes                                                                                                                                                                     |
-| ------ | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| GET    | `/`                     | Supports `?status=&roomId=&search=`                                                                                                                                       |
+| Method | Path                    | Notes                                                                                                                                                                                                                                    |
+| ------ | ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/`                     | Supports `?status=&roomId=&search=`                                                                                                                                                                                                      |
 | POST   | `/`                     | `409` on duplicate `(motelId, phone)`; accepts optional `zaloPhone` only with manager acknowledgement `zaloPhoneConfirmed:true`; omitted/null means unconfirmed; creates renter and manager-issued magic-link fallback remains available |
-| GET    | `/:renterId`            | Includes contract summary, invoice history and CCCD upload-state booleans only; never returns image keys or URLs                                                          |
-| PATCH  | `/:renterId`            | Name/contact phone, optional `zaloPhone`, CCCD number, `roomId`, status; `zaloPhone:null` clears it; setting non-null requires `zaloPhoneConfirmed:true`; image URLs are not writable |
-| POST   | `/:renterId/cccd/:side` | Manager owner or Superadmin session; `multipart/form-data`, one JPEG/PNG `file`, max 5,000,000 bytes; `side` is `front` or `back`; returns upload state, never object key |
-| GET    | `/:renterId/cccd/:side` | Manager owner or Superadmin session; 300-second signed URL                                                                                                                |
+| GET    | `/:renterId`            | Includes contract summary, invoice history and CCCD upload-state booleans only; never returns image keys or URLs                                                                                                                         |
+| PATCH  | `/:renterId`            | Name/contact phone, optional `zaloPhone`, CCCD number, `roomId`, status; `zaloPhone:null` clears it; setting non-null requires `zaloPhoneConfirmed:true`; image URLs are not writable                                                    |
+| POST   | `/:renterId/cccd/:side` | Manager owner or Superadmin session; `multipart/form-data`, one JPEG/PNG `file`, max 5,000,000 bytes; `side` is `front` or `back`; returns upload state, never object key                                                                |
+| GET    | `/:renterId/cccd/:side` | Manager owner or Superadmin session; 300-second signed URL                                                                                                                                                                               |
 
 Renter sessions cannot upload or read CCCD images. Manager UI displays images from short-lived URLs only. Historical arbitrary URL fields are retained privately during migration but ignored by API and UI; re-upload is required to use images from private storage.
 
