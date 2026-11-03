@@ -296,9 +296,7 @@ below 640px; phone numbers are displayed as `+84 901 234 567` and copied as `+84
 The list DTO has no tenancy start date, so **Ngày bắt đầu** shows **Chưa cập nhật**, never
 `createdAt`. Missing room assignments show **Chưa xếp phòng**.
 
-Create and edit use a modal with Họ tên, Số điện thoại, optional Số CCCD, and optional Phòng.
-Vietnamese phone input accepts the same prefixes and separators as the backend and is normalized
-before sending. Create sends `POST /api/manager/motels/:motelId/renters`; edit sends a partial
+Create and edit use a modal with Họ tên, Số điện thoại liên hệ, optional Số Zalo nhận thông báo, optional Số CCCD, and optional Phòng. Contact phone remains the renter login identity. Manager may explicitly confirm that Zalo uses that number or separately enter and confirm a different Zalo destination. Confirmation is not account-ownership verification. Existing renters start with Zalo destination unconfirmed; never prefill from contact phone. Editing contact phone must not silently change the Zalo destination and shows a reminder to review it. Leaving destination blank disables Zalo-number actions. Both Vietnamese phone inputs accept backend prefixes and separators and normalize before sending. Create sends `POST /api/manager/motels/:motelId/renters`; edit sends a partial
 `PATCH` containing only changed fields, with explicit `null` when CCCD or room assignment is
 cleared. Each opening freezes its baseline so a refresh from an older pending save cannot resend
 stale untouched values. Local field errors are linked from a focused summary; API validation and
@@ -314,7 +312,7 @@ CCCD sides render only for provided HTTP(S) or root-relative image URLs, with de
 text, no referrer and no server image optimization; absent/unsafe URLs or storage keys without
 a resolvable URL show **Chưa cập nhật**. The magic-link action posts from the browser through
 relative `/api/...`, disables itself while pending and exposes the returned `/r/[token]` URL
-with a read-only field and copy action. A 401 returns to login; other failures show a focused
+with a read-only field and copy action. Assisted invoice/login Zalo actions open only the confirmed `zaloPhone`; when absent, keep copy-link/QR fallback, never open contact phone as a guessed recipient. Opening chat or copying text is not delivery confirmation; manager checks recipient before pasting links. A 401 returns to login; other failures show a focused
 error and allow retry. Provider-specific send/retry actions remain deferred; generic **Gửi Zalo**
 actions are not rendered. The renter portal receives notification state only
 through the server-rendered profile; it never receives OA IDs, access tokens, template IDs, or

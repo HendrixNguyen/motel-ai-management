@@ -5,6 +5,8 @@ import { createRenter, updateRenter } from "@/lib/api/renters.client";
 export type RenterDraft = {
   name: string;
   phone: string;
+  zaloPhone: string;
+  zaloPhoneConfirmed: boolean;
   idNumber: string;
   roomId: string;
   status?: RenterResponse["status"];
@@ -23,6 +25,8 @@ export function createRenterDraft(renter?: RenterResponse): RenterDraft {
   return {
     name: renter?.name ?? "",
     phone: renter?.phone ?? "",
+    zaloPhone: renter?.zaloPhone ?? "",
+    zaloPhoneConfirmed: Boolean(renter?.zaloPhone),
     idNumber: renter?.idNumber ?? "",
     roomId: renter?.roomId ?? "",
     status: renter?.status ?? "active",
@@ -45,9 +49,19 @@ export function prepareRenterInput(
   const phoneMatch = /^(?:0|\+84|84)([235789]\d{8})$/.exec(draft.phone.replace(/[\s.-]/g, ""));
   if (!phoneMatch) fields.phone = "Nhập số điện thoại Việt Nam hợp lệ";
   if (Object.keys(fields).length) return { ok: false, fields };
+  const zaloPhoneMatch = draft.zaloPhone.trim()
+    ? /^(?:0|\+84|84)([235789]\d{8})$/.exec(draft.zaloPhone.replace(/[\s.-]/g, ""))
+    : undefined;
+  if (draft.zaloPhone.trim() && !zaloPhoneMatch) fields.zaloPhone = "Nhập số Zalo Việt Nam hợp lệ";
+  if (draft.zaloPhone.trim() && !draft.zaloPhoneConfirmed && draft.zaloPhone !== renter?.zaloPhone)
+    fields.zaloPhone = "Xác nhận người thuê đã cung cấp số Zalo này";
+  if (draft.zaloPhoneConfirmed && !draft.zaloPhone.trim())
+    fields.zaloPhone = "Nhập số Zalo hoặc bỏ xác nhận";
+  if (Object.keys(fields).length) return { ok: false, fields };
   const input: CreateRenterInput = {
     name,
     phone: `84${phoneMatch![1]}`,
+    zaloPhone: draft.zaloPhoneConfirmed && zaloPhoneMatch ? `84${zaloPhoneMatch[1]}` : null,
     idNumber: draft.idNumber.trim() || null,
     roomId: draft.roomId || null,
   };
@@ -55,6 +69,7 @@ export function prepareRenterInput(
   const patch: UpdateRenterInput = {};
   if (name !== renter.name) patch.name = name;
   if (input.phone !== renter.phone) patch.phone = input.phone;
+  if (input.zaloPhone !== renter.zaloPhone) patch.zaloPhone = input.zaloPhone;
   if (input.idNumber !== renter.idNumber) patch.idNumber = input.idNumber;
   if (input.roomId !== renter.roomId) patch.roomId = input.roomId;
   if (draft.status && draft.status !== renter.status) patch.status = draft.status;

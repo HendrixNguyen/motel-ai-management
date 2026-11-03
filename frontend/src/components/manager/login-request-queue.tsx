@@ -11,6 +11,7 @@ interface LoginRequest {
   renterId: string;
   renterName: string;
   renterPhone: string;
+  renterZaloPhone: string | null;
   requestedAt: string;
 }
 
@@ -64,12 +65,23 @@ export default function LoginRequestQueue({ motelId }: { motelId: string }) {
       await navigator.clipboard.writeText(
         `Xin chào ${request.renterName}, đây là liên kết đăng nhập cổng khách thuê (hết hạn sau 24 giờ): ${url}`,
       );
-      window.open(`https://zalo.me/${request.renterPhone}`, "_blank", "noopener,noreferrer");
-      await apiSend(
-        `/api/manager/motels/${encodeURIComponent(motelId)}/login-requests/${encodeURIComponent(request.id)}/handled`,
-        "POST",
-      );
-      await refresh();
+      if (request.renterZaloPhone) {
+        const phone = request.renterZaloPhone.startsWith("84")
+          ? `0${request.renterZaloPhone.slice(2)}`
+          : request.renterZaloPhone;
+        window.open(`https://zalo.me/${phone}`, "_blank", "noopener,noreferrer");
+      } else {
+        setError(
+          "Chưa xác nhận số Zalo. Liên kết đã sao chép; gửi thủ công sau khi xác nhận với người thuê.",
+        );
+      }
+      if (request.renterZaloPhone) {
+        await apiSend(
+          `/api/manager/motels/${encodeURIComponent(motelId)}/login-requests/${encodeURIComponent(request.id)}/handled`,
+          "POST",
+        );
+        await refresh();
+      }
     } catch (cause) {
       setError(
         cause instanceof ApiError
@@ -120,13 +132,8 @@ export default function LoginRequestQueue({ motelId }: { motelId: string }) {
               </a>
             </div>
             <div className="flex gap-2">
-              <Button
-                size="sm"
-                disabled={busy === request.id}
-                aria-busy={busy === request.id}
-                onClick={() => void issue(request)}
-              >
-                {busy === request.id ? "Đang tạo liên kết…" : "Tạo link, mở Zalo"}
+              <Button size="sm" pending={busy === request.id} onClick={() => void issue(request)}>
+                Tạo link, sao chép{request.renterZaloPhone ? ", mở Zalo" : ""}
               </Button>
               <Button
                 size="sm"

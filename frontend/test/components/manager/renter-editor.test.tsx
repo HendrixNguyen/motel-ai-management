@@ -61,6 +61,7 @@ const renter: RenterResponse = {
   motelId: "m",
   name: "Nguyễn A",
   phone: "84901234567",
+  zaloPhone: null,
   idNumber: null,
   idCardFrontUploaded: false,
   idCardBackUploaded: false,

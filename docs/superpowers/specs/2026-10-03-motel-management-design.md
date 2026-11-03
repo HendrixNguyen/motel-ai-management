@@ -165,23 +165,24 @@ invoice. See [ADR-0005](../../../adr/0005-room-base-price.md).
 
 ### renters
 
-| Field                  | Type    | Notes                                                       |
-| ---------------------- | ------- | ----------------------------------------------------------- |
-| id                     | UUID    | PK                                                          |
-| motelId                | UUID    | FK → motels, NOT NULL, indexed                              |
-| name                   | TEXT    | NOT NULL                                                    |
-| phone                  | TEXT    | NOT NULL, normalized to `84XXXXXXXXX` (no leading `0`/`+`)  |
-| idNumber               | TEXT    | CCCD number, nullable                                       |
-| legacyIdCardFrontUrl   | TEXT    | historical arbitrary URL, nullable, never served or trusted |
-| legacyIdCardBackUrl    | TEXT    | historical arbitrary URL, nullable, never served or trusted |
-| idCardFrontObjectKey   | TEXT    | private R2 object key, nullable                             |
-| idCardFrontContentType | TEXT    | JPEG/PNG metadata, nullable                                 |
-| idCardFrontSize        | INTEGER | bytes, 1–5,000,000, nullable                                |
-| idCardFrontChecksum    | TEXT    | content checksum, nullable                                  |
-| idCardBackObjectKey    | TEXT    | private R2 object key, nullable                             |
-| idCardBackContentType  | TEXT    | JPEG/PNG metadata, nullable                                 |
-| idCardBackSize         | INTEGER | bytes, 1–5,000,000, nullable                                |
-| idCardBackChecksum     | TEXT    | content checksum, nullable                                  |
+| Field                  | Type    | Notes                                                                                                                                        |
+| ---------------------- | ------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| id                     | UUID    | PK                                                                                                                                           |
+| motelId                | UUID    | FK → motels, NOT NULL, indexed                                                                                                               |
+| name                   | TEXT    | NOT NULL                                                                                                                                     |
+| phone                  | TEXT    | NOT NULL, contact and renter identity/login key; normalized to `84XXXXXXXXX`                                                                 |
+| zaloPhone              | TEXT    | nullable, manager-confirmed Zalo notification destination; normalized to `84XXXXXXXXX`; null until confirmed; not proof of account ownership |
+| idNumber               | TEXT    | CCCD number, nullable                                                                                                                        |
+| legacyIdCardFrontUrl   | TEXT    | historical arbitrary URL, nullable, never served or trusted                                                                                  |
+| legacyIdCardBackUrl    | TEXT    | historical arbitrary URL, nullable, never served or trusted                                                                                  |
+| idCardFrontObjectKey   | TEXT    | private R2 object key, nullable                                                                                                              |
+| idCardFrontContentType | TEXT    | JPEG/PNG metadata, nullable                                                                                                                  |
+| idCardFrontSize        | INTEGER | bytes, 1–5,000,000, nullable                                                                                                                 |
+| idCardFrontChecksum    | TEXT    | content checksum, nullable                                                                                                                   |
+| idCardBackObjectKey    | TEXT    | private R2 object key, nullable                                                                                                              |
+| idCardBackContentType  | TEXT    | JPEG/PNG metadata, nullable                                                                                                                  |
+| idCardBackSize         | INTEGER | bytes, 1–5,000,000, nullable                                                                                                                 |
+| idCardBackChecksum     | TEXT    | content checksum, nullable                                                                                                                   |
 
 Only manager motel-owner sessions may upload or read CCCD images. Renter sessions cannot access CCCD images. Manager previews use signed URLs expiring after 300 seconds. No automatic retention period is set; deletion/retention policy requires legal/operational approval.
 | roomId | UUID | FK → rooms, nullable (unassigned) |
@@ -190,8 +191,8 @@ Only manager motel-owner sessions may upload or read CCCD images. Renter session
 | status | renter_status | DEFAULT `active` |
 | createdAt | TIMESTAMPTZ | DEFAULT now() |
 
-UNIQUE (`motelId`, `phone`). Phone is the renter's identity key — a renter who moves to a
-different motel is a distinct renter row.
+UNIQUE (`motelId`, `phone`). Contact phone is renter identity and login key — a renter who moves to a
+different motel is a distinct renter row. `zaloPhone` is not unique and is never inferred from contact phone. ZNS and assisted Zalo actions require this separately manager-confirmed destination. Follow webhooks do not auto-bind by phone; legacy OA fields are historical only.
 
 ### contract_templates
 
@@ -521,8 +522,8 @@ Channel routing keeps Zalo costs low — see
 
 1. On activation notification request, use configured ZNS/ZBS delivery or manager-generated
    manual link/QR fallback. Renter creation itself does not promise ZNS-only delivery.
-2. The OA follow webhook sets `isOaFollower = true` and `zaloOaId` when OA transport is configured.
-3. For configured Zalo transport, later notification delivery may use the follower state to select OA message or ZNS/ZBS fallback. This is one provider path under the notification strategy, not the only post-activation channel.
+2. Follow webhooks are signature-verified and deduplicated but never bind renter identity by phone; a number match does not prove account ownership.
+3. Until a separately designed verified OA-link flow exists, configured ZNS delivery and assisted messages require a manager-confirmed `zaloPhone`; follower state is not a delivery-routing signal. Web Push and manager-assisted link/QR remain alternatives.
 
 Triggers: bill ready, payment confirmed, contract sent for signing, contract expiry reminder (30 days), ticket status change, ticket created.
 

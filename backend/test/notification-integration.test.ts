@@ -125,6 +125,22 @@ describe("domain notification integration", () => {
     expect(rows[0]?.endDate).toBe("2026-01-08");
   });
 
+  test("queues missing Zalo destination as permanent actionable failure", async () => {
+    const { motel, renter } = await fixture();
+    const event = await enqueueNotification({
+      eventKey: `missing-zalo:${crypto.randomUUID()}`,
+      renterId: renter.id,
+      motelId: motel.id,
+      templateId: "expiry",
+      payload: {},
+    });
+    expect(event).toMatchObject({
+      status: "failed",
+      failureClass: "permanent",
+      failureReason: "invalid_recipient",
+    });
+  });
+
   test("rejects recipient resolver from another motel", async () => {
     const first = await fixture();
     const second = await fixture();
@@ -143,9 +159,7 @@ describe("domain notification integration", () => {
   test("deduplicates expiry notification event key", async () => {
     const { motel, renter } = await fixture();
     setNotificationRecipientResolver(async () => ({
-      phone: renter.phone,
-      zaloOaId: null,
-      isOaFollower: false,
+      zaloPhone: "84912345678",
     }));
     const input = {
       eventKey: `contract:${crypto.randomUUID()}:expiry:2026-01-08:7`,

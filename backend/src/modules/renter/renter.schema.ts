@@ -31,6 +31,7 @@ export const renters = pgTable(
     name: text("name").notNull(),
     /** Identity key. Normalised to `84XXXXXXXXX` by shared/phone before insert. */
     phone: text("phone").notNull(),
+    zaloPhone: text("zalo_phone"),
     /** CCCD number. */
     idNumber: text("id_number"),
     legacyIdCardFrontUrl: text("legacy_id_card_front_url"),
@@ -57,6 +58,10 @@ export const renters = pgTable(
     // Phone identifies a renter within one motel, never across the whole system.
     uniqueIndex("renters_motel_id_phone_uq").on(t.motelId, t.phone),
     check("renters_phone_normalised", sql`${t.phone} ~ '^84[0-9]{9}$'`),
+    check(
+      "renters_zalo_phone_normalised",
+      sql`${t.zaloPhone} is null or ${t.zaloPhone} ~ '^84[0-9]{9}$'`,
+    ),
     check(
       "renters_cccd_front_metadata_check",
       sql`(${t.idCardFrontObjectKey} is null and ${t.idCardFrontContentType} is null and ${t.idCardFrontSize} is null and ${t.idCardFrontChecksum} is null) or (${t.idCardFrontObjectKey} is not null and ${t.idCardFrontContentType} in ('image/jpeg', 'image/png') and ${t.idCardFrontSize} between 1 and 5000000 and length(trim(${t.idCardFrontChecksum})) > 0)`,

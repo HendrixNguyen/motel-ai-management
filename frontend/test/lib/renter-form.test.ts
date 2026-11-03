@@ -8,13 +8,26 @@ import {
 import { MOTEL, ROOM, RENTER } from "@test/lib/api/fixtures";
 
 afterEach(() => vi.unstubAllGlobals());
-const valid = () => ({ name: " Nguyễn Thị An ", phone: "0901234567", idNumber: "", roomId: "" });
+const valid = () => ({
+  name: " Nguyễn Thị An ",
+  phone: "0901234567",
+  zaloPhone: "",
+  zaloPhoneConfirmed: false,
+  idNumber: "",
+  roomId: "",
+});
 
 describe("renter create/edit", () => {
   it("creates supported fields with normalized phone and nullable optional values", () => {
     expect(prepareRenterInput(valid())).toEqual({
       ok: true,
-      input: { name: "Nguyễn Thị An", phone: "84901234567", idNumber: null, roomId: null },
+      input: {
+        name: "Nguyễn Thị An",
+        phone: "84901234567",
+        zaloPhone: null,
+        idNumber: null,
+        roomId: null,
+      },
     });
     expect(
       prepareRenterInput({
@@ -25,7 +38,13 @@ describe("renter create/edit", () => {
       }),
     ).toEqual({
       ok: true,
-      input: { name: "Nguyễn Thị An", phone: "84901234567", idNumber: "00001234", roomId: ROOM.id },
+      input: {
+        name: "Nguyễn Thị An",
+        phone: "84901234567",
+        zaloPhone: null,
+        idNumber: "00001234",
+        roomId: ROOM.id,
+      },
     });
   });
   it("only patches changes, including renter status, and explicitly unassigns/clears", () => {
@@ -69,7 +88,7 @@ describe("renter create/edit", () => {
       expect.objectContaining({
         method: "POST",
         credentials: "same-origin",
-        body: '{"name":"Nguyễn Thị An","phone":"84901234567","idNumber":null,"roomId":null}',
+        body: '{"name":"Nguyễn Thị An","phone":"84901234567","zaloPhone":null,"idNumber":null,"roomId":null}',
       }),
     );
     expect(

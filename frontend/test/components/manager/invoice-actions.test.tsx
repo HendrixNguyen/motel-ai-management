@@ -100,7 +100,7 @@ describe("invoice payment review", () => {
         motelId="motel-1"
         invoice={invoice}
         bankAccount={null}
-        renterPhone="84901234567"
+        renterZaloPhone="84901234567"
         billingPeriod={{ month: 2, year: 2026 }}
         allowAssistedSend
       />,

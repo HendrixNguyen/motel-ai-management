@@ -2,10 +2,10 @@ import { describe, expect, it } from "vitest";
 import { buildAssistedZaloMessage } from "@/lib/assisted-zalo-message";
 
 describe("assisted Zalo billing message", () => {
-  it("formats a renter-specific bill and normalized Zalo contact link", () => {
+  it("formats a renter-specific bill using confirmed Zalo destination", () => {
     expect(
       buildAssistedZaloMessage({
-        renter: { phone: "84901234567" },
+        renter: { zaloPhone: "84901234567" },
         invoice: { roomName: "P.101", totalAmount: "3850000" },
         month: 10,
         year: 2026,
@@ -20,12 +20,12 @@ describe("assisted Zalo billing message", () => {
   it("preserves phone formats already accepted by Zalo links", () => {
     expect(
       buildAssistedZaloMessage({
-        renter: { phone: "0901234567" },
+        renter: { zaloPhone: "0901234567" },
         invoice: { roomName: "1", totalAmount: "0" },
         month: 1,
         year: 2026,
         portalUrl: "https://motel.example/r/token",
-      }).url,
+      })?.url,
     ).toBe("https://zalo.me/0901234567");
   });
 });

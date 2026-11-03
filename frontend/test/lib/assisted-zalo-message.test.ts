@@ -5,7 +5,7 @@ describe("assisted Zalo billing message", () => {
   it("normalizes Vietnamese phones and includes amount and renter portal link", () => {
     expect(
       buildAssistedZaloMessage({
-        renter: { phone: "84901234567" },
+        renter: { zaloPhone: "84901234567" },
         invoice: { roomName: "101", totalAmount: "3850000" },
         month: 2,
         year: 2026,
