@@ -132,7 +132,7 @@ export default function LoginRequestQueue({ motelId }: { motelId: string }) {
               </a>
             </div>
             <div className="flex gap-2">
-              <Button size="sm" pending={busy === request.id} onClick={() => void issue(request)}>
+              <Button size="sm" disabled={Boolean(busy)} onClick={() => void issue(request)}>
                 Tạo link, sao chép{request.renterZaloPhone ? ", mở Zalo" : ""}
               </Button>
               <Button
