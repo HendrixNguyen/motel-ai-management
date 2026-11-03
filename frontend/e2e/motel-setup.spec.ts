@@ -63,6 +63,33 @@ test("full_setup_creates_first_motel", async ({ page, context }) => {
   await step3Dialog.getByRole("button", { name: "Sinh danh sách phòng" }).click();
 
   await expect(step3Dialog.getByText("Danh sách 1 phòng:")).toBeVisible();
+  await expect(step3Dialog.getByLabel("Chỉ số điện hiện tại (kWh)")).toHaveValue("0");
+  await expect(step3Dialog.getByLabel("Chỉ số nước hiện tại (m³)")).toHaveValue("0");
+  await expect(
+    step3Dialog.getByText("Dùng làm chỉ số đầu kỳ khi lập hóa đơn đầu tiên."),
+  ).toHaveCount(2);
+  await expect(step3Dialog.locator(".max-h-60 fieldset")).toHaveCount(1);
+  await expect(step3Dialog.locator(".max-h-60")).toHaveCSS("overflow-y", "auto");
+  await expect(step3Dialog.locator(".max-h-60")).toHaveCSS("overflow-x", "auto");
+  const initialViewportWidth = await page.evaluate(() => document.documentElement.scrollWidth);
+  expect(initialViewportWidth).toBeLessThanOrEqual(375);
+  await step3Dialog.getByLabel("Chỉ số điện hiện tại (kWh)").fill("123.45");
+  await step3Dialog.getByLabel("Chỉ số nước hiện tại (m³)").fill("67.89");
+  const roomCard = step3Dialog.locator(".max-h-60 fieldset");
+  await roomCard.getByLabel("Tên phòng").focus();
+  await page.keyboard.press("Tab");
+  await expect(roomCard.getByLabel("Giá thuê (đ)")).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(step3Dialog.getByLabel("Chỉ số điện hiện tại (kWh)")).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(step3Dialog.getByLabel("Chỉ số nước hiện tại (m³)")).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(roomCard.getByRole("button", { name: "Xóa phòng P101" })).toBeFocused();
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const desktopViewportWidth = await page.evaluate(() => document.documentElement.scrollWidth);
+  expect(desktopViewportWidth).toBeLessThanOrEqual(1440);
+  await step3Dialog.getByRole("button", { name: "Tiếp tục" }).focus();
+  await expect(step3Dialog.getByRole("button", { name: "Tiếp tục" })).toBeFocused();
   await step3Dialog.getByRole("button", { name: "Tiếp tục" }).click();
 
   await expect(page.getByRole("dialog", { name: "Bước 4: Xác nhận và hoàn tất" })).toBeVisible();
@@ -99,6 +126,8 @@ test("full_setup_creates_first_motel", async ({ page, context }) => {
       {
         name: "P101",
         basePrice: "3500000",
+        initialElectricReading: "123.45",
+        initialWaterReading: "67.89",
       },
     ],
   });
@@ -298,16 +327,32 @@ test("viewport and keyboard assertions at 375x667 and 1440x900", async ({ page, 
     const dialog = page.getByRole("dialog", { name: "Bước 1: Thông tin nhà trọ" });
     await expect(dialog).toBeVisible();
 
+    await dialog.getByLabel("Tên nhà trọ").fill("Nhà kiểm tra responsive");
+    await dialog.getByLabel("Giá điện (₫/kWh)").fill("3500");
+    await dialog.getByLabel("Giá nước (₫/m³)").fill("25000");
+    await dialog.getByRole("button", { name: "Tiếp tục" }).click();
+    await expect(page.getByRole("dialog", { name: "Bước 2: Mẫu hợp đồng" })).toBeVisible();
+    await page.getByRole("button", { name: "Tiếp tục" }).click();
+    const roomDialog = page.getByRole("dialog", { name: "Bước 3: Danh sách phòng" });
+    await roomDialog.getByLabel("Số lượng phòng").fill("3");
+    await roomDialog.getByRole("button", { name: "Sinh danh sách phòng" }).click();
+    await expect(roomDialog.locator(".max-h-60 fieldset")).toHaveCount(3);
+    await expect(roomDialog.getByLabel("Chỉ số điện hiện tại (kWh)").first()).toBeVisible();
+    await expect(roomDialog.getByLabel("Chỉ số nước hiện tại (m³)").first()).toBeVisible();
     const noOverflow = await page.evaluate(
       () => document.documentElement.scrollWidth <= innerWidth,
     );
     expect(noOverflow, `horizontal overflow at ${size.width}px`).toBe(true);
+    const lastRoom = roomDialog.locator(".max-h-60 fieldset").last();
+    await lastRoom.getByLabel("Chỉ số nước hiện tại (m³)").focus();
+    await expect(lastRoom.getByLabel("Chỉ số nước hiện tại (m³)")).toBeInViewport();
+    await expect(roomDialog.getByRole("button", { name: "Tiếp tục" })).toBeInViewport();
 
-    const closeBtn = dialog.getByRole("button", { name: "Hủy" });
+    const closeBtn = roomDialog.getByRole("button", { name: "Đóng" });
     await expect(closeBtn).toBeVisible();
 
     await page.keyboard.press("Escape");
-    await expect(dialog).not.toBeVisible();
+    await expect(roomDialog).not.toBeVisible();
     await expect(createBtn).toBeFocused();
   }
 });
