@@ -2,8 +2,16 @@
 
 import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import Button from "@/components/ui/button";
+import { Button } from "@/components/ui/shadcn/button";
 import Field from "@/components/ui/field";
+import { Input } from "@/components/ui/shadcn/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/shadcn/select";
 import Modal from "@/components/ui/modal";
 import { useToast } from "@/components/ui/toast";
 import type { RenterResponse, RoomResponse } from "@/lib/api/types";
@@ -37,7 +45,6 @@ export default function RenterEditor({
   };
   const closeFromDialog = () => {
     close();
-    trigger.current?.focus();
   };
   return (
     <>
@@ -57,6 +64,10 @@ export default function RenterEditor({
       <Modal
         open={currentSession !== undefined}
         onClose={closeFromDialog}
+        onCloseAutoFocus={(event) => {
+          event.preventDefault();
+          window.setTimeout(() => trigger.current?.focus(), 0);
+        }}
         title={renter ? "Chỉnh sửa khách thuê" : "Thêm khách thuê"}
         description="Nhập thông tin liên hệ và chọn phòng nếu đã xếp phòng."
       >
@@ -232,7 +243,7 @@ function RenterForm({
         <legend className="sr-only">Thông tin khách thuê</legend>
         <Field id={id("name")} label="Họ tên" error={fields.name}>
           {(props) => (
-            <input
+            <Input
               {...props}
               name="name"
               autoComplete="name"
@@ -251,7 +262,7 @@ function RenterForm({
           hint="Ví dụ 0901234567 hoặc +84 901 234 567"
         >
           {(props) => (
-            <input
+            <Input
               {...props}
               name="phone"
               type="tel"
@@ -264,7 +275,7 @@ function RenterForm({
         </Field>
         <Field id={id("idNumber")} label="Số CCCD (không bắt buộc)">
           {(props) => (
-            <input
+            <Input
               {...props}
               name="idNumber"
               type="text"
@@ -276,37 +287,53 @@ function RenterForm({
         </Field>
         <Field id={id("roomId")} label="Phòng (không bắt buộc)">
           {(props) => (
-            <select
-              {...props}
-              name="roomId"
-              value={draft.roomId}
-              onChange={(event) => setDraft({ ...draft, roomId: event.target.value })}
+            <Select
+              value={draft.roomId || "__unassigned__"}
+              onValueChange={(roomId) =>
+                setDraft({ ...draft, roomId: roomId === "__unassigned__" ? "" : roomId })
+              }
             >
-              <option value="">Chưa xếp phòng</option>
-              {draft.roomId && !rooms.some((room) => room.id === draft.roomId) && (
-                <option value={draft.roomId}>Phòng chưa cập nhật</option>
-              )}
-              {rooms.map((room) => (
-                <option key={room.id} value={room.id}>
-                  {room.name}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger id={props.id} aria-label="Phòng (không bắt buộc)">
+                <SelectValue>
+                  {draft.roomId
+                    ? (rooms.find((room) => room.id === draft.roomId)?.name ??
+                      "Phòng chưa cập nhật")
+                    : "Chưa xếp phòng"}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent position="popper" align="start">
+                <SelectItem value="__unassigned__">Chưa xếp phòng</SelectItem>
+                {draft.roomId && !rooms.some((room) => room.id === draft.roomId) && (
+                  <SelectItem value={draft.roomId}>Phòng chưa cập nhật</SelectItem>
+                )}
+                {rooms.map((room) => (
+                  <SelectItem key={room.id} value={room.id}>
+                    {room.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           )}
         </Field>
         {renter && (
           <Field id={id("status")} label="Trạng thái thuê">
             {(props) => (
-              <select
-                {...props}
+              <Select
                 value={draft.status ?? "active"}
-                onChange={(event) =>
-                  setDraft({ ...draft, status: event.target.value as RenterResponse["status"] })
+                onValueChange={(status) =>
+                  setDraft({ ...draft, status: status as RenterResponse["status"] })
                 }
               >
-                <option value="active">Đang thuê</option>
-                <option value="inactive">Đã kết thúc hợp đồng</option>
-              </select>
+                <SelectTrigger id={props.id} aria-label="Trạng thái thuê">
+                  <SelectValue>
+                    {draft.status === "inactive" ? "Đã kết thúc hợp đồng" : "Đang thuê"}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent position="popper" align="start">
+                  <SelectItem value="active">Đang thuê</SelectItem>
+                  <SelectItem value="inactive">Đã kết thúc hợp đồng</SelectItem>
+                </SelectContent>
+              </Select>
             )}
           </Field>
         )}
@@ -339,8 +366,8 @@ function RenterForm({
         <Button variant="secondary" disabled={pending} onClick={onCancel}>
           Hủy
         </Button>
-        <Button type="submit" pending={pending} pendingLabel="Đang lưu…">
-          {renter ? "Lưu thay đổi" : "Thêm khách thuê"}
+        <Button type="submit" disabled={pending} aria-busy={pending}>
+          {pending ? "Đang lưu…" : renter ? "Lưu thay đổi" : "Thêm khách thuê"}
         </Button>
       </div>
     </form>

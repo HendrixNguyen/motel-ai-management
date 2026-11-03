@@ -66,15 +66,31 @@ describe("payment proof file boundary", () => {
     ).toMatchObject({ ok: false, error: "Nội dung ảnh không hợp lệ" });
   });
   it("recognizes additional image types as conversion candidates", () => {
-    expect(validatePaymentProofFile(new File(["source"], "proof.webp", { type: "image/webp" })).ok).toBe(true);
-    expect(validatePaymentProofFile(new File([new Uint8Array(PAYMENT_PROOF_MAX_BYTES + 1)], "large.webp", { type: "image/webp" })).ok).toBe(true);
-    expect(validatePaymentProofFile(new File(["source"], "proof.heic", { type: "image/heic" })).ok).toBe(true);
-    expect(validatePaymentProofFile(new File(["source"], "proof.heif", { type: "image/heif" })).ok).toBe(true);
+    expect(
+      validatePaymentProofFile(new File(["source"], "proof.webp", { type: "image/webp" })).ok,
+    ).toBe(true);
+    expect(
+      validatePaymentProofFile(
+        new File([new Uint8Array(PAYMENT_PROOF_MAX_BYTES + 1)], "large.webp", {
+          type: "image/webp",
+        }),
+      ).ok,
+    ).toBe(true);
+    expect(
+      validatePaymentProofFile(new File(["source"], "proof.heic", { type: "image/heic" })).ok,
+    ).toBe(true);
+    expect(
+      validatePaymentProofFile(new File(["source"], "proof.heif", { type: "image/heif" })).ok,
+    ).toBe(true);
   });
   it("returns JPEG sources unchanged and rejects unsupported decoders", async () => {
-    const jpeg = new File([new Uint8Array([0xff, 0xd8, 0xff])], "proof.jpg", { type: "image/jpeg" });
+    const jpeg = new File([new Uint8Array([0xff, 0xd8, 0xff])], "proof.jpg", {
+      type: "image/jpeg",
+    });
     expect(await convertPaymentProofImage(jpeg)).toBe(jpeg);
-    await expect(convertPaymentProofImage(new File(["image"], "proof.heic", { type: "image/heic" }))).rejects.toThrow("không hỗ trợ");
+    await expect(
+      convertPaymentProofImage(new File(["image"], "proof.heic", { type: "image/heic" })),
+    ).rejects.toThrow("không hỗ trợ");
   });
   it("rejects image sources above 20 MB", () => {
     const large = new File([new Uint8Array(1)], "large.heic", { type: "image/heic" });
