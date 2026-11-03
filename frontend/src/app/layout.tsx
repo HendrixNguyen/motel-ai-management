@@ -37,7 +37,7 @@ export const metadata: Metadata = {
     template: "%s · Nhà Số Gọn",
   },
   description: "Quản lý nhà trọ gọn hơn mỗi ngày.",
-  icons: { icon: "/brand/favicon.svg" },
+  icons: { icon: "/favicon.svg" },
   manifest: "/manifest.webmanifest",
 };
 
