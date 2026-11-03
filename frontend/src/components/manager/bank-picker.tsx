@@ -2,15 +2,16 @@
 
 import Image from "next/image";
 import { useMemo, useState, type ChangeEvent, type KeyboardEvent } from "react";
+import type { FieldControlProps } from "@/components/ui/field";
 import { controlClassName } from "@/components/ui/field";
 import { VIETQR_BANKS } from "@/lib/vietqr-banks";
-import type { FieldControlProps } from "@/components/ui/field";
 
 type BankPickerProps = Omit<FieldControlProps, "className"> & {
-  className?: string;
   value: string;
   onChange: (bin: string) => void;
+  className?: string;
   disabled?: boolean;
+  required?: boolean;
 };
 
 function normalizeSearch(value: string): string {
@@ -26,6 +27,7 @@ export default function BankPicker({
   value,
   onChange,
   disabled = false,
+  required = false,
   className = controlClassName,
   "aria-describedby": describedBy,
   "aria-invalid": invalid,
@@ -43,6 +45,7 @@ export default function BankPicker({
       normalizeSearch(`${bank.name} ${bank.shortName} ${bank.bin}`).includes(search),
     );
   }, [query]);
+  const activeOption = activeIndex < 0 ? undefined : results[activeIndex];
 
   function selectBank(bin: string) {
     onChange(bin);
@@ -55,6 +58,7 @@ export default function BankPicker({
     setQuery(event.target.value);
     setActiveIndex(-1);
     setOpen(true);
+    if (value) onChange("");
   }
 
   function handleKeyDown(event: KeyboardEvent<HTMLInputElement>) {
@@ -85,10 +89,12 @@ export default function BankPicker({
         aria-label="Ngân hàng"
         aria-autocomplete="list"
         aria-controls={listId}
+        aria-activedescendant={open ? activeOption && `${listId}-${activeOption.bin}` : undefined}
         aria-expanded={open}
         aria-describedby={describedBy}
         aria-invalid={invalid}
         disabled={disabled}
+        required={required}
         className={className}
         placeholder="Tìm theo tên hoặc mã ngân hàng"
         value={query}
@@ -106,12 +112,12 @@ export default function BankPicker({
         >
           {results.length ? (
             results.map((bank, index) => (
-              <button
+              <div
                 key={bank.bin}
-                type="button"
+                id={`${listId}-${bank.bin}`}
                 role="option"
                 aria-selected={bank.bin === value}
-                className={`flex min-h-11 w-full items-center gap-3 px-3 py-2 text-left text-sm text-text ${index === activeIndex ? "bg-canvas" : "hover:bg-canvas"}`}
+                className={`flex min-h-11 w-full cursor-pointer items-center gap-3 px-3 py-2 text-left text-sm text-text ${index === activeIndex ? "bg-canvas" : "hover:bg-canvas"}`}
                 onMouseDown={(event) => event.preventDefault()}
                 onClick={() => selectBank(bank.bin)}
               >
@@ -120,7 +126,7 @@ export default function BankPicker({
                   <span className="block text-xs text-text-muted">{bank.name}</span>
                 </span>
                 <span className="shrink-0 font-mono text-xs text-text-muted">{bank.bin}</span>
-              </button>
+              </div>
             ))
           ) : (
             <p className="px-3 py-2 text-sm text-text-muted">Không tìm thấy ngân hàng phù hợp</p>

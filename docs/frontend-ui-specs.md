@@ -223,6 +223,8 @@ zero rooms. Missing addresses and bank accounts show `Chưa có địa chỉ` an
 
 **Quản lý mẫu hợp đồng (`/contracts`):** Thêm nút "Chọn mẫu có sẵn" mở `ContractTemplatePicker` để sao chép mẫu từ catalog vào nhà trọ hiện tại với tùy chọn "Đặt làm mẫu mặc định cho nhà trọ này".
 
+Danh sách ngân hàng là snapshot đóng gói từ VietQR `/v2/banks`, chỉ gồm ngân hàng có `transferSupported: 1`; không tải danh sách khi chạy ứng dụng.
+
 **Chỉnh sửa** on each card opens the existing edit dialog with settings supported today:
 editable `otherFees` rows (name and VND amount) and bank account. Managers search Vietnamese
 VietQR banks by full or short name; selecting one confirms its logo, name, and BIN before account

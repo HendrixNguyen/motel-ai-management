@@ -435,6 +435,7 @@ function MotelForm({
                   {(props) => (
                     <BankPicker
                       {...props}
+                      required
                       value={draft.bankAccount.bankCode}
                       onChange={(bankCode) =>
                         setDraft({

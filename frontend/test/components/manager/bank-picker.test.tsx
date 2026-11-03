@@ -16,8 +16,22 @@ describe("BankPicker", () => {
       target: { value: query },
     });
     expect(
-      within(screen.getByRole("listbox")).getByRole("option", { name: /Vietcombank/ }),
+      within(screen.getByRole("listbox")).getByRole("option", { name: /970436/ }),
     ).toBeVisible();
+  });
+
+  test("clears previous bank selection when search changes", () => {
+    const onChange = vi.fn();
+    render(<BankPicker id="bank" value={BIN} onChange={onChange} />);
+    fireEvent.change(screen.getByRole("combobox", { name: "Ngân hàng" }), {
+      target: { value: "VietinBank" },
+    });
+    expect(onChange).toHaveBeenCalledWith("");
+  });
+
+  test("requires a bank when requested", () => {
+    render(<BankPicker id="bank" value="" onChange={vi.fn()} required />);
+    expect(screen.getByRole("combobox", { name: "Ngân hàng" })).toBeRequired();
   });
 
   test("keyboard navigation selects the first filtered bank", () => {
@@ -26,6 +40,9 @@ describe("BankPicker", () => {
     const input = screen.getByRole("combobox", { name: "Ngân hàng" });
     fireEvent.change(input, { target: { value: "Viet" } });
     fireEvent.keyDown(input, { key: "ArrowDown" });
+    const activeOptionId = input.getAttribute("aria-activedescendant");
+    expect(activeOptionId).not.toBeNull();
+    expect(document.getElementById(activeOptionId!)).toHaveTextContent("VietinBank");
     fireEvent.keyDown(input, { key: "Enter" });
     expect(onChange).toHaveBeenCalledWith("970415");
   });
@@ -36,9 +53,9 @@ describe("BankPicker", () => {
     fireEvent.change(screen.getByRole("combobox", { name: "Ngân hàng" }), {
       target: { value: "Vietcombank" },
     });
-    fireEvent.click(
-      within(screen.getByRole("listbox")).getByRole("option", { name: /Vietcombank/ }),
-    );
+    const option = within(screen.getByRole("listbox")).getByRole("option", { name: /970436/ });
+    expect(option.tagName).toBe("DIV");
+    fireEvent.click(option);
     expect(onChange).toHaveBeenCalledWith(BIN);
   });
 

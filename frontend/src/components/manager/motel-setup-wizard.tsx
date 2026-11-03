@@ -716,6 +716,7 @@ export default function MotelSetupWizard({
                     {(props) => (
                       <BankPicker
                         {...props}
+                        required
                         value={draft.bankAccount.bankCode}
                         onChange={(bankCode) =>
                           setDraft((prev) => ({

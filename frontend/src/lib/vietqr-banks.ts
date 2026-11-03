@@ -68,7 +68,7 @@ export const VIETQR_BANKS: readonly VietQrBank[] = [
   },
   {
     bin: "970403",
-    name: "Ngân hàng TMCP Sài Gòn Thương Tín",
+    name: "Ngân hàng TMCP Sài Gòn Tài Lộc",
     shortName: "Sacombank",
     logo: "https://cdn.vietqr.io/img/SACOMBANK.png",
   },
@@ -110,25 +110,25 @@ export const VIETQR_BANKS: readonly VietQrBank[] = [
   },
   {
     bin: "970426",
-    name: "Ngân hàng TMCP Hàng Hải Việt Nam",
+    name: "Ngân hàng TMCP Hàng Hải",
     shortName: "MSB",
     logo: "https://cdn.vietqr.io/img/MSB.png",
   },
   {
     bin: "546034",
-    name: "Ngân hàng số Cake by VPBank",
+    name: "TMCP Việt Nam Thịnh Vượng - Ngân hàng số CAKE by VPBank",
     shortName: "CAKE",
     logo: "https://cdn.vietqr.io/img/CAKE.png",
   },
   {
     bin: "546035",
-    name: "Ngân hàng số Ubank by VPBank",
+    name: "TMCP Việt Nam Thịnh Vượng - Ngân hàng số Ubank by VPBank",
     shortName: "Ubank",
     logo: "https://cdn.vietqr.io/img/Ubank.png",
   },
   {
     bin: "963388",
-    name: "Ngân hàng số Timo by BVBank",
+    name: "Ngân hàng số Timo by Ban Viet Bank (Timo by Ban Viet Bank)",
     shortName: "Timo",
     logo: "https://cdn.vietqr.io/img/TIMO.png",
   },
@@ -248,7 +248,7 @@ export const VIETQR_BANKS: readonly VietQrBank[] = [
   },
   {
     bin: "970444",
-    name: "Ngân hàng TNHH MTV Ngoại thương Công nghệ số",
+    name: "Ngân hàng Thương mại trách nhiệm hữu hạn một thành viên Ngoại thương Công nghệ số (Vietcombank Neo Limited)",
     shortName: "CBBank",
     logo: "https://cdn.vietqr.io/img/VCBNeo.png",
   },
@@ -261,13 +261,13 @@ export const VIETQR_BANKS: readonly VietQrBank[] = [
   {
     bin: "970462",
     name: "Ngân hàng Kookmin - Chi nhánh Hà Nội",
-    shortName: "Kookmin Hà Nội",
+    shortName: "KookminHN",
     logo: "https://cdn.vietqr.io/img/KB.png",
   },
   {
     bin: "970463",
     name: "Ngân hàng Kookmin - Chi nhánh Thành phố Hồ Chí Minh",
-    shortName: "Kookmin TP. Hồ Chí Minh",
+    shortName: "KookminHCM",
     logo: "https://cdn.vietqr.io/img/KB.png",
   },
 ];

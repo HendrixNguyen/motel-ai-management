@@ -705,7 +705,7 @@ describe("MotelSetupWizard", () => {
     fireEvent.change(view.getByRole("combobox", { name: "Ngân hàng" }), {
       target: { value: "Vietcombank" },
     });
-    fireEvent.click(view.getByRole("option", { name: /Vietcombank/ }));
+    fireEvent.click(view.getByRole("option", { name: /970436/ }));
     fireEvent.change(view.getByLabelText("Số tài khoản"), { target: { value: "MANUAL_BANK" } });
 
     fireEvent.change(view.getByLabelText("Chọn nhà trọ nguồn"), {
