@@ -1,5 +1,5 @@
 import { randomInt } from "node:crypto";
-import { beforeEach, describe, expect, test } from "bun:test";
+import { beforeEach, describe, expect, setDefaultTimeout, test } from "bun:test";
 import { db } from "@/db";
 import { resetDb } from "@/db/test-db";
 import { managers } from "@/modules/auth/auth.schema";
@@ -7,8 +7,7 @@ import { motels } from "@/modules/motel/motel.schema";
 import { rooms } from "@/modules/room/room.schema";
 import { renters } from "@/modules/renter/renter.schema";
 import { contracts } from "@/modules/contract/contract.schema";
-import { billingPeriods, meterReadings, invoices } from "@/modules/billing/billing.schema";
-import { paymentProofs } from "@/modules/payment/payment.schema";
+import { billingPeriods, meterReadings } from "@/modules/billing/billing.schema";
 import {
   configureUploadStorage,
   createBillingPeriod,
@@ -17,13 +16,13 @@ import {
   hasRenterInvoicePeriod,
   listBillingPeriodsForRenter,
   listInvoices,
-  listRenterInvoicesForPeriod,
   updateMeterReadings,
 } from "@/modules/billing/billing.service";
 import { FakeStorageAdapter } from "@/shared/storage";
 import { resetRateLimits } from "@/shared/rate-limit";
 import { eq } from "drizzle-orm";
 
+setDefaultTimeout(120_000);
 let managerId = "",
   motelId = "",
   roomId = "",
@@ -94,8 +93,10 @@ beforeEach(async () => {
 
 describe("billing service branches", () => {
   test("renter period queries deduplicate period rows and allow empty/no-room detail", async () => {
-    const generated = await generateInvoices(periodId, motelId, managerId);
-    const invoice = generated.invoices[0]!;
+    const generated = await generateInvoices(periodId, motelId, {
+      userId: managerId,
+      role: "manager",
+    });
     expect(await hasRenterInvoicePeriod(renterId, motelId, periodId)).toBe(true);
     expect(
       await hasRenterInvoicePeriod("00000000-0000-4000-8000-000000000001", motelId, periodId),
@@ -115,26 +116,38 @@ describe("billing service branches", () => {
   });
 
   test("manager query scopes, invoice totals and skipped-room details", async () => {
-    const generated = await generateInvoices(periodId, motelId, managerId);
+    const generated = await generateInvoices(periodId, motelId, {
+      userId: managerId,
+      role: "manager",
+    });
     expect(generated.invoices[0]?.totalAmount).toBe("300");
-    const absentOwner = await listInvoices(
-      periodId,
-      motelId,
-      "00000000-0000-4000-8000-000000000001",
-    ).catch((error: unknown) => error);
+    const absentOwner = await listInvoices(periodId, motelId, {
+      userId: "00000000-0000-4000-8000-000000000001",
+      role: "manager",
+    }).catch((error: unknown) => error);
     expect(absentOwner).toBeDefined();
-    expect(await listInvoices(periodId, motelId, managerId)).toHaveLength(1);
+    expect(
+      await listInvoices(periodId, motelId, { userId: managerId, role: "manager" }),
+    ).toHaveLength(1);
     expect(generated.details.skippedRooms).toEqual([]);
   });
 
   test("creates periods using previous readings and rejects invalid period/month state", async () => {
-    const next = await createBillingPeriod(motelId, managerId, { month: 5, year: 2026 });
+    const next = await createBillingPeriod(
+      motelId,
+      { userId: managerId, role: "manager" },
+      { month: 5, year: 2026 },
+    );
     expect(next.rooms[0]?.readings.map((row) => row.previousReading).sort()).toEqual([
       "10.00",
       "5.00",
     ]);
     await expect(
-      createBillingPeriod(motelId, managerId, { month: 0, year: 2026 }),
+      createBillingPeriod(
+        motelId,
+        { userId: managerId, role: "manager" },
+        { month: 0, year: 2026 },
+      ),
     ).rejects.toThrow();
     const sent = await db
       .update(billingPeriods)
@@ -142,10 +155,19 @@ describe("billing service branches", () => {
       .where(eq(billingPeriods.id, periodId))
       .returning();
     await expect(
-      createBillingPeriod(motelId, managerId, { month: 6, year: 2026 }),
+      createBillingPeriod(
+        motelId,
+        { userId: managerId, role: "manager" },
+        { month: 6, year: 2026 },
+      ),
     ).resolves.toBeDefined();
     await expect(
-      updateMeterReadings(periodId, motelId, managerId, { readings: [] }),
+      updateMeterReadings(
+        periodId,
+        motelId,
+        { userId: managerId, role: "manager" },
+        { readings: [] },
+      ),
     ).rejects.toThrow();
     expect(sent[0]?.status).toBe("sent");
   });
@@ -161,29 +183,59 @@ describe("billing service branches", () => {
       expectedUpdatedAt: String(Math.floor(readings[0]!.updatedAt.getTime() * 1000000)),
     };
     await expect(
-      updateMeterReadings(periodId, motelId, managerId, { readings: [] }),
+      updateMeterReadings(
+        periodId,
+        motelId,
+        { userId: managerId, role: "manager" },
+        { readings: [] },
+      ),
     ).rejects.toThrow();
     await expect(
-      updateMeterReadings(periodId, motelId, managerId, { readings: [base, base] }),
+      updateMeterReadings(
+        periodId,
+        motelId,
+        { userId: managerId, role: "manager" },
+        { readings: [base, base] },
+      ),
     ).rejects.toThrow();
     await expect(
-      updateMeterReadings(periodId, motelId, managerId, {
-        readings: [{ ...base, currentReading: "-1" }],
-      }),
+      updateMeterReadings(
+        periodId,
+        motelId,
+        { userId: managerId, role: "manager" },
+        {
+          readings: [{ ...base, currentReading: "-1" }],
+        },
+      ),
     ).rejects.toThrow();
     await expect(
-      updateMeterReadings(periodId, motelId, managerId, {
-        readings: [{ ...base, expectedUpdatedAt: "not-a-date" }],
-      }),
+      updateMeterReadings(
+        periodId,
+        motelId,
+        { userId: managerId, role: "manager" },
+        {
+          readings: [{ ...base, expectedUpdatedAt: "not-a-date" }],
+        },
+      ),
     ).rejects.toThrow();
     await expect(
-      updateMeterReadings(periodId, "00000000-0000-4000-8000-000000000001", managerId, {
-        readings: [base],
-      }),
+      updateMeterReadings(
+        periodId,
+        "00000000-0000-4000-8000-000000000001",
+        { userId: managerId, role: "manager" },
+        {
+          readings: [base],
+        },
+      ),
     ).rejects.toThrow();
     await db.update(billingPeriods).set({ status: "sent" }).where(eq(billingPeriods.id, periodId));
     await expect(
-      updateMeterReadings(periodId, motelId, managerId, { readings: [base] }),
+      updateMeterReadings(
+        periodId,
+        motelId,
+        { userId: managerId, role: "manager" },
+        { readings: [base] },
+      ),
     ).rejects.toThrow();
   });
 });

@@ -7,7 +7,6 @@ import {
   DialogClose,
   DialogContent,
   DialogDescription,
-  DialogPortal,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/shadcn/dialog";
@@ -74,9 +73,8 @@ export function Dialog({
       }}
       modal={true}
     >
-      <DialogPortal>
-        <DialogContent
-          data-dialog
+      <DialogContent
+        data-dialog
           data-testid={testId}
           data-autofocus={autofocus}
           data-block-outside-dismiss={blockOutsideDismiss}
@@ -139,8 +137,7 @@ export function Dialog({
               {footer}
             </div>
           )}
-        </DialogContent>
-      </DialogPortal>
+      </DialogContent>
     </RadixDialog>
   );
 }

@@ -18,14 +18,18 @@ test.describe("capture queue delivery states", () => {
   test("persists offline entry across reload and reconnects into synced state", async ({
     page,
   }) => {
-    const writes: string[] = [];
+    await openCapture(page);
+    const writes: unknown[] = [];
+    const writeRequest = page.waitForRequest(
+      (request) => request.url().includes("/readings") && request.method() === "PUT",
+    );
     await page.route("**/api/manager/motels/*/billing/periods/*/readings", async (route) => {
-      writes.push(await route.request().postDataJSON());
+      writes.push(route.request().postDataJSON());
       await route.abort();
     });
-    await openCapture(page);
     await page.getByLabel("Chỉ số hiện tại").fill("15");
     await page.getByRole("button", { name: "Lưu" }).first().click();
+    await writeRequest;
     await expect.poll(() => writes.length).toBeGreaterThanOrEqual(1);
     await expect(
       page.getByText(/Đã lưu chỉ số|Đã lưu trên thiết bị|Ngoại tuyến|Đang chờ kết nối/),
@@ -54,13 +58,12 @@ test.describe("capture queue delivery states", () => {
     expect(writes).toEqual([
       expect.objectContaining({ readings: [expect.objectContaining({ currentReading: "15" })] }),
     ]);
-    await page.reload();
-    await expect(page.getByLabel("Chỉ số hiện tại")).toBeVisible();
-    await page.unrouteAll({ behavior: "ignoreErrors" });
+    await page.unroute("**/api/manager/motels/*/billing/periods/*/readings");
     await page.route("**/api/manager/motels/*/billing/periods/*/readings", (route) =>
       route.fulfill({ json: { ok: true } }),
     );
-    await page.waitForTimeout(100);
+    await page.reload();
+    await expect(page.getByLabel("Chỉ số hiện tại")).toBeVisible();
     await page.evaluate(() => window.dispatchEvent(new Event("online")));
     await expect(page.getByText("Đã đồng bộ")).toBeVisible();
   });

@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, setDefaultTimeout, test } from "bun:test";
+import { createHash } from "node:crypto";
 import { eq, sql } from "drizzle-orm";
 import { env } from "@/config";
 import { db } from "@/db";
@@ -90,7 +91,7 @@ describe("magic links", () => {
     const renter = await seedRenter();
     const { token } = await issueMagicLink(renter.id);
     await db.execute(
-      sql`UPDATE magic_links SET expires_at = now() - interval '1 hour' WHERE token = ${token}`,
+      sql`UPDATE magic_links SET expires_at = now() - interval '1 hour' WHERE token_hash = ${createHash("sha256").update(token).digest("hex")}`,
     );
     await expect(consumeMagicLink(token)).rejects.toMatchObject({
       code: "MAGIC_LINK_EXPIRED",

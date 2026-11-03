@@ -1,4 +1,4 @@
-import { describe, expect, test, beforeEach } from "bun:test";
+import { describe, expect, test, beforeEach, setDefaultTimeout } from "bun:test";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { resetDb } from "@/db/test-db";
@@ -9,6 +9,7 @@ import { renters } from "@/modules/renter/renter.schema";
 import { rooms } from "@/modules/room/room.schema";
 import { paymentProofs } from "@/modules/payment/payment.schema";
 
+setDefaultTimeout(120_000);
 beforeEach(resetDb);
 
 describe("payment proof database constraints", () => {

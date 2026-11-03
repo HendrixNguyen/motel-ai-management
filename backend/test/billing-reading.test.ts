@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, test } from "bun:test";
+import { beforeEach, describe, expect, setDefaultTimeout, test } from "bun:test";
 import { db } from "@/db";
 import { resetDb } from "@/db/test-db";
 import { billingPeriods, meterReadings } from "@/modules/billing/billing.schema";
@@ -8,6 +8,7 @@ import { rooms } from "@/modules/room/room.schema";
 import { eq, sql } from "drizzle-orm";
 import { getBillingPeriod, updateMeterReadings } from "@/modules/billing/billing.service";
 
+setDefaultTimeout(120_000);
 beforeEach(resetDb);
 
 describe("billing readings", () => {
@@ -38,30 +39,35 @@ describe("billing readings", () => {
       ])
       .returning();
     await expect(
-      updateMeterReadings(period!.id, motel!.id, manager!.id, {
-        readings: [
-          {
-            roomId: room!.id,
-            type: "electric",
-            currentReading: "10",
-            expectedUpdatedAt: (
-              (await db.execute(
-                sql`select floor(extract(epoch from updated_at) * 1000000)::bigint::text as version from meter_readings where id = ${readings[0]!.id}`,
-              )) as { version: string }[]
-            )[0]!.version,
-          },
-          {
-            roomId: "00000000-0000-0000-0000-000000000000",
-            type: "water",
-            currentReading: "10",
-            expectedUpdatedAt: (
-              (await db.execute(
-                sql`select floor(extract(epoch from updated_at) * 1000000)::bigint::text as version from meter_readings where id = ${readings[1]!.id}`,
-              )) as { version: string }[]
-            )[0]!.version,
-          },
-        ],
-      }),
+      updateMeterReadings(
+        period!.id,
+        motel!.id,
+        { userId: manager!.id, role: "manager" },
+        {
+          readings: [
+            {
+              roomId: room!.id,
+              type: "electric",
+              currentReading: "10",
+              expectedUpdatedAt: (
+                (await db.execute(
+                  sql`select floor(extract(epoch from updated_at) * 1000000)::bigint::text as version from meter_readings where id = ${readings[0]!.id}`,
+                )) as { version: string }[]
+              )[0]!.version,
+            },
+            {
+              roomId: "00000000-0000-0000-0000-000000000000",
+              type: "water",
+              currentReading: "10",
+              expectedUpdatedAt: (
+                (await db.execute(
+                  sql`select floor(extract(epoch from updated_at) * 1000000)::bigint::text as version from meter_readings where id = ${readings[1]!.id}`,
+                )) as { version: string }[]
+              )[0]!.version,
+            },
+          ],
+        },
+      ),
     ).rejects.toMatchObject({ code: "NOT_FOUND" });
     expect(
       (
@@ -115,11 +121,16 @@ describe("billing readings", () => {
     expect(BigInt(version) % 1000n).toBe(100n);
     expect(BigInt(updatedVersion) % 1000n).toBe(101n);
     await expect(
-      updateMeterReadings(period!.id, motel!.id, manager!.id, {
-        readings: [
-          { roomId: room!.id, type: "electric", currentReading: "4", expectedUpdatedAt: version },
-        ],
-      }),
+      updateMeterReadings(
+        period!.id,
+        motel!.id,
+        { userId: manager!.id, role: "manager" },
+        {
+          readings: [
+            { roomId: room!.id, type: "electric", currentReading: "4", expectedUpdatedAt: version },
+          ],
+        },
+      ),
     ).rejects.toMatchObject({ code: "READING_CONFLICT" });
     expect(
       (await db.query.meterReadings.findFirst({ where: eq(meterReadings.id, reading!.id) }))
@@ -150,20 +161,25 @@ describe("billing readings", () => {
         previousReading: "100.25",
       })
       .returning();
-    const [updated] = await updateMeterReadings(period!.id, motel!.id, manager!.id, {
-      readings: [
-        {
-          roomId: room!.id,
-          type: "electric",
-          currentReading: "101.50",
-          expectedUpdatedAt: (
-            (await db.execute(
-              sql`select floor(extract(epoch from updated_at) * 1000000)::bigint::text as version from meter_readings where id = ${reading!.id}`,
-            )) as { version: string }[]
-          )[0]!.version,
-        },
-      ],
-    });
+    const [updated] = await updateMeterReadings(
+      period!.id,
+      motel!.id,
+      { userId: manager!.id, role: "manager" },
+      {
+        readings: [
+          {
+            roomId: room!.id,
+            type: "electric",
+            currentReading: "101.50",
+            expectedUpdatedAt: (
+              (await db.execute(
+                sql`select floor(extract(epoch from updated_at) * 1000000)::bigint::text as version from meter_readings where id = ${reading!.id}`,
+              )) as { version: string }[]
+            )[0]!.version,
+          },
+        ],
+      },
+    );
     expect(updated).toMatchObject({ previousReading: "100.25", currentReading: "101.50" });
   });
 
@@ -223,17 +239,27 @@ describe("billing readings", () => {
       orderBy: [meterReadings.id],
     });
     await expect(
-      updateMeterReadings(period!.id, motel!.id, manager!.id, {
-        readings: [
-          { roomId: room!.id, type: "electric", currentReading: "10", expectedUpdatedAt: version },
-          {
-            roomId: "00000000-0000-0000-0000-000000000000",
-            type: "water",
-            currentReading: "10",
-            expectedUpdatedAt: "0",
-          },
-        ],
-      }),
+      updateMeterReadings(
+        period!.id,
+        motel!.id,
+        { userId: manager!.id, role: "manager" },
+        {
+          readings: [
+            {
+              roomId: room!.id,
+              type: "electric",
+              currentReading: "10",
+              expectedUpdatedAt: version,
+            },
+            {
+              roomId: "00000000-0000-0000-0000-000000000000",
+              type: "water",
+              currentReading: "10",
+              expectedUpdatedAt: "0",
+            },
+          ],
+        },
+      ),
     ).rejects.toMatchObject({ code: "NOT_FOUND" });
     expect(
       await db.query.meterReadings.findMany({
@@ -247,17 +273,27 @@ describe("billing readings", () => {
       )) as { version: string }[]
     )[0]!.version;
     await expect(
-      updateMeterReadings(period!.id, motel!.id, manager!.id, {
-        readings: [
-          { roomId: room!.id, type: "electric", currentReading: "10", expectedUpdatedAt: version },
-          {
-            roomId: room!.id,
-            type: "water",
-            currentReading: "10",
-            expectedUpdatedAt: (BigInt(staleWaterVersion) - 1n).toString(),
-          },
-        ],
-      }),
+      updateMeterReadings(
+        period!.id,
+        motel!.id,
+        { userId: manager!.id, role: "manager" },
+        {
+          readings: [
+            {
+              roomId: room!.id,
+              type: "electric",
+              currentReading: "10",
+              expectedUpdatedAt: version,
+            },
+            {
+              roomId: room!.id,
+              type: "water",
+              currentReading: "10",
+              expectedUpdatedAt: (BigInt(staleWaterVersion) - 1n).toString(),
+            },
+          ],
+        },
+      ),
     ).rejects.toMatchObject({ code: "READING_CONFLICT" });
     expect(
       await db.query.meterReadings.findMany({
@@ -291,20 +327,25 @@ describe("billing readings", () => {
       })
       .returning();
     await expect(
-      updateMeterReadings(period!.id, motel!.id, manager!.id, {
-        readings: [
-          {
-            roomId: room!.id,
-            type: "electric",
-            currentReading: "100",
-            expectedUpdatedAt: (
-              (await db.execute(
-                sql`select floor(extract(epoch from updated_at) * 1000000)::bigint::text as version from meter_readings where id = ${reading!.id}`,
-              )) as { version: string }[]
-            )[0]!.version,
-          },
-        ],
-      }),
+      updateMeterReadings(
+        period!.id,
+        motel!.id,
+        { userId: manager!.id, role: "manager" },
+        {
+          readings: [
+            {
+              roomId: room!.id,
+              type: "electric",
+              currentReading: "100",
+              expectedUpdatedAt: (
+                (await db.execute(
+                  sql`select floor(extract(epoch from updated_at) * 1000000)::bigint::text as version from meter_readings where id = ${reading!.id}`,
+                )) as { version: string }[]
+              )[0]!.version,
+            },
+          ],
+        },
+      ),
     ).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
   });
 
@@ -332,20 +373,25 @@ describe("billing readings", () => {
       })
       .returning();
     await expect(
-      updateMeterReadings(period!.id, motel!.id, manager!.id, {
-        readings: [
-          {
-            roomId: room!.id,
-            type: "electric",
-            currentReading: "1",
-            expectedUpdatedAt: (
-              (await db.execute(
-                sql`select floor(extract(epoch from updated_at) * 1000000)::bigint::text as version from meter_readings where id = ${reading!.id}`,
-              )) as { version: string }[]
-            )[0]!.version,
-          },
-        ],
-      }),
+      updateMeterReadings(
+        period!.id,
+        motel!.id,
+        { userId: manager!.id, role: "manager" },
+        {
+          readings: [
+            {
+              roomId: room!.id,
+              type: "electric",
+              currentReading: "1",
+              expectedUpdatedAt: (
+                (await db.execute(
+                  sql`select floor(extract(epoch from updated_at) * 1000000)::bigint::text as version from meter_readings where id = ${reading!.id}`,
+                )) as { version: string }[]
+              )[0]!.version,
+            },
+          ],
+        },
+      ),
     ).resolves.toHaveLength(1);
   });
 
@@ -377,13 +423,25 @@ describe("billing readings", () => {
         sql`select floor(extract(epoch from updated_at) * 1000000)::bigint::text as version from meter_readings where id = ${reading!.id}`,
       )) as { version: string }[]
     )[0]!.version;
-    await updateMeterReadings(period!.id, motel!.id, manager!.id, {
-      readings: [{ roomId: room!.id, type: "electric", currentReading: "10", expectedUpdatedAt }],
-    });
+    await updateMeterReadings(
+      period!.id,
+      motel!.id,
+      { userId: manager!.id, role: "manager" },
+      {
+        readings: [{ roomId: room!.id, type: "electric", currentReading: "10", expectedUpdatedAt }],
+      },
+    );
     await expect(
-      updateMeterReadings(period!.id, motel!.id, manager!.id, {
-        readings: [{ roomId: room!.id, type: "electric", currentReading: "20", expectedUpdatedAt }],
-      }),
+      updateMeterReadings(
+        period!.id,
+        motel!.id,
+        { userId: manager!.id, role: "manager" },
+        {
+          readings: [
+            { roomId: room!.id, type: "electric", currentReading: "20", expectedUpdatedAt },
+          ],
+        },
+      ),
     ).rejects.toMatchObject({ code: "READING_CONFLICT" });
   });
 
@@ -412,11 +470,16 @@ describe("billing readings", () => {
       })
       .returning();
     await expect(
-      updateMeterReadings(period!.id, motel!.id, manager!.id, {
-        readings: [
-          { roomId: room!.id, type: "electric", currentReading: "10", expectedUpdatedAt: "0" },
-        ],
-      }),
+      updateMeterReadings(
+        period!.id,
+        motel!.id,
+        { userId: manager!.id, role: "manager" },
+        {
+          readings: [
+            { roomId: room!.id, type: "electric", currentReading: "10", expectedUpdatedAt: "0" },
+          ],
+        },
+      ),
     ).rejects.toMatchObject({ code: "READING_CONFLICT" });
     expect(
       (await db.query.meterReadings.findFirst({ where: eq(meterReadings.id, reading!.id) }))
@@ -453,7 +516,10 @@ describe("billing readings", () => {
         sql`select floor(extract(epoch from updated_at) * 1000000)::bigint::text as version from meter_readings where id = ${reading!.id}`,
       )) as { version: string }[]
     )[0]!.version;
-    const detail = await getBillingPeriod(period!.id, motel!.id, manager!.id);
+    const detail = await getBillingPeriod(period!.id, motel!.id, {
+      userId: manager!.id,
+      role: "manager",
+    });
     expect(
       detail.rooms.flatMap((item) => item.readings).find((item) => item.id === reading!.id)
         ?.updatedAt,

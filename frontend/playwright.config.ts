@@ -67,11 +67,10 @@ export default defineConfig({
     ...(!REAL_STACK
       ? [
           {
-            command:
-              `rm -rf .next/standalone && BACKEND_URL=${FIXTURE_BACKEND_URL} bun run build && cp -R .next/static .next/standalone/.next/static && cp -R public .next/standalone/public && PORT=${PORT} BACKEND_URL=${FIXTURE_BACKEND_URL} node .next/standalone/server.js`,
+            command: "node e2e/fixtures/start-next.mjs",
             url: `${BASE_URL}/login`,
             reuseExistingServer: false,
-            env: { BACKEND_URL: FIXTURE_BACKEND_URL },
+            env: { BACKEND_URL: FIXTURE_BACKEND_URL, PORT: String(PORT) },
             timeout: 300_000,
           },
         ]

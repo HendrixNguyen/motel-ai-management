@@ -138,10 +138,10 @@ describe("response fixtures", () => {
 
   it("keeps the two auth shapes distinct: login knows the name, /me does not", () => {
     expect(MANAGER_AUTH).toHaveProperty("name");
-    expect(Object.keys(MANAGER_AUTH).sort()).toEqual(["email", "id", "name"]);
+    expect(Object.keys(MANAGER_AUTH).sort()).toEqual(["email", "id", "name", "role"]);
     // The one assertion that stops a later task unifying the two types for being "similar": a
     // unified type would let a screen read `me.name`, and the backend never sends it.
-    expect(Object.keys(MANAGER_ME).sort()).toEqual(["email", "id"]);
+    expect(Object.keys(MANAGER_ME).sort()).toEqual(["email", "id", "role"]);
     expect("name" in MANAGER_ME).toBe(false);
   });
 

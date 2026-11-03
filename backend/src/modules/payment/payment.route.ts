@@ -49,23 +49,42 @@ export const paymentRoutes = new Elysia({ name: "payment-routes" })
       .get(
         "/manager/motels/:motelId/billing/invoices/:invoiceId/payment-proof",
         ({ params, auth }) =>
-          getManagerPaymentProof(auth!.userId, params.motelId, params.invoiceId),
+          getManagerPaymentProof(
+            { userId: auth!.userId, role: auth!.role },
+            params.motelId,
+            params.invoiceId,
+          ),
         { params: managerParams, detail: { security: [{ managerAuth: [] }] } },
       )
       .post(
         "/manager/motels/:motelId/billing/invoices/:invoiceId/payment-proof/approve",
-        ({ params, auth }) => approvePaymentProof(auth!.userId, params.motelId, params.invoiceId),
+        ({ params, auth }) =>
+          approvePaymentProof(
+            { userId: auth!.userId, role: auth!.role },
+            params.motelId,
+            params.invoiceId,
+          ),
         { params: managerParams, detail: { security: [{ managerAuth: [] }] } },
       )
       .post(
         "/manager/motels/:motelId/billing/invoices/:invoiceId/payment-proof/reject",
         ({ params, body, auth }) =>
-          rejectPaymentProof(auth!.userId, params.motelId, params.invoiceId, body.reason),
+          rejectPaymentProof(
+            { userId: auth!.userId, role: auth!.role },
+            params.motelId,
+            params.invoiceId,
+            body.reason,
+          ),
         { params: managerParams, body: rejectBody, detail: { security: [{ managerAuth: [] }] } },
       )
       .post(
         "/manager/motels/:motelId/billing/invoices/:invoiceId/cash-confirmation",
-        ({ params, auth }) => confirmCashPayment(auth!.userId, params.motelId, params.invoiceId),
+        ({ params, auth }) =>
+          confirmCashPayment(
+            { userId: auth!.userId, role: auth!.role },
+            params.motelId,
+            params.invoiceId,
+          ),
         { params: managerParams, detail: { security: [{ managerAuth: [] }] } },
       ),
   );

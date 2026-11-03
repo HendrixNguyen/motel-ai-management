@@ -1,4 +1,5 @@
 import { apiGet, apiSend } from "./client";
+import type { ContractTemplateCatalogResponse } from "./types";
 import type {
   ContractResponse,
   ContractStatus,
@@ -43,6 +44,20 @@ export function terminateContract(motelId: string, contractId: string) {
     "POST",
   );
 }
+export function listContractTemplateCatalog() {
+  return apiGet<ContractTemplateCatalogResponse[]>("/api/manager/contract-template-catalog");
+}
+export function copyContractTemplateFromCatalog(
+  motelId: string,
+  input: { catalogKey: string; catalogVersion: number; isDefault?: boolean },
+) {
+  return apiSend<ContractTemplateResponse>(
+    `/api/manager/motels/${encodeURIComponent(motelId)}/contract-templates/from-catalog`,
+    "POST",
+    input,
+  );
+}
+
 export function listContractTemplates(motelId: string) {
   return apiGet<ContractTemplateResponse[]>(templateBase(motelId));
 }

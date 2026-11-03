@@ -38,6 +38,26 @@ vi.mock("@/lib/motel-form", async () => {
   };
 });
 vi.mock("@/components/ui/toast", () => ({ useToast: () => mocks.notify }));
+vi.mock("@/components/manager/motel-setup-wizard", () => ({
+  default: ({ open, onClose }: { open: boolean; onClose: () => void }) => {
+    if (!open) return null;
+    return (
+      <div role="dialog">
+        <p>MotelSetupWizard</p>
+        <button
+          type="button"
+          onClick={() => {
+            mocks.submit();
+            mocks.notify({ message: "Đã tạo nhà trọ" });
+            onClose();
+          }}
+        >
+          Hoàn tất thiết lập
+        </button>
+      </div>
+    );
+  },
+}));
 
 const motel = {
   id: "m1",
@@ -61,22 +81,12 @@ describe("MotelEditor workflow coverage", () => {
     mocks.submit.mockReset();
   });
 
-  test("empty state opens create, submits, and announces success", async () => {
-    mocks.submit.mockResolvedValue({ ok: true, motel: { ...motel, name: "Nhà mới" } });
+  test("empty state opens create wizard and delegates creation", async () => {
     const view = render(<MotelEditor empty />);
     await view.findByRole("button", { name: "Tạo nhà trọ" });
     fireEvent.click(view.getByRole("button", { name: "Tạo nhà trọ" }));
-    const dialog = await screen.findByRole("dialog");
-    fireEvent.change(within(dialog).getByLabelText("Tên nhà trọ"), {
-      target: { value: "Nhà mới" },
-    });
-    fireEvent.change(within(dialog).getByLabelText("Giá điện (₫/kWh)"), {
-      target: { value: "3500" },
-    });
-    fireEvent.change(within(dialog).getByLabelText("Giá nước (₫/m³)"), {
-      target: { value: "25000" },
-    });
-    fireEvent.submit(document.querySelector("[data-dialog-content] form")!);
+    expect(view.getByText("MotelSetupWizard")).toBeInTheDocument();
+    fireEvent.click(view.getByRole("button", { name: "Hoàn tất thiết lập" }));
     await waitFor(() => expect(mocks.notify).toHaveBeenCalledWith({ message: "Đã tạo nhà trọ" }));
     expect(mocks.submit).toHaveBeenCalled();
   });
@@ -92,10 +102,92 @@ describe("MotelEditor workflow coverage", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: "Thêm phí" }));
     expect(within(dialog).getByLabelText("Tên phí 1")).toBeInTheDocument();
     fireEvent.click(within(dialog).getByLabelText("Thiết lập tài khoản nhận tiền"));
-    expect(within(dialog).queryByLabelText("Mã ngân hàng")).toBeNull();
+    expect(within(dialog).queryByLabelText("Ngân hàng")).toBeNull();
     fireEvent.submit(dialog.querySelector("form")!);
     await waitFor(() =>
       expect(mocks.notify).toHaveBeenCalledWith({ message: "Đã lưu thay đổi nhà trọ" }),
+    );
+  });
+
+  test("changing bank updates BIN without changing account details", async () => {
+    mocks.submit.mockResolvedValue({ ok: true, motel });
+    const view = render(<MotelEditor motel={motel as never} />);
+    fireEvent.click(view.getByRole("button", { name: "Chỉnh sửa Nhà A" }));
+    const dialog = view.getByRole("dialog");
+    fireEvent.change(within(dialog).getByRole("combobox", { name: "Ngân hàng" }), {
+      target: { value: "VietinBank" },
+    });
+    fireEvent.click(within(dialog).getByRole("option", { name: /VietinBank/ }));
+    fireEvent.submit(within(dialog).getByRole("button", { name: "Lưu thay đổi" }).closest("form")!);
+
+    await waitFor(() =>
+      expect(mocks.submit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          bankAccount: { bankCode: "970415", accountNumber: "123456", accountName: "NGUYEN VAN A" },
+        }),
+      ),
+    );
+  });
+
+  test("preserves existing bank BIN absent from catalog", async () => {
+    const legacyMotel = { ...motel, bankAccount: { ...motel.bankAccount, bankCode: "123456" } };
+    mocks.submit.mockResolvedValue({ ok: true, motel: legacyMotel });
+    const view = render(<MotelEditor motel={legacyMotel as never} />);
+    fireEvent.click(view.getByRole("button", { name: "Chỉnh sửa Nhà A" }));
+    const dialog = view.getByRole("dialog");
+    expect(within(dialog).getByText(/Mã BIN hiện tại: 123456/)).toBeInTheDocument();
+    fireEvent.change(within(dialog).getByLabelText("Tên nhà trọ"), {
+      target: { value: "Nhà A chỉnh tên" },
+    });
+    fireEvent.submit(within(dialog).getByRole("button", { name: "Lưu thay đổi" }).closest("form")!);
+
+    await waitFor(() =>
+      expect(mocks.submit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          bankAccount: { bankCode: "123456", accountNumber: "123456", accountName: "NGUYEN VAN A" },
+        }),
+      ),
+    );
+  });
+
+  test("changing bank updates BIN without changing account details", async () => {
+    mocks.submit.mockResolvedValue({ ok: true, motel });
+    const view = render(<MotelEditor motel={motel as never} />);
+    fireEvent.click(view.getByRole("button", { name: "Chỉnh sửa Nhà A" }));
+    const dialog = view.getByRole("dialog");
+    fireEvent.change(within(dialog).getByRole("combobox", { name: "Ngân hàng" }), {
+      target: { value: "VietinBank" },
+    });
+    fireEvent.click(within(dialog).getByRole("option", { name: /VietinBank/ }));
+    fireEvent.submit(within(dialog).getByRole("button", { name: "Lưu thay đổi" }).closest("form")!);
+
+    await waitFor(() =>
+      expect(mocks.submit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          bankAccount: { bankCode: "970415", accountNumber: "123456", accountName: "NGUYEN VAN A" },
+        }),
+      ),
+    );
+  });
+
+  test("preserves existing bank BIN absent from catalog", async () => {
+    const legacyMotel = { ...motel, bankAccount: { ...motel.bankAccount, bankCode: "123456" } };
+    mocks.submit.mockResolvedValue({ ok: true, motel: legacyMotel });
+    const view = render(<MotelEditor motel={legacyMotel as never} />);
+    fireEvent.click(view.getByRole("button", { name: "Chỉnh sửa Nhà A" }));
+    const dialog = view.getByRole("dialog");
+    expect(within(dialog).getByText(/Mã BIN hiện tại: 123456/)).toBeInTheDocument();
+    fireEvent.change(within(dialog).getByLabelText("Tên nhà trọ"), {
+      target: { value: "Nhà A chỉnh tên" },
+    });
+    fireEvent.submit(within(dialog).getByRole("button", { name: "Lưu thay đổi" }).closest("form")!);
+
+    await waitFor(() =>
+      expect(mocks.submit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          bankAccount: { bankCode: "123456", accountNumber: "123456", accountName: "NGUYEN VAN A" },
+        }),
+      ),
     );
   });
 

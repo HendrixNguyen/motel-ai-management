@@ -15,12 +15,12 @@ product test failure.
 
 ## The standard
 
-| Layer | What it proves | Explicit assertions | When |
-|-------|----------------|---------------------|------|
-| Database constraints | The rule holds even when the API is bypassed | Invalid insert/update rejects; valid boundary value persists; no partial rows remain | Every new constraint |
-| Service unit tests | The calculation or rule is correct | Each branch returns exact value, status, error code, and side effects; collaborator failure preserves required state | Every service function with a branch |
-| HTTP boundary tests | Tenant scoping holds through a real request | Status, error envelope, response body redaction, and unchanged state match contract for own and foreign resources | Every route that filters by tenant |
-| Pure-function tests | Money, phone, dates, formatting | Exact output for valid boundaries and exact rejection for malformed input | Once, then they never change |
+| Layer                | What it proves                               | Explicit assertions                                                                                                  | When                                 |
+| -------------------- | -------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- | ------------------------------------ |
+| Database constraints | The rule holds even when the API is bypassed | Invalid insert/update rejects; valid boundary value persists; no partial rows remain                                 | Every new constraint                 |
+| Service unit tests   | The calculation or rule is correct           | Each branch returns exact value, status, error code, and side effects; collaborator failure preserves required state | Every service function with a branch |
+| HTTP boundary tests  | Tenant scoping holds through a real request  | Status, error envelope, response body redaction, and unchanged state match contract for own and foreign resources    | Every route that filters by tenant   |
+| Pure-function tests  | Money, phone, dates, formatting              | Exact output for valid boundaries and exact rejection for malformed input                                            | Once, then they never change         |
 
 ### Database constraints are tested, not just declared
 
@@ -32,7 +32,7 @@ a test that tries to violate it and asserts PostgreSQL refuses:
 test("a meter cannot read lower than its previous reading", async () => {
   await seed();
   await expect(
-    db.insert(meterReadings).values({ /* currentReading < previousReading */ }),
+    db.insert(meterReadings).values({/* currentReading < previousReading */}),
   ).rejects.toThrow();
 });
 ```
@@ -90,20 +90,36 @@ destroys the schema it is given.
 
 ## Coverage expectations by area
 
-| Area | Minimum |
-|------|---------|
-| Money calculation (`sumVnd`, invoice totals) | every branch, plus a value above `Number.MAX_SAFE_INTEGER` |
-| Billing utility rounding | meter parsing rejects invalid precision; utility costs cover below-half, exact-half, and above-half VND, with exact halves rounded up |
-| Billing workflows | readings batch is atomic and conflict-safe; sent periods reject mutation; invoice generation is idempotent with snapshots; payment transitions and tenant 404 are covered |
-| Phone normalisation | mobile, landline, each malformed form |
-| Auth | register, login, wrong password, unknown email, replay, expiry — for both roles |
-| Contract signing | renter-only read, hashed OTP, five-minute expiry/cooldown, three-attempt limit, atomic activation, safe error codes |
-| Tenant scoping | both isolation directions, over HTTP |
-| Billing rules | meter's `basePrice` is never read by the calculation |
-| Renter payment | one-proof invariant, JPEG/PNG byte and 5,000,000-byte payment-proof limit, proof state transitions, manager-only approval/cash payment, signed URL TTL, renter paid-mutation denial |
-| Notifications | push subscription ownership/deduplication, Web Push-first ordering, bounded retries, permanent-failure fallback, stable event-key idempotency, redacted payloads |
-| Meter capture | manager ownership, motel+period scoping, wrong-manager rejection, stale-motel queue clearing on switch, logout cleanup, draft-only enqueue, and offline reload/reconnect sync (unit + browser-level tests) |
-| Manager contracts | active-renter/room motel scoping, decimal-safe VND normalization, valid dates, draft-only PATCH fields, cross-motel template rejection, and lifecycle transitions (unit + HTTP + E2E) |
+| Area                                         | Minimum                                                                                                                                                                                                                                                                                                                             |
+| -------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Money calculation (`sumVnd`, invoice totals) | every branch, plus a value above `Number.MAX_SAFE_INTEGER`                                                                                                                                                                                                                                                                          |
+| Billing utility rounding                     | meter parsing rejects invalid precision; utility costs cover below-half, exact-half, and above-half VND, with exact halves rounded up                                                                                                                                                                                               |
+| Billing workflows                            | readings batch is atomic and conflict-safe; sent periods reject mutation; invoice generation is idempotent with snapshots; payment transitions and tenant 404 are covered                                                                                                                                                           |
+| Phone normalisation                          | mobile, landline, each malformed form                                                                                                                                                                                                                                                                                               |
+| Auth                                         | public registration forced to Manager role, role-bound Manager/Superadmin sessions, both roles on `/auth/me` and logout, Manager denied admin APIs, CSRF enforcement, remember-me token hashing and 90-day expiry/renewal, current-device logout revocation, disable/reset sessionVersion revocation, wrong password, unknown email |
+| Contract signing                             | renter-only read, hashed OTP, five-minute expiry/cooldown, three-attempt limit, atomic activation, safe error codes                                                                                                                                                                                                                 |
+| Tenant scoping                               | Managers isolated in both directions over HTTP; Superadmin cross-owner access; motel-child mismatch still returns 404 across modules                                                                                                                                                                                                |
+| Billing rules                                | meter's `basePrice` is never read by the calculation                                                                                                                                                                                                                                                                                |
+| Renter payment                               | one-proof invariant, JPEG/PNG byte and 5,000,000-byte payment-proof limit, proof state transitions, Manager-owner/Superadmin approval and cash payment, signed URL TTL, renter paid-mutation denial                                                                                                                                 |
+| Notifications                                | push subscription ownership/deduplication, Web Push-first ordering, bounded retries, permanent-failure fallback, stable event-key idempotency, redacted payloads                                                                                                                                                                    |
+| Meter capture                                | manager ownership, motel+period scoping, wrong-manager rejection, stale-motel queue clearing on switch, logout cleanup, draft-only enqueue, and offline reload/reconnect sync (unit + browser-level tests)                                                                                                                          |
+| Manager contracts                            | active-renter/room motel scoping, decimal-safe VND normalization, valid dates, draft-only PATCH fields, cross-motel template rejection, and lifecycle transitions (unit + HTTP + E2E)                                                                                                                                               |
+| Motel setup & catalog                        | full/quick setup by selected owner, enabled-Manager owner validation, manager spoof rejection, first-motel eligibility by owner, actor-scoped idempotency and owner-change conflict, contract catalog preview/copy, and post-setup template assignment (unit + HTTP + E2E)                                                          |
+| System seed and demo seed                    | one-shot canonical Superadmin/catalog seed; matching rerun idempotent; role/disabled/password conflicts fail without writes; no startup seed side effects; QA demo seed requires exact QA opt-in and refusal occurs before destructive writes                                                                                       |
+
+## Motel Setup Acceptance Matrix & Release Gates
+
+| Mode / Flow             | Input / Options                                                                | Assertions & Boundaries                                                                                                                    | Verification Layer                                                          |
+| ----------------------- | ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------- |
+| Full Setup (`full`)     | Motel basic info + services + bank + catalog template + generated rooms        | Single atomic transaction; creates motel, default template from catalog, rooms with base price; returns `SetupMotelResult`; selected in UI | `backend/test/motel-setup.test.ts`, `frontend/e2e/motel-setup.spec.ts`      |
+| Quick Setup (`quick`)   | Motel basic info + optional copy groups; skips rooms and template steps        | Creates motel with 0 rooms, no template, selected copied settings (bank/services); source motel unchanged                                  | `backend/test/motel-setup.test.ts`, `frontend/e2e/motel-setup.spec.ts`      |
+| Copy Configuration      | Existing owned motel source; selective checkboxes for bank, services, template | Copies bank account and utility prices; copies template only if selected; never copies room inventory, source name, or public access code  | `backend/test/motel-copy.test.ts`, `frontend/e2e/motel-setup.spec.ts`       |
+| Idempotency & Replay    | Same `requestId` re-submitted or queried via status endpoint                   | Replays saved result (200 OK); does not create duplicate motels/rooms/templates; recovers lost response on page refresh                    | `backend/test/motel-setup.test.ts`, `frontend/e2e/motel-setup.spec.ts`      |
+| Catalog Selection Later | Quick motel created; manager visits Contracts page to select catalog template  | Lists active catalog; previews clauses; creates template copy linked to motel; supports setting as default                                 | `backend/test/contract-catalog.test.ts`, `frontend/e2e/motel-setup.spec.ts` |
+
+### Explicit Legal Publication Gate
+
+Catalog templates seeded in the system or tested in automated fixtures represent technical data structures and draft schemas only. **Fixture-only and mock-based tests are not proof of production legal compliance or real-world usability.** Prior to activating or publishing any standard Vietnamese rental contract templates for live production use, legal counsel must explicitly review and sign off on all clause texts, statutory compliance, and default terms. Initial seed data must remain marked as inactive/draft until formal review and authorization.
 
 ## What not to test
 
@@ -112,11 +128,13 @@ destroys the schema it is given.
 - Implementation details that a refactor would change without changing behaviour. Test the
   interface a caller uses.
 
-## Deployment startup and migration verification
+## Deployment startup and migration/seed verification
 
-The local `docker-compose.yml` waits for PostgreSQL health before starting the backend. Backend startup runs `bun run db:migrate` before `bun run start`, and the backend restarts after transient failures. This auto-migration pattern is safe only with one backend replica. Production deployments with multiple replicas must run one migration job to completion before starting or rolling out replicas; replicas must not migrate concurrently.
+Backend startup must not create or update system identity, contract catalog, or demo data; it must not require `SUPERADMIN_PASSWORD`. No test or deploy path may rely on startup to seed. The seed contract is an explicit one-shot `bun run db:seed-system` after migrations complete. It does not run migrations. It reads `SUPERADMIN_PASSWORD` from protected Dokploy runtime secret injection, never from CLI arguments or logs, and creates/verifies only `superadmin@motel.huyndg.io.vn` plus missing catalog versions. Read-only preflight checks canonical-email identity conflicts before execution; conflicts must stop the operation without changing an existing account.
 
-Full-flow and deployment smoke checks must verify migration completion and backend health. Test migration startup against production-like data without `db:push` or database reset.
+The destructive demo seed is separate and QA-only. It may run only when both `APP_ENV=qa` and `SEED_DATABASE=true`; never invoke it against Prod. Tests must prove refusal occurs before destructive statements for every non-QA or missing-opt-in case, including production.
+
+Migration verification must establish completion before system seed. Test migration startup against production-like data without `db:push` or database reset. QA rollout and any future Prod rollout are distinct approvals; Prod execution is never part of QA verification.
 
 ## Review gate
 
@@ -133,11 +151,11 @@ merging anything that touches auth, tenancy, or money.
 
 Two runners, two layers, no overlap.
 
-| Layer | Runner | Files | Needs a database or backend? | Needs a launchable browser? |
-|-------|--------|-------|-------------------------------|----------------------------|
-| Unit | Vitest (`node` environment) | `src/**/*.test.ts` | no | no |
-| Browser | Playwright `chromium-mobile` | `e2e/**/*.spec.ts` | no | yes |
-| Browser, live stack | Playwright `real-stack` | `e2e/real/**`, only with `E2E_REAL=1` | yes | yes |
+| Layer               | Runner                       | Files                                 | Needs a database or backend? | Needs a launchable browser? |
+| ------------------- | ---------------------------- | ------------------------------------- | ---------------------------- | --------------------------- |
+| Unit                | Vitest (`node` environment)  | `src/**/*.test.ts`                    | no                           | no                          |
+| Browser             | Playwright `chromium-mobile` | `e2e/**/*.spec.ts`                    | no                           | yes                         |
+| Browser, live stack | Playwright `real-stack`      | `e2e/real/**`, only with `E2E_REAL=1` | yes                          | yes                         |
 
 The browser layer is fixture-backed on purpose: `mockApi(page, fixtures)` in `e2e/fixtures/api.ts`
 intercepts `**/api/**` and answers from a literal, so the suite asserts UI behaviour without

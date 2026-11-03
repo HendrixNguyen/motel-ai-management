@@ -118,7 +118,13 @@ test("room creation focuses linked local errors then sends exact VND with floor 
   await dialog.getByRole("button", { name: "Thêm phòng", exact: true }).click();
   await expect(dialog).not.toBeVisible();
   await expect(trigger).toBeFocused();
-  expect(input).toEqual({ name: "P.102", basePrice: "3500000", floor: 0 });
+  expect(input).toEqual({
+    name: "P.102",
+    basePrice: "3500000",
+    floor: 0,
+    initialElectricReading: "0",
+    initialWaterReading: "0",
+  });
   await expect(page.getByRole("status").filter({ hasText: "Đã thêm phòng trọ" })).toBeVisible();
 });
 

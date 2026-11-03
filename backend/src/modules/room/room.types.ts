@@ -19,6 +19,8 @@ export interface CreateRoomInput {
   /** VND, whole units. */
   basePrice: VndString;
   floor?: number | null;
+  initialElectricReading?: string;
+  initialWaterReading?: string;
   status?: RoomStatus;
 }
 
@@ -42,6 +44,8 @@ export interface RoomResponse {
   name: string;
   basePrice: VndString;
   floor: number | null;
+  initialElectricReading: string;
+  initialWaterReading: string;
   status: RoomStatus;
   /** ISO-8601 UTC string on the wire, as the contract asks. */
   createdAt: string;

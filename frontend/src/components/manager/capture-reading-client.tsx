@@ -76,12 +76,13 @@ export default function CaptureReadingClient({
         },
         { motelId: queueScope.motelId, periodId: queueScope.periodId },
       );
+      const queued = await queue.list(queueScope.motelId, queueScope.periodId);
       setSyncState(
         result.readings.conflicts
           ? "Cần kiểm tra xung đột"
           : result.readings.failed || result.photos.failed
             ? "Đang chờ kết nối"
-            : result.readings.sent || result.photos.sent
+            : queued.some((item) => item.status === "sent") || result.photos.sent
               ? "Đã đồng bộ"
               : "Đã lưu trên thiết bị",
       );

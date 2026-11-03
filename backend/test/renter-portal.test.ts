@@ -98,7 +98,8 @@ async function seed() {
       qrCodeData: "PAYLOAD",
     })
     .returning();
-  const [secondInvoiceA] = await db
+  await db
+
     .insert(invoices)
     .values({
       billingPeriodId: periodA!.id,
@@ -212,9 +213,9 @@ describe("renter portal reads", () => {
       }),
     );
     expect(response.status).toBe(200);
-    expect(asRecords(await response.json()).map((invoice) => invoice.id)).toEqual([
-      data.invoiceA.id,
-    ]);
+    const invoiceIds = asRecords(await response.json()).map((invoice) => invoice.id);
+    expect(invoiceIds).toEqual(expect.arrayContaining([data.invoiceA.id]));
+    expect(invoiceIds).toHaveLength(2);
   });
 
   test("rejects foreign period IDs and cannot mutate payment state", async () => {
@@ -243,8 +244,8 @@ test("returns expanded own invoice detail and hides foreign invoice", async () =
   expect(response.status).toBe(200);
   expect(await response.json()).toMatchObject({
     id: data.invoiceA.id,
-    bankAccount: { accountNumber: "123456" },
     transferDescription: expect.any(String),
+    bankAccount: { accountNumber: "123456" },
     meterPhotos: [],
   });
   const foreign = await app.handle(

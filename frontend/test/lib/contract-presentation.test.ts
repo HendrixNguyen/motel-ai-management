@@ -55,6 +55,8 @@ const room: RoomResponse = {
   name: "P.101",
   basePrice: "3500000",
   floor: 1,
+  initialElectricReading: "0",
+  initialWaterReading: "0",
   status: "occupied",
   createdAt: "2026-10-01T00:00:00.000Z",
 };

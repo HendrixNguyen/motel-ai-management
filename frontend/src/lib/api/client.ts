@@ -61,6 +61,7 @@ export class ApiError extends Error {
  * status-derived code answers instead.
  */
 const STATUS_FOR_CODE: Record<ErrorCode, true> = {
+  MOTEL_SETUP_REQUIRED: true,
   VALIDATION_ERROR: true,
   UNAUTHORIZED: true,
   MAGIC_LINK_EXPIRED: true,
@@ -162,9 +163,10 @@ export async function apiSend<T>(
   path: string,
   method: "POST" | "PATCH" | "PUT" | "DELETE",
   body?: unknown,
+  headers?: Record<string, string>,
 ): Promise<T> {
   assertRelativePath(path);
-  return decodeResponse<T>(await send(path, method, body));
+  return decodeResponse<T>(await send(path, method, body, headers));
 }
 
 /**
@@ -173,12 +175,65 @@ export async function apiSend<T>(
  * A rejected `fetch` carries a `TypeError` whose `cause` can hold the host and port it tried; that
  * must not become an error message, so the cause is dropped and `status: 0` records what happened.
  */
-async function send(path: string, method: string, body?: unknown): Promise<Response> {
+const REMEMBERED_SESSION_KEY = "remembered-manager-session";
+let lastSessionRefresh = 0;
+let sessionRefresh: Promise<void> | undefined;
+
+export function setRememberedManagerSession(remembered: boolean): void {
   try {
-    return await fetch(path, {
+    if (remembered) localStorage.setItem(REMEMBERED_SESSION_KEY, "1");
+    else localStorage.removeItem(REMEMBERED_SESSION_KEY);
+  } catch {
+    return;
+  }
+}
+
+function hasRememberedManagerSession(): boolean {
+  try {
+    return localStorage.getItem(REMEMBERED_SESSION_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+async function refreshSessionIfDue(): Promise<void> {
+  if (
+    typeof window === "undefined" ||
+    !hasRememberedManagerSession() ||
+    Date.now() - lastSessionRefresh < 60_000
+  )
+    return;
+  lastSessionRefresh = Date.now();
+  sessionRefresh ??= fetch("/api/auth/session/refresh", {
+    method: "POST",
+    credentials: "same-origin",
+    headers: { accept: "application/json" },
+  })
+    .then(() => {})
+    .catch(() => {})
+    .finally(() => {
+      sessionRefresh = undefined;
+    });
+  await sessionRefresh;
+}
+
+export function refreshManagerSession(): Promise<void> {
+  lastSessionRefresh = 0;
+  return refreshSessionIfDue();
+}
+
+async function send(
+  path: string,
+  method: string,
+  body?: unknown,
+  headers?: Record<string, string>,
+): Promise<Response> {
+  try {
+    const response = await fetch(path, {
       method,
       credentials: "same-origin",
       headers: {
+        ...headers,
         accept: "application/json",
         ...(body === undefined || body instanceof FormData
           ? {}
@@ -188,6 +243,13 @@ async function send(path: string, method: string, body?: unknown): Promise<Respo
         ? {}
         : { body: body instanceof FormData ? body : JSON.stringify(body) }),
     });
+    if (
+      response.ok &&
+      path.startsWith("/api/") &&
+      !/^\/api\/auth\/(?:login|logout|session\/refresh)$/.test(path)
+    )
+      void refreshSessionIfDue();
+    return response;
   } catch {
     throw new ApiError(0, "INTERNAL_ERROR", GENERIC_ERROR_MESSAGE);
   }

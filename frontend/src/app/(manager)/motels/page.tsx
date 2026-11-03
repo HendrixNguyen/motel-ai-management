@@ -53,6 +53,11 @@ export default async function Motels({
                   <p className="mt-1 text-sm text-text-muted [overflow-wrap:anywhere]">
                     {motel.address || "Chưa có địa chỉ"}
                   </p>
+                  {motel.managerName && (
+                    <p className="mt-1 text-sm text-text-muted [overflow-wrap:anywhere]">
+                      Quản lý sở hữu: {motel.managerName}
+                    </p>
+                  )}
                 </div>
                 <p className="shrink-0 rounded-full bg-primary-fixed px-3 py-1 text-sm font-semibold text-on-primary-fixed tabular-nums">
                   {roomCount} phòng
@@ -82,13 +87,22 @@ export default async function Motels({
                 <span className="text-sm text-text-muted">Cấu hình vận hành</span>
                 <div className="flex min-w-0 flex-wrap gap-2">
                   <Button asChild variant="outline" size="sm">
-                    <Link href={motelHref("/rooms", "", motel.id)}>Phòng</Link>
+                    <Link
+                      href={motelHref("/rooms", "", motel.id)}>
+                      Phòng
+                    </Link>
                   </Button>
                   <Button asChild variant="outline" size="sm">
-                    <Link href={motelHref("/billing", "", motel.id)}>Hóa đơn</Link>
+                    <Link
+                      href={motelHref("/billing", "", motel.id)}>
+                      Hóa đơn
+                    </Link>
                   </Button>
                   <Button asChild variant="outline" size="sm">
-                    <Link href={motelHref("/renters", "", motel.id)}>Khách thuê</Link>
+                    <Link
+                      href={motelHref("/renters", "", motel.id)}>
+                      Khách thuê
+                    </Link>
                   </Button>
                   <MotelEditor motel={motel} />
                 </div>

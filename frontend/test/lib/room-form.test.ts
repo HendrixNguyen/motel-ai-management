@@ -9,18 +9,42 @@ import {
 import { MOTEL, ROOM, ROOM_WITHOUT_FLOOR } from "@test/lib/api/fixtures";
 
 afterEach(() => vi.unstubAllGlobals());
-const valid = () => ({ name: " P.102 ", floor: "0", basePrice: "003500000" });
+const valid = () => ({
+  name: " P.102 ",
+  floor: "0",
+  basePrice: "003500000",
+  initialElectricReading: "0",
+  initialWaterReading: "0",
+});
 
 describe("room create/edit input", () => {
   it("prefills editable prices as plain grouped VND and leaves nullable floor blank", () => {
-    expect(createRoomDraft()).toEqual({ name: "", floor: "", basePrice: "" });
-    expect(createRoomDraft(ROOM)).toEqual({ name: "P.101", floor: "1", basePrice: "3.500.000" });
+    expect(createRoomDraft()).toEqual({
+      name: "",
+      floor: "",
+      basePrice: "",
+      initialElectricReading: "0",
+      initialWaterReading: "0",
+    });
+    expect(createRoomDraft(ROOM)).toEqual({
+      name: "P.101",
+      floor: "1",
+      basePrice: "3.500.000",
+      initialElectricReading: "0",
+      initialWaterReading: "0",
+    });
     expect(createRoomDraft(ROOM_WITHOUT_FLOOR).floor).toBe("");
   });
   it("creates exact digit-string rent and floor zero with no amenities or fabricated status", () => {
     expect(prepareRoomInput(valid())).toEqual({
       ok: true,
-      input: { name: "P.102", floor: 0, basePrice: "3500000" },
+      input: {
+        name: "P.102",
+        floor: 0,
+        basePrice: "3500000",
+        initialElectricReading: "0",
+        initialWaterReading: "0",
+      },
     });
     expect(prepareRoomInput({ ...valid(), floor: "" })).toMatchObject({
       ok: true,
@@ -64,6 +88,12 @@ describe("room create/edit input", () => {
       });
     },
   );
+  it.each(["-1", "1.234", "10000000000", "abc"])("rejects initial meter reading %s", (reading) => {
+    expect(prepareRoomInput({ ...valid(), initialElectricReading: reading })).toMatchObject({
+      ok: false,
+      fields: { initialElectricReading: expect.any(String) },
+    });
+  });
   it("accepts zero rent, the numeric maximum and signed int4 floor boundaries", () => {
     expect(prepareRoomInput({ ...valid(), basePrice: "0", floor: "-2147483648" })).toMatchObject({
       ok: true,
@@ -85,7 +115,7 @@ describe("room actions", () => {
       expect.objectContaining({
         method: "POST",
         credentials: "same-origin",
-        body: '{"name":"P.102","basePrice":"3500000","floor":0}',
+        body: '{"name":"P.102","basePrice":"3500000","floor":0,"initialElectricReading":"0","initialWaterReading":"0"}',
       }),
     );
     expect(await submitRoom(MOTEL.id, { ...createRoomDraft(ROOM), floor: "" }, ROOM)).toEqual({

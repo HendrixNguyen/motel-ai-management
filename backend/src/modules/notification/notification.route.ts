@@ -118,7 +118,9 @@ export const notificationRoutes = new Elysia({ name: "notification-routes" })
         set.status = 400;
         return { error: "Dữ liệu webhook không hợp lệ", code: "VALIDATION_ERROR" };
       }
-      const eventId = event.event_id?.trim() ?? createHmac("sha256", env.zalo.webhookSecret).update(raw).digest("hex");
+      const eventId =
+        event.event_id?.trim() ??
+        createHmac("sha256", env.zalo.webhookSecret).update(raw).digest("hex");
       const followerId = follower;
       try {
         await processZaloWebhook(eventId, {
@@ -129,7 +131,8 @@ export const notificationRoutes = new Elysia({ name: "notification-routes" })
         });
       } catch (error) {
         if (error instanceof AppError) throw error;
-        throw error;
+        set.status = 500;
+        return { error: "Webhook chưa thể xử lý", code: "INTERNAL_ERROR" };
       }
       return { ok: true };
     },

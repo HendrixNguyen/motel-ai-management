@@ -33,6 +33,7 @@ yarn-debug.log*
 # misc
 .vercel
 .worktrees/
+.kilo/
 **/*.trace
 **/*.zip
 **/*.tar.gz

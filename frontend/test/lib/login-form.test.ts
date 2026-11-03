@@ -38,7 +38,7 @@ describe("login submission", () => {
     vi.stubGlobal("fetch", fetchMock);
     expect(
       await authenticateManager({ email: "minhanh@example.vn", password: " password " }),
-    ).toEqual({ ok: true });
+    ).toEqual({ ok: true, role: "manager" });
     expect(fetchMock).toHaveBeenCalledWith(
       "/api/auth/login",
       expect.objectContaining({
@@ -47,6 +47,20 @@ describe("login submission", () => {
         body: '{"email":"minhanh@example.vn","password":" password "}',
       }),
     );
+  });
+  it("sends remembered-login preference", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(Response.json(MANAGER_AUTH));
+    vi.stubGlobal("fetch", fetchMock);
+    await authenticateManager({
+      email: "minhanh@example.vn",
+      password: "password123",
+      rememberMe: true,
+    });
+    expect(JSON.parse(fetchMock.mock.calls[0]![1]!.body as string)).toEqual({
+      email: "minhanh@example.vn",
+      password: "password123",
+      rememberMe: true,
+    });
   });
   it.each([401, 400])(
     "returns a Vietnamese form error for HTTP %s rather than field guesses",

@@ -28,6 +28,7 @@ export interface BankAccountInput {
 }
 
 export interface CreateMotelInput {
+  ownerManagerId?: string;
   name: string;
   address?: string | null;
   electricityPrice: VndString;
@@ -50,6 +51,7 @@ export interface MotelResponse {
   id: string;
   publicAccessCode: string;
   managerId: string;
+  managerName?: string;
   name: string;
   address: string | null;
   electricityPrice: VndString;

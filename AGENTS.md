@@ -95,8 +95,17 @@ layer must test.
 browser that can start, which on a minimal Linux image needs a one-time
 `sudo bunx playwright install-deps chromium`; see the "Known state" section below.
 
-Verify in this order: backend `typecheck` → `test`; frontend `typecheck` → `lint` → `build` →
-`test` → `test:e2e`.
+Before creating or updating a PR, run `typecheck`, `lint`, and formatting checks for every changed
+package. In `backend/` and `frontend/`, run `bun run typecheck`, `bun run lint`, and
+`bun run format:check`; in `landing/`, run `bun run typecheck`, `bun run check`, and the repository
+Prettier check described above. If a package-wide format check fails on unchanged files, run
+Prettier `--check` on every PR-changed formattable file; format only changed files that fail, review
+the diff, and rerun checks. Do not create or update a PR when changed files fail checks. Report
+pre-existing baseline failures or blocked checks in PR notes.
+
+Full verification order: backend `typecheck` → `lint` → `format:check` → `test`; frontend
+`typecheck` → `lint` → `format:check` → `build` → `test` → `test:e2e`. For landing changes, run
+`typecheck` → `check` → repository Prettier check → `test` → `build`.
 
 ## The local database (this is where the time goes)
 
@@ -165,8 +174,10 @@ Modular monolith (ADR-0004). Each domain under `backend/src/modules/<domain>/` o
 - Error envelope is `{ error, code, details? }`, `details` omitted unless it helps the caller.
   Unexpected errors are logged and reported as `INTERNAL_ERROR`; a driver message or database
   URL must never reach a client.
-- Tenant scope always comes from the session; no endpoint accepts a `managerId` from the
-  client. Cross-tenant denial is **404, never 403** — a 403 confirms the resource exists.
+- Motel access always uses authenticated session actor and role; Manager requests stay owner-scoped,
+  Superadmins may access all motels. `ownerManagerId` is accepted only on motel creation by
+  Superadmins, must resolve to an enabled Manager, and never grants role or impersonation. Cross-
+  tenant and child-resource denial is **404, never 403** — a 403 confirms the resource exists.
 - UUID primary keys, `timestamptz` with `now()` defaults, `snake_case` columns mapped by
   Drizzle. Backend also sets `noUncheckedIndexedAccess`; both packages are strict TypeScript.
 - Frontend imports use `@/*` → `frontend/src/*`.

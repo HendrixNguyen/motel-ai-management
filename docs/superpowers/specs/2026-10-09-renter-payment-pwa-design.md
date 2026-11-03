@@ -17,7 +17,7 @@ No chat, contracts, tickets, bank auto-reconciliation, payment gateway, multi-im
 
 - `backend/src/modules/auth/magic-link.route.ts` exchanges one-time links for an `httpOnly` `renter_session`; `shared/magic-link` owns token consumption.
 - `backend/src/modules/renter-portal/` already scopes profile, periods, and invoices through `RenterSession` and exported billing services.
-- `backend/src/modules/billing/` owns invoice totals, QR payload snapshots, and manager-only `paid`/`overdue` transitions.
+- `backend/src/modules/billing/` owns invoice totals, QR payload snapshots, and Manager-owner/Superadmin `paid`/`overdue` transitions.
 - `backend/src/modules/billing/upload.schema.ts` provides private upload metadata with one resource row per `(resourceType, resourceId)`; payment proof must use a distinct resource type and invoice resource ID.
 - `backend/src/modules/notification/` currently persists idempotent Zalo events. Add Web Push as a channel/provider without exposing provider credentials or browser-callable provider operations.
 - Browser calls remain relative `/api/*`; renter and manager sessions remain separate cookies and auth plugins.
@@ -35,7 +35,7 @@ Add `payment_proofs` as the payment-domain source of truth rather than overloadi
 - partial unique `(invoice_id)` for non-rejected proofs, so one invoice has at most one current proof; a rejected proof remains audit history and may be replaced by inserting one new pending proof, while pending/approved proofs cannot be replaced
 - foreign keys and motel/renter ownership checks
 
-Use invoice payment state as the financial truth. Proof submission records evidence and queues manager review; it does not mark the invoice paid. Manager approval locks proof approval and calls billing's exported `markInvoicePaid` service in one transaction or an explicitly idempotent orchestration. Rejection leaves invoice unpaid and preserves immutable proof history; one replacement current proof is allowed only after rejection. Cash confirmation directly invokes manager-only billing payment transition and creates an audit record if existing audit infrastructure supports it.
+Use invoice payment state as the financial truth. Proof submission records evidence and queues manager review; it does not mark the invoice paid. Manager-owner or Superadmin approval locks proof approval and calls billing's exported `markInvoicePaid` service in one transaction or an explicitly idempotent orchestration. Rejection leaves invoice unpaid and preserves immutable proof history; one replacement current proof is allowed only after rejection. Cash confirmation directly invokes the authorized billing payment transition and creates an audit record if existing audit infrastructure supports it.
 
 ### Renter activation
 

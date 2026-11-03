@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import Modal from "@/components/ui/modal";
@@ -23,6 +23,7 @@ export default function CaptureQueueWarning({
   const [clearPending, setClearPending] = useState(false);
   const [noticeOpen, setNoticeOpen] = useState(false);
   const [clearError, setClearError] = useState("");
+  const root = useRef<HTMLDivElement>(null);
   useEffect(() => {
     let cancelled = false;
     void Promise.all([queue.list(), queue.hasLegacyRows()])
@@ -84,6 +85,24 @@ export default function CaptureQueueWarning({
       cancelled = true;
     };
   }, [logoutPending, router]);
+  useEffect(() => {
+    if (!noticeOpen || clearPending) return;
+    const close = (event: PointerEvent) => {
+      if (!root.current?.contains(event.target as Node)) setNoticeOpen(false);
+    };
+    const escape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setNoticeOpen(false);
+        root.current?.querySelector("button")?.focus();
+      }
+    };
+    window.addEventListener("pointerdown", close);
+    window.addEventListener("keydown", escape);
+    return () => {
+      window.removeEventListener("pointerdown", close);
+      window.removeEventListener("keydown", escape);
+    };
+  }, [clearPending, noticeOpen]);
   if (!dirty && !legacy) return null;
   const message = legacy
     ? "Có dữ liệu chỉ số cũ chưa gắn với tài khoản hiện tại. Dữ liệu bị cách ly và sẽ không được đồng bộ tự động."
@@ -103,13 +122,13 @@ export default function CaptureQueueWarning({
   }
 
   return (
-    <>
+    <div ref={root} className="relative shrink-0">
       <Button
         variant="ghost"
         aria-label={`Thông báo dữ liệu ngoại tuyến: ${message}`}
         aria-haspopup="dialog"
         aria-expanded={noticeOpen}
-        className="fixed right-4 top-4 z-40 rounded-full border border-warning bg-warning-bg p-2 text-warning shadow-lg lg:right-8 lg:top-5"
+        className="relative rounded-full border border-warning bg-warning-bg p-2 text-warning"
         onClick={() => setNoticeOpen((open) => !open)}
       >
         <svg
@@ -137,7 +156,7 @@ export default function CaptureQueueWarning({
         <aside
           role="status"
           aria-label="Thông báo dữ liệu ngoại tuyến"
-          className="fixed right-4 top-16 z-40 w-[min(22rem,calc(100vw-2rem))] rounded-card border border-warning bg-warning-bg p-4 text-warning shadow-lg lg:right-8 lg:top-20"
+          className="absolute right-0 top-full z-40 mt-2 max-h-[min(70vh,32rem)] w-[min(22rem,calc(100vw-1.5rem))] overflow-y-auto rounded-card border border-warning bg-warning-bg p-4 text-warning shadow-lg"
         >
           <p className="font-semibold">Dữ liệu nhập chỉ số</p>
           <p className="mt-2 text-sm">{message}</p>
@@ -193,6 +212,6 @@ export default function CaptureQueueWarning({
           )}
         </div>
       </Modal>
-    </>
+    </div>
   );
 }

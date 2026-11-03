@@ -13,14 +13,19 @@ export default function MotelSwitcher({
   selectedId,
   onChange,
   disabled = false,
+  showOwner = false,
 }: {
   motels: MotelResponse[];
   selectedId?: string;
   onChange: (id: string) => void;
   disabled?: boolean;
+  showOwner?: boolean;
 }) {
   const [open, setOpen] = useState(false);
-  const options = motels.map((motel) => ({ value: motel.id, label: motel.name }));
+  const options = motels.map((motel) => ({
+    value: motel.id,
+    label: showOwner && motel.managerName ? `${motel.name} — ${motel.managerName}` : motel.name,
+  }));
   const placeholder = motels.length ? "Chọn nhà trọ" : "Chưa có nhà trọ";
   const selected = options.find((option) => option.value === selectedId);
   return (

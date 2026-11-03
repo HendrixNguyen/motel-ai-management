@@ -159,7 +159,7 @@ describe("notification security and delivery", () => {
     expect(captured).toEqual({
       title: "T".repeat(80),
       body: "B".repeat(160),
-      path: "/portal/bills",
+      path: "/portal",
     });
     configureWebPushClient({
       setVapidDetails: () => {},

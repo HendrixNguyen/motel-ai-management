@@ -221,7 +221,7 @@ describe("live QA safety", () => {
       validateLiveQaConfig({ ...validQaEnv, E2E_QA_MANAGER_ID: undefined }, "mutating"),
     ).toContain("Set E2E_QA_MANAGER_ID for the live QA suite");
   });
-  
+
   it("discards untrusted diagnostics instead of retaining credential-like text", () => {
     const output = redactLiveQaDiagnostic(
       "https://qa.test/r?token=abc123&phone=+84901234567 qa.person@example.test Bearer sensitive-token",

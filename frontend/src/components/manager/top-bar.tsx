@@ -36,6 +36,13 @@ export default function TopBar({
   const [error, setError] = useState<string>();
   const [accountOpen, setAccountOpen] = useState(false);
   const search = searchParams.toString();
+
+  useEffect(() => {
+    try {
+      sessionStorage.setItem("manager-role", manager.role);
+    } catch {}
+  }, [manager.role]);
+
   useEffect(() => {
     const update = (event: Event) => {
       const updated = (event as CustomEvent<MotelResponse>).detail;
@@ -47,6 +54,7 @@ export default function TopBar({
     window.addEventListener("motel-updated", update);
     return () => window.removeEventListener("motel-updated", update);
   }, []);
+
   useEffect(() => {
     if (motels.length && !searchParams.has("motel"))
       router.replace(motelHref(pathname, search, motels[0]!.id));
@@ -86,10 +94,14 @@ export default function TopBar({
           </p>
         </div>
         <div className="min-w-[12rem] flex-1 sm:w-64 sm:flex-none lg:flex-1 lg:max-w-sm">
+          <label htmlFor="motel-selector-button" className="sr-only">
+            Nhà trọ
+          </label>
           <MotelSwitcher
             motels={motelItems}
             selectedId={selected}
             disabled={switching}
+            showOwner={manager.role === "superadmin"}
             onChange={(id) => {
               const event = new CustomEvent("capture:motel-switch", {
                 cancelable: true,
@@ -101,48 +113,51 @@ export default function TopBar({
             }}
           />
         </div>
-        <DropdownMenu open={accountOpen} onOpenChange={setAccountOpen}>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="secondary"
-              aria-label="Menu phụ, Tài khoản"
-              aria-controls="manager-account-menu"
-              aria-expanded={accountOpen}
+        <div className="ml-auto flex shrink-0 items-center gap-2">
+          {selected && <CaptureQueueWarning managerId={manager.id} motelId={selected} />}
+          <DropdownMenu open={accountOpen} onOpenChange={setAccountOpen}>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="secondary"
+                aria-label="Menu phụ, Tài khoản"
+                aria-controls="manager-account-menu"
+                aria-expanded={accountOpen}
+              >
+                Tài khoản
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              id="manager-account-menu"
+              align="end"
+              className="w-72 max-w-[calc(100vw-1.5rem)] p-4"
             >
-              Tài khoản
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-72 max-w-[calc(100vw-1.5rem)] p-4">
-            <DropdownMenuItem
-              disabled
-              className="h-auto min-h-11 max-w-[calc(100vw-3rem)] cursor-default whitespace-normal px-0 focus:bg-transparent focus:text-text"
-            >
-              <span className="break-all text-sm">{manager.email}</span>
-            </DropdownMenuItem>
-            <div className="px-2 py-2" role="none">
-              <ThemeSelect />
-            </div>
-            {buildVersion && (
               <DropdownMenuItem
                 disabled
-                className="h-auto min-h-11 cursor-default whitespace-normal px-2 focus:bg-transparent focus:text-text"
+                className="h-auto min-h-11 max-w-[calc(100vw-3rem)] cursor-default whitespace-normal px-0 focus:bg-transparent focus:text-text"
               >
-                <p className="font-mono text-xs text-text-muted" data-testid="build-version">
-                  Build {buildVersion}
-                </p>
+                <span className="break-all text-sm">{manager.email}</span>
               </DropdownMenuItem>
-            )}
-            <div className="space-y-3 sm:space-y-4">
+              <div className="px-2 py-2" role="none">
+                <ThemeSelect />
+              </div>
+              {buildVersion && (
+                <DropdownMenuItem
+                  disabled
+                  className="h-auto min-h-11 cursor-default whitespace-normal px-2 focus:bg-transparent focus:text-text"
+                >
+                  <p className="font-mono text-xs text-text-muted" data-testid="build-version">
+                    Build {buildVersion}
+                  </p>
+                </DropdownMenuItem>
+              )}
               {error && (
-                <p role="alert" className="text-sm text-danger">
+                <p role="alert" className="px-2 py-2 text-sm text-danger">
                   {error}
                 </p>
               )}
               <DropdownMenuItem
                 disabled={pending}
-                onSelect={() => {
-                  void handleLogout();
-                }}
+                onSelect={() => void handleLogout()}
                 className="px-2 py-2 focus:bg-transparent"
               >
                 <Button
@@ -155,11 +170,10 @@ export default function TopBar({
                   {pending ? "Đang đăng xuất…" : "Đăng xuất"}
                 </Button>
               </DropdownMenuItem>
-            </div>
-          </DropdownMenuContent>
-        </DropdownMenu>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
-      {selected && <CaptureQueueWarning managerId={manager.id} motelId={selected} />}
     </header>
   );
 }

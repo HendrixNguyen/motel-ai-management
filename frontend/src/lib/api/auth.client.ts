@@ -1,5 +1,5 @@
-import { apiSend } from "./client";
-import type { LoginInput, ManagerAuthResponse, RegisterManagerInput } from "./types";
+import { apiGet, apiSend, setRememberedManagerSession } from "./client";
+import type { LoginInput, ManagerAccountResponse, ManagerAuthResponse } from "./types";
 import { clearCaptureQueue } from "@/lib/capture/queue";
 
 /**
@@ -17,27 +17,29 @@ import { clearCaptureQueue } from "@/lib/capture/queue";
  * out — it is a read with no `Set-Cookie`, and it lives in `auth.ts` on the server side.
  */
 
-/** `POST /api/auth/register` — `auth.route.ts:18`. Answers 201 with the manager. */
-export async function register(input: RegisterManagerInput): Promise<ManagerAuthResponse> {
-  const manager = await apiSend<ManagerAuthResponse>("/api/auth/register", "POST", input);
-  try {
-    sessionStorage.setItem("manager-id", manager.id);
-  } catch {
-    /* Registration must succeed when local storage is unavailable. */
-  }
-  return manager;
-}
-
 /**
  * `POST /api/auth/login` — `auth.route.ts:43`.
  *
  * A wrong email or password is a `400 VALIDATION_ERROR` whose message is Vietnamese and safe to
  * render (`auth.service.ts`). Rate limiting is per IP and per email, and answers `429 RATE_LIMITED`.
  */
+export async function listManagerAccounts(): Promise<ManagerAccountResponse[]> {
+  const accounts: ManagerAccountResponse[] = [];
+  for (let offset = 0; ; offset += 100) {
+    const page = await apiGet<ManagerAccountResponse[]>(
+      `/api/admin/managers?limit=100&offset=${offset}`,
+    );
+    accounts.push(...page);
+    if (page.length < 100) return accounts;
+  }
+}
+
 export async function login(input: LoginInput): Promise<ManagerAuthResponse> {
   const manager = await apiSend<ManagerAuthResponse>("/api/auth/login", "POST", input);
+  setRememberedManagerSession(manager.role === "manager" && input.rememberMe === true);
   try {
     sessionStorage.setItem("manager-id", manager.id);
+    sessionStorage.setItem("manager-role", manager.role);
   } catch {
     /* Login must succeed when local storage is unavailable. */
   }
@@ -58,9 +60,11 @@ export async function logout(): Promise<void> {
   try {
     await apiSend<void>("/api/auth/logout", "POST");
   } finally {
+    setRememberedManagerSession(false);
     if (managerId) await clearCaptureQueue(managerId);
     try {
       window.sessionStorage.removeItem("manager-id");
+      window.sessionStorage.removeItem("manager-role");
     } catch {
       /* The server cookie is authoritative. */
     }

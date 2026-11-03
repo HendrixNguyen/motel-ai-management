@@ -4,25 +4,27 @@ import postgres from "postgres";
 import { afterAll, describe, expect, setDefaultTimeout, test } from "bun:test";
 
 setDefaultTimeout(120_000);
-const adminUrl = process.env.MIGRATION_TEST_ADMIN_URL ?? "";
+const adminUrl = process.env.MIGRATION_TEST_ADMIN_URL ?? process.env.TEST_DATABASE_URL ?? "";
 if (!adminUrl)
-  throw new Error("MIGRATION_TEST_ADMIN_URL must point to disposable local PostgreSQL");
+  throw new Error(
+    "MIGRATION_TEST_ADMIN_URL or TEST_DATABASE_URL must point to disposable local PostgreSQL",
+  );
 const admin = postgres(adminUrl, { max: 1, onnotice: () => {} });
 const databaseUrl = new URL(adminUrl);
 const migration = await readFile(
-  new URL("../../drizzle/0019_reconcile_rate_limit_buckets.sql", import.meta.url),
+  new URL("../drizzle/0019_reconcile_rate_limit_buckets.sql", import.meta.url),
   "utf8",
 );
 const privateCccdMigration = await readFile(
-  new URL("../../drizzle/0021_private_cccd_metadata.sql", import.meta.url),
+  new URL("../drizzle/0021_private_cccd_metadata.sql", import.meta.url),
   "utf8",
 );
 const consentMigration = await readFile(
-  new URL("../../drizzle/0022_contract_consent.sql", import.meta.url),
+  new URL("../drizzle/0022_contract_consent.sql", import.meta.url),
   "utf8",
 );
 const pushMigration = await readFile(
-  new URL("../../drizzle/0023_renter_push_subscriptions.sql", import.meta.url),
+  new URL("../drizzle/0023_renter_push_subscriptions.sql", import.meta.url),
   "utf8",
 );
 const databases: string[] = [];
@@ -49,10 +51,14 @@ async function runMigration(sql: ReturnType<typeof postgres>, source = migration
 }
 
 afterAll(async () => {
-  for (const name of databases)
-    await admin.unsafe(`DROP DATABASE IF EXISTS "${name}" WITH (FORCE)`);
+  const leftovers = await admin`
+    SELECT datname FROM pg_database
+    WHERE datname LIKE 'migration_%' AND datname = ANY(${databases})
+  `;
+  for (const row of leftovers)
+    await admin.unsafe(`DROP DATABASE IF EXISTS "${row.datname}" WITH (FORCE)`);
   await admin.end();
-}, 30_000);
+}, 120_000);
 
 describe("0019 rate-limit bucket reconciliation", () => {
   test("creates current schema on fresh install", async () => {
@@ -97,10 +103,10 @@ describe("0019 rate-limit bucket reconciliation", () => {
       await sql`CREATE TABLE motels (id uuid PRIMARY KEY)`;
       await sql`CREATE TABLE rooms (id uuid PRIMARY KEY)`;
       await sql`CREATE TABLE renters (id uuid PRIMARY KEY, motel_id uuid REFERENCES motels(id), name text, phone text, id_number text, id_card_front_url text, id_card_back_url text, room_id uuid REFERENCES rooms(id), zalo_oa_id text, is_oa_follower boolean, status text, created_at timestamptz)`;
-      const motel = crypto.randomUUID();
+      const motel = randomUUID();
       await sql`CREATE TYPE renter_status AS ENUM ('active','inactive')`;
       await sql`INSERT INTO motels VALUES (${motel})`;
-      await sql`INSERT INTO renters (id,motel_id,name,phone,id_card_front_url,id_card_back_url) VALUES (${crypto.randomUUID()},${motel},'Historical','84912345678',NULL,NULL)`;
+      await sql`INSERT INTO renters (id,motel_id,name,phone,id_card_front_url,id_card_back_url) VALUES (${randomUUID()},${motel},'Historical','84912345678',NULL,NULL)`;
       await runMigration(sql, privateCccdMigration);
       const columns =
         await sql`SELECT column_name FROM information_schema.columns WHERE table_name='renters'`;
@@ -108,7 +114,7 @@ describe("0019 rate-limit bucket reconciliation", () => {
       const history =
         await sql`SELECT legacy_id_card_front_url FROM renters WHERE name='Historical'`;
       expect(history[0]?.legacy_id_card_front_url).toBeNull();
-      await sql`INSERT INTO renters (id,motel_id,name,phone,legacy_id_card_front_url) VALUES (${crypto.randomUUID()},${motel},'Unsafe','84912345679','https://untrusted/new')`.then(
+      await sql`INSERT INTO renters (id,motel_id,name,phone,legacy_id_card_front_url) VALUES (${randomUUID()},${motel},'Unsafe','84912345679','https://untrusted/new')`.then(
         () => {
           throw new Error("legacy CCCD CHECK accepted non-null value");
         },
@@ -133,11 +139,11 @@ describe("0019 rate-limit bucket reconciliation", () => {
       await sql`CREATE TABLE notification_events (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), event_key text, renter_id uuid, motel_id uuid, channel text)`;
       await sql`CREATE TYPE notification_event_channel AS ENUM ('zns')`;
       await sql`ALTER TABLE notification_events ALTER COLUMN channel TYPE notification_event_channel USING channel::notification_event_channel`;
-      await sql`INSERT INTO contracts VALUES (${crypto.randomUUID()},${crypto.randomUUID()},${crypto.randomUUID()},${crypto.randomUUID()},null,'2026-01-01','2026-12-31',1,0,'[]',null,null,null,null,0,null,'active',now())`;
+      await sql`INSERT INTO contracts VALUES (${randomUUID()},${randomUUID()},${randomUUID()},${randomUUID()},null,'2026-01-01','2026-12-31',1,0,'[]',null,null,null,null,0,null,'active',now())`;
       await runMigration(sql, consentMigration);
       const old = await sql`SELECT accepted_terms_version, consent_method FROM contracts`;
       expect(old[0]?.accepted_terms_version).toBeNull();
-      await sql`INSERT INTO contracts (id,accepted_terms_version,consent_method) VALUES (${crypto.randomUUID()},'version','session_consent')`.then(
+      await sql`INSERT INTO contracts (id,accepted_terms_version,consent_method) VALUES (${randomUUID()},'version','session_consent')`.then(
         () => {
           throw new Error("partial consent evidence was accepted");
         },
@@ -155,12 +161,12 @@ describe("0019 rate-limit bucket reconciliation", () => {
       await sql`CREATE TABLE notification_events (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), event_key text, renter_id uuid, motel_id uuid, channel text)`;
       await sql`CREATE TYPE notification_event_channel AS ENUM ('zns')`;
       await sql`ALTER TABLE notification_events ALTER COLUMN channel TYPE notification_event_channel USING channel::notification_event_channel`;
-      await sql`INSERT INTO motels VALUES (${crypto.randomUUID()})`;
+      await sql`INSERT INTO motels VALUES (${randomUUID()})`;
       await runMigration(sql, pushMigration);
       const cols =
         await sql`SELECT column_name FROM information_schema.columns WHERE table_name='push_subscriptions'`;
       expect(cols.map((row) => row.column_name)).toContain("p256dh");
-      await sql`INSERT INTO push_subscriptions (renter_id,motel_id,endpoint,p256dh,auth) VALUES (${crypto.randomUUID()},${crypto.randomUUID()},'http://unsafe','p','a')`.then(
+      await sql`INSERT INTO push_subscriptions (renter_id,motel_id,endpoint,p256dh,auth) VALUES (${randomUUID()},${randomUUID()},'http://unsafe','p','a')`.then(
         () => {
           throw new Error("insecure push endpoint was accepted");
         },

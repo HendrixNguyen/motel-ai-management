@@ -6,10 +6,14 @@ if (!base)
   throw new Error("Usage: node scripts/check-changed-files.mjs <base-ref>");
 
 const root = process.cwd();
-const diff = spawnSync("git", ["diff", "--name-only", `${base}...HEAD`], {
-  cwd: root,
-  encoding: "utf8",
-});
+const diff = spawnSync(
+  "git",
+  ["diff", "--name-only", "--diff-filter=d", `${base}...HEAD`],
+  {
+    cwd: root,
+    encoding: "utf8",
+  },
+);
 if (diff.status !== 0) throw new Error(diff.stderr || "git diff failed");
 
 const supported = new Set([

@@ -27,7 +27,7 @@ const bankAccount = t.Object({
 export const motelRoutes = new Elysia({ name: "motel-routes" })
   .use(cookie())
   .use(managerAuth)
-  .get("/manager/motels", async ({ auth }) => listMotels(auth!.userId), {
+  .get("/manager/motels", async ({ auth }) => listMotels(auth!), {
     detail: { security: [{ managerAuth: [] }] },
   })
   .post(
@@ -36,12 +36,13 @@ export const motelRoutes = new Elysia({ name: "motel-routes" })
       // The annotation is the guarantee that route validation and the service input agree;
       // it stops compiling the moment they drift apart.
       const input: CreateMotelInput = body;
-      const motel = await createMotel(auth!.userId, input);
+      const motel = await createMotel(auth!, input);
       set.status = 201;
       return motel;
     },
     {
       body: t.Object({
+        ownerManagerId: t.Optional(t.String({ format: "uuid" })),
         name: t.String({ minLength: 1 }),
         address: t.Optional(t.Nullable(t.String())),
         electricityPrice: t.String(),
@@ -52,19 +53,15 @@ export const motelRoutes = new Elysia({ name: "motel-routes" })
       detail: { security: [{ managerAuth: [] }] },
     },
   )
-  .get(
-    "/manager/motels/:motelId",
-    async ({ params, auth }) => getMotel(params.motelId, auth!.userId),
-    {
-      params: motelIdParams,
-      detail: { security: [{ managerAuth: [] }] },
-    },
-  )
+  .get("/manager/motels/:motelId", async ({ params, auth }) => getMotel(params.motelId, auth!), {
+    params: motelIdParams,
+    detail: { security: [{ managerAuth: [] }] },
+  })
   .patch(
     "/manager/motels/:motelId",
     async ({ params, body, auth }) => {
       const input: UpdateMotelInput = body;
-      return updateMotel(params.motelId, auth!.userId, input);
+      return updateMotel(params.motelId, auth!, input);
     },
     {
       params: motelIdParams,
@@ -82,7 +79,7 @@ export const motelRoutes = new Elysia({ name: "motel-routes" })
   .delete(
     "/manager/motels/:motelId",
     async ({ params, auth, set }) => {
-      await deleteMotel(params.motelId, auth!.userId);
+      await deleteMotel(params.motelId, auth!);
       set.status = 204;
       return "";
     },

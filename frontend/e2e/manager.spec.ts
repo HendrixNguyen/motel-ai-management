@@ -32,6 +32,26 @@ async function keyboardActivate(page: Page, target: Locator) {
   throw new Error(`Action was not reachable by Tab: ${await target.innerText()}`);
 }
 
+test("remember-me help opens accessibly without toggling or submitting login", async ({ page }) => {
+  await page.goto("/login");
+  const checkbox = page.getByRole("checkbox", { name: "Giữ đăng nhập" });
+  const help = page.getByRole("button", { name: "Thông tin giữ đăng nhập" });
+  await expect(checkbox).not.toBeChecked();
+  await help.click();
+  await expect(page.getByRole("tooltip")).toContainText(
+    "Dành cho thiết bị cá nhân. Tự đăng xuất sau 90 ngày không sử dụng.",
+  );
+  await expect(checkbox).not.toBeChecked();
+  await expect(page.getByRole("button", { name: "Đăng nhập", exact: true })).toBeEnabled();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("tooltip")).toHaveCount(0);
+  await page.mouse.move(0, 0);
+  await help.hover();
+  await expect(page.getByRole("tooltip")).toBeVisible();
+  await page.getByRole("heading", { name: "Đăng nhập" }).click();
+  await expect(page.getByRole("tooltip")).toHaveCount(0);
+});
+
 test("login through the proxy opens M1–M4 at 375px and logout protects the shell again", async ({
   page,
   context,
@@ -79,15 +99,26 @@ test("motel and room create/edit persist through refresh and scope the renter fo
   await page.goto("/motels");
   await expect(page.getByRole("heading", { name: "Chưa có nhà trọ", exact: true })).toBeVisible();
   await keyboardActivate(page, page.getByRole("button", { name: "Tạo nhà trọ", exact: true }));
-  const motelDialog = page.getByRole("dialog", { name: "Tạo nhà trọ", exact: true });
+  const motelDialog = page.getByRole("dialog", { name: "Bước 1: Thông tin nhà trọ", exact: true });
   await motelDialog.getByLabel("Tên nhà trọ", { exact: true }).fill("Nhà trọ mới");
   await motelDialog.getByLabel("Giá điện (₫/kWh)", { exact: true }).fill("3500");
   await motelDialog.getByLabel("Giá nước (₫/m³)", { exact: true }).fill("25000");
-  await keyboardActivate(
-    page,
-    motelDialog.getByRole("button", { name: "Tạo nhà trọ", exact: true }),
-  );
-  await expect(motelDialog).not.toBeVisible();
+  await motelDialog.getByRole("button", { name: "Tiếp tục", exact: true }).click();
+  const templateDialog = page.getByRole("dialog", { name: "Bước 2: Mẫu hợp đồng", exact: true });
+  await expect(templateDialog).toBeVisible();
+  await expect(templateDialog.getByLabel("Mẫu từ thư viện mẫu chuẩn")).toBeEnabled();
+  await templateDialog.getByRole("button", { name: "Tiếp tục", exact: true }).click();
+  const roomsDialog = page.getByRole("dialog", { name: "Bước 3: Danh sách phòng", exact: true });
+  await roomsDialog.getByLabel("Số lượng phòng").fill("1");
+  await roomsDialog.getByLabel("Giá thuê mặc định (₫)").fill("99999999999999");
+  await roomsDialog.getByRole("button", { name: "Sinh danh sách phòng", exact: true }).click();
+  await roomsDialog.getByRole("button", { name: "Tiếp tục", exact: true }).click();
+  const reviewDialog = page.getByRole("dialog", {
+    name: "Bước 4: Xác nhận và hoàn tất",
+    exact: true,
+  });
+  await reviewDialog.getByRole("button", { name: "Hoàn tất thiết lập", exact: true }).click();
+  await expect(reviewDialog).not.toBeVisible();
   await expect(page.getByRole("heading", { name: "Nhà trọ mới", exact: true })).toBeVisible();
   const motelHeading = page.locator('h2:has-text("Nhà trọ mới")').first();
   const motelId = (await motelHeading.getAttribute("id"))?.replace("motel-", "") ?? "";
@@ -100,7 +131,7 @@ test("motel and room create/edit persist through refresh and scope the renter fo
   );
   await expect(page.getByRole("heading", { name: "Nhà trọ đã lưu", exact: true })).toBeVisible();
   await page.goto(`/rooms?motel=${motelId}`);
-  await expect(page.getByRole("heading", { name: "Chưa có phòng trọ", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "101", exact: true })).toBeVisible();
   await keyboardActivate(page, page.getByRole("button", { name: "Thêm phòng", exact: true }));
   const roomDialog = page.getByRole("dialog", { name: "Thêm phòng trọ", exact: true });
   await roomDialog.getByLabel("Tên phòng", { exact: true }).fill("P.001 mới");
@@ -114,7 +145,7 @@ test("motel and room create/edit persist through refresh and scope the renter fo
   await keyboardActivate(page, editRoom.getByRole("button", { name: "Lưu thay đổi", exact: true }));
   await expect(page.getByRole("heading", { name: "P.001 đã lưu", exact: true })).toBeVisible();
   await page.reload();
-  const amount = page.getByText("99.999.999.999.999 ₫", { exact: true });
+  const amount = page.getByText("99.999.999.999.999 ₫", { exact: true }).last();
   await expect(amount).toBeVisible();
   expect(await amount.evaluate((element) => getComputedStyle(element).whiteSpace)).toBe("nowrap");
   await noPageOverflow(page);

@@ -62,8 +62,8 @@ The first production release uses one backend replica because the current proces
 
 ### Cookies, JWT, and invalidation
 
-- `manager_session` and `renter_session`: `httpOnly`, `secure`, `sameSite=lax`, host-only, explicit 24-hour renter lifetime; manager lifetime follows the approved production policy but must be finite.
-- Logout clears the cookie and invalidates the server-side session subject or token version. Password change, manager disablement, secret rotation, and suspected compromise revoke all sessions for that identity.
+- `manager_session` and `renter_session`: `httpOnly`, `secure`, `sameSite=lax`, host-only. Renter sessions expire after 24 hours. Ordinary Manager and Superadmin sessions expire after seven days. Optional remembered Manager sessions use server-side opaque tokens, renew on foreground use, and expire after 90 days without activity.
+- Logout clears the cookie and revokes the current remembered Manager session. Password reset and account disable/re-enable invalidate all Manager sessions through `sessionVersion`; Superadmin sessions retain their existing seven-day JWT policy.
 - Renter magic-link tokens remain random, single-use, hash-at-rest, and expire after 24 hours. Exchange consumes token and redirects to token-free portal path. URL tokens never appear in logs, analytics, referrers, or error bodies.
 - JWT verification must reject malformed, expired, wrong-secret, and wrong-purpose tokens. Do not accept client-supplied manager/renter IDs as scope.
 - Cross-tenant and foreign-resource responses remain `404`, never `403`, except valid-role authorization failures where existence is not disclosed.
@@ -78,16 +78,16 @@ The first production release uses one backend replica because the current proces
 
 ### Minimum launch limits
 
-| Operation | Limit | Key |
-|---|---:|---|
-| Manager login | 5 failures / 15 min, exponential backoff | IP + normalized email |
-| Manager register | 3 / hour | IP |
-| Magic-link issue/exchange | 5 / hour; 1 active issue cooldown | manager/renter + IP |
-| OTP request | 1 / 5 min; 5 / hour | contract + renter + IP |
-| OTP verify | 3 attempts / challenge | challenge + renter |
-| Payment-proof upload | 5 / hour; 5,000,000-byte body ceiling | renter + invoice + IP |
-| Push subscribe/revoke | 20 / hour | renter + IP |
-| Webhook | provider-appropriate burst limit | IP/provider signature |
+| Operation                 |                                    Limit | Key                    |
+| ------------------------- | ---------------------------------------: | ---------------------- |
+| Manager login             | 5 failures / 15 min, exponential backoff | IP + normalized email  |
+| Manager register          |                                 3 / hour | IP                     |
+| Magic-link issue/exchange |        5 / hour; 1 active issue cooldown | manager/renter + IP    |
+| OTP request               |                      1 / 5 min; 5 / hour | contract + renter + IP |
+| OTP verify                |                   3 attempts / challenge | challenge + renter     |
+| Payment-proof upload      |    5 / hour; 5,000,000-byte body ceiling | renter + invoice + IP  |
+| Push subscribe/revoke     |                                20 / hour | renter + IP            |
+| Webhook                   |         provider-appropriate burst limit | IP/provider signature  |
 
 Limits are enforced before expensive storage/provider work and emit metrics without credential values.
 

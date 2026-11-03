@@ -3,6 +3,7 @@ import {
   check,
   date,
   index,
+  integer,
   jsonb,
   numeric,
   pgEnum,
@@ -28,6 +29,8 @@ export interface ContractTemplateClause {
   title: string;
   content: string;
 }
+
+export { contractTemplateCatalog } from "./contract-catalog.schema";
 
 export const contractTemplates = pgTable(
   "contract_templates",

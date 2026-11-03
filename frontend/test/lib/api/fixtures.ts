@@ -116,6 +116,8 @@ export const ROOM: RoomResponse = {
   name: "P.101",
   basePrice: "3500000",
   floor: 1,
+  initialElectricReading: "0",
+  initialWaterReading: "0",
   status: "occupied",
   createdAt: "2026-09-01T02:00:00.000Z",
 };
@@ -127,6 +129,8 @@ export const ROOM_WITHOUT_FLOOR: RoomResponse = {
   name: "P.001",
   basePrice: "3000000",
   floor: null,
+  initialElectricReading: "0",
+  initialWaterReading: "0",
   status: "available",
   createdAt: "2026-09-01T02:05:00.000Z",
 };
@@ -208,17 +212,19 @@ export const RENTER_DETAIL_WITHOUT_HISTORY: RenterDetailResponse = {
   invoices: [],
 };
 
-/** What `POST /api/auth/register` and `POST /api/auth/login` answer with. */
+/** What `POST /api/auth/login` answers with. */
 export const MANAGER_AUTH: ManagerAuthResponse = {
   id: MANAGER_ID,
   email: "minhanh@example.vn",
   name: "Nguyễn Minh Anh",
+  role: "manager",
 };
 
 /** What `GET /api/auth/me` answers with — no `name`, and a type that does not pretend otherwise. */
 export const MANAGER_ME: ManagerMeResponse = {
   id: MANAGER_ID,
   email: "minhanh@example.vn",
+  role: "manager",
 };
 
 export const CREATE_MOTEL: CreateMotelInput = {

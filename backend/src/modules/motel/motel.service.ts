@@ -1,13 +1,17 @@
-import { asc, eq } from "drizzle-orm";
+import { asc, eq, sql } from "drizzle-orm";
 import { randomBytes } from "node:crypto";
-import { db } from "@/db";
-import { resolveOwnedMotel, type MotelRow } from "@/middleware/tenancy";
+import { db, type DbExecutor, type DbTransaction } from "@/db";
+import { resolveAccessibleMotel, type MotelActor, type MotelRow } from "@/middleware/tenancy";
 import { AppError } from "@/shared/errors";
 import { parseAmount } from "@/shared/money";
 import { countBillingPeriodsForMotel } from "@/modules/billing/billing.service";
 import { countContractTemplatesForMotel } from "@/modules/contract/contract.service";
 import { countRentersForMotel } from "@/modules/renter/renter.service";
 import { countOccupiedRoomsForMotel, countRoomsForMotel } from "@/modules/room/room.service";
+import {
+  assertEnabledManager,
+  listManagerDisplayNames,
+} from "@/modules/auth/admin-account.service";
 import { motels, type BankAccount, type MotelFee } from "./motel.schema";
 import type {
   CreateMotelInput,
@@ -34,8 +38,12 @@ function toFees(fees: MotelFeeInput[]): MotelFee[] {
  * it here is what makes `MotelResponse.createdAt: string` a compile-time fact rather than a claim
  * that happens to be true because `JSON.stringify` formats a `Date` the same way.
  */
-function toResponse(row: MotelRow): MotelResponse {
-  return { ...row, createdAt: row.createdAt.toISOString() };
+function toResponse(row: MotelRow, managerName?: string): MotelResponse {
+  return {
+    ...row,
+    ...(managerName ? { managerName } : {}),
+    createdAt: row.createdAt.toISOString(),
+  };
 }
 
 export interface RenterMotelProjection {
@@ -62,9 +70,9 @@ export async function findMotelByPublicAccessCode(
 
 export async function getMotelPublicAccessCode(
   motelId: string,
-  managerId: string,
+  actor: MotelActor,
 ): Promise<string> {
-  const motel = await resolveOwnedMotel(motelId, managerId);
+  const motel = await resolveAccessibleMotel(motelId, actor);
   return motel.publicAccessCode;
 }
 
@@ -76,26 +84,34 @@ export async function getMotelForRenter(motelId: string): Promise<RenterMotelPro
   return row ?? null;
 }
 
-export async function listMotels(managerId: string): Promise<MotelResponse[]> {
+export async function listMotels(actor: MotelActor): Promise<MotelResponse[]> {
   const rows = await db.query.motels.findMany({
-    where: eq(motels.managerId, managerId),
+    where: actor.role === "manager" ? eq(motels.managerId, actor.userId) : undefined,
     orderBy: [asc(motels.createdAt), asc(motels.id)],
   });
-  return rows.map(toResponse);
+  const names = await listManagerDisplayNames([...new Set(rows.map((row) => row.managerId))]);
+  return rows.map((row) => toResponse(row, names.get(row.managerId)));
 }
 
-/**
- * Fields are copied one by one rather than spread, so nothing the client sent beyond the
- * documented body — a `managerId`, for instance — can ever reach the insert.
- */
-export async function createMotel(
-  managerId: string,
+export async function lockMotelForUpdate(tx: DbTransaction, motelId: string): Promise<void> {
+  await tx.execute(sql`SELECT id FROM ${motels} WHERE id = ${motelId} FOR UPDATE`);
+}
+
+export async function lockMotelSetup(tx: DbTransaction, managerId: string): Promise<void> {
+  await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext('motel_setup:' || ${managerId}))`);
+}
+
+export async function createMotelInTransaction(
+  tx: DbExecutor,
+  ownerManagerId: string,
   input: CreateMotelInput,
 ): Promise<MotelResponse> {
-  const [row] = await db
+  await assertEnabledManager(tx, ownerManagerId);
+  const managerName = (await listManagerDisplayNames([ownerManagerId], tx)).get(ownerManagerId);
+  const [row] = await tx
     .insert(motels)
     .values({
-      managerId,
+      managerId: ownerManagerId,
       publicAccessCode: randomBytes(24).toString("base64url"),
       name: input.name,
       address: input.address ?? null,
@@ -105,11 +121,43 @@ export async function createMotel(
       bankAccount: input.bankAccount ?? null,
     })
     .returning();
-  return toResponse(row!);
+  return toResponse(row!, managerName);
 }
 
-export async function getMotel(motelId: string, managerId: string): Promise<MotelResponse> {
-  return toResponse(await resolveOwnedMotel(motelId, managerId));
+export function resolveOwnerManagerId(actor: MotelActor, requestedOwnerId?: string): string {
+  if (actor.role === "manager") {
+    if (requestedOwnerId !== undefined)
+      throw AppError.badRequest("Quản lý không được chỉ định chủ sở hữu nhà trọ");
+    return actor.userId;
+  }
+  if (!requestedOwnerId)
+    throw AppError.badRequest("Vui lòng chọn tài khoản quản lý sở hữu nhà trọ");
+  return requestedOwnerId;
+}
+
+export async function createMotel(
+  actor: MotelActor,
+  input: CreateMotelInput,
+): Promise<MotelResponse> {
+  return db.transaction(async (tx) => {
+    const ownerManagerId = resolveOwnerManagerId(actor, input.ownerManagerId);
+    await lockMotelSetup(tx, ownerManagerId);
+    await assertEnabledManager(tx, ownerManagerId);
+    const motelCount = await tx.$count(motels, eq(motels.managerId, ownerManagerId));
+    if (motelCount === 0) {
+      throw new AppError(
+        "MOTEL_SETUP_REQUIRED",
+        "Chưa có nhà trọ nào. Vui lòng thiết lập đầy đủ thông tin nhà trọ đầu tiên.",
+      );
+    }
+    return createMotelInTransaction(tx, ownerManagerId, input);
+  });
+}
+
+export async function getMotel(motelId: string, actor: MotelActor): Promise<MotelResponse> {
+  const motel = await resolveAccessibleMotel(motelId, actor);
+  const managerName = (await listManagerDisplayNames([motel.managerId])).get(motel.managerId);
+  return toResponse(motel, managerName);
 }
 
 /**
@@ -119,10 +167,10 @@ export async function getMotel(motelId: string, managerId: string): Promise<Mote
  */
 export async function updateMotel(
   motelId: string,
-  managerId: string,
+  actor: MotelActor,
   input: UpdateMotelInput,
 ): Promise<MotelResponse> {
-  const owned = await resolveOwnedMotel(motelId, managerId);
+  const owned = await resolveAccessibleMotel(motelId, actor);
 
   const patch: MotelPatch = {};
   if (input.name !== undefined) patch.name = input.name;
@@ -134,10 +182,11 @@ export async function updateMotel(
   if (input.bankAccount !== undefined) patch.bankAccount = input.bankAccount;
 
   // `update ... set` with no columns is a syntax error, and `{}` is a legal request.
-  if (Object.keys(patch).length === 0) return toResponse(owned);
+  const managerName = (await listManagerDisplayNames([owned.managerId])).get(owned.managerId);
+  if (Object.keys(patch).length === 0) return toResponse(owned, managerName);
 
   const [row] = await db.update(motels).set(patch).where(eq(motels.id, motelId)).returning();
-  return toResponse(row!);
+  return toResponse(row!, managerName);
 }
 
 /**
@@ -150,39 +199,45 @@ export async function updateMotel(
  *
  * The counts come from the owning modules' services, never from their tables (ADR-0004).
  */
-export async function deleteMotel(motelId: string, managerId: string): Promise<void> {
-  await resolveOwnedMotel(motelId, managerId);
+export async function deleteMotel(motelId: string, actor: MotelActor): Promise<void> {
+  await db.transaction(async (tx) => {
+    const motel = await resolveAccessibleMotel(motelId, actor, tx);
+    await lockMotelSetup(tx, motel.managerId);
+    await resolveAccessibleMotel(motelId, actor, tx);
 
-  const occupiedRooms = await countOccupiedRoomsForMotel(motelId);
-  if (occupiedRooms > 0) {
-    throw AppError.conflict(
-      `Còn ${occupiedRooms} phòng đang có người thuê. Hãy chuyển phòng về trống trước khi xóa nhà trọ.`,
-    );
-  }
+    const occupiedRooms = await countOccupiedRoomsForMotel(motelId);
+    if (occupiedRooms > 0) {
+      throw AppError.conflict(
+        `Còn ${occupiedRooms} phòng đang có người thuê. Hãy chuyển phòng về trống trước khi xóa nhà trọ.`,
+      );
+    }
 
-  const rooms = await countRoomsForMotel(motelId);
-  if (rooms > 0) {
-    throw AppError.conflict(`Còn ${rooms} phòng. Hãy xóa hết phòng trước khi xóa nhà trọ.`);
-  }
+    const rooms = await countRoomsForMotel(motelId);
+    if (rooms > 0) {
+      throw AppError.conflict(`Còn ${rooms} phòng. Hãy xóa hết phòng trước khi xóa nhà trọ.`);
+    }
 
-  const renters = await countRentersForMotel(motelId);
-  if (renters > 0) {
-    throw AppError.conflict(`Còn ${renters} người thuê. Hãy xóa người thuê trước khi xóa nhà trọ.`);
-  }
+    const renters = await countRentersForMotel(motelId);
+    if (renters > 0) {
+      throw AppError.conflict(
+        `Còn ${renters} người thuê. Hãy xóa người thuê trước khi xóa nhà trọ.`,
+      );
+    }
 
-  const billingPeriods = await countBillingPeriodsForMotel(motelId);
-  if (billingPeriods > 0) {
-    throw AppError.conflict(
-      `Còn ${billingPeriods} kỳ thanh toán. Hãy xóa kỳ thanh toán trước khi xóa nhà trọ.`,
-    );
-  }
+    const billingPeriods = await countBillingPeriodsForMotel(motelId);
+    if (billingPeriods > 0) {
+      throw AppError.conflict(
+        `Còn ${billingPeriods} kỳ thanh toán. Hãy xóa kỳ thanh toán trước khi xóa nhà trọ.`,
+      );
+    }
 
-  const contractTemplates = await countContractTemplatesForMotel(motelId);
-  if (contractTemplates > 0) {
-    throw AppError.conflict(
-      `Còn ${contractTemplates} mẫu hợp đồng. Hãy xóa mẫu hợp đồng trước khi xóa nhà trọ.`,
-    );
-  }
+    const contractTemplates = await countContractTemplatesForMotel(motelId);
+    if (contractTemplates > 0) {
+      throw AppError.conflict(
+        `Còn ${contractTemplates} mẫu hợp đồng. Hãy xóa mẫu hợp đồng trước khi xóa nhà trọ.`,
+      );
+    }
 
-  await db.delete(motels).where(eq(motels.id, motelId));
+    await tx.delete(motels).where(eq(motels.id, motelId));
+  });
 }

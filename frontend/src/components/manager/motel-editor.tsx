@@ -9,8 +9,11 @@ import { Input } from "@/components/ui/shadcn/input";
 import { Textarea } from "@/components/ui/shadcn/textarea";
 import Modal from "@/components/ui/modal";
 import { useToast } from "@/components/ui/toast";
+import BankPicker from "@/components/manager/bank-picker";
 import type { MotelResponse } from "@/lib/api/types";
 import { createMotelFormSession, type MotelFieldErrors } from "@/lib/motel-form";
+import MotelSetupWizard from "./motel-setup-wizard";
+import { listMotelsClient } from "@/lib/api/motels.client";
 
 /** Only the mutation surface hydrates; motel cards and room counts are rendered by the server. */
 export default function MotelEditor({
@@ -21,11 +24,36 @@ export default function MotelEditor({
   empty?: boolean;
 }) {
   const [currentSession, setCurrentSession] = useState<{ id: number; formKey: number }>();
+  const [wizardMotels, setWizardMotels] = useState<MotelResponse[]>([]);
+  const [isSuperadmin] = useState(() => {
+    try {
+      return (
+        typeof window !== "undefined" && sessionStorage.getItem("manager-role") === "superadmin"
+      );
+    } catch {
+      return false;
+    }
+  });
+  const [managerId] = useState<string>(() => {
+    try {
+      return typeof window !== "undefined" ? (sessionStorage.getItem("manager-id") ?? "") : "";
+    } catch {
+      return "";
+    }
+  });
   const session = useRef(0);
   const router = useRouter();
   const notify = useToast();
   const open = currentSession !== undefined;
   const trigger = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!motel && open) {
+      listMotelsClient()
+        .then(setWizardMotels)
+        .catch(() => setWizardMotels([]));
+    }
+  }, [motel, open]);
 
   function show() {
     session.current += 1;
@@ -39,26 +67,48 @@ export default function MotelEditor({
     close();
   }
 
+  if (!motel) {
+    return (
+      <>
+        {empty ? (
+          <EmptyState
+            title="Chưa có nhà trọ"
+            description="bấm Tạo nhà trọ để bắt đầu"
+            actionLabel="Tạo nhà trọ"
+            onAction={show}
+          />
+        ) : (
+          <button
+            ref={trigger}
+            type="button"
+            className="inline-flex min-h-11 items-center rounded-input border border-border-strong bg-surface px-4 py-2.5 font-semibold text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+            onClick={show}
+          >
+            Tạo nhà trọ
+          </button>
+        )}
+        <MotelSetupWizard
+          open={open}
+          onClose={closeFromDialog}
+          motels={wizardMotels}
+          managerId={managerId}
+          isSuperadmin={isSuperadmin === true}
+        />
+      </>
+    );
+  }
+
   return (
     <>
-      {empty ? (
-        <EmptyState
-          title="Chưa có nhà trọ"
-          description="bấm Tạo nhà trọ để bắt đầu"
-          actionLabel="Tạo nhà trọ"
-          onAction={show}
-        />
-      ) : (
-        <button
-          ref={trigger}
-          type="button"
-          className="inline-flex min-h-11 items-center rounded-input border border-border-strong bg-surface px-4 py-2.5 font-semibold text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-          aria-label={motel ? `Chỉnh sửa ${motel.name}` : undefined}
-          onClick={show}
-        >
-          {motel ? "Chỉnh sửa" : "Tạo nhà trọ"}
-        </button>
-      )}
+      <button
+        ref={trigger}
+        type="button"
+        className="inline-flex min-h-11 items-center rounded-input border border-border-strong bg-surface px-4 py-2.5 font-semibold text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+        aria-label={`Chỉnh sửa ${motel.name}`}
+        onClick={show}
+      >
+        Chỉnh sửa
+      </button>
       <Modal
         open={open}
         onClose={closeFromDialog}
@@ -66,12 +116,8 @@ export default function MotelEditor({
           event.preventDefault();
           window.setTimeout(() => trigger.current?.focus(), 0);
         }}
-        title={motel ? "Chỉnh sửa nhà trọ" : "Tạo nhà trọ"}
-        description={
-          motel
-            ? "Cập nhật thông tin, đơn giá, phí và tài khoản nhận tiền."
-            : "Nhập thông tin và đơn giá điện nước của nhà trọ."
-        }
+        title="Chỉnh sửa nhà trọ"
+        description="Cập nhật thông tin, đơn giá, phí và tài khoản nhận tiền."
       >
         {open && (
           <MotelForm
@@ -89,7 +135,7 @@ export default function MotelEditor({
             }}
             onSaved={(updatedMotel) => {
               if (session.current === currentSession.id) close();
-              notify({ message: motel ? "Đã lưu thay đổi nhà trọ" : "Đã tạo nhà trọ" });
+              notify({ message: "Đã lưu thay đổi nhà trọ" });
               window.dispatchEvent(new CustomEvent("motel-updated", { detail: updatedMotel }));
               router.refresh();
             }}
@@ -384,38 +430,62 @@ function MotelForm({
                 Không dùng tài khoản nhận tiền. Lưu thay đổi sẽ xóa tài khoản đã thiết lập.
               </p>
             )}
-            {draft.bankEnabled &&
-              (
-                [
-                  ["bankCode", "Mã ngân hàng", "Mã BIN ngân hàng, ví dụ 970436"],
-                  ["accountNumber", "Số tài khoản", undefined],
-                  ["accountName", "Tên chủ tài khoản", undefined],
-                ] as const
-              ).map(([key, label, hint]) => (
+            {draft.bankEnabled && (
+              <>
                 <Field
-                  key={key}
-                  id={id(`bankAccount.${key}`)}
-                  label={label}
-                  hint={hint}
-                  error={fields[`bankAccount.${key}`]}
+                  id={id("bankAccount.bankCode")}
+                  label="Ngân hàng"
+                  error={fields["bankAccount.bankCode"]}
                 >
                   {(props) => (
-                    <Input
+                    <BankPicker
                       {...props}
-                      type="text"
-                      inputMode={key === "accountName" ? "text" : "numeric"}
                       required
-                      value={draft.bankAccount[key]}
-                      onChange={(event) =>
+                      value={draft.bankAccount.bankCode}
+                      onChange={(bankCode) =>
                         setDraft({
                           ...draft,
-                          bankAccount: { ...draft.bankAccount, [key]: event.target.value },
+                          bankAccount: { ...draft.bankAccount, bankCode },
                         })
                       }
                     />
                   )}
                 </Field>
-              ))}
+                {draft.bankAccount.bankCode ? (
+                  (["accountNumber", "accountName"] as const).map((key) => (
+                    <Field
+                      key={key}
+                      id={id(`bankAccount.${key}`)}
+                      label={key === "accountNumber" ? "Số tài khoản" : "Tên chủ tài khoản"}
+                      error={fields[`bankAccount.${key}`]}
+                    >
+                      {(props) => (
+                        <Input
+                          {...props}
+                          type="text"
+                          inputMode={key === "accountName" ? "text" : "numeric"}
+                          required
+                          value={draft.bankAccount[key]}
+                          onChange={(event) =>
+                            setDraft({
+                              ...draft,
+                              bankAccount: {
+                                ...draft.bankAccount,
+                                [key]: event.target.value,
+                              },
+                            })
+                          }
+                        />
+                      )}
+                    </Field>
+                  ))
+                ) : (
+                  <p className="text-sm text-text-muted">
+                    Chọn ngân hàng để nhập thông tin tài khoản.
+                  </p>
+                )}
+              </>
+            )}
           </fieldset>
         </>
       )}

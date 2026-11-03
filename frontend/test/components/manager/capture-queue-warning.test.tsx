@@ -131,6 +131,7 @@ describe("CaptureQueueWarning behavior", () => {
     await view.findByRole("button", { name: /Thông báo dữ liệu ngoại tuyến/ });
     const notification = await view.findByRole("button", { name: /Thông báo dữ liệu ngoại tuyến/ });
     expect(notification).toBeInTheDocument();
+    expect(notification).not.toHaveClass("fixed");
     expect(view.container.querySelector("aside")).toBeNull();
     const blocked = new CustomEvent("capture:motel-switch", { cancelable: true, detail: "mt2" });
     await act(async () => {
@@ -143,6 +144,12 @@ describe("CaptureQueueWarning behavior", () => {
       await view.findByRole("button", { name: /Thông báo dữ liệu ngoại tuyến/ }),
     ).toBeInTheDocument();
     expect(view.queryByRole("dialog")).toBeNull();
+    fireEvent.keyDown(window, { key: "Escape" });
+    await waitFor(() =>
+      expect(view.queryByRole("status", { name: "Thông báo dữ liệu ngoại tuyến" })).toBeNull(),
+    );
+    expect(notification).toHaveFocus();
+    fireEvent.click(notification);
     fireEvent.click(view.getByRole("button", { name: "Quản lý dữ liệu" }));
     await view.findByTestId("capture-clear-dialog");
     expect(view.getByRole("dialog")).toHaveAttribute("data-testid", "capture-clear-dialog");
