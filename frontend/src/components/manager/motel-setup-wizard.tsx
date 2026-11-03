@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import Button from "@/components/ui/button";
 import Field from "@/components/ui/field";
 import Modal from "@/components/ui/modal";
@@ -14,8 +15,10 @@ import {
   submitMotelSetup,
 } from "@/lib/api/motel-setup.client";
 import { listContractTemplates } from "@/lib/api/contracts.client";
+import { listManagerAccounts } from "@/lib/api/auth.client";
 import type {
   ContractTemplateResponse,
+  ManagerAccountResponse,
   MotelResponse,
   SetupRoomInput,
   TemplatePreview,
@@ -41,6 +44,7 @@ export interface MotelSetupWizardProps {
   onClose: () => void;
   motels: MotelResponse[];
   managerId: string;
+  isSuperadmin: boolean;
 }
 
 export default function MotelSetupWizard({
@@ -48,6 +52,7 @@ export default function MotelSetupWizard({
   onClose,
   motels,
   managerId,
+  isSuperadmin,
 }: MotelSetupWizardProps) {
   const router = useRouter();
   const notify = useToast();
@@ -56,6 +61,16 @@ export default function MotelSetupWizard({
   const id = (f: string) => `${prefix}-${f}`;
 
   const storageKey = `motel-setup-draft:${managerId}`;
+  const [ownerAccounts, setOwnerAccounts] = useState<ManagerAccountResponse[]>([]);
+  const [ownersLoading, setOwnersLoading] = useState(isSuperadmin);
+  const [ownersError, setOwnersError] = useState(false);
+  const [ownersReload, setOwnersReload] = useState(0);
+  const [ownerManagerId, setOwnerManagerId] = useState("");
+  const enabledOwners = ownerAccounts.filter((account) => !account.disabledAt);
+  const selectedOwner = enabledOwners.find((account) => account.id === ownerManagerId);
+  const selectedOwnerMotelCount = motels.filter(
+    (motel) => motel.managerId === ownerManagerId,
+  ).length;
 
   const [initialDraftData] = useState<StoredSetupDraft | null>(() => {
     try {
@@ -109,6 +124,30 @@ export default function MotelSetupWizard({
   const [genPrice, setGenPrice] = useState<string>("2500000");
 
   useEffect(() => {
+    if (!open || !isSuperadmin || ownersError) return;
+    let active = true;
+    listManagerAccounts()
+      .then((accounts) => {
+        if (!active) return;
+        const enabled = accounts.filter((account) => !account.disabledAt);
+        setOwnerAccounts(enabled);
+        setOwnerManagerId((current) => {
+          const preferred = current || initialDraftData?.ownerManagerId || "";
+          return enabled.some((account) => account.id === preferred) ? preferred : "";
+        });
+      })
+      .catch(() => {
+        if (active) setOwnersError(true);
+      })
+      .finally(() => {
+        if (active) setOwnersLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [open, isSuperadmin, ownersReload, initialDraftData, ownersError]);
+
+  useEffect(() => {
     if (!open) return;
     try {
       const saved = sessionStorage.getItem(storageKey);
@@ -142,6 +181,7 @@ export default function MotelSetupWizard({
       if (parsed?.pendingRequestId) return;
       const stored: StoredSetupDraft = {
         version: 1,
+        ...(isSuperadmin && ownerManagerId ? { ownerManagerId } : {}),
         mode,
         motel: {
           name: draft.name,
@@ -158,7 +198,18 @@ export default function MotelSetupWizard({
     } catch {
       // storage unavailable
     }
-  }, [open, mode, draft, selectedTemplate, rooms, pending, requestId, storageKey]);
+  }, [
+    open,
+    mode,
+    draft,
+    selectedTemplate,
+    rooms,
+    pending,
+    requestId,
+    storageKey,
+    ownerManagerId,
+    isSuperadmin,
+  ]);
 
   useEffect(() => {
     if (!sourceMotelId) return;
@@ -225,7 +276,24 @@ export default function MotelSetupWizard({
     }
   }
 
+  function retryOwnerList() {
+    setOwnersLoading(true);
+    setOwnersError(false);
+    setOwnersReload((count) => count + 1);
+  }
+
   function validateStep1(): boolean {
+    if (isSuperadmin && (ownersLoading || ownersError || !ownerManagerId)) {
+      setError(
+        ownersLoading
+          ? "Đang tải danh sách tài khoản quản lý"
+          : ownersError
+            ? "Không thể tải danh sách tài khoản quản lý"
+            : "Vui lòng chọn tài khoản quản lý sở hữu nhà trọ",
+      );
+      setTimeout(() => summaryRef.current?.focus(), 0);
+      return false;
+    }
     const parsed = prepareMotelInput(draft);
     if (!parsed.ok) {
       setFields(parsed.fields ?? {});
@@ -280,6 +348,11 @@ export default function MotelSetupWizard({
 
   async function handleSubmit() {
     if (terminalRequest) return;
+    if (isSuperadmin && (!selectedOwner || ownersLoading || ownersError)) {
+      setStep(1);
+      setError("Vui lòng chọn tài khoản quản lý đang hoạt động");
+      return;
+    }
     const parsed = prepareMotelInput(draft);
     if (!parsed.ok) {
       setError("Thông tin nhà trọ không hợp lệ");
@@ -287,6 +360,10 @@ export default function MotelSetupWizard({
       return;
     }
 
+    const motelInput = {
+      ...parsed.input,
+      ...(isSuperadmin ? { ownerManagerId } : {}),
+    };
     if (
       mode === "full" &&
       rooms.some(
@@ -304,13 +381,12 @@ export default function MotelSetupWizard({
       setError(`Nhập chỉ số điện và nước hợp lệ cho phòng ${room?.name ?? "đã chọn"}`);
       return;
     }
-
     let input;
     try {
       input = buildSetupInput(
         requestId,
         mode,
-        parsed.input,
+        motelInput,
         selectedTemplate?.selection ?? null,
         rooms,
       );
@@ -344,6 +420,7 @@ export default function MotelSetupWizard({
   }
 
   const selectedSource = motels.find((m) => m.id === sourceMotelId);
+  const canQuickSkip = isSuperadmin ? selectedOwnerMotelCount > 0 : motels.length > 0;
 
   return (
     <Modal
@@ -404,6 +481,71 @@ export default function MotelSetupWizard({
 
         {step === 1 && (
           <div className="space-y-4">
+            {isSuperadmin && (
+              <div className="rounded-input border border-border bg-canvas/40 p-4 space-y-3">
+                <Field id={id("ownerManagerId")} label="Chủ sở hữu nhà trọ">
+                  {(props) => (
+                    <select
+                      {...props}
+                      required
+                      disabled={ownersLoading || ownersError || enabledOwners.length === 0}
+                      value={ownerManagerId}
+                      onChange={(event) => {
+                        setOwnerManagerId(event.target.value);
+                        setError(null);
+                        setSourceMotelId("");
+                        setSourceTemplates([]);
+                        setSelectedSourceTemplateId("");
+                        setSelectedTemplate(null);
+                        setCopyGroups({ bank: false, services: false });
+                        setCopyTemplate(false);
+                        setMode("full");
+                        setStep(1);
+                      }}
+                    >
+                      <option value="">Chọn tài khoản quản lý</option>
+                      {enabledOwners.map((owner) => (
+                        <option key={owner.id} value={owner.id}>
+                          {owner.name} · {owner.email}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </Field>
+                {ownersLoading && (
+                  <p role="status" className="text-sm text-text-muted">
+                    Đang tải tài khoản quản lý…
+                  </p>
+                )}
+                {ownersError && (
+                  <div
+                    role="alert"
+                    className="flex flex-wrap items-center gap-3 text-sm text-danger"
+                  >
+                    <span>Không thể tải tài khoản quản lý.</span>
+                    <button type="button" className="underline" onClick={retryOwnerList}>
+                      Thử lại
+                    </button>
+                  </div>
+                )}
+                {!ownersLoading && !ownersError && enabledOwners.length === 0 && (
+                  <p className="text-sm text-text-muted">
+                    Chưa có quản lý đang hoạt động.{" "}
+                    <Link className="underline" href="/admin/managers">
+                      Tạo tài khoản quản lý
+                    </Link>{" "}
+                    trước.
+                  </p>
+                )}
+                {selectedOwner && (
+                  <p className="text-sm text-text-muted">
+                    {selectedOwnerMotelCount === 0
+                      ? "Chủ sở hữu này chưa có nhà trọ; cần thiết lập đầy đủ thông tin đầu tiên."
+                      : `${selectedOwnerMotelCount} nhà trọ hiện có; có thể tạo nhanh.`}
+                  </p>
+                )}
+              </div>
+            )}
             {motels.length > 0 && (
               <div className="rounded-input border border-border bg-canvas/40 p-4 space-y-3">
                 <div className="font-semibold text-text">Sao chép từ nhà trọ đang có</div>
@@ -600,7 +742,10 @@ export default function MotelSetupWizard({
                             onChange={(e) =>
                               setDraft((prev) => ({
                                 ...prev,
-                                bankAccount: { ...prev.bankAccount, accountNumber: e.target.value },
+                                bankAccount: {
+                                  ...prev.bankAccount,
+                                  accountNumber: e.target.value,
+                                },
                               }))
                             }
                           />
@@ -619,7 +764,10 @@ export default function MotelSetupWizard({
                             onChange={(e) =>
                               setDraft((prev) => ({
                                 ...prev,
-                                bankAccount: { ...prev.bankAccount, accountName: e.target.value },
+                                bankAccount: {
+                                  ...prev.bankAccount,
+                                  accountName: e.target.value,
+                                },
                               }))
                             }
                           />
@@ -640,7 +788,7 @@ export default function MotelSetupWizard({
                 Hủy
               </Button>
               <div className="flex gap-2">
-                {motels.length > 0 && (
+                {canQuickSkip && (
                   <Button variant="secondary" onClick={handleQuickSkip}>
                     Tạo nhanh (bỏ qua thiết lập)
                   </Button>

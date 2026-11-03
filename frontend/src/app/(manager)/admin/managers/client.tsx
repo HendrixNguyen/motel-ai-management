@@ -1,13 +1,12 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
-import { useRouter } from "next/navigation";
 import Button from "@/components/ui/button";
+import PageHeader from "@/components/ui/page-header";
 import ConfirmDialog from "@/components/ui/confirm-dialog";
 import Field from "@/components/ui/field";
 import Modal from "@/components/ui/modal";
 import { createManagerInputSchema, parseCsrfToken } from "@/lib/account-setup";
-import { logout } from "@/lib/api/auth.client";
 import { ApiError, apiSend } from "@/lib/api/client";
 
 type Account = {
@@ -20,13 +19,11 @@ type Account = {
 };
 
 export default function AdminManagersPage() {
-  const router = useRouter();
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [error, setError] = useState("");
   const [passwordResetTarget, setPasswordResetTarget] = useState<Account | null>(null);
   const [disableTarget, setDisableTarget] = useState<Account | null>(null);
   const [pending, setPending] = useState(false);
-  const [loggingOut, setLoggingOut] = useState(false);
   const [csrfToken, setCsrfToken] = useState("");
   async function refresh() {
     const response = await fetch("/api/admin/managers?limit=50&offset=0", {
@@ -35,18 +32,6 @@ export default function AdminManagersPage() {
     if (!response.ok) throw new Error("unauthorized");
     setCsrfToken(parseCsrfToken(response.headers.get("x-csrf-token")));
     setAccounts((await response.json()) as Account[]);
-  }
-
-  async function handleLogout() {
-    setLoggingOut(true);
-    try {
-      await logout();
-      router.replace("/login");
-      router.refresh();
-    } catch {
-      setError("Đăng xuất thất bại");
-      setLoggingOut(false);
-    }
   }
 
   async function send<T>(url: string, method: string, body?: unknown): Promise<T> {
@@ -145,22 +130,11 @@ export default function AdminManagersPage() {
     }
   }
   return (
-    <main id="main-content" className="mx-auto max-w-4xl space-y-8 p-6">
-      <header className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="font-heading text-2xl font-bold text-text">Quản lý tài khoản</h1>
-          <p className="mt-2 text-text-muted">Chỉ quản lý quyền truy cập của người quản lý.</p>
-        </div>
-        <Button
-          type="button"
-          variant="secondary"
-          onClick={handleLogout}
-          pending={loggingOut}
-          pendingLabel="Đang đăng xuất…"
-        >
-          Đăng xuất
-        </Button>
-      </header>
+    <div className="mx-auto max-w-4xl space-y-8">
+      <PageHeader
+        title="Quản lý tài khoản"
+        description="Chỉ quản lý quyền truy cập của người quản lý."
+      />
       <form
         onSubmit={create}
         className="grid gap-4 rounded-card border border-border bg-surface p-5 sm:grid-cols-2"
@@ -308,6 +282,6 @@ export default function AdminManagersPage() {
           </tbody>
         </table>
       </section>
-    </main>
+    </div>
   );
 }

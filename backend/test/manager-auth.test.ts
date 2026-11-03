@@ -4,7 +4,6 @@ import { db } from "@/db";
 import { resetRateLimits } from "@/shared/rate-limit";
 import { managerSessions, managers } from "@/modules/auth/auth.schema";
 import { SUPERADMIN_EMAIL } from "@/modules/auth/superadmin-identity";
-import { adminAccountRoutes } from "@/modules/auth/auth.route";
 import { verifyManager } from "@/modules/auth/auth.service";
 import { app, createApp } from "@/app";
 import { resetDb } from "@/db/test-db";
@@ -171,7 +170,8 @@ describe("manager auth", () => {
     const business = await createApp().handle(
       new Request("http://localhost/api/manager/motels", { headers: { cookie } }),
     );
-    expect(business.status).toBe(403);
+    expect(business.status).toBe(200);
+    expect(await business.json()).toEqual([]);
     const logout = await createApp().handle(
       new Request("http://localhost/api/auth/logout", { method: "POST", headers: { cookie } }),
     );
@@ -179,7 +179,7 @@ describe("manager auth", () => {
     expect(logout.headers.get("set-cookie")).toContain("manager_session=");
   });
 
-  test("superadmin cannot use manager business endpoints", async () => {
+  test("superadmin can use manager business endpoints", async () => {
     const [root] = await db
       .insert(managers)
       .values({
@@ -193,7 +193,8 @@ describe("manager auth", () => {
     const response = await createApp().handle(
       new Request("http://localhost/api/manager/motels", { headers: { cookie } }),
     );
-    expect(response.status).toBe(403);
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual([]);
   });
 
   test("manager cannot access superadmin accounts", async () => {

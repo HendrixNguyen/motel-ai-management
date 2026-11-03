@@ -5,8 +5,6 @@ import { resetDb } from "@/db/test-db";
 import { resetRateLimits } from "@/shared/rate-limit";
 import { registerManager } from "@/modules/auth/auth.service";
 import { motels } from "@/modules/motel/motel.schema";
-import { rooms } from "@/modules/room/room.schema";
-import { renters } from "@/modules/renter/renter.schema";
 
 // `resetDb` drops the schema and re-applies every migration, which takes seconds — past
 // Bun's 5 s default, and worse once a long run has churned the system catalogs.
@@ -94,10 +92,8 @@ async function createRenter(
 
 describe("Cross-Tenant Isolation — Sub-Project 2", () => {
   let manager1Cookie: string;
-  let manager2Cookie: string;
   let motel1Id: string;
   let motel2Id: string;
-  let room1Id: string;
   let room2Id: string;
   let renter1Id: string;
   let renter2Id: string;
@@ -106,16 +102,13 @@ describe("Cross-Tenant Isolation — Sub-Project 2", () => {
     const { cookie: cookie1 } = await login("iso-manager1@example.com");
     const { cookie: cookie2 } = await login("iso-manager2@example.com");
     manager1Cookie = cookie1;
-    manager2Cookie = cookie2;
 
     const { id: m1 } = await createMotel(cookie1, "Motel 1");
     const { id: m2 } = await createMotel(cookie2, "Motel 2");
     motel1Id = m1;
     motel2Id = m2;
 
-    const { id: r1 } = await createRoom(cookie1, motel1Id, "P.101");
     const { id: r2 } = await createRoom(cookie2, motel2Id, "P.201");
-    room1Id = r1;
     room2Id = r2;
 
     const { id: ren1 } = await createRenter(cookie1, motel1Id, "84911111111");

@@ -102,11 +102,14 @@ Money is `NUMERIC(14,0)` (VND has no practical subunit). Meter values are `NUMER
 | sessionVersion | INTEGER     | DEFAULT 0; increment revokes all ordinary and remembered manager sessions |
 | createdAt      | TIMESTAMPTZ | DEFAULT now()                                                             |
 
-Superadmin manages manager accounts only; it cannot access tenant business endpoints or renter
-records. Manager creation is restricted to authenticated superadmins. Managers receive passwords directly from Superadmins; password reset and disable increment
-`sessionVersion`, invalidating prior manager sessions. Public registration remains available for
-normal managers and must never assign the superadmin role. Production bootstrap creates one hidden
-superadmin only and never seeds demo business data.
+Managers own motels and remain restricted to their own tenant data. Superadmins use the same
+operational APIs across all motels and related renter/business records while retaining access to
+manager-account administration. Superadmin-created motels require an enabled Manager selected as
+owner; ordinary Managers cannot choose or change owners. Manager creation is restricted to
+authenticated Superadmins. Managers receive passwords directly from Superadmins; password reset and
+disable increment `sessionVersion`, invalidating prior manager sessions. Public registration
+remains available for normal managers and must never assign the superadmin role. Production
+bootstrap creates one hidden superadmin only and never seeds demo business data.
 
 `manager_audit_events` stores actor, target, action and timestamp, never credentials or secret values.
 
@@ -630,12 +633,14 @@ Other rules:
 
 ## Security
 
-- Manager JWT and renter session both live in `httpOnly`, `Secure`, `SameSite=Lax` cookies.
-- Manager JWT carries `sub` (manager id). Renter session carries `sub` (renter id) and
-  `motelId`. Tenant scope is derived from the session, never from the request body.
-- `motel-scope` resolution: every manager query filters by a motel the manager owns.
-  A motel id the manager does not own returns `404`, not `403`, so the API does not
-  confirm that another tenant's motel exists.
+- Manager/Superadmin and renter sessions live in `httpOnly`, `Secure`, `SameSite=Lax` cookies.
+- Role-bound Manager/Superadmin sessions carry the authenticated actor ID. Renter session carries
+  `sub` (renter id) and `motelId`. Motel access derives from the signed session; `ownerManagerId`
+  is the sole create-time ownership selector and is accepted only from Superadmin after enabled
+  Manager validation.
+- Manager queries require motel ownership; Superadmin queries may access any existing motel.
+  Every operation still verifies child-to-motel relationships. Foreign motel or mismatched child
+  IDs return `404`, not `403`, so the API does not confirm another tenant's records.
 - Passwords hashed with argon2id. Manager login is rate-limited per IP and per email.
 - Magic-link tokens: 32 crypto-random bytes, 24-hour expiry, single-use.
 - Contract consent is recorded in an authenticated renter session against the exact displayed terms version; it is not independent identity proof or certified e-signature. Legal review is required before relying on this MVP as legally enforceable.

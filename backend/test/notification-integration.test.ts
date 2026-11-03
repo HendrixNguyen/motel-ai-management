@@ -12,7 +12,6 @@ import { createRenterForMotel } from "@/modules/renter/renter.service";
 import { markInvoicePaid } from "@/modules/billing/billing.service";
 import { listExpiringContracts } from "@/modules/contract/contract.service";
 import {
-  resetNotificationRecipientResolver,
   setNotificationRecipientResolver,
   enqueueNotification,
 } from "@/modules/notification/notification.service";
@@ -56,11 +55,15 @@ async function keys() {
 describe("domain notification integration", () => {
   test("creates welcome event without exposing a provider route", async () => {
     const { manager, motel, room } = await fixture();
-    const renter = await createRenterForMotel(motel.id, manager.id, {
-      name: "New",
-      phone: "0912345678",
-      roomId: room.id,
-    });
+    const renter = await createRenterForMotel(
+      motel.id,
+      { userId: manager.id, role: "manager" },
+      {
+        name: "New",
+        phone: "0912345678",
+        roomId: room.id,
+      },
+    );
     expect(await keys()).toContain(`renter:${renter.id}:welcome`);
   });
 
@@ -85,7 +88,7 @@ describe("domain notification integration", () => {
         totalAmount: "1",
       })
       .returning();
-    await markInvoicePaid(invoice!.id, motel.id, manager.id);
+    await markInvoicePaid(invoice!.id, motel.id, { userId: manager.id, role: "manager" });
     expect(await keys()).toContain(`invoice:${invoice!.id}:paid`);
   });
 

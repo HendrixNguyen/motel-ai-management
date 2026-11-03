@@ -45,6 +45,7 @@ test("remember-me help opens accessibly without toggling or submitting login", a
   await expect(page.getByRole("button", { name: "Đăng nhập", exact: true })).toBeEnabled();
   await page.keyboard.press("Escape");
   await expect(page.getByRole("tooltip")).toHaveCount(0);
+  await page.mouse.move(0, 0);
   await help.hover();
   await expect(page.getByRole("tooltip")).toBeVisible();
   await page.getByRole("heading", { name: "Đăng nhập" }).click();
