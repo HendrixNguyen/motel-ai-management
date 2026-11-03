@@ -5,6 +5,7 @@ export * from "@/modules/motel/motel-setup.schema";
 export * from "@/modules/room/room.schema";
 export * from "@/modules/renter/renter.schema";
 export * from "@/modules/billing/billing.schema";
+export * from "@/modules/billing/monthly-utility-costs.schema";
 export * from "@/modules/contract/contract.schema";
 export * from "@/modules/contract/contract-catalog.schema";
 export * from "@/modules/ticket/ticket.schema";

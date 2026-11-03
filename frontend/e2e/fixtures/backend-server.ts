@@ -1088,6 +1088,26 @@ export function createFixtureBackend(
         if (!entry) return error(404, "NOT_FOUND", "Không tìm thấy yêu cầu");
         return json(entry.result);
       }
+      const monthlyReport = /^\/api\/manager\/motels\/([^/]+)\/billing\/months\/(\d{1,4})\/(\d{1,2})\/(report|utility-costs)$/.exec(path);
+      if (monthlyReport && method === "GET") {
+        const [, motelId, year, month] = monthlyReport;
+        const motel = state.motels.find((row) => row.id === motelId);
+        if (!motel) return error(404, "NOT_FOUND", "Không tìm thấy nhà trọ");
+        if (monthlyReport[4] === "utility-costs") return json({ motelId, year: Number(year), month: Number(month), electricityAmount: null, waterAmount: null, electricityNotes: null, waterNotes: null });
+        return json({ motelId, year: Number(year), month: Number(month), periodStatus: null,
+          costs: { electricityAmount: null, waterAmount: null, electricityNotes: null, waterNotes: null },
+          electricity: { billed: "0", collected: "0", cost: null, billedDifference: null, collectedDifference: null },
+          water: { billed: "0", collected: "0", cost: null, billedDifference: null, collectedDifference: null },
+          utilities: { billed: "0", collected: "0", cost: null, billedDifference: null, collectedDifference: null },
+          totals: { billed: "0", collected: "0", outstanding: "0", billedLessUtilityCosts: null, collectedLessUtilityCosts: null },
+        });
+      }
+      if (monthlyReport && method === "PUT" && monthlyReport[4] === "utility-costs") {
+        const [, motelId, year, month] = monthlyReport;
+        if (!state.motels.some((row) => row.id === motelId)) return error(404, "NOT_FOUND", "Không tìm thấy nhà trọ");
+        const body = await input<{ electricityAmount: string | null; waterAmount: string | null; electricityNotes: string | null; waterNotes: string | null }>();
+        return json({ motelId, year: Number(year), month: Number(month), ...body });
+      }
       if (path === "/api/manager/motels") {
         if (method === "GET")
           return managerSession === "motels-expired" ? unauthorized() : json(state.motels);

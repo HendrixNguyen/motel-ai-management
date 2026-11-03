@@ -23,6 +23,7 @@ export const meterType = pgEnum("meter_type", ["electric", "water"]);
 
 export const paymentStatus = pgEnum("payment_status", ["unpaid", "paid", "overdue"]);
 export const paymentMethod = pgEnum("payment_method", ["bank_transfer", "cash"]);
+export { monthlyUtilityCosts } from "./monthly-utility-costs.schema";
 
 export const billingPeriods = pgTable(
   "billing_periods",

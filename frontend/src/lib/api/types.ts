@@ -248,6 +248,25 @@ export interface UpdateReadingsInput {
   readings: UpdateReadingInput[];
 }
 
+export interface MonthlyUtilityCostInput {
+  electricityAmount: VndString | null;
+  waterAmount: VndString | null;
+  electricityNotes: string | null;
+  waterNotes: string | null;
+}
+
+export interface MonthlyUtilityReport {
+  motelId: string;
+  year: number;
+  month: number;
+  periodStatus: BillingPeriodResponse["status"] | null;
+  costs: MonthlyUtilityCostInput;
+  electricity: { billed: VndString; collected: VndString; cost: VndString | null; billedDifference: VndString | null; collectedDifference: VndString | null };
+  water: { billed: VndString; collected: VndString; cost: VndString | null; billedDifference: VndString | null; collectedDifference: VndString | null };
+  utilities: { billed: VndString; collected: VndString; cost: VndString | null; billedDifference: VndString | null; collectedDifference: VndString | null };
+  totals: { billed: VndString; collected: VndString; outstanding: VndString; billedLessUtilityCosts: VndString | null; collectedLessUtilityCosts: VndString | null };
+}
+
 export interface InvoiceResponse {
   id: string;
   billingPeriodId: string;

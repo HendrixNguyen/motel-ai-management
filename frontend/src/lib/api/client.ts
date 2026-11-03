@@ -117,6 +117,15 @@ const MONEY_KEYS: ReadonlySet<string> = new Set([
   "totalAmount",
   "waterCost",
   "waterPrice",
+  "electricityAmount",
+  "waterAmount",
+]);
+
+const SIGNED_DIFF_KEYS: ReadonlySet<string> = new Set([
+  "billedDifference",
+  "collectedDifference",
+  "billedLessUtilityCosts",
+  "collectedLessUtilityCosts",
 ]);
 
 /**
@@ -346,8 +355,23 @@ function guardMoney(node: unknown, path = ""): unknown {
   const guarded: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(node)) {
     const at = path === "" ? key : `${path}.${key}`;
+    if (SIGNED_DIFF_KEYS.has(key)) {
+      if (value === null) {
+        guarded[key] = null;
+        continue;
+      }
+      if (typeof value !== "string" || !/^-?\d+$/.test(value)) {
+        throw new Error(`lib/api: ${at} is not a valid signed VND amount (${JSON.stringify(value)}).`);
+      }
+      guarded[key] = value;
+      continue;
+    }
     if (!MONEY_KEYS.has(key)) {
       guarded[key] = guardMoney(value, at);
+      continue;
+    }
+    if ((key === "electricityAmount" || key === "waterAmount") && value === null) {
+      guarded[key] = null;
       continue;
     }
     if (typeof value !== "string") {

@@ -13,6 +13,13 @@ import {
   updateMeterReadings,
   uploadMeterPhoto,
 } from "./billing.service";
+import {
+  getMonthlyUtilityCosts,
+  getMonthlyUtilityReport,
+  monthlyUtilityCostsBody,
+  monthlyUtilityCostsParams,
+  upsertMonthlyUtilityCosts,
+} from "./monthly-utility-costs.service";
 
 const params = t.Object({ motelId: t.String({ format: "uuid" }) });
 const detailParams = t.Object({
@@ -36,6 +43,40 @@ const readingBody = t.Object({
 export const billingRoutes = new Elysia({ name: "billing-routes" })
   .use(cookie())
   .use(managerAuth)
+  .get(
+    "/manager/motels/:motelId/billing/months/:year/:month/utility-costs",
+    ({ params, auth }) =>
+      getMonthlyUtilityCosts(
+        params.motelId,
+        { userId: auth!.userId, role: auth!.role },
+        params.year,
+        params.month,
+      ),
+    { params: monthlyUtilityCostsParams },
+  )
+  .get(
+    "/manager/motels/:motelId/billing/months/:year/:month/report",
+    ({ params, auth }) =>
+      getMonthlyUtilityReport(
+        params.motelId,
+        { userId: auth!.userId, role: auth!.role },
+        params.year,
+        params.month,
+      ),
+    { params: monthlyUtilityCostsParams },
+  )
+  .put(
+    "/manager/motels/:motelId/billing/months/:year/:month/utility-costs",
+    ({ params, body, auth }) =>
+      upsertMonthlyUtilityCosts(
+        params.motelId,
+        { userId: auth!.userId, role: auth!.role },
+        params.year,
+        params.month,
+        body,
+      ),
+    { params: monthlyUtilityCostsParams, body: monthlyUtilityCostsBody },
+  )
   .get(
     "/manager/motels/:motelId/billing/periods",
     ({ params, auth }) =>

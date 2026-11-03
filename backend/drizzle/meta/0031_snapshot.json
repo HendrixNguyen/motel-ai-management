@@ -1,6 +1,6 @@
 {
-  "id": "8c05410a-3d06-4a95-b27f-ee1902843b25",
-  "prevId": "bc4800d0-8a73-4cb1-8ff9-d7f9bad4ba43",
+  "id": "ffd800cc-7971-460e-a73a-bf2a7b5a711c",
+  "prevId": "8c05410a-3d06-4a95-b27f-ee1902843b25",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -1868,6 +1868,149 @@
         "meter_readings_current_gte_previous": {
           "name": "meter_readings_current_gte_previous",
           "value": "\"meter_readings\".\"current_reading\" is null or \"meter_readings\".\"current_reading\" >= \"meter_readings\".\"previous_reading\""
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.monthly_utility_costs": {
+      "name": "monthly_utility_costs",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "motel_id": {
+          "name": "motel_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "year": {
+          "name": "year",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "month": {
+          "name": "month",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "electricity_amount": {
+          "name": "electricity_amount",
+          "type": "numeric(14, 0)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "water_amount": {
+          "name": "water_amount",
+          "type": "numeric(14, 0)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "electricity_notes": {
+          "name": "electricity_notes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "water_notes": {
+          "name": "water_notes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "monthly_utility_costs_motel_year_month_uq": {
+          "name": "monthly_utility_costs_motel_year_month_uq",
+          "columns": [
+            {
+              "expression": "motel_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "year",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "month",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "monthly_utility_costs_motel_id_motels_id_fk": {
+          "name": "monthly_utility_costs_motel_id_motels_id_fk",
+          "tableFrom": "monthly_utility_costs",
+          "tableTo": "motels",
+          "columnsFrom": [
+            "motel_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "monthly_utility_costs_month_range": {
+          "name": "monthly_utility_costs_month_range",
+          "value": "\"monthly_utility_costs\".\"month\" between 1 and 12"
+        },
+        "monthly_utility_costs_year_range": {
+          "name": "monthly_utility_costs_year_range",
+          "value": "\"monthly_utility_costs\".\"year\" between 1 and 9999"
+        },
+        "monthly_utility_costs_electricity_nonnegative": {
+          "name": "monthly_utility_costs_electricity_nonnegative",
+          "value": "\"monthly_utility_costs\".\"electricity_amount\" is null or \"monthly_utility_costs\".\"electricity_amount\" >= 0"
+        },
+        "monthly_utility_costs_water_nonnegative": {
+          "name": "monthly_utility_costs_water_nonnegative",
+          "value": "\"monthly_utility_costs\".\"water_amount\" is null or \"monthly_utility_costs\".\"water_amount\" >= 0"
+        },
+        "monthly_utility_costs_electricity_notes_length": {
+          "name": "monthly_utility_costs_electricity_notes_length",
+          "value": "\"monthly_utility_costs\".\"electricity_notes\" is null or char_length(\"monthly_utility_costs\".\"electricity_notes\") <= 2000"
+        },
+        "monthly_utility_costs_water_notes_length": {
+          "name": "monthly_utility_costs_water_notes_length",
+          "value": "\"monthly_utility_costs\".\"water_notes\" is null or char_length(\"monthly_utility_costs\".\"water_notes\") <= 2000"
         }
       },
       "isRLSEnabled": false
