@@ -7,6 +7,7 @@ import Field from "@/components/ui/field";
 import Modal from "@/components/ui/modal";
 import { useToast } from "@/components/ui/toast";
 import ContractTemplatePicker from "./contract-template-picker";
+import BankPicker from "./bank-picker";
 import {
   getMotelSetupResult,
   previewOwnedTemplate,
@@ -567,61 +568,69 @@ export default function MotelSetupWizard({
                 <div className="space-y-3">
                   <Field
                     id={id("bankCode")}
-                    label="Mã ngân hàng (BIN)"
+                    label="Ngân hàng"
                     error={fields["bankAccount.bankCode"]}
                   >
                     {(props) => (
-                      <input
+                      <BankPicker
                         {...props}
+                        required
                         value={draft.bankAccount.bankCode}
-                        required
-                        onChange={(e) =>
+                        onChange={(bankCode) =>
                           setDraft((prev) => ({
                             ...prev,
-                            bankAccount: { ...prev.bankAccount, bankCode: e.target.value },
+                            bankAccount: { ...prev.bankAccount, bankCode },
                           }))
                         }
                       />
                     )}
                   </Field>
-                  <Field
-                    id={id("accountNumber")}
-                    label="Số tài khoản"
-                    error={fields["bankAccount.accountNumber"]}
-                  >
-                    {(props) => (
-                      <input
-                        {...props}
-                        value={draft.bankAccount.accountNumber}
-                        required
-                        onChange={(e) =>
-                          setDraft((prev) => ({
-                            ...prev,
-                            bankAccount: { ...prev.bankAccount, accountNumber: e.target.value },
-                          }))
-                        }
-                      />
-                    )}
-                  </Field>
-                  <Field
-                    id={id("accountName")}
-                    label="Tên chủ tài khoản"
-                    error={fields["bankAccount.accountName"]}
-                  >
-                    {(props) => (
-                      <input
-                        {...props}
-                        value={draft.bankAccount.accountName}
-                        required
-                        onChange={(e) =>
-                          setDraft((prev) => ({
-                            ...prev,
-                            bankAccount: { ...prev.bankAccount, accountName: e.target.value },
-                          }))
-                        }
-                      />
-                    )}
-                  </Field>
+                  {draft.bankAccount.bankCode ? (
+                    <>
+                      <Field
+                        id={id("accountNumber")}
+                        label="Số tài khoản"
+                        error={fields["bankAccount.accountNumber"]}
+                      >
+                        {(props) => (
+                          <input
+                            {...props}
+                            value={draft.bankAccount.accountNumber}
+                            required
+                            onChange={(e) =>
+                              setDraft((prev) => ({
+                                ...prev,
+                                bankAccount: { ...prev.bankAccount, accountNumber: e.target.value },
+                              }))
+                            }
+                          />
+                        )}
+                      </Field>
+                      <Field
+                        id={id("accountName")}
+                        label="Tên chủ tài khoản"
+                        error={fields["bankAccount.accountName"]}
+                      >
+                        {(props) => (
+                          <input
+                            {...props}
+                            value={draft.bankAccount.accountName}
+                            required
+                            onChange={(e) =>
+                              setDraft((prev) => ({
+                                ...prev,
+                                bankAccount: { ...prev.bankAccount, accountName: e.target.value },
+                              }))
+                            }
+                          />
+                        )}
+                      </Field>
+                    </>
+                  ) : (
+                    <p className="text-sm text-text-muted">
+                      Chọn ngân hàng để nhập thông tin tài khoản.
+                    </p>
+                  )}
                 </div>
               )}
             </fieldset>

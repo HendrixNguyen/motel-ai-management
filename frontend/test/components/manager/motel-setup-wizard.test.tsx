@@ -320,6 +320,49 @@ describe("MotelSetupWizard", () => {
     });
   });
 
+  test("setup confirms selected bank before entering account details", async () => {
+    mocks.submitMotelSetup.mockResolvedValue({
+      motelId: "m-bank-1",
+      mode: "quick",
+      roomCount: 0,
+      templateId: null,
+    });
+    const view = render(
+      <MotelSetupWizard open={true} onClose={vi.fn()} motels={[sampleMotel]} managerId="mgr-1" />,
+    );
+
+    fireEvent.change(view.getByLabelText("Tên nhà trọ"), { target: { value: "Nhà Có Bank" } });
+    fireEvent.change(view.getByLabelText("Giá điện (₫/kWh)"), { target: { value: "3500" } });
+    fireEvent.change(view.getByLabelText("Giá nước (₫/m³)"), { target: { value: "25000" } });
+    fireEvent.click(view.getByLabelText("Thiết lập tài khoản nhận tiền"));
+    expect(view.queryByLabelText("Số tài khoản")).toBeNull();
+    fireEvent.change(view.getByRole("combobox", { name: "Ngân hàng" }), {
+      target: { value: "VietinBank" },
+    });
+    fireEvent.click(view.getByRole("option", { name: /VietinBank/ }));
+    fireEvent.change(view.getByLabelText("Số tài khoản"), { target: { value: "001234" } });
+    fireEvent.change(view.getByLabelText("Tên chủ tài khoản"), {
+      target: { value: "NGUYEN VAN A" },
+    });
+    fireEvent.click(view.getByRole("button", { name: /Tạo nhanh/ }));
+    await waitFor(() => expect(view.getByText("Bước 4: Xác nhận và hoàn tất")).toBeInTheDocument());
+    fireEvent.click(view.getByRole("button", { name: "Hoàn tất thiết lập" }));
+
+    await waitFor(() =>
+      expect(mocks.submitMotelSetup).toHaveBeenCalledWith(
+        expect.objectContaining({
+          motel: expect.objectContaining({
+            bankAccount: {
+              bankCode: "970415",
+              accountNumber: "001234",
+              accountName: "NGUYEN VAN A",
+            },
+          }),
+        }),
+      ),
+    );
+  });
+
   test("on submit error, allows retry with same requestId and 410 blocks resubmission", async () => {
     const onClose = vi.fn();
     mocks.submitMotelSetup
@@ -482,6 +525,10 @@ describe("MotelSetupWizard", () => {
     );
 
     fireEvent.click(view.getByLabelText("Thiết lập tài khoản nhận tiền"));
+    fireEvent.change(view.getByRole("combobox", { name: "Ngân hàng" }), {
+      target: { value: "Vietcombank" },
+    });
+    fireEvent.click(view.getByRole("option", { name: /970436/ }));
     fireEvent.change(view.getByLabelText("Số tài khoản"), { target: { value: "MANUAL_BANK" } });
 
     fireEvent.change(view.getByLabelText("Chọn nhà trọ nguồn"), {

@@ -7,6 +7,7 @@ import EmptyState from "@/components/ui/empty-state";
 import Field from "@/components/ui/field";
 import Modal from "@/components/ui/modal";
 import { useToast } from "@/components/ui/toast";
+import BankPicker from "@/components/manager/bank-picker";
 import type { MotelResponse } from "@/lib/api/types";
 import { createMotelFormSession, type MotelFieldErrors } from "@/lib/motel-form";
 import MotelSetupWizard from "./motel-setup-wizard";
@@ -414,38 +415,59 @@ function MotelForm({
                 Không dùng tài khoản nhận tiền. Lưu thay đổi sẽ xóa tài khoản đã thiết lập.
               </p>
             )}
-            {draft.bankEnabled &&
-              (
-                [
-                  ["bankCode", "Mã ngân hàng", "Mã BIN ngân hàng, ví dụ 970436"],
-                  ["accountNumber", "Số tài khoản", undefined],
-                  ["accountName", "Tên chủ tài khoản", undefined],
-                ] as const
-              ).map(([key, label, hint]) => (
+            {draft.bankEnabled && (
+              <>
                 <Field
-                  key={key}
-                  id={id(`bankAccount.${key}`)}
-                  label={label}
-                  hint={hint}
-                  error={fields[`bankAccount.${key}`]}
+                  id={id("bankAccount.bankCode")}
+                  label="Ngân hàng"
+                  error={fields["bankAccount.bankCode"]}
                 >
                   {(props) => (
-                    <input
+                    <BankPicker
                       {...props}
-                      type="text"
-                      inputMode={key === "accountName" ? "text" : "numeric"}
                       required
-                      value={draft.bankAccount[key]}
-                      onChange={(event) =>
+                      value={draft.bankAccount.bankCode}
+                      onChange={(bankCode) =>
                         setDraft({
                           ...draft,
-                          bankAccount: { ...draft.bankAccount, [key]: event.target.value },
+                          bankAccount: { ...draft.bankAccount, bankCode },
                         })
                       }
                     />
                   )}
                 </Field>
-              ))}
+                {draft.bankAccount.bankCode ? (
+                  (["accountNumber", "accountName"] as const).map((key) => (
+                    <Field
+                      key={key}
+                      id={id(`bankAccount.${key}`)}
+                      label={key === "accountNumber" ? "Số tài khoản" : "Tên chủ tài khoản"}
+                      error={fields[`bankAccount.${key}`]}
+                    >
+                      {(props) => (
+                        <input
+                          {...props}
+                          type="text"
+                          inputMode={key === "accountName" ? "text" : "numeric"}
+                          required
+                          value={draft.bankAccount[key]}
+                          onChange={(event) =>
+                            setDraft({
+                              ...draft,
+                              bankAccount: { ...draft.bankAccount, [key]: event.target.value },
+                            })
+                          }
+                        />
+                      )}
+                    </Field>
+                  ))
+                ) : (
+                  <p className="text-sm text-text-muted">
+                    Chọn ngân hàng để nhập thông tin tài khoản.
+                  </p>
+                )}
+              </>
+            )}
           </fieldset>
         </>
       )}
