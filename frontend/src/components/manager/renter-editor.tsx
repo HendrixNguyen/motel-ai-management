@@ -246,9 +246,9 @@ function RenterForm({
         </Field>
         <Field
           id={id("phone")}
-          label="Số điện thoại"
+          label="Số điện thoại liên hệ"
           error={fields.phone}
-          hint="Ví dụ 0901234567 hoặc +84 901 234 567"
+          hint="Dùng cho liên hệ và đăng nhập người thuê"
         >
           {(props) => (
             <input
@@ -258,10 +258,60 @@ function RenterForm({
               autoComplete="tel"
               required
               value={draft.phone}
-              onChange={(event) => setDraft({ ...draft, phone: event.target.value })}
+              onChange={(event) =>
+                setDraft({
+                  ...draft,
+                  phone: event.target.value,
+                  zaloPhone:
+                    draft.zaloPhoneConfirmed && draft.zaloPhone === draft.phone
+                      ? event.target.value
+                      : draft.zaloPhone,
+                })
+              }
             />
           )}
         </Field>
+        <label className="flex items-start gap-3 text-sm text-text">
+          <input
+            type="checkbox"
+            checked={Boolean(draft.zaloPhone) && draft.zaloPhone === draft.phone}
+            onChange={(event) =>
+              setDraft({
+                ...draft,
+                zaloPhone: event.target.checked ? draft.phone : "",
+                zaloPhoneConfirmed: event.target.checked,
+              })
+            }
+          />
+          Người thuê dùng số điện thoại liên hệ này cho Zalo. Bật xác nhận bên dưới sau khi hỏi
+          người thuê.
+        </label>
+        <Field
+          id={id("zaloPhone")}
+          label="Số Zalo nhận thông báo (không bắt buộc)"
+          error={fields.zaloPhone}
+          hint="Chỉ nhập sau khi người thuê xác nhận. Số này chưa được xác minh quyền sở hữu tài khoản Zalo. Để trống nếu chưa xác nhận."
+        >
+          {(props) => (
+            <input
+              {...props}
+              name="zaloPhone"
+              type="tel"
+              autoComplete="tel"
+              value={draft.zaloPhone}
+              onChange={(event) => setDraft({ ...draft, zaloPhone: event.target.value })}
+            />
+          )}
+        </Field>
+        <label className="flex items-start gap-3 text-sm text-text">
+          <input
+            type="checkbox"
+            checked={draft.zaloPhoneConfirmed}
+            onChange={(event) => setDraft({ ...draft, zaloPhoneConfirmed: event.target.checked })}
+          />
+          Người thuê đã xác nhận số Zalo này; chọn khi cùng số hoặc xác nhận riêng số khác. Không
+          xác minh quyền sở hữu tài khoản.
+        </label>
         <Field id={id("idNumber")} label="Số CCCD (không bắt buộc)">
           {(props) => (
             <input

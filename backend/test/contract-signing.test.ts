@@ -23,7 +23,7 @@ import { setNotificationRecipientResolver } from "@/modules/notification/notific
 setDefaultTimeout(20_000);
 beforeEach(async () => {
   await resetDb();
-  setNotificationRecipientResolver(async () => ({ phone: "84901234567" }));
+  setNotificationRecipientResolver(async () => ({ zaloPhone: "84901234567" }));
 });
 
 const actor = (userId: string) => ({ userId, role: "manager" as const });

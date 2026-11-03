@@ -53,6 +53,7 @@ export async function listLoginRequests(motelId: string, actor: MotelActor) {
       requestedAt: renterLoginRequests.requestedAt,
       renterName: renters.name,
       renterPhone: renters.phone,
+      renterZaloPhone: renters.zaloPhone,
       status: renterLoginRequests.status,
     })
     .from(renterLoginRequests)

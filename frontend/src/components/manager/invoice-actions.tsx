@@ -23,14 +23,14 @@ export default function InvoiceActions({
   motelId,
   invoice,
   bankAccount,
-  renterPhone,
+  renterZaloPhone,
   billingPeriod,
   allowAssistedSend,
 }: {
   motelId: string;
   invoice: InvoiceResponse;
   bankAccount: { bankCode: string; accountNumber: string; accountName: string } | null;
-  renterPhone?: string;
+  renterZaloPhone?: string | null;
   billingPeriod: { month: number; year: number };
   allowAssistedSend: boolean;
 }) {
@@ -80,8 +80,10 @@ export default function InvoiceActions({
 
   async function prepareZaloMessage() {
     if (sharing) return;
-    if (!renterPhone) {
-      setMessage("Không tìm thấy số điện thoại người thuê để mở Zalo.");
+    if (!renterZaloPhone) {
+      setMessage(
+        "Chưa xác nhận số Zalo người thuê. Dùng liên kết/QR thủ công hoặc cập nhật hồ sơ.",
+      );
       return;
     }
     const chatWindow = window.open("about:blank", "_blank");
@@ -94,12 +96,17 @@ export default function InvoiceActions({
     try {
       const { url } = await createRenterMagicLink(motelId, invoice.renterId);
       const message = buildAssistedZaloMessage({
-        renter: { phone: renterPhone },
+        renter: { zaloPhone: renterZaloPhone },
         invoice,
         month: billingPeriod.month,
         year: billingPeriod.year,
         portalUrl: url,
       });
+      if (!message) {
+        chatWindow.close();
+        setMessage("Chưa xác nhận số Zalo. Liên kết chưa được gửi.");
+        return;
+      }
       await navigator.clipboard.writeText(message.text);
       chatWindow.location.href = message.url;
       setMessage(
@@ -160,7 +167,7 @@ export default function InvoiceActions({
 
   return (
     <div className="mt-4 grid min-w-0 gap-4 border-t border-border pt-4 sm:grid-cols-2">
-      {allowAssistedSend && invoice.paymentStatus !== "paid" && (
+      {allowAssistedSend && invoice.paymentStatus !== "paid" && renterZaloPhone && (
         <Button onClick={() => void prepareZaloMessage()} disabled={sharing}>
           {sharing ? "Đang chuẩn bị…" : "Chuẩn bị tin nhắn Zalo"}
         </Button>

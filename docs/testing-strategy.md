@@ -5,7 +5,7 @@
   frontend test lands)
 
 Tests are a deliverable, not a follow-up. A behaviour change without a test is an unfinished
-change.
+change. Renter phone tests preserve contact-phone login identity while proving separately confirmed Zalo destinations drive assisted links and ZNS, unconfirmed destinations never fall back to contact phone, and signed follow webhooks never auto-bind renters by phone.
 
 Frontend Core UI and portal changes require `cd frontend && bun run typecheck`, `bun run lint`,
 `bun run build`, and `bun run test`. Vitest covers API path contracts and shell composition;

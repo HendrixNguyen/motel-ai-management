@@ -1,6 +1,6 @@
 {
-  "id": "8c05410a-3d06-4a95-b27f-ee1902843b25",
-  "prevId": "bc4800d0-8a73-4cb1-8ff9-d7f9bad4ba43",
+  "id": "b2206174-7bf6-47a0-b3cf-47067a61c817",
+  "prevId": "8c05410a-3d06-4a95-b27f-ee1902843b25",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -975,6 +975,12 @@
           "primaryKey": false,
           "notNull": true
         },
+        "zalo_phone": {
+          "name": "zalo_phone",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "id_number": {
           "name": "id_number",
           "type": "text",
@@ -1164,6 +1170,10 @@
         "renters_phone_normalised": {
           "name": "renters_phone_normalised",
           "value": "\"renters\".\"phone\" ~ '^84[0-9]{9}$'"
+        },
+        "renters_zalo_phone_normalised": {
+          "name": "renters_zalo_phone_normalised",
+          "value": "\"renters\".\"zalo_phone\" is null or \"renters\".\"zalo_phone\" ~ '^84[0-9]{9}$'"
         },
         "renters_cccd_front_metadata_check": {
           "name": "renters_cccd_front_metadata_check",

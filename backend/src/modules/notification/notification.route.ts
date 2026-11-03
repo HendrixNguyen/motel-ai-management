@@ -98,22 +98,8 @@ export const notificationRoutes = new Elysia({ name: "notification-routes" })
         return { error: "Dữ liệu webhook không hợp lệ", code: "VALIDATION_ERROR" };
       }
       if (
-        event.event_name === "follow" &&
-        (typeof event.phone !== "string" || event.phone.trim() === "")
-      ) {
-        set.status = 400;
-        return { error: "Dữ liệu webhook không hợp lệ", code: "VALIDATION_ERROR" };
-      }
-      if (
         event.event_id !== undefined &&
         (typeof event.event_id !== "string" || event.event_id.trim() === "")
-      ) {
-        set.status = 400;
-        return { error: "Dữ liệu webhook không hợp lệ", code: "VALIDATION_ERROR" };
-      }
-      if (
-        event.event_name === "follow" &&
-        (typeof event.oa_id !== "string" || event.oa_id.trim() === "")
       ) {
         set.status = 400;
         return { error: "Dữ liệu webhook không hợp lệ", code: "VALIDATION_ERROR" };
