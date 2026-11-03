@@ -952,71 +952,108 @@ export default function MotelSetupWizard({
               <div className="space-y-2">
                 <div className="font-semibold text-text">Danh sách {rooms.length} phòng:</div>
                 <div className="max-h-60 overflow-y-auto space-y-2 pr-1">
-                  {rooms.map((room, idx) => (
-                    <div
-                      key={idx}
-                      className="grid grid-cols-2 gap-2 rounded-input border border-border p-2 bg-surface text-sm sm:grid-cols-5"
-                    >
-                      <input
-                        aria-label={`Tên phòng ${idx + 1}`}
-                        className="min-w-0 rounded-input border border-border-strong px-2 py-1"
-                        value={room.name}
-                        onChange={(e) =>
-                          setRooms((prev) =>
-                            prev.map((r, i) => (i === idx ? { ...r, name: e.target.value } : r)),
-                          )
-                        }
-                      />
-                      <input
-                        aria-label={`Giá thuê phòng ${idx + 1}`}
-                        placeholder="Giá (₫)"
-                        className="min-w-0 rounded-input border border-border-strong px-2 py-1"
-                        value={room.basePrice}
-                        onChange={(e) =>
-                          setRooms((prev) =>
-                            prev.map((r, i) =>
-                              i === idx ? { ...r, basePrice: e.target.value } : r,
-                            ),
-                          )
-                        }
-                      />
-                      <input
-                        aria-label={`Chỉ số điện phòng ${idx + 1}`}
-                        placeholder="Điện (kWh)"
-                        inputMode="decimal"
-                        className="min-w-0 rounded-input border border-border-strong px-2 py-1"
-                        value={room.initialElectricReading ?? "0"}
-                        onChange={(e) =>
-                          setRooms((prev) =>
-                            prev.map((r, i) =>
-                              i === idx ? { ...r, initialElectricReading: e.target.value } : r,
-                            ),
-                          )
-                        }
-                      />
-                      <input
-                        aria-label={`Chỉ số nước phòng ${idx + 1}`}
-                        placeholder="Nước (m³)"
-                        inputMode="decimal"
-                        className="min-w-0 rounded-input border border-border-strong px-2 py-1"
-                        value={room.initialWaterReading ?? "0"}
-                        onChange={(e) =>
-                          setRooms((prev) =>
-                            prev.map((r, i) =>
-                              i === idx ? { ...r, initialWaterReading: e.target.value } : r,
-                            ),
-                          )
-                        }
-                      />
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setRooms((prev) => prev.filter((_, i) => i !== idx))}
+                  {rooms.map((room, idx) => {
+                    const roomId = id(`room-${idx}`);
+                    return (
+                      <fieldset
+                        key={idx}
+                        aria-labelledby={`${roomId}-legend`}
+                        className="min-w-0 rounded-input border border-border bg-surface p-3 text-sm"
                       >
-                        Xóa
-                      </Button>
-                    </div>
-                  ))}
+                        <legend id={`${roomId}-legend`} className="px-1 font-semibold text-text">
+                          {room.name || `Phòng ${idx + 1}`}
+                        </legend>
+                        <div className="space-y-4">
+                          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                            <Field id={`${roomId}-name`} label="Tên phòng">
+                              {(props) => (
+                                <input
+                                  {...props}
+                                  value={room.name}
+                                  onChange={(e) =>
+                                    setRooms((prev) =>
+                                      prev.map((r, i) =>
+                                        i === idx ? { ...r, name: e.target.value } : r,
+                                      ),
+                                    )
+                                  }
+                                />
+                              )}
+                            </Field>
+                            <Field id={`${roomId}-price`} label="Giá thuê (đ)">
+                              {(props) => (
+                                <input
+                                  {...props}
+                                  value={room.basePrice}
+                                  onChange={(e) =>
+                                    setRooms((prev) =>
+                                      prev.map((r, i) =>
+                                        i === idx ? { ...r, basePrice: e.target.value } : r,
+                                      ),
+                                    )
+                                  }
+                                />
+                              )}
+                            </Field>
+                          </div>
+                          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                            <Field
+                              id={`${roomId}-electricity`}
+                              label="Chỉ số điện hiện tại (kWh)"
+                              hint="Dùng làm chỉ số đầu kỳ khi lập hóa đơn đầu tiên."
+                            >
+                              {(props) => (
+                                <input
+                                  {...props}
+                                  inputMode="decimal"
+                                  value={room.initialElectricReading ?? "0"}
+                                  onChange={(e) =>
+                                    setRooms((prev) =>
+                                      prev.map((r, i) =>
+                                        i === idx
+                                          ? { ...r, initialElectricReading: e.target.value }
+                                          : r,
+                                      ),
+                                    )
+                                  }
+                                />
+                              )}
+                            </Field>
+                            <Field
+                              id={`${roomId}-water`}
+                              label="Chỉ số nước hiện tại (m³)"
+                              hint="Dùng làm chỉ số đầu kỳ khi lập hóa đơn đầu tiên."
+                            >
+                              {(props) => (
+                                <input
+                                  {...props}
+                                  inputMode="decimal"
+                                  value={room.initialWaterReading ?? "0"}
+                                  onChange={(e) =>
+                                    setRooms((prev) =>
+                                      prev.map((r, i) =>
+                                        i === idx
+                                          ? { ...r, initialWaterReading: e.target.value }
+                                          : r,
+                                      ),
+                                    )
+                                  }
+                                />
+                              )}
+                            </Field>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            aria-label={`Xóa phòng ${room.name || idx + 1}`}
+                            onClick={() => setRooms((prev) => prev.filter((_, i) => i !== idx))}
+                          >
+                            Xóa
+                          </Button>
+                        </div>
+                      </fieldset>
+                    );
+                  })}
                 </div>
               </div>
             )}

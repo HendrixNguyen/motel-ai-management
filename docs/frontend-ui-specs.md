@@ -79,9 +79,11 @@ overlays; use surface contrast and dividers for ordinary content hierarchy.
 Stat card, data table (sortable, paginated, searchable), modal, slide-over drawer, toast,
 status badge, filter bar, empty state, and a form field with label + inline error.
 
-The shared kit lives in `frontend/src/components/ui/`, with one default export per primitive.
+The shared kit lives in `frontend/src/components/ui/`; product facades use default exports,
+while vendored shadcn primitives use named exports from `frontend/src/components/ui/shadcn/`.
 Interactive callers are Client Components; render callbacks such as table columns and field
-controls stay within that client boundary. The public contracts are:
+controls stay within that client boundary. The shared kit contracts below remain authoritative
+for product-facing facades:
 
 - `Button`: `variant` (`primary`, `secondary`, `ghost`, `danger`), `size` (`sm`, `md`, `lg`),
   `pending`, `pendingLabel`, and native button props. Every size has a `44×44px` minimum target;
@@ -92,8 +94,10 @@ controls stay within that client boundary. The public contracts are:
   supplies a touch target, semantic border, and visible focus ring. Callers may extend or
   override that class while maintaining those requirements.
 - `Modal` / `Drawer`: controlled `open`, `onClose`, `title`, optional `description`, `children`,
-  and optional `footer`. Native `showModal()` provides inertness, focus trapping, and Escape.
-  Closing, including a controlled close or unmount, restores the opening control's focus.
+  and optional `footer`. Radix Dialog provides modal inertness, focus trapping, and Escape. `Modal`
+  dismisses on outside interaction unless a flow prevents it to protect pending or destructive
+  work; closing restores the opening control's focus. `Drawer` presents the same dialog content
+  in a right-side sheet on mobile.
 - `Badge`: required text `label` and `tone` (`success`, `warning`, `danger`, `neutral`), mapped
   to the semantic palette above. `StatCard` takes `label`, `value`, optional `description`;
   values use tabular numerals.
@@ -112,11 +116,16 @@ controls stay within that client boundary. The public contracts are:
   into readable rows; sort buttons remain reachable. Search and sort reset to page one,
   stale pages clamp to the result count, and no results names the next filtering action.
 - Named `ToastProvider` / `useToast`: the manager content is wrapped in the provider;
-  `useToast()` returns a notifier accepting `{ message, tone? }`. Messages are announced in
-  a polite live region and remain until dismissed, allowing time to read and use the controls.
-
-Only the skeleton animates; all other primitives use immediate state changes and have no
-motion requiring a reduced-motion override. No third-party UI library is added.
+  `useToast()` returns a notifier accepting `{ message, tone? }`. Powered by `sonner` with an
+  accessible aria-live region. Critical and danger messages persist until dismissed, other
+  messages auto-dismiss after 3000ms. The visual toast provides explicit dismiss action; toast
+  notifications are not used as the only feedback for validation or system-state changes.
+- `shadcn/ui` (Radix UI) and `motion`: vendored primitives include Dialog, DropdownMenu, Select,
+  Tabs, Accordion, Button, Input, Textarea, and Label, styled with the existing semantic Tailwind
+  tokens. Product-facing tables, searchable/paginated table behavior, form fields and status
+  badges remain first-party facades. Page and navigation Motion transitions stop positional and
+  opacity animation when reduced motion is requested; CSS transitions and keyframes also disable
+  under `prefers-reduced-motion`.
 
 ---
 
@@ -218,7 +227,7 @@ zero rooms. Missing addresses and bank accounts show `Chưa có địa chỉ` an
 
 - **Bước 1 (Thông tin cơ bản):** Tên, địa chỉ, đơn giá điện/nước, tài khoản nhận tiền. Tìm ngân hàng VietQR theo tên để xác nhận logo, tên và BIN; sau khi chọn ngân hàng mới nhập số tài khoản và tên chủ tài khoản. Khi manager đã có ít nhất một nhà trọ, phần "Sao chép từ nhà trọ đang có" cho phép chọn nguồn và checkbox từng nhóm: Ngân hàng, Dịch vụ/phí, Mẫu hợp đồng (checkbox ban đầu không chọn, bấm "Áp dụng" mới sao chép). Thay đổi nguồn không ghi đè tài khoản đã nhập nếu chưa xác nhận. Nút "Tạo nhanh (bỏ qua thiết lập)" chỉ xuất hiện khi đã có ít nhất một nhà trọ.
 - **Bước 2 (Mẫu hợp đồng):** Chọn từ thư viện mẫu chuẩn (`ContractTemplatePicker`) hoặc mẫu sở hữu từ nhà trọ nguồn. Hiển thị xem trước các điều khoản.
-- **Bước 3 (Danh sách phòng):** Sinh nhanh danh sách phòng (tiền tố, số bắt đầu, số lượng 1–100, tầng, giá thuê mặc định) và sửa từng phòng. Mỗi phòng nhập chỉ số điện/nước hiện tại, mặc định `0`; hệ thống dùng làm chỉ số đầu kỳ trước lần ghi điện/nước đầu tiên. Chế độ tạo nhanh bỏ qua bước này.
+- **Bước 3 (Danh sách phòng):** Sinh nhanh danh sách phòng (tiền tố, số bắt đầu, số lượng 1–100, tầng, giá thuê mặc định) và sửa từng phòng trong thẻ có tên phòng. Tên phòng và giá thuê có nhãn riêng; chỉ số điện và nước hiển thị thành hai trường riêng, luôn có nhãn `Chỉ số điện hiện tại (kWh)` và `Chỉ số nước hiện tại (m³)` cùng đơn vị, kể cả khi giá trị mặc định là `0`. Giải thích dưới mỗi trường: `Dùng làm chỉ số đầu kỳ khi lập hóa đơn đầu tiên.` Các trường xếp một cột trên màn hình hẹp, hai cột khi đủ rộng; danh sách cuộn dọc hiện có vẫn chứa trọn thẻ. Giá trị mặc định `0`; hệ thống dùng làm chỉ số đầu kỳ trước lần ghi điện/nước đầu tiên. Chế độ tạo nhanh bỏ qua bước này.
 - **Bước 4 (Xác nhận & Hoàn tất):** Xem lại toàn bộ thông tin (full hiển thị N phòng, quick hiển thị 0 phòng kèm nhãn Tạo nhanh), gửi atomic payload lên backend. Trong lúc xử lý disable các nút điều khiển; lỗi cho phép thử lại với cùng requestId; lỗi 410 cấp phát requestId mới; thành công hiển thị toast, phát sự kiện `motel-updated` và refresh trang.
 
 **Quản lý mẫu hợp đồng (`/contracts`):** Thêm nút "Chọn mẫu có sẵn" mở `ContractTemplatePicker` để sao chép mẫu từ catalog vào nhà trọ hiện tại với tùy chọn "Đặt làm mẫu mặc định cho nhà trọ này".

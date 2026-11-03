@@ -1,4 +1,4 @@
-import Button from "./button";
+import { Button } from "@/components/ui/shadcn/button";
 
 export default function ErrorState({
   title = "Có lỗi xảy ra",
@@ -21,7 +21,7 @@ export default function ErrorState({
       <p className="mt-2 break-words">{description}</p>
       {onRetry && (
         <div className="mt-4">
-          <Button variant="danger" onClick={onRetry}>
+          <Button variant="destructive" onClick={onRetry}>
             {retryLabel}
           </Button>
         </div>

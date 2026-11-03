@@ -22,7 +22,10 @@ export default async function ContractsPage({
     if (!motels.length)
       return (
         <section className="min-w-0 space-y-6">
-          <PageHeader title="Hợp đồng" description="Theo dõi thời hạn, tiền thuê và trạng thái ký." />
+          <PageHeader
+            title="Hợp đồng"
+            description="Theo dõi thời hạn, tiền thuê và trạng thái ký."
+          />
           <Card className="text-text-muted">Tạo nhà trọ trước khi lập hợp đồng.</Card>
         </section>
       );

@@ -42,11 +42,7 @@ export default async function BillingPage({
         />
         <div className="grid min-w-0 gap-4 md:grid-cols-2 xl:grid-cols-3">
           {motels.map((motel) => (
-            <Card
-              as="article"
-              key={motel.id}
-              className="flex min-w-0 flex-col p-4 sm:p-6"
-            >
+            <Card as="article" key={motel.id} className="flex min-w-0 flex-col p-4 sm:p-6">
               <h2 className="font-heading text-lg font-semibold text-text [overflow-wrap:anywhere]">
                 {motel.name}
               </h2>

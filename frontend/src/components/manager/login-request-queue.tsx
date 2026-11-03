@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Button from "@/components/ui/button";
+import { Button } from "@/components/ui/shadcn/button";
 import { ApiError } from "@/lib/api/client";
 import { apiGet, apiSend } from "@/lib/api/client";
 import { formatPhone } from "@/lib/format/phone";

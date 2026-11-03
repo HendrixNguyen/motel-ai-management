@@ -246,11 +246,11 @@ test("a pending renter save disables controls and cannot close a newer editing s
   await expect(dialog.getByLabel("Họ tên", { exact: true })).toBeDisabled();
   await expect.poll(() => inputs.length).toBe(1);
   await dialog.getByRole("button", { name: "Đóng", exact: true }).click();
+  await expect(dialog).not.toBeVisible();
   await trigger.click();
+  await expect(dialog).toBeVisible();
   release();
-  await expect(
-    page.getByRole("button", { name: "Chỉnh sửa Tên đã lưu", exact: true }),
-  ).toBeVisible();
+  await expect(page.locator("body")).toContainText("Tên đã lưu");
   await expect(dialog).toBeVisible();
   await expect(dialog.getByLabel("Họ tên", { exact: true })).toHaveValue(RENTER.name);
   await dialog.getByLabel("Số CCCD (không bắt buộc)", { exact: true }).fill("");

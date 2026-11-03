@@ -39,11 +39,13 @@ test("login stores the proxied session and lands on the overview", async ({ page
   await page.getByRole("button", { name: "Đăng nhập", exact: true }).click();
   await expect(page).toHaveURL(`/?motel=${MOTEL.id}`);
   await expect(page.getByRole("heading", { name: "Tổng quan", exact: true })).toBeVisible();
-  await expect
-    .poll(() =>
-      page.getByRole("main").evaluate((element) => getComputedStyle(element).animationName),
-    )
-    .not.toBe("none");
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  const animation = await page.getByRole("main").evaluate((element) => ({
+    animationName: getComputedStyle(element).animationName,
+    transform: getComputedStyle(element).transform,
+  }));
+  expect(animation.animationName).toBe("none");
+  expect(animation.transform).toBe("none");
   expect(
     (await context.cookies()).find((cookie) => cookie.name === "manager_session")?.httpOnly,
   ).toBe(true);
@@ -146,7 +148,7 @@ test("logout clears the session through the proxy and returns to login", async (
   const account = page.getByLabel("Menu phụ, Tài khoản", { exact: true });
   await account.click();
   await expect(page.getByText(MANAGER_ME.email, { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Đăng xuất" }).click();
+  await page.getByRole("menuitem", { name: "Đăng xuất" }).click();
   await expect(page).toHaveURL("/login");
   expect((await context.cookies()).some((cookie) => cookie.name === "manager_session")).toBe(false);
   await page.goto("/rooms");
@@ -163,7 +165,7 @@ test("account menu closes on Escape and restores focus to its button", async ({
   await trigger.focus();
   await page.keyboard.press("Enter");
   await expect(trigger).toHaveAttribute("aria-expanded", "true");
-  const logout = page.getByRole("button", { name: "Đăng xuất" });
+  const logout = page.getByRole("menuitem", { name: "Đăng xuất" });
   await logout.focus();
   await page.keyboard.press("Escape");
   await expect(trigger).toHaveAttribute("aria-expanded", "false");

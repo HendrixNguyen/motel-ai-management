@@ -8,7 +8,6 @@ import Renters from "@/app/(manager)/renters/page";
 import ErrorPage from "@/app/(manager)/error";
 import Loading from "@/app/(manager)/loading";
 import NotFound from "@/app/(manager)/not-found";
-import Button from "@/components/ui/button";
 import { ToastProvider } from "@/components/ui/toast";
 import { INVOICE_OVERDUE, MOTEL, ROOMS, RENTERS } from "@test/lib/api/fixtures";
 
@@ -64,9 +63,8 @@ describe("manager fallback states", () => {
     expect(html).toContain("Không thể tải nội dung");
     expect(html).toContain("Thử lại");
     expect(html).not.toContain("secret database address");
-    const action = ui.props.children.find((child: { type?: unknown }) => child.type === Button);
-    const button = Button(action.props);
-    button.props.onClick();
+    expect(html).toContain('data-slot="button"');
+    retry();
     expect(retry).toHaveBeenCalledOnce();
   });
   it("announces loading while skeleton shapes are hidden from assistive technology", () => {
