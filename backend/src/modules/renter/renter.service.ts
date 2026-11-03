@@ -193,7 +193,10 @@ export async function getRenterForTicket(
 
 type RenterWriter = Pick<typeof db, "query" | "update">;
 
-async function syncRoomStatus(tx: any, roomId: string): Promise<void> {
+async function syncRoomStatus(
+  tx: Pick<typeof db, "select" | "update">,
+  roomId: string,
+): Promise<void> {
   const [room] = await tx
     .select({ id: rooms.id, status: rooms.status })
     .from(rooms)
@@ -300,8 +303,6 @@ function isDuplicatePhone(error: unknown): boolean {
  */
 function toResponse(row: RenterRow): RenterResponse {
   const {
-    legacyIdCardFrontUrl,
-    legacyIdCardBackUrl,
     idCardFrontObjectKey,
     idCardFrontContentType,
     idCardFrontSize,
