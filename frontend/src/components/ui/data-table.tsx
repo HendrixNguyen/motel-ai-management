@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import Button from "./button";
+import { Button } from "@/components/ui/shadcn/button";
 import FilterBar from "./filter-bar";
 import { getTablePage, type SortValue } from "./table-model";
 

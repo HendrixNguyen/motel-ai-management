@@ -2,8 +2,9 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import Button from "@/components/ui/button";
+
 import Modal from "@/components/ui/modal";
+import { Button } from "@/components/ui/shadcn/button";
 import { CaptureQueue, clearCaptureQueue } from "@/lib/capture/queue";
 
 export default function CaptureQueueWarning({
@@ -169,7 +170,7 @@ export default function CaptureQueueWarning({
             </Button>
             {clearable && (
               <Button
-                variant="danger"
+                variant="destructive"
                 onClick={() => {
                   setClearError("");
                   setClearPending(true);
@@ -183,15 +184,18 @@ export default function CaptureQueueWarning({
       )}
       <Modal
         open={clearPending}
+        data-testid="capture-clear-dialog"
         onClose={() => setClearPending(false)}
+        onOpenAutoFocus={(event) => event.preventDefault()}
         title="Xóa dữ liệu nhập chỉ số"
         description="Dữ liệu chưa đồng bộ sẽ không thể khôi phục sau khi xóa."
+        data-autofocus="preserve"
         footer={
           <>
             <Button variant="secondary" onClick={() => setClearPending(false)}>
               Giữ lại
             </Button>
-            <Button variant="danger" onClick={() => void clearQueue()}>
+            <Button variant="destructive" onClick={() => void clearQueue()}>
               Xóa dữ liệu của tài khoản này
             </Button>
           </>

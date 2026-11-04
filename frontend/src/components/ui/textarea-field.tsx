@@ -1,4 +1,5 @@
 import type { TextareaHTMLAttributes } from "react";
+import { Textarea } from "@/components/ui/shadcn/textarea";
 import Field from "./field";
 
 type Props = Omit<TextareaHTMLAttributes<HTMLTextAreaElement>, "value" | "onChange" | "id"> & {
@@ -14,7 +15,7 @@ export default function TextareaField({ value, onChange, ...props }: Props) {
   return (
     <Field {...props}>
       {(control) => (
-        <textarea
+        <Textarea
           {...control}
           {...props}
           value={value}

@@ -69,6 +69,8 @@ const listQuery = t.Object({
 const createBody = t.Object({
   name: t.String({ minLength: 1 }),
   phone: t.String({ minLength: 1 }),
+  zaloPhone: t.Optional(t.Nullable(t.String({ minLength: 1 }))),
+  zaloPhoneConfirmed: t.Optional(t.Boolean()),
   idNumber: t.Optional(t.Nullable(t.String())),
   roomId: t.Optional(t.Nullable(roomId)),
 });
@@ -111,6 +113,8 @@ const cccdUploadBody = t.Object({
 const updateBody = t.Object({
   name: t.Optional(t.String({ minLength: 1 })),
   phone: t.Optional(t.String({ minLength: 1 })),
+  zaloPhone: t.Optional(t.Nullable(t.String({ minLength: 1 }))),
+  zaloPhoneConfirmed: t.Optional(t.Boolean()),
   idNumber: t.Optional(t.Nullable(t.String())),
   roomId: t.Optional(t.Nullable(roomId)),
   status: t.Optional(statusSchema),
@@ -137,6 +141,10 @@ export const renterRoutes = new Elysia({ name: "renter-routes" })
     "/manager/motels/:motelId/renters",
     async ({ params, body, auth, set }) => {
       const input: CreateRenterInput = body;
+      if (body.zaloPhoneConfirmed && !input.zaloPhone)
+        throw AppError.badRequest("Nhập số Zalo trước khi xác nhận");
+      if (input.zaloPhone && !body.zaloPhoneConfirmed)
+        throw AppError.badRequest("Xác nhận người thuê đã cung cấp số Zalo này");
       const renter = await createRenterForMotel(params.motelId, auth!, input);
       set.status = 201;
       return renter;
@@ -159,6 +167,10 @@ export const renterRoutes = new Elysia({ name: "renter-routes" })
     "/manager/motels/:motelId/renters/:renterId",
     async ({ params, body, auth }) => {
       const input: UpdateRenterInput = body;
+      if (body.zaloPhoneConfirmed && !input.zaloPhone)
+        throw AppError.badRequest("Nhập số Zalo trước khi xác nhận");
+      if (input.zaloPhone && !body.zaloPhoneConfirmed)
+        throw AppError.badRequest("Xác nhận người thuê đã cung cấp số Zalo này");
       return updateRenter(params.renterId, params.motelId, auth!, input);
     },
     {

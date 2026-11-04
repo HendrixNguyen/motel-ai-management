@@ -14,7 +14,8 @@ import {
   markInvoiceOverdue,
   rejectPaymentProof,
 } from "@/lib/api/billing.client";
-import Button from "@/components/ui/button";
+import { Button } from "@/components/ui/shadcn/button";
+import { Textarea } from "@/components/ui/shadcn/textarea";
 import type { InvoiceResponse, ManagerPaymentProof } from "@/lib/api/types";
 import { formatVnd } from "@/lib/format/vnd";
 import { paymentProofLabel } from "@/lib/payment-proof";
@@ -23,14 +24,14 @@ export default function InvoiceActions({
   motelId,
   invoice,
   bankAccount,
-  renterPhone,
+  renterZaloPhone,
   billingPeriod,
   allowAssistedSend,
 }: {
   motelId: string;
   invoice: InvoiceResponse;
   bankAccount: { bankCode: string; accountNumber: string; accountName: string } | null;
-  renterPhone?: string;
+  renterZaloPhone?: string | null;
   billingPeriod: { month: number; year: number };
   allowAssistedSend: boolean;
 }) {
@@ -80,8 +81,10 @@ export default function InvoiceActions({
 
   async function prepareZaloMessage() {
     if (sharing) return;
-    if (!renterPhone) {
-      setMessage("Không tìm thấy số điện thoại người thuê để mở Zalo.");
+    if (!renterZaloPhone) {
+      setMessage(
+        "Chưa xác nhận số Zalo người thuê. Dùng liên kết/QR thủ công hoặc cập nhật hồ sơ.",
+      );
       return;
     }
     const chatWindow = window.open("about:blank", "_blank");
@@ -94,12 +97,17 @@ export default function InvoiceActions({
     try {
       const { url } = await createRenterMagicLink(motelId, invoice.renterId);
       const message = buildAssistedZaloMessage({
-        renter: { phone: renterPhone },
+        renter: { zaloPhone: renterZaloPhone },
         invoice,
         month: billingPeriod.month,
         year: billingPeriod.year,
         portalUrl: url,
       });
+      if (!message) {
+        chatWindow.close();
+        setMessage("Chưa xác nhận số Zalo. Liên kết chưa được gửi.");
+        return;
+      }
       await navigator.clipboard.writeText(message.text);
       chatWindow.location.href = message.url;
       setMessage(
@@ -160,7 +168,7 @@ export default function InvoiceActions({
 
   return (
     <div className="mt-4 grid min-w-0 gap-4 border-t border-border pt-4 sm:grid-cols-2">
-      {allowAssistedSend && invoice.paymentStatus !== "paid" && (
+      {allowAssistedSend && invoice.paymentStatus !== "paid" && renterZaloPhone && (
         <Button onClick={() => void prepareZaloMessage()} disabled={sharing}>
           {sharing ? "Đang chuẩn bị…" : "Chuẩn bị tin nhắn Zalo"}
         </Button>
@@ -259,7 +267,7 @@ export default function InvoiceActions({
                   >
                     Lý do từ chối
                   </label>
-                  <textarea
+                  <Textarea
                     id={`reject-reason-${invoice.id}`}
                     value={reason}
                     onChange={(event) => setReason(event.target.value)}
@@ -269,21 +277,19 @@ export default function InvoiceActions({
                     className="min-h-20 w-full min-w-0 rounded-input border border-border p-3 text-text focus-visible:outline-2 focus-visible:outline-primary"
                   />
                   <Button
-                    variant="danger"
-                    pending={pending}
-                    pendingLabel="Đang từ chối"
-                    onClick={() => void transition("reject")}
+                    variant="destructive"
                     disabled={transitionPending || !reason.trim()}
+                    aria-busy={pending}
+                    onClick={() => void transition("reject")}
                   >
-                    Từ chối chứng từ
+                    {pending ? "Đang từ chối…" : "Từ chối chứng từ"}
                   </Button>
                   <Button
-                    pending={pending}
-                    pendingLabel="Đang duyệt"
+                    aria-busy={pending}
                     onClick={() => void transition("approve")}
                     disabled={transitionPending}
                   >
-                    Duyệt chứng từ
+                    {pending ? "Đang duyệt…" : "Duyệt chứng từ"}
                   </Button>
                 </div>
               )}
@@ -294,22 +300,20 @@ export default function InvoiceActions({
           <div className="flex flex-wrap gap-2">
             <Button
               variant="secondary"
-              pending={pending}
-              pendingLabel="Đang xác nhận"
+              aria-busy={pending}
               onClick={() => void transition("cash")}
               disabled={transitionPending}
             >
-              Xác nhận đã nhận tiền mặt
+              {pending ? "Đang xác nhận…" : "Xác nhận đã nhận tiền mặt"}
             </Button>
             {invoice.paymentStatus === "unpaid" && (
               <Button
                 variant="ghost"
-                pending={pending}
-                pendingLabel="Đang cập nhật"
+                aria-busy={pending}
                 onClick={() => void transition("overdue")}
                 disabled={transitionPending}
               >
-                Đánh dấu quá hạn
+                {pending ? "Đang cập nhật…" : "Đánh dấu quá hạn"}
               </Button>
             )}
           </div>

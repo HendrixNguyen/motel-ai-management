@@ -1,5 +1,6 @@
 import type { notificationEvents } from "./notification.schema";
 export type NotificationEvent = typeof notificationEvents.$inferSelect;
+
 export type NotificationInput = {
   eventKey: string;
   renterId: string;

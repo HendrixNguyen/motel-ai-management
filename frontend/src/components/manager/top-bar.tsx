@@ -1,12 +1,18 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import CaptureQueueWarning from "@/components/manager/capture-queue-warning";
 import { ApiError, GENERIC_ERROR_MESSAGE } from "@/lib/api/client";
 import type { ManagerMeResponse, MotelResponse } from "@/lib/api/types";
 import { motelHref } from "@/lib/motel-navigation";
-import Button from "@/components/ui/button";
+import { Button } from "@/components/ui/shadcn/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/shadcn/dropdown-menu";
 import ThemeSelect from "@/components/ui/theme-select";
 import MotelSwitcher from "@/components/ui/motel-switcher";
 
@@ -29,26 +35,14 @@ export default function TopBar({
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string>();
   const [accountOpen, setAccountOpen] = useState(false);
-  const accountTrigger = useRef<HTMLButtonElement>(null);
-  const accountMenu = useRef<HTMLDivElement>(null);
   const search = searchParams.toString();
+
   useEffect(() => {
     try {
       sessionStorage.setItem("manager-role", manager.role);
     } catch {}
   }, [manager.role]);
-  useEffect(() => {
-    if (!accountOpen) return;
-    const closeOnOutsidePress = (event: PointerEvent) => {
-      if (
-        !accountMenu.current?.contains(event.target as Node) &&
-        !accountTrigger.current?.contains(event.target as Node)
-      )
-        setAccountOpen(false);
-    };
-    window.addEventListener("pointerdown", closeOnOutsidePress);
-    return () => window.removeEventListener("pointerdown", closeOnOutsidePress);
-  }, [accountOpen]);
+
   useEffect(() => {
     const update = (event: Event) => {
       const updated = (event as CustomEvent<MotelResponse>).detail;
@@ -60,6 +54,7 @@ export default function TopBar({
     window.addEventListener("motel-updated", update);
     return () => window.removeEventListener("motel-updated", update);
   }, []);
+
   useEffect(() => {
     if (motels.length && !searchParams.has("motel"))
       router.replace(motelHref(pathname, search, motels[0]!.id));
@@ -99,7 +94,7 @@ export default function TopBar({
           </p>
         </div>
         <div className="min-w-[12rem] flex-1 sm:w-64 sm:flex-none lg:flex-1 lg:max-w-sm">
-          <label htmlFor="motel-selector" className="sr-only">
+          <label htmlFor="motel-selector-button" className="sr-only">
             Nhà trọ
           </label>
           <MotelSwitcher
@@ -120,56 +115,63 @@ export default function TopBar({
         </div>
         <div className="ml-auto flex shrink-0 items-center gap-2">
           {selected && <CaptureQueueWarning managerId={manager.id} motelId={selected} />}
-          <div className="relative shrink-0">
-            <button
-              ref={accountTrigger}
-              type="button"
-              aria-label="Menu phụ, Tài khoản"
-              aria-expanded={accountOpen}
-              aria-controls="manager-account-menu"
-              onClick={() => setAccountOpen((open) => !open)}
-              className="flex min-h-11 cursor-pointer items-center rounded-input border border-border-strong px-3 text-sm font-semibold text-text hover:bg-canvas focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-            >
-              Tài khoản
-            </button>
-            <div
-              ref={accountMenu}
+          <DropdownMenu open={accountOpen} onOpenChange={setAccountOpen}>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="secondary"
+                aria-label="Menu phụ, Tài khoản"
+                aria-controls="manager-account-menu"
+                aria-expanded={accountOpen}
+              >
+                Tài khoản
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
               id="manager-account-menu"
-              role="group"
-              aria-label="Tùy chọn tài khoản"
-              hidden={!accountOpen}
-              onKeyDown={(event) => {
-                if (event.key === "Escape") {
-                  event.preventDefault();
-                  setAccountOpen(false);
-                  accountTrigger.current?.focus();
-                }
-              }}
-              className="absolute right-0 z-30 mt-2 w-64 max-w-[calc(100vw-1.5rem)] space-y-3 rounded-card border border-border bg-surface p-4 shadow-lg sm:space-y-4"
+              align="end"
+              className="w-72 max-w-[calc(100vw-1.5rem)] p-4"
             >
-              <p className="break-all text-sm">{manager.email}</p>
+              <DropdownMenuItem
+                disabled
+                className="h-auto min-h-11 max-w-[calc(100vw-3rem)] cursor-default whitespace-normal px-0 focus:bg-transparent focus:text-text"
+              >
+                <span className="break-all text-sm">{manager.email}</span>
+              </DropdownMenuItem>
+              <div className="px-2 py-2" role="none">
+                <ThemeSelect />
+              </div>
               {buildVersion && (
-                <p className="font-mono text-xs text-text-muted" data-testid="build-version">
-                  Build {buildVersion}
-                </p>
+                <DropdownMenuItem
+                  disabled
+                  className="h-auto min-h-11 cursor-default whitespace-normal px-2 focus:bg-transparent focus:text-text"
+                >
+                  <p className="font-mono text-xs text-text-muted" data-testid="build-version">
+                    Build {buildVersion}
+                  </p>
+                </DropdownMenuItem>
               )}
-              <ThemeSelect />
               {error && (
-                <p role="alert" className="text-sm text-danger">
+                <p role="alert" className="px-2 py-2 text-sm text-danger">
                   {error}
                 </p>
               )}
-              <Button
-                variant="secondary"
-                onClick={handleLogout}
-                pending={pending}
-                pendingLabel="Đang đăng xuất…"
-                className="w-full"
+              <DropdownMenuItem
+                disabled={pending}
+                onSelect={() => void handleLogout()}
+                className="px-2 py-2 focus:bg-transparent"
               >
-                Đăng xuất
-              </Button>
-            </div>
-          </div>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  disabled={pending}
+                  aria-busy={pending}
+                  className="w-full"
+                >
+                  {pending ? "Đang đăng xuất…" : "Đăng xuất"}
+                </Button>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
     </header>

@@ -32,7 +32,7 @@ export default async function InvoicesPage({
   const period = periods.find((item) => item.id === route.periodId);
   if (!period) notFound();
   const renterNames = new Map(renters.map((renter) => [renter.id, renter.name]));
-  const renterPhones = new Map(renters.map((renter) => [renter.id, renter.phone]));
+  const renterZaloPhones = new Map(renters.map((renter) => [renter.id, renter.zaloPhone]));
   const paidTotal = invoices
     .filter((invoice) => invoice.paymentStatus === "paid")
     .reduce((total, invoice) => total + BigInt(invoice.totalAmount), 0n)
@@ -164,7 +164,7 @@ export default async function InvoicesPage({
                 motelId={motelId}
                 invoice={invoice}
                 bankAccount={motel?.bankAccount ?? null}
-                renterPhone={renterPhones.get(invoice.renterId)}
+                renterZaloPhone={renterZaloPhones.get(invoice.renterId)}
                 billingPeriod={{ month: period.month, year: period.year }}
                 allowAssistedSend={period.status !== "draft"}
               />

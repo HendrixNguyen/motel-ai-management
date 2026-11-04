@@ -1,6 +1,6 @@
 "use client";
 
-import Button from "@/components/ui/button";
+import { Button } from "@/components/ui/shadcn/button";
 
 /** Next 16 supplies retry() to refetch the failed segment, rather than only clearing its state. */
 export default function ErrorPage({

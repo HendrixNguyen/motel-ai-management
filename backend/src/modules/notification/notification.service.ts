@@ -5,12 +5,12 @@ import { env } from "@/config";
 import { db } from "@/db";
 import { AppError } from "@/shared/errors";
 import { notificationEvents, pushSubscriptions } from "./notification.schema";
-export type NotificationRecipient = { phone: string };
-import type {
-  NotificationEvent,
-  NotificationInput,
-  RetryFailureKind,
-  ZaloProvider,
+export type NotificationRecipient = { zaloPhone: string | null };
+import {
+  type NotificationEvent,
+  type NotificationInput,
+  type RetryFailureKind,
+  type ZaloProvider,
 } from "./notification.types";
 import type { Db } from "@/db";
 
@@ -295,11 +295,32 @@ export async function enqueueNotification(
   input: NotificationInput,
   executor: NotificationExecutor = db,
 ): Promise<NotificationEvent> {
-  if (input.channel !== "web_push" && input.channel !== "manual") {
+  if ((input.channel ?? "zns") === "zns") {
     if (!recipientResolver)
       throw AppError.externalService("Notification recipient resolver chưa được cấu hình");
     const recipient = await recipientResolver(input.renterId, input.motelId);
     if (!recipient) throw AppError.notFound("Không tìm thấy người thuê");
+    if (!recipient.zaloPhone) {
+      const [row] = await executor
+        .insert(notificationEvents)
+        .values({
+          eventKey: input.eventKey,
+          renterId: input.renterId,
+          motelId: input.motelId,
+          channel: input.channel ?? "zns",
+          templateId: input.templateId,
+          payload: redactPayload(input.payload),
+          status: "failed",
+          failureClass: "permanent",
+          failureReason: "invalid_recipient",
+        })
+        .onConflictDoNothing({ target: notificationEvents.eventKey })
+        .returning();
+      if (row) return row;
+      return (await executor.query.notificationEvents.findFirst({
+        where: eq(notificationEvents.eventKey, input.eventKey),
+      }))!;
+    }
   }
   const channel = input.channel ?? "zns";
   const [row] = await executor
@@ -329,7 +350,16 @@ export async function enqueueNotification(
 }
 
 export async function listDueNotificationIds(limit = 20): Promise<string[]> {
-  const rows = await db.query.notificationEvents.findMany({ where: and(eq(notificationEvents.status, "pending"), or(isNull(notificationEvents.nextRetryAt), lte(notificationEvents.nextRetryAt, new Date())), or(isNull(notificationEvents.leaseUntil), lte(notificationEvents.leaseUntil, new Date()))), columns: { id: true }, orderBy: [asc(notificationEvents.createdAt)], limit: Math.max(1, Math.min(limit, 50)) });
+  const rows = await db.query.notificationEvents.findMany({
+    where: and(
+      eq(notificationEvents.status, "pending"),
+      or(isNull(notificationEvents.nextRetryAt), lte(notificationEvents.nextRetryAt, new Date())),
+      or(isNull(notificationEvents.leaseUntil), lte(notificationEvents.leaseUntil, new Date())),
+    ),
+    columns: { id: true },
+    orderBy: [asc(notificationEvents.createdAt)],
+    limit: Math.max(1, Math.min(limit, 50)),
+  });
   return rows.map((row) => row.id);
 }
 
@@ -445,10 +475,25 @@ export async function deliverNotification(eventId: string): Promise<Notification
     throw error;
   }
   if (!recipient) {
-    const released = await releaseLease();
-    throw AppError.notFound(
-      released ? "Không tìm thấy người thuê" : "Không tìm thấy sự kiện thông báo",
-    );
+    await releaseLease();
+    throw AppError.notFound("Không tìm thấy người thuê");
+  }
+  if (!recipient.zaloPhone) {
+    const [failedDestination] = await db
+      .update(notificationEvents)
+      .set({
+        status: "failed",
+        failureClass: "permanent",
+        failureReason: "invalid_recipient",
+        leaseId: null,
+        leaseUntil: null,
+        updatedAt: new Date(),
+      })
+      .where(and(eq(notificationEvents.id, event.id), eq(notificationEvents.leaseId, leaseId)))
+      .returning();
+    secrets.delete(event.id);
+    secretsAvailableAtEnqueue.delete(event.id);
+    return failedDestination ?? event;
   }
   if (!provider) {
     await releaseLease();
@@ -478,7 +523,7 @@ export async function deliverNotification(eventId: string): Promise<Notification
   const payload = { ...event.payload, ...(transientSecret ?? {}) };
   try {
     const result = await provider.sendZns({
-      phone: recipient.phone,
+      phone: recipient.zaloPhone!,
       templateId: event.templateId ?? "",
       payload,
     });

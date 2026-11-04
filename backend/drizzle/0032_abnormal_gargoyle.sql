@@ -1,0 +1,2 @@
+ALTER TABLE "renters" ADD COLUMN "zalo_phone" text;--> statement-breakpoint
+ALTER TABLE "renters" ADD CONSTRAINT "renters_zalo_phone_normalised" CHECK ("renters"."zalo_phone" is null or "renters"."zalo_phone" ~ '^84[0-9]{9}$');

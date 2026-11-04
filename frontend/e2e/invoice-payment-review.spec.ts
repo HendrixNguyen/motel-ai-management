@@ -41,6 +41,7 @@ test("manager reviews proof, rejects with reason, approves proof, and confirms c
     id: RENTER_ID,
     name: "Trần Thị B",
     phone: "84901234567",
+    zaloPhone: "84901234567",
     motelId: MOTEL_ID,
     idNumber: null,
     idCardFrontUploaded: false,

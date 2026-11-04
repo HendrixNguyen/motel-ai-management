@@ -2,9 +2,11 @@
 
 import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import Button from "@/components/ui/button";
+import { Button } from "@/components/ui/shadcn/button";
 import EmptyState from "@/components/ui/empty-state";
 import Field from "@/components/ui/field";
+import { Input } from "@/components/ui/shadcn/input";
+import { Textarea } from "@/components/ui/shadcn/textarea";
 import Modal from "@/components/ui/modal";
 import { useToast } from "@/components/ui/toast";
 import BankPicker from "@/components/manager/bank-picker";
@@ -63,7 +65,6 @@ export default function MotelEditor({
   }
   function closeFromDialog() {
     close();
-    trigger.current?.focus();
   }
 
   if (!motel) {
@@ -111,6 +112,10 @@ export default function MotelEditor({
       <Modal
         open={open}
         onClose={closeFromDialog}
+        onCloseAutoFocus={(event) => {
+          event.preventDefault();
+          window.setTimeout(() => trigger.current?.focus(), 0);
+        }}
         title="Chỉnh sửa nhà trọ"
         description="Cập nhật thông tin, đơn giá, phí và tài khoản nhận tiền."
       >
@@ -264,7 +269,7 @@ function MotelForm({
         <legend className="sr-only">Thông tin nhà trọ và đơn giá</legend>
         <Field id={id("name")} label={fieldLabel("name")} error={fields.name}>
           {(props) => (
-            <input
+            <Input
               {...props}
               name="name"
               autoComplete="off"
@@ -278,7 +283,7 @@ function MotelForm({
         </Field>
         <Field id={id("address")} label={fieldLabel("address")} error={fields.address}>
           {(props) => (
-            <textarea
+            <Textarea
               {...props}
               name="address"
               rows={2}
@@ -301,7 +306,7 @@ function MotelForm({
               hint="VND, ví dụ 3.500"
             >
               {(props) => (
-                <input
+                <Input
                   {...props}
                   name={key}
                   type="text"
@@ -340,7 +345,7 @@ function MotelForm({
                     error={fields[`otherFees.${index}.name`]}
                   >
                     {(props) => (
-                      <input
+                      <Input
                         {...props}
                         value={fee.name}
                         required
@@ -361,7 +366,7 @@ function MotelForm({
                     error={fields[`otherFees.${index}.amount`]}
                   >
                     {(props) => (
-                      <input
+                      <Input
                         {...props}
                         type="text"
                         inputMode="numeric"
@@ -455,7 +460,7 @@ function MotelForm({
                       error={fields[`bankAccount.${key}`]}
                     >
                       {(props) => (
-                        <input
+                        <Input
                           {...props}
                           type="text"
                           inputMode={key === "accountName" ? "text" : "numeric"}
@@ -489,8 +494,8 @@ function MotelForm({
         <Button variant="secondary" disabled={pending} onClick={onCancel}>
           Hủy
         </Button>
-        <Button type="submit" pending={pending} pendingLabel="Đang lưu…">
-          {motel ? "Lưu thay đổi" : "Tạo nhà trọ"}
+        <Button type="submit" disabled={pending} aria-busy={pending}>
+          {pending ? "Đang lưu…" : motel ? "Lưu thay đổi" : "Tạo nhà trọ"}
         </Button>
       </div>
     </form>

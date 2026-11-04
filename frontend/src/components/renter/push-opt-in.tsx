@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { ApiError } from "@/lib/api/client";
-import Button from "@/components/ui/button";
+import { Button } from "@/components/ui/shadcn/button";
 import {
   getRenterPushKey,
   getRenterPushSubscription,
@@ -65,7 +65,9 @@ export default function PushOptIn() {
         } else update("off");
       })
       .catch((error) =>
-        update(error instanceof ApiError && error.code === "UNAUTHORIZED" ? "unavailable" : "error"),
+        update(
+          error instanceof ApiError && error.code === "UNAUTHORIZED" ? "unavailable" : "error",
+        ),
       );
     return () => {
       active = false;
@@ -142,12 +144,12 @@ export default function PushOptIn() {
         </p>
       </div>
       {state === "on" ? (
-        <Button variant="secondary" pending={busy} onClick={disable}>
-          Tắt thông báo
+        <Button variant="secondary" disabled={busy} aria-busy={busy} onClick={disable}>
+          {busy ? "Đang tắt…" : "Tắt thông báo"}
         </Button>
       ) : (
-        <Button variant="secondary" pending={busy} onClick={enable}>
-          {state === "error" ? "Thử bật lại" : "Bật thông báo"}
+        <Button variant="secondary" disabled={busy} aria-busy={busy} onClick={enable}>
+          {busy ? "Đang bật…" : state === "error" ? "Thử bật lại" : "Bật thông báo"}
         </Button>
       )}
       {state === "error" && (

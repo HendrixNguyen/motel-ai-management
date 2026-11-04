@@ -101,6 +101,7 @@ describe("admin manager account actions", () => {
     });
     await waitFor(() => expect(view.getAllByText("owner@example.vn").length).toBeGreaterThan(0));
     fireEvent.click(view.getAllByRole("button", { name: "Đổi mật khẩu" })[0]!);
+    await waitFor(() => expect(view.getByRole("button", { name: "Lưu mật khẩu" })).toBeVisible());
     const resetForm = view.getByRole("button", { name: "Lưu mật khẩu" }).closest("form")!;
     const resetPasswordInput = resetForm.querySelector("input")!;
     Object.getOwnPropertyDescriptor(dom.window.HTMLInputElement.prototype, "value")!.set!.call(

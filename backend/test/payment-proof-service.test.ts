@@ -34,7 +34,7 @@ beforeEach(async () => {
   await resetDb();
   resetRateLimits();
   configurePaymentStorage(new FakeStorageAdapter());
-  setNotificationRecipientResolver(async () => ({ phone: "84901234567" }));
+  setNotificationRecipientResolver(async () => ({ zaloPhone: "84901234567" }));
   const manager = (
     await db
       .insert(managers)
