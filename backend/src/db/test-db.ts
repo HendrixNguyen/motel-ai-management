@@ -24,6 +24,7 @@ const TABLES = [
   "ticket_photo_uploads",
   "help_tickets",
   "invoices",
+  "monthly_utility_costs",
   "meter_readings",
   "billing_periods",
   "contracts",

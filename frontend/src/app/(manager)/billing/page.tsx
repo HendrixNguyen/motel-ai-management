@@ -7,6 +7,9 @@ import BillingPeriodEditor from "@/components/manager/billing-period-editor";
 import PageHeader from "@/components/ui/page-header";
 import Badge from "@/components/ui/badge";
 import Card from "@/components/ui/card";
+import Button from "@/components/ui/button";
+import MonthlyUtilityCosts from "@/components/manager/monthly-utility-costs";
+import { getMonthlyUtilityReport } from "@/lib/api/billing";
 
 const labels = { draft: "Bản nháp", sent: "Đã gửi", closed: "Đã đóng" } as const;
 
@@ -63,13 +66,68 @@ export default async function BillingPage({
       </section>
     );
   }
-  const periods = await listBillingPeriods(motelId);
+  const now = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Ho_Chi_Minh" }));
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth() + 1;
+  const parsedYear = typeof params.year === "string" ? Number(params.year) : NaN;
+  const parsedMonth = typeof params.month === "string" ? Number(params.month) : NaN;
+  const year =
+    Number.isInteger(parsedYear) && parsedYear >= 1 && parsedYear <= 9999
+      ? parsedYear
+      : currentYear;
+  const month =
+    Number.isInteger(parsedMonth) && parsedMonth >= 1 && parsedMonth <= 12
+      ? parsedMonth
+      : currentMonth;
+  const [periods, report] = await Promise.all([
+    listBillingPeriods(motelId),
+    getMonthlyUtilityReport(motelId, year, month),
+  ]);
   return (
     <section className="min-w-0 space-y-6">
       <PageHeader
         title="Tính tiền & Hóa đơn"
         description="Theo dõi kỳ tính tiền, nhập chỉ số và chốt hóa đơn."
         actions={<BillingPeriodEditor motelId={motelId} />}
+      />
+      <form
+        action="/billing"
+        className="flex flex-wrap items-end gap-3 rounded-card border border-border bg-surface p-4"
+      >
+        <input type="hidden" name="motel" value={motelId} />
+        <label className="space-y-1 text-sm font-semibold text-text">
+          Tháng báo cáo
+          <select
+            name="month"
+            className="block min-h-11 rounded-input border border-border-strong bg-surface px-3"
+            defaultValue={month}
+          >
+            {Array.from({ length: 12 }, (_, index) => index + 1).map((value) => (
+              <option key={value} value={value}>
+                {String(value).padStart(2, "0")}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="space-y-1 text-sm font-semibold text-text">
+          Năm
+          <input
+            name="year"
+            className="block min-h-11 w-28 rounded-input border border-border-strong bg-surface px-3"
+            type="number"
+            min="1"
+            max="9999"
+            defaultValue={year}
+          />
+        </label>
+        <Button type="submit">Xem tháng</Button>
+      </form>
+      <MonthlyUtilityCosts
+        key={`${motelId}-${year}-${month}`}
+        motelId={motelId}
+        year={year}
+        month={month}
+        report={report}
       />
       {periods.length === 0 ? (
         <Card className="border-dashed p-8 text-center text-text-muted">

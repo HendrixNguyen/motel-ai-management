@@ -269,6 +269,23 @@ partial UNIQUE (`roomId`) WHERE `status = 'active'`.
 
 UNIQUE (`motelId`, `month`, `year`).
 
+### monthly_utility_costs
+
+| Field             | Type          | Notes                                           |
+| ----------------- | ------------- | ----------------------------------------------- |
+| id                | UUID          | PK                                              |
+| motelId           | UUID          | FK → motels, NOT NULL, ON DELETE CASCADE        |
+| year              | INT           | NOT NULL, 1–9999                                |
+| month             | INT           | NOT NULL, 1–12                                  |
+| electricityAmount | NUMERIC(14,0) | nullable; total whole-house VND paid that month |
+| waterAmount       | NUMERIC(14,0) | nullable; total whole-house VND paid that month |
+| electricityNotes  | TEXT          | nullable, max 2,000 characters                  |
+| waterNotes        | TEXT          | nullable, max 2,000 characters                  |
+| createdAt         | TIMESTAMPTZ   | DEFAULT now()                                   |
+| updatedAt         | TIMESTAMPTZ   | DEFAULT now()                                   |
+
+UNIQUE (`motelId`, `year`, `month`). Null means supplier cost is not entered; zero means explicitly zero. Costs are editable independently of billing periods and never alter renter invoices.
+
 ### meter_readings
 
 | Field           | Type          | Notes                                                   |
@@ -497,6 +514,8 @@ only by cookie.
 8. Renter opens the link, sees the breakdown, scans the VietQR code, pays in their
    banking app.
 9. Manager marks the invoice `paid`, which stamps `paidAt`; payment mutation and generic notification outbox insert commit atomically. Outbox failure rolls back payment mutation, while post-commit provider failure leaves `paid` committed and retryable without changing payment state.
+
+Monthly supplier utility totals are entered independently for each motel and invoice month as whole-house VND paid for electricity and water. They do not alter meter readings or invoice snapshots and can be edited before or after period closure. The Billing report sums snapshot electricity/water charges for `sent`/`closed` periods, separately reports fully paid invoice components as collected-to-date, and attributes later payments to original invoice month. Missing costs remain unknown, not zero. Differences subtract each supplier total once; unknown inputs produce null differences. Other renter charges minus utility costs are comparison figures only, not net profit or cash flow.
 
 ### Contract flow
 

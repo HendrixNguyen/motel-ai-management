@@ -85,3 +85,15 @@ export function markInvoiceOverdue(motelId: string, invoiceId: string): Promise<
     "PATCH",
   );
 }
+
+const monthPath = (motelId: string, year: number, month: number) =>
+  `/api/manager/motels/${encodeURIComponent(motelId)}/billing/months/${year}/${month}`;
+
+export function saveMonthlyUtilityCosts(
+  motelId: string,
+  year: number,
+  month: number,
+  input: import("./types").MonthlyUtilityCostInput,
+): Promise<import("./types").MonthlyUtilityCostInput> {
+  return apiSend(`${monthPath(motelId, year, month)}/utility-costs`, "PUT", input);
+}

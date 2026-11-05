@@ -131,6 +131,8 @@ for product-facing facades:
 
 ## Billing states
 
+Billing includes monthly `Thu/chi điện nước` report with month/year filters that retain selected motel; default month uses `Asia/Ho_Chi_Minh`. Managers enter whole-house totals `Tiền điện tổng đã trả` and `Tiền nước tổng đã trả` plus optional notes, even before a billing period exists or after closure. The report separates billed from collected-to-date utility amounts and total renter charges, outstanding, supplier costs and differences. Missing costs display `Chưa nhập`, never zero; no-finalized-period notice distinguishes absence from zero billing. Negative differences remain signed. Show: `Chênh lệch chưa trừ các chi phí khác; không phải lợi nhuận ròng hoặc dòng tiền thực tế.`
+
 Draft periods allow meter edits and invoice generation. Sent periods are read-only; show `Đã gửi` and disable capture, regeneration, and destructive edits. Invoice badges: `Chưa thanh toán`, `Đã thanh toán`, `Quá hạn`; stale capture conflicts show `Cần kiểm tra` and require reload before retry.
 
 ## 2. Manager App

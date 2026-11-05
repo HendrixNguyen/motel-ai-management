@@ -225,6 +225,13 @@
       "when": 1793590531244,
       "tag": "0032_abnormal_gargoyle",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1793716426650,
+      "tag": "0033_monthly_utility_costs",
+      "breakpoints": true
     }
   ]
 }
