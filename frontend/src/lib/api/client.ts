@@ -361,7 +361,9 @@ function guardMoney(node: unknown, path = ""): unknown {
         continue;
       }
       if (typeof value !== "string" || !/^-?\d+$/.test(value)) {
-        throw new Error(`lib/api: ${at} is not a valid signed VND amount (${JSON.stringify(value)}).`);
+        throw new Error(
+          `lib/api: ${at} is not a valid signed VND amount (${JSON.stringify(value)}).`,
+        );
       }
       guarded[key] = value;
       continue;

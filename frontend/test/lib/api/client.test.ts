@@ -395,12 +395,25 @@ describe("the money guard", () => {
 
   it("allows nullable monthly utility costs and preserves signed differences", async () => {
     const body = {
-      costs: { electricityAmount: null, waterAmount: "0", electricityNotes: null, waterNotes: null },
-      electricity: { billed: "10", collected: "0", cost: null, billedDifference: null, collectedDifference: null },
+      costs: {
+        electricityAmount: null,
+        waterAmount: "0",
+        electricityNotes: null,
+        waterNotes: null,
+      },
+      electricity: {
+        billed: "10",
+        collected: "0",
+        cost: null,
+        billedDifference: null,
+        collectedDifference: null,
+      },
       utilities: { billedDifference: "-20", collectedLessUtilityCosts: "15" },
     };
     fetchMock.mockResolvedValue(jsonResponse(body));
-    await expect(apiGet("/api/manager/motels/x/billing/months/2026/10/report")).resolves.toEqual(body);
+    await expect(apiGet("/api/manager/motels/x/billing/months/2026/10/report")).resolves.toEqual(
+      body,
+    );
   });
 
   it("rejects non-integer signed difference fields", async () => {

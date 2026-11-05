@@ -3,7 +3,11 @@ import { MOTEL_ID } from "../test/lib/api/fixtures";
 
 async function useManagerSession(page: import("@playwright/test").Page) {
   await page.context().clearCookies();
-  await page.context().addCookies([{ name: "manager_session", value: "monthly-cost-session", domain: "localhost", path: "/" }]);
+  await page
+    .context()
+    .addCookies([
+      { name: "manager_session", value: "monthly-cost-session", domain: "localhost", path: "/" },
+    ]);
 }
 
 test.describe("monthly utility costs", () => {
