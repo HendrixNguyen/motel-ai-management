@@ -1,7 +1,6 @@
 import { beforeEach, expect, test } from "bun:test";
 import { resetRateLimits } from "@/shared/rate-limit";
 import { randomInt } from "node:crypto";
-import { env } from "@/config";
 import { issueMagicLink } from "@/shared/magic-link";
 import { managers } from "@/modules/auth/auth.schema";
 import { app } from "@/app";

@@ -204,10 +204,10 @@ Invoice generation is idempotent per `(billingPeriodId, roomId)`: re-running upd
 
 Monthly utility cost endpoints, available to Manager/Superadmin for an accessible motel:
 
-| Method | Path | Request/response |
-| ------ | ---- | ---------------- |
-| GET | `/months/:year/:month/report` | Monthly billed/collected totals, period status, nullable supplier costs and differences; only `sent`/`closed` periods count. |
-| PUT | `/months/:year/:month/utility-costs` | Full replacement `{electricityAmount,waterAmount,electricityNotes,waterNotes}`; every field required and nullable; amounts are digit strings up to 14 digits. |
+| Method | Path                                 | Request/response                                                                                                                                              |
+| ------ | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/months/:year/:month/report`        | Monthly billed/collected totals, period status, nullable supplier costs and differences; only `sent`/`closed` periods count.                                  |
+| PUT    | `/months/:year/:month/utility-costs` | Full replacement `{electricityAmount,waterAmount,electricityNotes,waterNotes}`; every field required and nullable; amounts are digit strings up to 14 digits. |
 
 Costs are entered as total VND paid by motel for the invoice month, independently of billing periods; null means not entered and zero means explicitly zero. Notes trim to null when blank. Missing motel access returns 404. Report collections use fully paid invoices attributed to their billing month; pending proof is excluded. Differences are signed digit strings or null when required costs are missing. Costs are subtracted once, not per invoice.
 
